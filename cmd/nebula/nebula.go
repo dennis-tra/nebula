@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dennis-tra/go-ipfs-crawler/pkg/crawl"
 	"github.com/urfave/cli/v2"
 )
 
@@ -26,17 +25,18 @@ func main() {
 	verTag := fmt.Sprintf("v%s+%s", RawVersion, ShortCommit)
 
 	app := &cli.App{
-		Name: "pcp",
+		Name: "nebula",
 		Authors: []*cli.Author{
 			{
 				Name:  "Dennis Trautwein",
-				Email: "ipfs-crawler@dtrautwein.eu",
+				Email: "nebula-crawler@dtrautwein.eu",
 			},
 		},
 		Version:              verTag,
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
-			crawl.Command,
+			CrawlCommand,
+			MonitorCommand,
 		},
 	}
 

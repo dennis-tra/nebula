@@ -1,0 +1,35 @@
+version: "3.9"
+services:
+  nebula:
+    build: .
+    command: nebula monitor
+  postgres:
+    image: "postgres:13"
+    restart: always
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_PASSWORD: mysecretpassword # TODO: load from somewhere else
+      POSTGRES_USER: nebula
+      POSTGRES_DB: nebula
+  prometheus:
+    image: prom/prometheus:v2.28.0
+    restart: always
+    volumes:
+      - ./prometheus/:/etc/prometheus/ # configuration
+      - prometheus_data:/prometheus # gathered data
+    ports:
+      - 9090:9090
+  grafana:
+    image: grafana/grafana:7.5.9
+    restart: always
+    depends_on:
+      - prometheus
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}

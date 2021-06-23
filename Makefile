@@ -1,15 +1,12 @@
-default: build
+default: all
 
-all: clean install
+all: clean build
 
 test:
 	go test ./...
 
 build:
-	go build -o dist/crawler cmd/crawler/crawler.go
-
-install:
-	go install cmd/crawler/crawler.go
+	go build -o dist/crawler cmd/nebula/*
 
 format:
 	gofumpt -w -l .
@@ -17,4 +14,4 @@ format:
 clean:
 	rm -r dist
 
-.PHONY: all clean test install format
+.PHONY: all clean test format
