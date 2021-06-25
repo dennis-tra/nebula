@@ -20,7 +20,6 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.12.2
 	github.com/libp2p/go-libp2p-kbucket v0.4.7
 	github.com/libp2p/go-msgio v0.0.6
-	github.com/mattn/go-sqlite3 v1.14.7 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/onsi/ginkgo v1.15.0 // indirect
@@ -41,8 +40,6 @@ require (
 	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
-	gorm.io/driver/postgres v1.1.0 // indirect
-	gorm.io/driver/sqlite v1.1.4
+	gorm.io/driver/postgres v1.1.0
 	gorm.io/gorm v1.21.11
-	gorm.io/plugin/prometheus v0.0.0-20210614014227-3996fd54c851 // indirect
 )

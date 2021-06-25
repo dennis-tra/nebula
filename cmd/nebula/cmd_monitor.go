@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"

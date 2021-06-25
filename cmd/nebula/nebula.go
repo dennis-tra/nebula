@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -25,14 +28,50 @@ func main() {
 	verTag := fmt.Sprintf("v%s+%s", RawVersion, ShortCommit)
 
 	app := &cli.App{
-		Name: "nebula",
+		Name:      "nebula",
+		Usage:     "A libp2p DHT crawler that exposes timely information about the network.",
+		UsageText: "nebula [global options] command [command options] [arguments...]",
 		Authors: []*cli.Author{
 			{
 				Name:  "Dennis Trautwein",
 				Email: "nebula-crawler@dtrautwein.eu",
 			},
 		},
-		Version:              verTag,
+		Version: verTag,
+		Before: func(c *cli.Context) error {
+			if c.Bool("debug") {
+				log.SetLevel(log.DebugLevel)
+			}
+			if c.IsSet("log-level") {
+				log.SetLevel(log.Level(c.Int("log-level")))
+			}
+			return nil
+		},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "debug",
+				Usage:   "Set this flag to enable debug logging.",
+				EnvVars: []string{"NEBULA_DEBUG"},
+			},
+			&cli.IntFlag{
+				Name:        "log-level",
+				Usage:       "Set this flag to a value from 0 to 6. Overrides the --debug flag.",
+				EnvVars:     []string{"NEBULA_LOG_LEVEL"},
+				Value:       4,
+				DefaultText: "4",
+			},
+			&cli.StringFlag{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "Load configuration from `FILE`",
+			},
+			&cli.IntFlag{
+				Name:        "prom-port",
+				Usage:       "On which port should prometheus serve the metrics endpoint",
+				DefaultText: strconv.Itoa(config.DefaultConfig.PrometheusPort),
+				Value:       config.DefaultConfig.PrometheusPort,
+			},
+		},
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			CrawlCommand,
@@ -45,14 +84,13 @@ func main() {
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	go func() {
-		<-sigs
-		log.Println("Stopping...")
+		sig := <-sigs
+		log.Printf("Received %s - Stopping...\n", sig.String())
 		signal.Stop(sigs)
 		cancel()
 	}()
 
-	err := app.RunContext(ctx, os.Args)
-	if err != nil {
+	if err := app.RunContext(ctx, os.Args); err != nil {
 		log.Printf("error: %v\n", err)
 		os.Exit(1)
 	}

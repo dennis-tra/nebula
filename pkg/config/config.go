@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -20,9 +22,16 @@ const (
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapNodes: nil,
-	ConnectTimeout: 10 * time.Second,
+	BootstrapPeers: []string{}, // see init
+	DialTimeout:    10 * time.Second,
 	WorkerCount:    500,
+	PrometheusPort: 6666,
+}
+
+func init() {
+	for _, maddr := range dht.DefaultBootstrapPeers {
+		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
+	}
 }
 
 // configFile contains the path suffix that's appended to
@@ -38,31 +47,62 @@ type Config struct {
 	Exists bool `json:"-"`
 
 	// The list of multi addresses that will make up the entry points to the network.
-	BootstrapNodes []string
+	BootstrapPeers []string
 
 	// The time to wait until a dial attempt is aborted.
-	ConnectTimeout time.Duration
+	DialTimeout time.Duration
 
 	// How many parallel workers should crawl the network.
 	WorkerCount int
+
+	// On which port should prometheus serve the metrics endpoint.
+	PrometheusPort int
 }
 
 // Save saves the peer settings and identity information
 // to disk.
 func (c *Config) Save() error {
-	err := save(configFile, c, 0o744)
-	if err == nil {
+	log.Infoln("Saving configuration file to", c.Path)
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err = ioutil.WriteFile(c.Path, data, 0o744); err == nil {
 		c.Exists = true
 	}
 	return err
 }
 
-func LoadConfig() (*Config, error) {
-	path, err := xdg.ConfigFile(configFile)
-	if err != nil {
-		return nil, err
+// Apply takes command line arguments and overwrites the respective configurations.
+func (c *Config) Apply(ctx *cli.Context) {
+	if ctx.IsSet("workers") {
+		c.WorkerCount = ctx.Int("workers")
 	}
+	if ctx.IsSet("dial-timeout") {
+		c.DialTimeout = ctx.Duration("dial-timeout")
+	}
+	if ctx.IsSet("prom-port") {
+		c.PrometheusPort = ctx.Int("prom-port")
+	}
+}
 
+// Apply takes command line arguments and overwrites the respective configurations.
+func (c *Config) String() string {
+	data, _ := json.MarshalIndent(c, "", "  ")
+	return fmt.Sprintf("%s", data)
+}
+
+func LoadConfig(path string) (*Config, error) {
+	if path == "" {
+		// If no configuration file was given use xdg file.
+		var err error
+		path, err = xdg.ConfigFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+	log.Debugln("Using configuration file at:", path)
 	config := DefaultConfig
 	config.Path = path
 	data, err := ioutil.ReadFile(path)
@@ -81,10 +121,18 @@ func LoadConfig() (*Config, error) {
 }
 
 func FillContext(c *cli.Context) (*cli.Context, error) {
-	conf, err := LoadConfig()
+	conf, err := LoadConfig(c.String("config"))
 	if err != nil {
 		return c, err
 	}
+
+	// Apply command line argument configurations.
+	conf.Apply(c)
+
+	// Print full configuration.
+	log.Traceln("Configuration (CLI params overwrite file config):\n", conf)
+
+	// Populate the context with the configuration.
 	c.Context = context.WithValue(c.Context, ContextKey, conf)
 	return c, nil
 }
@@ -101,18 +149,4 @@ func FromContext(ctx context.Context) (*Config, error) {
 	}
 
 	return config, nil
-}
-
-func save(relPath string, obj interface{}, perm os.FileMode) error {
-	path, err := xdg.ConfigFile(relPath)
-	if err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(obj, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(path, data, perm)
 }

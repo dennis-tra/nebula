@@ -140,7 +140,7 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, w.config.ConnectTimeout)
+	ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
 	defer cancel()
 
 	if err := w.host.Connect(ctx, pi); err != nil {

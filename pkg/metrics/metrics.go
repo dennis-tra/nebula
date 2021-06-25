@@ -1,7 +1,10 @@
 package metrics
 
 import (
+	"context"
 	"net/http"
+
+	"github.com/pkg/errors"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
@@ -11,22 +14,22 @@ import (
 	"go.opencensus.io/tag"
 )
 
-func Serve() {
+func RegisterListenAndServe(context.Context) error {
 	pe, err := prometheus.NewExporter(prometheus.Options{
 		Namespace: "nebula",
 	})
 	if err != nil {
-		log.Fatalf("Failed to create Prometheus exporter: %v", err)
+		return errors.Wrap(err, "new prometheus exporter")
 	}
 
 	// Register the views
 	if err := view.Register(kadmetrics.DefaultViews...); err != nil {
-		log.Fatalf("Failed to register views: %v", err)
+		return errors.Wrap(err, "register kademlia default views")
 	}
 
 	// Register the views
 	if err := view.Register(DefaultViews...); err != nil {
-		log.Fatalf("Failed to register views: %v", err)
+		return errors.Wrap(err, "register nebula default views")
 	}
 
 	go func() {
@@ -36,6 +39,7 @@ func Serve() {
 			log.Fatalf("Failed to run Prometheus /metrics endpoint: %v", err)
 		}
 	}()
+	return nil
 }
 
 //func RegisterDB(db *db.Client) error {

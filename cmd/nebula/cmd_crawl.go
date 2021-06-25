@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 
@@ -17,39 +18,55 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
-// CrawlCommand contains the receive sub-command configuration.
+// CrawlCommand contains the crawl sub-command configuration.
 var CrawlCommand = &cli.Command{
 	Name:   "crawl",
+	Usage:  "Crawls the entire network based on a set of bootstrap nodes.",
 	Action: CrawlAction,
+	Flags: []cli.Flag{
+		&cli.BoolFlag{
+			Name:    "dry-run",
+			Usage:   "Don't persist results but just crawl the network.",
+			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
+		},
+		&cli.IntFlag{
+			Name:        "workers",
+			Usage:       "How many concurrent workers should dial and crawl peers.",
+			EnvVars:     []string{"NEBULA_CRAWL_WORKER_COUNT"},
+			DefaultText: strconv.Itoa(config.DefaultConfig.WorkerCount),
+			Value:       config.DefaultConfig.WorkerCount,
+		},
+		&cli.DurationFlag{
+			Name:        "dial-timeout",
+			Usage:       "How long should be waited before a dial is considered unsuccessful.",
+			EnvVars:     []string{"NEBULA_CRAWL_DIAL_TIMEOUT"},
+			DefaultText: config.DefaultConfig.DialTimeout.String(),
+			Value:       config.DefaultConfig.DialTimeout,
+		},
+	},
 }
 
-// CrawlAction is the function that is called when running pcp receive.
+// CrawlAction is the function that is called when running nebula crawl.
 func CrawlAction(c *cli.Context) error {
-	log.Infoln("Crawling")
-	log.SetLevel(log.DebugLevel)
+	log.Infoln("Starting Nebula crawler...")
 
-	dbc, err := db.NewClient()
+	// Load configuration file
+	c, err := config.FillContext(c)
 	if err != nil {
-		return errors.Wrap(err, "initialize db")
+		return errors.Wrap(err, "filling context with configuration")
 	}
 
-	//err = metrics.RegisterDB(dbc)
-	//if err != nil {
-	//	return errors.Wrap(err, "metrics register db")
-	//}
-	metrics.Serve()
+	// Initialize new database client
+	var dbc *db.Client
+	if !c.Bool("dry-run") {
+		if dbc, err = db.NewClient(); err != nil {
+			return errors.Wrap(err, "initialize db")
+		}
+	}
 
-	c, err = config.FillContext(c)
-	if err != nil {
-		return errors.Wrap(err, "failed to load crawler configuration")
-	}
-	mmm, err := ma.NewMultiaddr("/ip4/159.69.43.228/tcp/4001/p2p/QmSKVUFAyCddg2wDUdZVCfvqG5YCwwJTWY1HRmorebXcKG")
-	if err != nil {
-		return err
-	}
-	pi, err := peer.AddrInfoFromP2pAddr(mmm)
-	if err != nil {
-		return err
+	// Start prometheus metrics endpoint
+	if err = metrics.RegisterListenAndServe(c.Context); err != nil {
+		return errors.Wrap(err, "initialize metrics")
 	}
 
 	o, _ := crawl.NewOrchestrator(c.Context, dbc)
