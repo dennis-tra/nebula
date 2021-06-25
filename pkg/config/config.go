@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
+	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -25,6 +27,7 @@ var DefaultConfig = Config{
 	BootstrapPeers: []string{}, // see init
 	DialTimeout:    10 * time.Second,
 	WorkerCount:    500,
+	PrometheusHost: "localhost",
 	PrometheusPort: 6666,
 }
 
@@ -54,6 +57,9 @@ type Config struct {
 
 	// How many parallel workers should crawl the network.
 	WorkerCount int
+
+	// On which network interface should the prometheus bind to.
+	PrometheusHost string
 
 	// On which port should prometheus serve the metrics endpoint.
 	PrometheusPort int
@@ -93,6 +99,23 @@ func (c *Config) String() string {
 	return fmt.Sprintf("%s", data)
 }
 
+// BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
+func (c *Config) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
+	var pis []peer.AddrInfo
+	for _, maddrStr := range c.BootstrapPeers {
+		maddr, err := ma.NewMultiaddr(maddrStr)
+		if err != nil {
+			return nil, err
+		}
+		pi, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			return nil, err
+		}
+		pis = append(pis, *pi)
+	}
+	return pis, nil
+}
+
 func LoadConfig(path string) (*Config, error) {
 	if path == "" {
 		// If no configuration file was given use xdg file.
@@ -120,10 +143,10 @@ func LoadConfig(path string) (*Config, error) {
 	}
 }
 
-func FillContext(c *cli.Context) (*cli.Context, error) {
+func FillContext(c *cli.Context) (context.Context, *Config, error) {
 	conf, err := LoadConfig(c.String("config"))
 	if err != nil {
-		return c, err
+		return c.Context, nil, err
 	}
 
 	// Apply command line argument configurations.
@@ -133,8 +156,7 @@ func FillContext(c *cli.Context) (*cli.Context, error) {
 	log.Traceln("Configuration (CLI params overwrite file config):\n", conf)
 
 	// Populate the context with the configuration.
-	c.Context = context.WithValue(c.Context, ContextKey, conf)
-	return c, nil
+	return context.WithValue(c.Context, ContextKey, conf), conf, nil
 }
 
 func FromContext(ctx context.Context) (*Config, error) {

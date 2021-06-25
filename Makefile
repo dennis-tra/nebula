@@ -6,12 +6,12 @@ test:
 	go test ./...
 
 build:
-	go build -o dist/crawler cmd/nebula/*
+	go build -o dist/nebula cmd/nebula/*
 
 format:
 	gofumpt -w -l .
 
 clean:
-	rm -r dist
+	rm -r dist || true
 
 .PHONY: all clean test format

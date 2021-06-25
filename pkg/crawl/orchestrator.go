@@ -179,13 +179,16 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 
 		if o.inCrawlQueueCount.Load() == 0 {
 
-			c := &db.Crawl{
-				StartedAt:    o.StartTime,
-				FinishedAt:   time.Now(),
-				CrawledPeers: uint(o.crawledCount.Load()),
-			}
+			// o.db can be null if it's a dry run
+			if o.db != nil {
+				c := &db.Crawl{
+					StartedAt:    o.StartTime,
+					FinishedAt:   time.Now(),
+					CrawledPeers: uint(o.crawledCount.Load()),
+				}
 
-			o.db.Create(c)
+				o.db.Create(c)
+			}
 			o.Shutdown()
 		}
 	}()
@@ -198,15 +201,18 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 		Jitter: true,
 	}
 
-	p := &db.Peer{
-		ID:        cr.Peer.ID.Pretty(),
-		FirstDial: time.Now(),
-		LastDial:  time.Now(),
-		NextDial:  time.Now().Add(b.ForAttempt(0)),
-		Dials:     0,
-	}
+	// o.db can be null if it's a dry run
+	if o.db != nil {
+		p := &db.Peer{
+			ID:        cr.Peer.ID.Pretty(),
+			FirstDial: time.Now(),
+			LastDial:  time.Now(),
+			NextDial:  time.Now().Add(b.ForAttempt(0)),
+			Dials:     0,
+		}
 
-	o.db.Create(p)
+		o.db.Create(p)
+	}
 
 	ctx := o.ServiceContext()
 

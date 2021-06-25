@@ -1,20 +1,19 @@
 package metrics
 
 import (
-	"context"
+	"fmt"
 	"net/http"
-
-	"github.com/pkg/errors"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 )
 
-func RegisterListenAndServe(context.Context) error {
+func RegisterListenAndServe(host string, port int) error {
 	pe, err := prometheus.NewExporter(prometheus.Options{
 		Namespace: "nebula",
 	})
@@ -23,19 +22,19 @@ func RegisterListenAndServe(context.Context) error {
 	}
 
 	// Register the views
-	if err := view.Register(kadmetrics.DefaultViews...); err != nil {
+	if err = view.Register(kadmetrics.DefaultViews...); err != nil {
 		return errors.Wrap(err, "register kademlia default views")
 	}
 
 	// Register the views
-	if err := view.Register(DefaultViews...); err != nil {
+	if err = view.Register(DefaultViews...); err != nil {
 		return errors.Wrap(err, "register nebula default views")
 	}
 
 	go func() {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", pe)
-		if err := http.ListenAndServe("localhost:6666", mux); err != nil {
+		if err := http.ListenAndServe(fmt.Sprintf("%s:%d", host, port), mux); err != nil {
 			log.Fatalf("Failed to run Prometheus /metrics endpoint: %v", err)
 		}
 	}()
@@ -59,7 +58,6 @@ func RegisterListenAndServe(context.Context) error {
 // Keys
 var (
 	KeyAgentVersion, _ = tag.NewKey("agent_version")
-	// KeyPeerID, _       = tag.NewKey("peer_id")
 )
 
 // UpsertAgentVersion .

@@ -5,16 +5,13 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-
-	"github.com/libp2p/go-libp2p-core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
@@ -51,10 +48,11 @@ func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 
 	// Load configuration file
-	c, err := config.FillContext(c)
+	ctx, conf, err := config.FillContext(c)
 	if err != nil {
 		return errors.Wrap(err, "filling context with configuration")
 	}
+	c.Context = ctx
 
 	// Initialize new database client
 	var dbc *db.Client
@@ -65,25 +63,36 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Start prometheus metrics endpoint
-	if err = metrics.RegisterListenAndServe(c.Context); err != nil {
+	if err = metrics.RegisterListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
 		return errors.Wrap(err, "initialize metrics")
 	}
 
+	// Parse bootstrap info
+	pis, err := conf.BootstrapAddrInfos()
+	if err != nil {
+		return errors.Wrap(err, "parsing multi addresses to peer addresses")
+	}
+
+	// Initialize orchestrator that
 	o, _ := crawl.NewOrchestrator(c.Context, dbc)
-	go o.CrawlNetwork([]peer.AddrInfo{*pi})
+	go o.CrawlNetwork(pis)
 
 	select {
 	case <-c.Context.Done():
+		// Nebula was asked to stop (e.g. SIGINT) -> tell the orchestrator to stop
 		o.Shutdown()
 	case <-o.SigDone():
+		// the orchestrator finished autonomously
 	}
 
+	// Temporary code: save all errors that were encountered
 	f, _ := os.Create("errors.txt")
 	o.Errors.Range(func(errorStr, value interface{}) bool {
 		fmt.Fprintf(f, "%s\n", errorStr)
 		return true
 	})
 	f.Close()
+	// Temporary code: save all errors that were encountered
 
 	return nil
 }
