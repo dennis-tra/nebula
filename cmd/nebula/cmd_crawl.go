@@ -73,7 +73,7 @@ func CrawlAction(c *cli.Context) error {
 		return errors.Wrap(err, "parsing multi addresses to peer addresses")
 	}
 
-	// Initialize orchestrator that
+	// Initialize orchestrator that handles crawling the network.
 	o, _ := crawl.NewOrchestrator(c.Context, dbc)
 	go o.CrawlNetwork(pis)
 

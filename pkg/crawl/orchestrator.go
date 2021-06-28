@@ -78,7 +78,7 @@ type Orchestrator struct {
 func NewOrchestrator(ctx context.Context, dbc *db.Client) (*Orchestrator, error) {
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
-	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048) // TODO: is this really necessary? see "weak keys" handling in weizenbaum crawler.
 	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.NoListenAddrs}
 	h, err := libp2p.New(ctx, opts...)
 	if err != nil {
@@ -110,7 +110,7 @@ func NewOrchestrator(ctx context.Context, dbc *db.Client) (*Orchestrator, error)
 func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	o.ServiceStarted()
 
-	// Handle the results of crawls of a particular nodes in a separate go routine
+	// Handle the results of crawls of a particular node in a separate go routine
 	go o.handleCrawlResults()
 
 	// Start all workers
@@ -128,7 +128,7 @@ func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		o.dispatchCrawl(b)
 	}
 
-	// Block until
+	// Block until the orchestrator shuts down.
 	<-o.SigShutdown()
 
 	o.Cleanup()
