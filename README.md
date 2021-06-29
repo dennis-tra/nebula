@@ -50,6 +50,40 @@ go install github.com/dennis-tra/nebula-crawler/cmd/crawler@latest
 
 ## Development
 
+To develop this project you need Go `> 1.16` and the following tools:
+
+- [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.14.1`
+- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.6.0`
+
+To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable. 
+
+
+### Database
+
+Use the following command to start a local instance of postgres:
+```shell
+docker run -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:13
+```
+
+To run migrations then run:
+
+```shell
+# Up migrations
+migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
+
+# Down migrations
+migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
+
+# Create new migration
+migrate create -ext sql -dir migrations -seq some_migration_name
+```
+
+To generate the ORM with SQLBoiler run:
+
+```shell
+sqlboiler psql
+```
+
 ## Related Efforts
 
 - [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler) - A crawler for the IPFS network, code for their paper ([arXiv](https://arxiv.org/abs/2002.07747)).

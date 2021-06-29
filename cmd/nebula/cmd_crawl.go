@@ -11,7 +11,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
@@ -55,12 +54,12 @@ func CrawlAction(c *cli.Context) error {
 	c.Context = ctx
 
 	// Initialize new database client
-	var dbc *db.Client
-	if !c.Bool("dry-run") {
-		if dbc, err = db.NewClient(); err != nil {
-			return errors.Wrap(err, "initialize db")
-		}
-	}
+	//var dbc *db.Client
+	//if !c.Bool("dry-run") {
+	//	if dbc, err = db.NewClient(); err != nil {
+	//		return errors.Wrap(err, "initialize db")
+	//	}
+	//}
 
 	// Start prometheus metrics endpoint
 	if err = metrics.RegisterListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
@@ -74,7 +73,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize orchestrator that handles crawling the network.
-	o, _ := crawl.NewOrchestrator(c.Context, dbc)
+	o, _ := crawl.NewOrchestrator(c.Context)
 	go o.CrawlNetwork(pis)
 
 	select {

@@ -3,11 +3,6 @@ package crawl
 import (
 	"context"
 	"sync"
-	"time"
-
-	"github.com/jpillora/backoff"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
@@ -42,7 +37,7 @@ type Orchestrator struct {
 	host host.Host
 
 	// Connection to database
-	db *db.Client
+	// db *db.Client
 
 	// The configuration of timeouts etc.
 	config *config.Config
@@ -75,7 +70,7 @@ type Orchestrator struct {
 	Errors sync.Map
 }
 
-func NewOrchestrator(ctx context.Context, dbc *db.Client) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context) (*Orchestrator, error) {
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
 	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048) // TODO: is this really necessary? see "weak keys" handling in weizenbaum crawler.
@@ -90,9 +85,9 @@ func NewOrchestrator(ctx context.Context, dbc *db.Client) (*Orchestrator, error)
 		return nil, err
 	}
 	p := &Orchestrator{
-		Service:           service.New("orchestrator"),
-		host:              h,
-		db:                dbc,
+		Service: service.New("orchestrator"),
+		host:    h,
+		// db:                dbc,
 		config:            conf,
 		inCrawlQueue:      sync.Map{},
 		inCrawlQueueCount: atomic.Uint32{},
@@ -178,41 +173,40 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 		}).Infof("Handled crawl result")
 
 		if o.inCrawlQueueCount.Load() == 0 {
-
 			// o.db can be null if it's a dry run
-			if o.db != nil {
-				c := &db.Crawl{
-					StartedAt:    o.StartTime,
-					FinishedAt:   time.Now(),
-					CrawledPeers: uint(o.crawledCount.Load()),
-				}
-
-				o.db.Create(c)
-			}
+			//if o.db != nil {
+			//	c := &db.Crawl{
+			//		StartedAt:    o.StartTime,
+			//		FinishedAt:   time.Now(),
+			//		CrawledPeers: uint(o.crawledCount.Load()),
+			//	}
+			//
+			//	o.db.Create(c)
+			//}
 			o.Shutdown()
 		}
 	}()
 
-	b := &backoff.Backoff{
-		// These are the defaults
-		Min:    30 * time.Second,
-		Max:    5 * time.Minute,
-		Factor: 2,
-		Jitter: true,
-	}
+	//b := &backoff.Backoff{
+	//	// These are the defaults
+	//	Min:    30 * time.Second,
+	//	Max:    5 * time.Minute,
+	//	Factor: 2,
+	//	Jitter: true,
+	//}
 
 	// o.db can be null if it's a dry run
-	if o.db != nil {
-		p := &db.Peer{
-			ID:        cr.Peer.ID.Pretty(),
-			FirstDial: time.Now(),
-			LastDial:  time.Now(),
-			NextDial:  time.Now().Add(b.ForAttempt(0)),
-			Dials:     0,
-		}
-
-		o.db.Create(p)
-	}
+	//if o.db != nil {
+	//p := &db.Peer{
+	//	ID:        cr.Peer.ID.Pretty(),
+	//	FirstDial: time.Now(),
+	//	LastDial:  time.Now(),
+	//	NextDial:  time.Now().Add(b.ForAttempt(0)),
+	//	Dials:     0,
+	//}
+	//
+	//o.db.Create(p)
+	//}
 
 	ctx := o.ServiceContext()
 

@@ -1,15 +1,17 @@
 version: "3.9"
 services:
-  nebula:
-    build: .
-    command: nebula monitor
+#  nebula:
+#    build: .
+#    command: nebula monitor
   postgres:
-    image: "postgres:13"
+    image: postgres:13
     restart: always
     ports:
       - 5432:5432
+    volumes:
+      - psql_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_PASSWORD: mysecretpassword # TODO: load from somewhere else
+      POSTGRES_PASSWORD: password # TODO: load from somewhere else
       POSTGRES_USER: nebula
       POSTGRES_DB: nebula
   prometheus:
@@ -29,7 +31,7 @@ services:
       - 3000:3000
     volumes:
       - grafana_data:/var/lib/grafana
-
 volumes:
+  psql_data: {}
   prometheus_data: {}
   grafana_data: {}

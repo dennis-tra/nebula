@@ -1,0 +1,11 @@
+output   = "pkg/models"
+wipe     = true
+
+[psql]
+dbname = "nebula"
+host = "localhost"
+port = 5432
+user = "nebula"
+pass = "password"
+sslmode = "disable"
+blacklist = ["schema_migrations"]

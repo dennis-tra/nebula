@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
@@ -18,11 +16,11 @@ func MonitorAction(c *cli.Context) error {
 	log.Infoln("Monitoring")
 	log.SetLevel(log.DebugLevel)
 
-	dbc, err := db.NewClient()
-	if err != nil {
-		return errors.Wrap(err, "initialize db")
-	}
-	_ = dbc
+	//dbc, err := db.NewClient()
+	//if err != nil {
+	//	return errors.Wrap(err, "initialize db")
+	//}
+	//_ = dbc
 	//metrics.Serve()
 	//
 	//c, err = config.FillContext(c)
