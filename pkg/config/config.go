@@ -24,17 +24,19 @@ const (
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapPeers:   []string{}, // see init
-	DialTimeout:      10 * time.Second,
-	WorkerCount:      500,
-	CrawlLimit:       0,
-	PrometheusHost:   "localhost",
-	PrometheusPort:   6666,
-	DatabaseHost:     "localhost",
-	DatabasePort:     5432,
-	DatabaseName:     "nebula",
-	DatabasePassword: "password",
-	DatabaseUser:     "nebula",
+	BootstrapPeers:     []string{}, // see init
+	DialTimeout:        10 * time.Second,
+	WorkerCount:        500,
+	CrawlLimit:         0,
+	MinPingInterval:    time.Second * 30,
+	PingIntervalFactor: 1.2,
+	PrometheusHost:     "localhost",
+	PrometheusPort:     6666,
+	DatabaseHost:       "localhost",
+	DatabasePort:       5432,
+	DatabaseName:       "nebula",
+	DatabasePassword:   "password",
+	DatabaseUser:       "nebula",
 }
 
 func init() {
@@ -66,6 +68,12 @@ type Config struct {
 
 	// Only crawl the specified amount of peers
 	CrawlLimit int
+
+	// The minimum time interval between two consecutive visits of a peer
+	MinPingInterval time.Duration
+
+	// The factor with which the next ping timestamp should be calculated
+	PingIntervalFactor float64
 
 	// Determines the prometheus host bind to.
 	PrometheusHost string
@@ -114,6 +122,12 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("dial-timeout") {
 		c.DialTimeout = ctx.Duration("dial-timeout")
+	}
+	if ctx.IsSet("min-ping-interval") {
+		c.MinPingInterval = ctx.Duration("min-ping-interval")
+	}
+	if ctx.IsSet("ping-interval-factor") {
+		c.PingIntervalFactor = ctx.Float64("ping-interval-factor")
 	}
 	if ctx.IsSet("prom-port") {
 		c.PrometheusPort = ctx.Int("prom-port")

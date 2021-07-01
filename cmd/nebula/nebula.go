@@ -80,6 +80,20 @@ func main() {
 				Usage:   "Load configuration from `FILE`",
 				EnvVars: []string{"NEBULA_CONFIG_FILE"},
 			},
+			//&cli.DurationFlag{
+			//	Name:        "min-ping-interval",
+			//	Usage:       "The minimum time interval between two consecutive visits of a peer",
+			//	EnvVars:     []string{"NEBULA_MIN_PING_INTERVAL"},
+			//	DefaultText: config.DefaultConfig.MinPingInterval.String(),
+			//	Value:       config.DefaultConfig.MinPingInterval,
+			//},
+			//&cli.Float64Flag{
+			//	Name:        "ping-interval-factor",
+			//	Usage:       "The factor with which the next ping timestamp should be calculated",
+			//	EnvVars:     []string{"NEBULA_PING_INTERVAL_FACTOR"},
+			//	DefaultText: fmt.Sprintf("%f", config.DefaultConfig.PingIntervalFactor),
+			//	Value:       config.DefaultConfig.PingIntervalFactor,
+			//},
 			&cli.IntFlag{
 				Name:        "prom-port",
 				Usage:       "On which port should prometheus serve the metrics endpoint",
@@ -93,6 +107,11 @@ func main() {
 				EnvVars:     []string{"NEBULA_PROMETHEUS_HOST"},
 				DefaultText: config.DefaultConfig.PrometheusHost,
 				Value:       config.DefaultConfig.PrometheusHost,
+			},
+			&cli.BoolFlag{
+				Name:    "pprof",
+				Usage:   "Enable pprof profiling endpoint on port 6060",
+				EnvVars: []string{"NEBULA_PPROF_ENABLED"},
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -128,11 +147,6 @@ func main() {
 				EnvVars:     []string{"NEBULA_DATABASE_USER"},
 				DefaultText: config.DefaultConfig.DatabaseUser,
 				Value:       config.DefaultConfig.DatabaseUser,
-			},
-			&cli.BoolFlag{
-				Name:    "pprof",
-				Usage:   "Enable pprof profiling endpoint on port 6060",
-				EnvVars: []string{"NEBULA_PPROF_ENABLED"},
 			},
 		},
 		EnableBashCompletion: true,

@@ -32,6 +32,7 @@ var (
 	agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 	ProtocolStrings   = []protocol.ID{
 		"/ipfs/kad/1.0.0",
+		"/ipfs/kad/2.0.0",
 	}
 )
 
@@ -90,9 +91,12 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
 	// TODO: is the key pair really necessary? see "weak keys" handling in weizenbaum crawler.
-	priv, _, _ := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	opts := []libp2p.Option{libp2p.Identity(priv), libp2p.NoListenAddrs}
-	h, err := libp2p.New(ctx, opts...)
+	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		return nil, err
+	}
+
+	h, err := libp2p.New(ctx, libp2p.Identity(priv), libp2p.NoListenAddrs)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +105,7 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	p := &Orchestrator{
 		Service:           service.New("orchestrator"),
 		host:              h,
@@ -122,6 +127,7 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 // the worker queue with bootstrap nodes to start with.
 func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	o.ServiceStarted()
+	defer o.ServiceStopped()
 
 	// Handle the results of crawls of a particular node in a separate go routine
 	// TODO: handle sync here and get rid of sync.Map/atomic.Int32?
@@ -146,7 +152,6 @@ func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	<-o.SigShutdown()
 
 	o.Cleanup()
-	o.ServiceStopped()
 	return nil
 }
 
@@ -261,8 +266,9 @@ func (o *Orchestrator) Shutdown() {
 	}
 	if err = txn.Commit(); err != nil {
 		log.WithError(err).Warnln()
+	} else {
+		log.Infoln("Saved peer properties")
 	}
-	log.Infoln("Saved peer properties")
 }
 
 func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {

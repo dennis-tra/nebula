@@ -99,7 +99,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 
 		cr := CrawlResult{
 			WorkerID: w.Identifier(),
-			Peer:     pi,
+			Peer:     filterPublicMaddrs(pi),
 		}
 
 		cr.Error = w.connect(ctx, pi)
@@ -158,12 +158,6 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 		stats.Record(ctx, metrics.ConnectErrors.M(1))
 		return err
 	}
-
-	ps := w.host.Peerstore()
-	as, _ := ps.Get(pi.ID, "AgentVersion")
-	_ = as
-	x, _ := ps.GetProtocols(pi.ID)
-	_ = x
 
 	stats.Record(w.ServiceContext(), metrics.ConnectDuration.M(millisSince(start)))
 	return nil

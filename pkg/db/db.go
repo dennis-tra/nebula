@@ -6,11 +6,13 @@ import (
 	"fmt"
 
 	"contrib.go.opencensus.io/integrations/ocsql"
+
 	_ "github.com/lib/pq"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
@@ -52,23 +54,33 @@ func Open(ctx context.Context) (*sql.DB, error) {
 }
 
 func UpsertSessionSuccess(dbh *sql.DB, peerID string) error {
+	// TODO: use config for min interval and factor
 	query := `
-INSERT INTO sessions
-    (
-		 peer_id,
-		 first_successful_dial,
-		 last_successful_dial,
-		 first_failed_dial,
-		 successful_dials,
-		 finished,
-		 created_at,
-		 updated_at
-     ) VALUES ($1, NOW(), NOW(), '1970-01-01', 1, false, NOW(), NOW())
-     ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial
-     DO UPDATE SET 
-		last_successful_dial = EXCLUDED.last_successful_dial,
-		successful_dials = sessions.successful_dials + 1,
-		updated_at = EXCLUDED.updated_at;
+INSERT INTO sessions (
+ peer_id,
+ first_successful_dial,
+ last_successful_dial,
+ first_failed_dial,
+ next_dial_attempt,
+ successful_dials,
+ finished,
+ created_at,
+ updated_at
+) VALUES (
+$1, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
+ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
+ last_successful_dial = EXCLUDED.last_successful_dial,
+ successful_dials     = sessions.successful_dials + 1,
+ updated_at           = EXCLUDED.updated_at,
+ next_dial_attempt    = 
+  CASE
+	 WHEN 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < '30s'::interval THEN
+		EXCLUDED.last_successful_dial + '30s'::interval
+	 WHEN 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '1d'::interval THEN
+		EXCLUDED.last_successful_dial + '1d'::interval
+	 ELSE
+        EXCLUDED.last_successful_dial + 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
+  END;
 `
 	rows, err := queries.Raw(query, peerID).Query(dbh)
 	if err != nil {
@@ -87,7 +99,7 @@ UPDATE sessions SET
     finished = true,
     updated_at = NOW(),
     next_dial_attempt = null
-WHERE peer_id = $1;
+WHERE peer_id = $1 AND finished = false;
 `
 	rows, err := queries.Raw(query, peerID).Query(dbh)
 	if err != nil {
@@ -105,4 +117,12 @@ func UpsertPeer(ctx context.Context, dbh *sql.DB, peerID string, maddrs []ma.Mul
 		p.MultiAddresses[i] = maddr.String()
 	}
 	return p.Upsert(ctx, dbh, true, []string{"id"}, boil.Whitelist("updated_at"), boil.Infer())
+}
+
+func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
+	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '30s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
+	//newTime := null.NewTime(time.Now().Add(-30*time.Second), true)
+	//return models.Sessions(
+	//	models.SessionWhere.NextDialAttempt.LTE(newTime),
+	//).All(ctx, dbh)
 }

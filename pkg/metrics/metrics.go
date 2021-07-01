@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"contrib.go.opencensus.io/integrations/ocsql"
-
 	"contrib.go.opencensus.io/exporter/prometheus"
+	"contrib.go.opencensus.io/integrations/ocsql"
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -15,7 +14,7 @@ import (
 	"go.opencensus.io/tag"
 )
 
-func RegisterListenAndServe(host string, port int) error {
+func RegisterListenAndServe(host string, port int, cmd string) error {
 	pe, err := prometheus.NewExporter(prometheus.Options{
 		Namespace: "nebula",
 	})
@@ -28,9 +27,15 @@ func RegisterListenAndServe(host string, port int) error {
 		return errors.Wrap(err, "register kademlia default views")
 	}
 
-	// Register nebula views
-	if err = view.Register(DefaultViews...); err != nil {
-		return errors.Wrap(err, "register nebula default views")
+	// Register nebula views TODO: don't use cmd string parameter here
+	if cmd == "crawl" {
+		if err = view.Register(DefaultCrawlViews...); err != nil {
+			return errors.Wrap(err, "register nebula default crawl views")
+		}
+	} else if cmd == "monitor" {
+		if err = view.Register(DefaultMonitorViews...); err != nil {
+			return errors.Wrap(err, "register nebula default monitor views")
+		}
 	}
 
 	// Enable ocsql metrics with OpenCensus
@@ -51,11 +56,6 @@ var (
 	KeyAgentVersion, _ = tag.NewKey("agent_version")
 )
 
-// UpsertAgentVersion .
-func UpsertAgentVersion(av string) tag.Mutator {
-	return tag.Upsert(KeyAgentVersion, av)
-}
-
 // Distributions
 var (
 	defaultBytesDistribution        = view.Distribution(1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824, 4294967296)
@@ -74,7 +74,9 @@ var (
 	CrawledPeersCount      = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
 	CrawledUpsertDuration  = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
 	PeerCrawlDuration      = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
+	PeerPingDuration       = stats.Float64("peer_ping_duration", "Duration of pinging peers", stats.UnitMilliseconds)
 	PeersToCrawlCount      = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
+	PeersToPingCount       = stats.Float64("peers_to_ping_count", "Number of peers in the queue to ping", stats.UnitDimensionless)
 )
 
 // Views
@@ -113,6 +115,10 @@ var (
 		Measure:     PeerCrawlDuration,
 		Aggregation: defaultMillisecondsDistribution,
 	}
+	PeerPingDurationView = &view.View{
+		Measure:     PeerPingDuration,
+		Aggregation: defaultMillisecondsDistribution,
+	}
 	CrawledUpsertDurationView = &view.View{
 		Measure:     CrawledUpsertDuration,
 		Aggregation: ocsql.DefaultMillisecondsDistribution,
@@ -121,10 +127,14 @@ var (
 		Measure:     PeersToCrawlCount,
 		Aggregation: view.LastValue(),
 	}
+	PeersToPingCountView = &view.View{
+		Measure:     PeersToPingCount,
+		Aggregation: view.LastValue(),
+	}
 )
 
-// DefaultViews with all views in it.
-var DefaultViews = []*view.View{
+// DefaultCrawlViews with all views in it.
+var DefaultCrawlViews = []*view.View{
 	ConnectDurationView,
 	ConnectsCountView,
 	ConnectErrorsView,
@@ -135,4 +145,10 @@ var DefaultViews = []*view.View{
 	PeerCrawlDurationView,
 	PeersToCrawlCountView,
 	CrawledUpsertDurationView,
+}
+
+// DefaultMonitorViews with all views in it.
+var DefaultMonitorViews = []*view.View{
+	PeerPingDurationView,
+	PeersToPingCountView,
 }
