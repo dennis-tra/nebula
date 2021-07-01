@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
+	contrib.go.opencensus.io/integrations/ocsql v0.1.7
 	github.com/adrg/xdg v0.3.3
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/friendsofgo/errors v0.9.2
@@ -12,7 +13,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/ipfs/go-ipns v0.1.0 // indirect
 	github.com/ipld/go-ipld-prime v0.10.0 // indirect
-	github.com/jpillora/backoff v1.0.0
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect

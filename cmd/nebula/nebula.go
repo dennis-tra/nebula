@@ -3,15 +3,18 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	_ "net/http/pprof"
 )
 
 var (
@@ -43,7 +46,18 @@ func main() {
 				log.SetLevel(log.DebugLevel)
 			}
 			if c.IsSet("log-level") {
-				log.SetLevel(log.Level(c.Int("log-level")))
+				ll := c.Int("log-level")
+				log.SetLevel(log.Level(ll))
+				if ll == int(log.TraceLevel) {
+					boil.DebugMode = true
+				}
+			}
+			if c.Bool("pprof") {
+				go func() {
+					if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+						log.WithError(err).Warnln("Error serving pprof")
+					}
+				}()
 			}
 			return nil
 		},
@@ -75,10 +89,50 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:        "prom-host",
-				Usage:       "On which network interface should prometheus serve the metrics endpoint",
+				Usage:       "Where should prometheus serve the metrics endpoint",
 				EnvVars:     []string{"NEBULA_PROMETHEUS_HOST"},
 				DefaultText: config.DefaultConfig.PrometheusHost,
 				Value:       config.DefaultConfig.PrometheusHost,
+			},
+			&cli.StringFlag{
+				Name:        "db-host",
+				Usage:       "On which host address can nebula reach the database",
+				EnvVars:     []string{"NEBULA_DATABASE_HOST"},
+				DefaultText: config.DefaultConfig.DatabaseHost,
+				Value:       config.DefaultConfig.DatabaseHost,
+			},
+			&cli.IntFlag{
+				Name:        "db-port",
+				Usage:       "On which port can nebula reach the database",
+				EnvVars:     []string{"NEBULA_DATABASE_PORT"},
+				DefaultText: strconv.Itoa(config.DefaultConfig.DatabasePort),
+				Value:       config.DefaultConfig.DatabasePort,
+			},
+			&cli.StringFlag{
+				Name:        "db-name",
+				Usage:       "The name of the database to use",
+				EnvVars:     []string{"NEBULA_DATABASE_NAME"},
+				DefaultText: config.DefaultConfig.DatabaseName,
+				Value:       config.DefaultConfig.DatabaseName,
+			},
+			&cli.StringFlag{
+				Name:        "db-password",
+				Usage:       "The password for the database to use",
+				EnvVars:     []string{"NEBULA_DATABASE_PASSWORD"},
+				DefaultText: config.DefaultConfig.DatabasePassword,
+				Value:       config.DefaultConfig.DatabasePassword,
+			},
+			&cli.StringFlag{
+				Name:        "db-user",
+				Usage:       "The user with which to access the database to use",
+				EnvVars:     []string{"NEBULA_DATABASE_USER"},
+				DefaultText: config.DefaultConfig.DatabaseUser,
+				Value:       config.DefaultConfig.DatabaseUser,
+			},
+			&cli.BoolFlag{
+				Name:    "pprof",
+				Usage:   "Enable pprof profiling endpoint on port 6060",
+				EnvVars: []string{"NEBULA_PPROF_ENABLED"},
 			},
 		},
 		EnableBashCompletion: true,

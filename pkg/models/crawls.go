@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -30,9 +29,8 @@ type Crawl struct {
 	CrawledPeers    int       `boil:"crawled_peers" json:"crawled_peers" toml:"crawled_peers" yaml:"crawled_peers"`
 	DialablePeers   int       `boil:"dialable_peers" json:"dialable_peers" toml:"dialable_peers" yaml:"dialable_peers"`
 	UndialablePeers int       `boil:"undialable_peers" json:"undialable_peers" toml:"undialable_peers" yaml:"undialable_peers"`
-	CreatedAt       time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt       time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	DeletedAt       null.Time `boil:"deleted_at" json:"deleted_at,omitempty" toml:"deleted_at" yaml:"deleted_at,omitempty"`
+	CreatedAt       time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *crawlR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L crawlL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -45,9 +43,8 @@ var CrawlColumns = struct {
 	CrawledPeers    string
 	DialablePeers   string
 	UndialablePeers string
-	CreatedAt       string
 	UpdatedAt       string
-	DeletedAt       string
+	CreatedAt       string
 }{
 	ID:              "id",
 	StartedAt:       "started_at",
@@ -55,9 +52,8 @@ var CrawlColumns = struct {
 	CrawledPeers:    "crawled_peers",
 	DialablePeers:   "dialable_peers",
 	UndialablePeers: "undialable_peers",
-	CreatedAt:       "created_at",
 	UpdatedAt:       "updated_at",
-	DeletedAt:       "deleted_at",
+	CreatedAt:       "created_at",
 }
 
 var CrawlTableColumns = struct {
@@ -67,9 +63,8 @@ var CrawlTableColumns = struct {
 	CrawledPeers    string
 	DialablePeers   string
 	UndialablePeers string
-	CreatedAt       string
 	UpdatedAt       string
-	DeletedAt       string
+	CreatedAt       string
 }{
 	ID:              "crawls.id",
 	StartedAt:       "crawls.started_at",
@@ -77,9 +72,8 @@ var CrawlTableColumns = struct {
 	CrawledPeers:    "crawls.crawled_peers",
 	DialablePeers:   "crawls.dialable_peers",
 	UndialablePeers: "crawls.undialable_peers",
-	CreatedAt:       "crawls.created_at",
 	UpdatedAt:       "crawls.updated_at",
-	DeletedAt:       "crawls.deleted_at",
+	CreatedAt:       "crawls.created_at",
 }
 
 // Generated where
@@ -128,29 +122,6 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
-type whereHelpernull_Time struct{ field string }
-
-func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var CrawlWhere = struct {
 	ID              whereHelperint
 	StartedAt       whereHelpertime_Time
@@ -158,9 +129,8 @@ var CrawlWhere = struct {
 	CrawledPeers    whereHelperint
 	DialablePeers   whereHelperint
 	UndialablePeers whereHelperint
-	CreatedAt       whereHelpertime_Time
 	UpdatedAt       whereHelpertime_Time
-	DeletedAt       whereHelpernull_Time
+	CreatedAt       whereHelpertime_Time
 }{
 	ID:              whereHelperint{field: "\"crawls\".\"id\""},
 	StartedAt:       whereHelpertime_Time{field: "\"crawls\".\"started_at\""},
@@ -168,9 +138,8 @@ var CrawlWhere = struct {
 	CrawledPeers:    whereHelperint{field: "\"crawls\".\"crawled_peers\""},
 	DialablePeers:   whereHelperint{field: "\"crawls\".\"dialable_peers\""},
 	UndialablePeers: whereHelperint{field: "\"crawls\".\"undialable_peers\""},
-	CreatedAt:       whereHelpertime_Time{field: "\"crawls\".\"created_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"crawls\".\"updated_at\""},
-	DeletedAt:       whereHelpernull_Time{field: "\"crawls\".\"deleted_at\""},
+	CreatedAt:       whereHelpertime_Time{field: "\"crawls\".\"created_at\""},
 }
 
 // CrawlRels is where relationship names are stored.
@@ -194,8 +163,8 @@ func (*crawlR) NewStruct() *crawlR {
 type crawlL struct{}
 
 var (
-	crawlAllColumns            = []string{"id", "started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "created_at", "updated_at", "deleted_at"}
-	crawlColumnsWithoutDefault = []string{"started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "created_at", "updated_at", "deleted_at"}
+	crawlAllColumns            = []string{"id", "started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "updated_at", "created_at"}
+	crawlColumnsWithoutDefault = []string{"started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "updated_at", "created_at"}
 	crawlColumnsWithDefault    = []string{"id"}
 	crawlPrimaryKeyColumns     = []string{"id"}
 )
@@ -694,11 +663,11 @@ func (o *Crawl) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
 
-		if o.CreatedAt.IsZero() {
-			o.CreatedAt = currTime
-		}
 		if o.UpdatedAt.IsZero() {
 			o.UpdatedAt = currTime
+		}
+		if o.CreatedAt.IsZero() {
+			o.CreatedAt = currTime
 		}
 	}
 
@@ -915,10 +884,10 @@ func (o *Crawl) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
 
+		o.UpdatedAt = currTime
 		if o.CreatedAt.IsZero() {
 			o.CreatedAt = currTime
 		}
-		o.UpdatedAt = currTime
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {

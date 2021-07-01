@@ -494,58 +494,85 @@ func testPeersInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testPeerOneToOneMultiAddressUsingMultiAddress(t *testing.T) {
+func testPeerToManySessions(t *testing.T) {
+	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var foreign MultiAddress
-	var local Peer
+	var a Peer
+	var b, c Session
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &foreign, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
-	}
-	if err := randomize.Struct(seed, &local, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
+	if err = randomize.Struct(seed, &a, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Peer struct: %s", err)
 	}
 
-	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	foreign.PeerID = local.ID
-	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = randomize.Struct(seed, &b, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := local.MultiAddress().One(ctx, tx)
+	b.PeerID = a.ID
+	c.PeerID = a.ID
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.Sessions().All(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if check.PeerID != foreign.PeerID {
-		t.Errorf("want: %v, got %v", foreign.PeerID, check.PeerID)
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.PeerID == b.PeerID {
+			bFound = true
+		}
+		if v.PeerID == c.PeerID {
+			cFound = true
+		}
 	}
 
-	slice := PeerSlice{&local}
-	if err = local.L.LoadMultiAddress(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
-		t.Fatal(err)
+	if !bFound {
+		t.Error("expected to find b")
 	}
-	if local.R.MultiAddress == nil {
-		t.Error("struct should have been eager loaded")
+	if !cFound {
+		t.Error("expected to find c")
 	}
 
-	local.R.MultiAddress = nil
-	if err = local.L.LoadMultiAddress(ctx, tx, true, &local, nil); err != nil {
+	slice := PeerSlice{&a}
+	if err = a.L.LoadSessions(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.MultiAddress == nil {
-		t.Error("struct should have been eager loaded")
+	if got := len(a.R.Sessions); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.Sessions = nil
+	if err = a.L.LoadSessions(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.Sessions); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
 	}
 }
 
-func testPeerOneToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
+func testPeerToManyAddOpSessions(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -553,17 +580,17 @@ func testPeerOneToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
 	defer func() { _ = tx.Rollback() }()
 
 	var a Peer
-	var b, c MultiAddress
+	var b, c, d, e Session
 
 	seed := randomize.NewSeed()
 	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
-	if err = randomize.Struct(seed, &b, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
+	foreigners := []*Session{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, sessionDBTypes, false, strmangle.SetComplement(sessionPrimaryKeyColumns, sessionColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
@@ -572,36 +599,51 @@ func testPeerOneToOneSetOpMultiAddressUsingMultiAddress(t *testing.T) {
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
 
-	for i, x := range []*MultiAddress{&b, &c} {
-		err = a.SetMultiAddress(ctx, tx, i != 0, x)
+	foreignersSplitByInsertion := [][]*Session{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddSessions(ctx, tx, i != 0, x...)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if a.R.MultiAddress != x {
-			t.Error("relationship struct not set to correct value")
+		first := x[0]
+		second := x[1]
+
+		if a.ID != first.PeerID {
+			t.Error("foreign key was wrong value", a.ID, first.PeerID)
 		}
-		if x.R.Peer != &a {
-			t.Error("failed to append to foreign relationship struct")
+		if a.ID != second.PeerID {
+			t.Error("foreign key was wrong value", a.ID, second.PeerID)
 		}
 
-		if a.ID != x.PeerID {
-			t.Error("foreign key was wrong value", a.ID)
+		if first.R.Peer != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.Peer != &a {
+			t.Error("relationship was not added properly to the foreign slice")
 		}
 
-		if exists, err := MultiAddressExists(ctx, tx, x.PeerID); err != nil {
+		if a.R.Sessions[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.Sessions[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.Sessions().Count(ctx, tx)
+		if err != nil {
 			t.Fatal(err)
-		} else if !exists {
-			t.Error("want 'x' to exist")
 		}
-
-		if a.ID != x.PeerID {
-			t.Error("foreign key was wrong value", a.ID, x.PeerID)
-		}
-
-		if _, err = x.Delete(ctx, tx); err != nil {
-			t.Fatal("failed to delete x", err)
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
 		}
 	}
 }
@@ -680,7 +722,7 @@ func testPeersSelect(t *testing.T) {
 }
 
 var (
-	peerDBTypes = map[string]string{`ID`: `character varying`, `FirstDial`: `timestamp with time zone`, `LastDial`: `timestamp with time zone`, `NextDial`: `timestamp with time zone`, `FailedDial`: `timestamp with time zone`, `Dials`: `integer`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `DeletedAt`: `timestamp with time zone`}
+	peerDBTypes = map[string]string{`ID`: `character varying`, `MultiAddresses`: `ARRAYcharacter varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_           = bytes.MinRead
 )
 

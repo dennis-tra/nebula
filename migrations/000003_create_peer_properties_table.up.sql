@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS peer_properties (
     id SERIAL PRIMARY KEY,
-    property VARCHAR(50) NOT NULL,
-    value VARCHAR(50) NOT NULL,
+    property VARCHAR(255) NOT NULL,
+    value VARCHAR(255) NOT NULL,
     count INT NOT NULL,
     crawl_id SERIAL NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,

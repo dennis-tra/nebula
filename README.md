@@ -70,9 +70,13 @@ To run migrations then run:
 ```shell
 # Up migrations
 migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
+# OR
+make migrate-up
 
 # Down migrations
 migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
+# OR
+make migrate-down
 
 # Create new migration
 migrate create -ext sql -dir migrations -seq some_migration_name

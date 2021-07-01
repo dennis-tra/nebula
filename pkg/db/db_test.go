@@ -3,108 +3,54 @@ package db
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"testing"
-	"time"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	_ "github.com/lib/pq"
-	//. "github.com/volatiletech/sqlboiler/v4/queries/qm"
+	ma "github.com/multiformats/go-multiaddr"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
-func TestAnything(t *testing.T) {
-	// Open handle to database like normal
+func TestUpsertSession(t *testing.T) {
 	db, err := sql.Open("postgres", "dbname=nebula user=nebula password=password sslmode=disable")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
+
+	peerID := "some-id"
 	ctx := context.Background()
 
-	boil.SetDB(db)
+	_, err = models.Sessions(qm.Where("peer_id = ?", peerID)).DeleteAll(ctx, db)
+	require.NoError(t, err)
 
-	crawl := &models.Crawl{
-		StartedAt:       time.Now(),
-		CrawledPeers:    1,
-		DialablePeers:   2,
-		UndialablePeers: 3,
-	}
+	err = UpsertPeer(ctx, db, peerID, []ma.Multiaddr{})
+	require.NoError(t, err)
 
-	err = crawl.Insert(ctx, db, boil.Infer())
-	if err != nil {
-		panic(err)
-	}
+	err = UpsertSessionSuccess(db, peerID)
+	require.NoError(t, err)
 
-	pp := &models.PeerProperty{
-		Property: "AgentVersion",
-		Count:    122,
-	}
-	err = pp.SetCrawl(ctx, db, false, crawl)
-	if err != nil {
-		panic(err)
-	}
-	err = pp.Insert(ctx, db, boil.Infer())
-	if err != nil {
-		panic(err)
-	}
+	session, err := models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
+	require.NoError(t, err)
 
-	all, err := models.Crawls().All(ctx, db)
-	if err != nil {
-		panic(err)
-	}
+	assert.Equal(t, session.Finished, false)
+	assert.Equal(t, session.SuccessfulDials, 1)
 
-	for _, c := range all {
-		fmt.Println(c.ID)
-	}
+	err = UpsertSessionSuccess(db, peerID)
+	require.NoError(t, err)
 
-	//// If you don't want to pass in db to all generated methods
-	//// you can use boil.SetDB to set it globally, and then use
-	//// the G variant methods like so (--add-global-variants to enable)
-	//boil.SetDB(db)
-	//users, err := models.Users().AllG(ctx)
-	//
-	//// Query all users
-	//users, err := models.Users().All(ctx, db)
-	//
-	//// Panic-able if you like to code that way (--add-panic-variants to enable)
-	//users := models.Users().AllP(db)
-	//
-	//// More complex query
-	//users, err := models.Users(Where("age > ?", 30), Limit(5), Offset(6)).All(ctx, db)
-	//
-	//// Ultra complex query
-	//users, err := models.Users(
-	//	Select("id", "name"),
-	//	InnerJoin("credit_cards c on c.user_id = users.id"),
-	//	Where("age > ?", 30),
-	//	AndIn("c.kind in ?", "visa", "mastercard"),
-	//	Or("email like ?", `%aol.com%`),
-	//	GroupBy("id", "name"),
-	//	Having("count(c.id) > ?", 2),
-	//	Limit(5),
-	//	Offset(6),
-	//).All(ctx, db)
-	//
-	//// Use any "boil.Executor" implementation (*sql.DB, *sql.Tx, data-dog mock db)
-	//// for any query.
-	//tx, err := db.BeginTx(ctx, nil)
-	//if err != nil {
-	//	return err
-	//}
-	//users, err := models.Users().All(ctx, tx)
-	//
-	//// Relationships
-	//user, err := models.Users().One(ctx, db)
-	//if err != nil {
-	//	return err
-	//}
-	//movies, err := user.FavoriteMovies().All(ctx, db)
-	//
-	//// Eager loading
-	//users, err := models.Users(Load("FavoriteMovies")).All(ctx, db)
-	//if err != nil {
-	//	return err
-	//}
-	//fmt.Println(len(users.R.FavoriteMovies))
+	err = session.Reload(ctx, db)
+	require.NoError(t, err)
+
+	assert.Equal(t, session.Finished, false)
+	assert.Equal(t, session.SuccessfulDials, 2)
+
+	err = UpsertSessionError(db, peerID)
+	require.NoError(t, err)
+
+	err = session.Reload(ctx, db)
+	require.NoError(t, err)
+
+	assert.Equal(t, session.Finished, true)
+	assert.Equal(t, session.SuccessfulDials, 2)
 }

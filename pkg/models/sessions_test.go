@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testMultiAddresses(t *testing.T) {
+func testSessions(t *testing.T) {
 	t.Parallel()
 
-	query := MultiAddresses()
+	query := Sessions()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testMultiAddressesDelete(t *testing.T) {
+func testSessionsDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testMultiAddressesDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testMultiAddressesDelete(t *testing.T) {
 	}
 }
 
-func testMultiAddressesQueryDeleteAll(t *testing.T) {
+func testSessionsQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testMultiAddressesQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := MultiAddresses().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Sessions().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testMultiAddressesQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testMultiAddressesSliceDeleteAll(t *testing.T) {
+func testSessionsSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testMultiAddressesSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := MultiAddressSlice{o}
+	slice := SessionSlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testMultiAddressesSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testMultiAddressesSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testMultiAddressesExists(t *testing.T) {
+func testSessionsExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testMultiAddressesExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := MultiAddressExists(ctx, tx, o.PeerID)
+	e, err := SessionExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if MultiAddress exists: %s", err)
+		t.Errorf("Unable to check if Session exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected MultiAddressExists to return true, but got false.")
+		t.Errorf("Expected SessionExists to return true, but got false.")
 	}
 }
 
-func testMultiAddressesFind(t *testing.T) {
+func testSessionsFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testMultiAddressesFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	multiAddressFound, err := FindMultiAddress(ctx, tx, o.PeerID)
+	sessionFound, err := FindSession(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if multiAddressFound == nil {
+	if sessionFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testMultiAddressesBind(t *testing.T) {
+func testSessionsBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testMultiAddressesBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = MultiAddresses().Bind(ctx, tx, o); err != nil {
+	if err = Sessions().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testMultiAddressesOne(t *testing.T) {
+func testSessionsOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testMultiAddressesOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := MultiAddresses().One(ctx, tx); err != nil {
+	if x, err := Sessions().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testMultiAddressesAll(t *testing.T) {
+func testSessionsAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	multiAddressOne := &MultiAddress{}
-	multiAddressTwo := &MultiAddress{}
-	if err = randomize.Struct(seed, multiAddressOne, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	sessionOne := &Session{}
+	sessionTwo := &Session{}
+	if err = randomize.Struct(seed, sessionOne, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
-	if err = randomize.Struct(seed, multiAddressTwo, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err = randomize.Struct(seed, sessionTwo, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = multiAddressOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = sessionOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = multiAddressTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = sessionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := MultiAddresses().All(ctx, tx)
+	slice, err := Sessions().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testMultiAddressesAll(t *testing.T) {
 	}
 }
 
-func testMultiAddressesCount(t *testing.T) {
+func testSessionsCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	multiAddressOne := &MultiAddress{}
-	multiAddressTwo := &MultiAddress{}
-	if err = randomize.Struct(seed, multiAddressOne, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	sessionOne := &Session{}
+	sessionTwo := &Session{}
+	if err = randomize.Struct(seed, sessionOne, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
-	if err = randomize.Struct(seed, multiAddressTwo, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err = randomize.Struct(seed, sessionTwo, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = multiAddressOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = sessionOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = multiAddressTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = sessionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testMultiAddressesCount(t *testing.T) {
 	}
 }
 
-func multiAddressBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func multiAddressAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *MultiAddress) error {
-	*o = MultiAddress{}
+func sessionAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Session) error {
+	*o = Session{}
 	return nil
 }
 
-func testMultiAddressesHooks(t *testing.T) {
+func testSessionsHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &MultiAddress{}
-	o := &MultiAddress{}
+	empty := &Session{}
+	o := &Session{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize MultiAddress object: %s", err)
+	if err = randomize.Struct(seed, o, sessionDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Session object: %s", err)
 	}
 
-	AddMultiAddressHook(boil.BeforeInsertHook, multiAddressBeforeInsertHook)
+	AddSessionHook(boil.BeforeInsertHook, sessionBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	multiAddressBeforeInsertHooks = []MultiAddressHook{}
+	sessionBeforeInsertHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.AfterInsertHook, multiAddressAfterInsertHook)
+	AddSessionHook(boil.AfterInsertHook, sessionAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	multiAddressAfterInsertHooks = []MultiAddressHook{}
+	sessionAfterInsertHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.AfterSelectHook, multiAddressAfterSelectHook)
+	AddSessionHook(boil.AfterSelectHook, sessionAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	multiAddressAfterSelectHooks = []MultiAddressHook{}
+	sessionAfterSelectHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.BeforeUpdateHook, multiAddressBeforeUpdateHook)
+	AddSessionHook(boil.BeforeUpdateHook, sessionBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	multiAddressBeforeUpdateHooks = []MultiAddressHook{}
+	sessionBeforeUpdateHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.AfterUpdateHook, multiAddressAfterUpdateHook)
+	AddSessionHook(boil.AfterUpdateHook, sessionAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	multiAddressAfterUpdateHooks = []MultiAddressHook{}
+	sessionAfterUpdateHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.BeforeDeleteHook, multiAddressBeforeDeleteHook)
+	AddSessionHook(boil.BeforeDeleteHook, sessionBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	multiAddressBeforeDeleteHooks = []MultiAddressHook{}
+	sessionBeforeDeleteHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.AfterDeleteHook, multiAddressAfterDeleteHook)
+	AddSessionHook(boil.AfterDeleteHook, sessionAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	multiAddressAfterDeleteHooks = []MultiAddressHook{}
+	sessionAfterDeleteHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.BeforeUpsertHook, multiAddressBeforeUpsertHook)
+	AddSessionHook(boil.BeforeUpsertHook, sessionBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	multiAddressBeforeUpsertHooks = []MultiAddressHook{}
+	sessionBeforeUpsertHooks = []SessionHook{}
 
-	AddMultiAddressHook(boil.AfterUpsertHook, multiAddressAfterUpsertHook)
+	AddSessionHook(boil.AfterUpsertHook, sessionAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	multiAddressAfterUpsertHooks = []MultiAddressHook{}
+	sessionAfterUpsertHooks = []SessionHook{}
 }
 
-func testMultiAddressesInsert(t *testing.T) {
+func testSessionsInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testMultiAddressesInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testMultiAddressesInsert(t *testing.T) {
 	}
 }
 
-func testMultiAddressesInsertWhitelist(t *testing.T) {
+func testSessionsInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(multiAddressColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(sessionColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,17 +494,17 @@ func testMultiAddressesInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testMultiAddressToOnePeerUsingPeer(t *testing.T) {
+func testSessionToOnePeerUsingPeer(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var local MultiAddress
+	var local Session
 	var foreign Peer
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err := randomize.Struct(seed, &local, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Peer struct: %s", err)
@@ -528,8 +528,8 @@ func testMultiAddressToOnePeerUsingPeer(t *testing.T) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
-	slice := MultiAddressSlice{&local}
-	if err = local.L.LoadPeer(ctx, tx, false, (*[]*MultiAddress)(&slice), nil); err != nil {
+	slice := SessionSlice{&local}
+	if err = local.L.LoadPeer(ctx, tx, false, (*[]*Session)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if local.R.Peer == nil {
@@ -545,18 +545,18 @@ func testMultiAddressToOnePeerUsingPeer(t *testing.T) {
 	}
 }
 
-func testMultiAddressToOneSetOpPeerUsingPeer(t *testing.T) {
+func testSessionToOneSetOpPeerUsingPeer(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a MultiAddress
+	var a Session
 	var b, c Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, sessionDBTypes, false, strmangle.SetComplement(sessionPrimaryKeyColumns, sessionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
@@ -583,30 +583,34 @@ func testMultiAddressToOneSetOpPeerUsingPeer(t *testing.T) {
 			t.Error("relationship struct not set to correct value")
 		}
 
-		if x.R.MultiAddress != &a {
+		if x.R.Sessions[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
 		if a.PeerID != x.ID {
 			t.Error("foreign key was wrong value", a.PeerID)
 		}
 
-		if exists, err := MultiAddressExists(ctx, tx, a.PeerID); err != nil {
-			t.Fatal(err)
-		} else if !exists {
-			t.Error("want 'a' to exist")
+		zero := reflect.Zero(reflect.TypeOf(a.PeerID))
+		reflect.Indirect(reflect.ValueOf(&a.PeerID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
 		}
 
+		if a.PeerID != x.ID {
+			t.Error("foreign key was wrong value", a.PeerID, x.ID)
+		}
 	}
 }
 
-func testMultiAddressesReload(t *testing.T) {
+func testSessionsReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -621,14 +625,14 @@ func testMultiAddressesReload(t *testing.T) {
 	}
 }
 
-func testMultiAddressesReloadAll(t *testing.T) {
+func testSessionsReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -638,21 +642,21 @@ func testMultiAddressesReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := MultiAddressSlice{o}
+	slice := SessionSlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testMultiAddressesSelect(t *testing.T) {
+func testSessionsSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -662,7 +666,7 @@ func testMultiAddressesSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := MultiAddresses().All(ctx, tx)
+	slice, err := Sessions().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -673,25 +677,25 @@ func testMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	multiAddressDBTypes = map[string]string{`PeerID`: `character varying`, `Address`: `character varying`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `DeletedAt`: `timestamp with time zone`}
-	_                   = bytes.MinRead
+	sessionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `FirstSuccessfulDial`: `timestamp with time zone`, `LastSuccessfulDial`: `timestamp with time zone`, `NextDialAttempt`: `timestamp with time zone`, `FirstFailedDial`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `Finished`: `boolean`, `SuccessfulDials`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	_              = bytes.MinRead
 )
 
-func testMultiAddressesUpdate(t *testing.T) {
+func testSessionsUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(multiAddressPrimaryKeyColumns) {
+	if 0 == len(sessionPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(multiAddressAllColumns) == len(multiAddressPrimaryKeyColumns) {
+	if len(sessionAllColumns) == len(sessionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -701,7 +705,7 @@ func testMultiAddressesUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -710,8 +714,8 @@ func testMultiAddressesUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -721,18 +725,18 @@ func testMultiAddressesUpdate(t *testing.T) {
 	}
 }
 
-func testMultiAddressesSliceUpdateAll(t *testing.T) {
+func testSessionsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(multiAddressAllColumns) == len(multiAddressPrimaryKeyColumns) {
+	if len(sessionAllColumns) == len(sessionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &MultiAddress{}
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := &Session{}
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -742,7 +746,7 @@ func testMultiAddressesSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -751,18 +755,18 @@ func testMultiAddressesSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, multiAddressDBTypes, true, multiAddressPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err = randomize.Struct(seed, o, sessionDBTypes, true, sessionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(multiAddressAllColumns, multiAddressPrimaryKeyColumns) {
-		fields = multiAddressAllColumns
+	if strmangle.StringSliceMatch(sessionAllColumns, sessionPrimaryKeyColumns) {
+		fields = sessionAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			multiAddressAllColumns,
-			multiAddressPrimaryKeyColumns,
+			sessionAllColumns,
+			sessionPrimaryKeyColumns,
 		)
 	}
 
@@ -780,7 +784,7 @@ func testMultiAddressesSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := MultiAddressSlice{o}
+	slice := SessionSlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -788,29 +792,29 @@ func testMultiAddressesSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testMultiAddressesUpsert(t *testing.T) {
+func testSessionsUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(multiAddressAllColumns) == len(multiAddressPrimaryKeyColumns) {
+	if len(sessionAllColumns) == len(sessionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := MultiAddress{}
-	if err = randomize.Struct(seed, &o, multiAddressDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	o := Session{}
+	if err = randomize.Struct(seed, &o, sessionDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert MultiAddress: %s", err)
+		t.Errorf("Unable to upsert Session: %s", err)
 	}
 
-	count, err := MultiAddresses().Count(ctx, tx)
+	count, err := Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -819,15 +823,15 @@ func testMultiAddressesUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, multiAddressDBTypes, false, multiAddressPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	if err = randomize.Struct(seed, &o, sessionDBTypes, false, sessionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Session struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert MultiAddress: %s", err)
+		t.Errorf("Unable to upsert Session: %s", err)
 	}
 
-	count, err = MultiAddresses().Count(ctx, tx)
+	count, err = Sessions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}

@@ -24,11 +24,17 @@ const (
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapPeers: []string{}, // see init
-	DialTimeout:    10 * time.Second,
-	WorkerCount:    500,
-	PrometheusHost: "localhost",
-	PrometheusPort: 6666,
+	BootstrapPeers:   []string{}, // see init
+	DialTimeout:      10 * time.Second,
+	WorkerCount:      500,
+	CrawlLimit:       0,
+	PrometheusHost:   "localhost",
+	PrometheusPort:   6666,
+	DatabaseHost:     "localhost",
+	DatabasePort:     5432,
+	DatabaseName:     "nebula",
+	DatabasePassword: "password",
+	DatabaseUser:     "nebula",
 }
 
 func init() {
@@ -58,11 +64,29 @@ type Config struct {
 	// How many parallel workers should crawl the network.
 	WorkerCount int
 
-	// On which network interface should the prometheus bind to.
+	// Only crawl the specified amount of peers
+	CrawlLimit int
+
+	// Determines the prometheus host bind to.
 	PrometheusHost string
 
-	// On which port should prometheus serve the metrics endpoint.
+	// Determines the port where prometheus serves the metrics endpoint.
 	PrometheusPort int
+
+	// Determines the host address of the database.
+	DatabaseHost string
+
+	// Determines the port of the database.
+	DatabasePort int
+
+	// Determines the name of the database that should be used.
+	DatabaseName string
+
+	// Determines the password with which we access the database.
+	DatabasePassword string
+
+	// Determines the username with which we access the database.
+	DatabaseUser string
 }
 
 // Save saves the peer settings and identity information
@@ -85,11 +109,29 @@ func (c *Config) Apply(ctx *cli.Context) {
 	if ctx.IsSet("workers") {
 		c.WorkerCount = ctx.Int("workers")
 	}
+	if ctx.IsSet("limit") {
+		c.CrawlLimit = ctx.Int("limit")
+	}
 	if ctx.IsSet("dial-timeout") {
 		c.DialTimeout = ctx.Duration("dial-timeout")
 	}
 	if ctx.IsSet("prom-port") {
 		c.PrometheusPort = ctx.Int("prom-port")
+	}
+	if ctx.IsSet("db-host") {
+		c.DatabaseHost = ctx.String("db-host")
+	}
+	if ctx.IsSet("db-port") {
+		c.DatabasePort = ctx.Int("db-port")
+	}
+	if ctx.IsSet("db-name") {
+		c.DatabaseName = ctx.String("db-name")
+	}
+	if ctx.IsSet("db-password") {
+		c.DatabasePassword = ctx.String("db-password")
+	}
+	if ctx.IsSet("db-user") {
+		c.DatabaseUser = ctx.String("db-user")
 	}
 }
 

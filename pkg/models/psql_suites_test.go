@@ -8,9 +8,9 @@ import "testing"
 func TestUpsert(t *testing.T) {
 	t.Run("Crawls", testCrawlsUpsert)
 
-	t.Run("MultiAddresses", testMultiAddressesUpsert)
-
 	t.Run("PeerProperties", testPeerPropertiesUpsert)
 
 	t.Run("Peers", testPeersUpsert)
+
+	t.Run("Sessions", testSessionsUpsert)
 }

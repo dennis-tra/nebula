@@ -1,9 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"strconv"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -39,6 +42,13 @@ var CrawlCommand = &cli.Command{
 			DefaultText: config.DefaultConfig.DialTimeout.String(),
 			Value:       config.DefaultConfig.DialTimeout,
 		},
+		&cli.IntFlag{
+			Name:        "limit",
+			Usage:       "Only crawl the specified amount of peers (0 for unlimited)",
+			EnvVars:     []string{"NEBULA_CRAWL_PEER_LIMIT"},
+			DefaultText: strconv.Itoa(config.DefaultConfig.CrawlLimit),
+			Value:       config.DefaultConfig.CrawlLimit,
+		},
 	},
 }
 
@@ -53,13 +63,13 @@ func CrawlAction(c *cli.Context) error {
 	}
 	c.Context = ctx
 
-	// Initialize new database client
-	//var dbc *db.Client
-	//if !c.Bool("dry-run") {
-	//	if dbc, err = db.NewClient(); err != nil {
-	//		return errors.Wrap(err, "initialize db")
-	//	}
-	//}
+	// Acquire database handle
+	var dbh *sql.DB
+	if !c.Bool("dry-run") {
+		if dbh, err = db.Open(c.Context); err != nil {
+			return err
+		}
+	}
 
 	// Start prometheus metrics endpoint
 	if err = metrics.RegisterListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
@@ -73,7 +83,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize orchestrator that handles crawling the network.
-	o, _ := crawl.NewOrchestrator(c.Context)
+	o, _ := crawl.NewOrchestrator(c.Context, dbh)
 	go o.CrawlNetwork(pis)
 
 	select {

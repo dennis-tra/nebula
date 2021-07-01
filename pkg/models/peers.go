@@ -14,108 +14,98 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/queries/qmhelper"
+	"github.com/volatiletech/sqlboiler/v4/types"
 	"github.com/volatiletech/strmangle"
 )
 
 // Peer is an object representing the database table.
 type Peer struct {
-	ID         string    `boil:"id" json:"id" toml:"id" yaml:"id"`
-	FirstDial  time.Time `boil:"first_dial" json:"first_dial" toml:"first_dial" yaml:"first_dial"`
-	LastDial   time.Time `boil:"last_dial" json:"last_dial" toml:"last_dial" yaml:"last_dial"`
-	NextDial   time.Time `boil:"next_dial" json:"next_dial" toml:"next_dial" yaml:"next_dial"`
-	FailedDial null.Time `boil:"failed_dial" json:"failed_dial,omitempty" toml:"failed_dial" yaml:"failed_dial,omitempty"`
-	Dials      int       `boil:"dials" json:"dials" toml:"dials" yaml:"dials"`
-	CreatedAt  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt  time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	DeletedAt  null.Time `boil:"deleted_at" json:"deleted_at,omitempty" toml:"deleted_at" yaml:"deleted_at,omitempty"`
+	ID             string            `boil:"id" json:"id" toml:"id" yaml:"id"`
+	MultiAddresses types.StringArray `boil:"multi_addresses" json:"multi_addresses,omitempty" toml:"multi_addresses" yaml:"multi_addresses,omitempty"`
+	UpdatedAt      time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt      time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PeerColumns = struct {
-	ID         string
-	FirstDial  string
-	LastDial   string
-	NextDial   string
-	FailedDial string
-	Dials      string
-	CreatedAt  string
-	UpdatedAt  string
-	DeletedAt  string
+	ID             string
+	MultiAddresses string
+	UpdatedAt      string
+	CreatedAt      string
 }{
-	ID:         "id",
-	FirstDial:  "first_dial",
-	LastDial:   "last_dial",
-	NextDial:   "next_dial",
-	FailedDial: "failed_dial",
-	Dials:      "dials",
-	CreatedAt:  "created_at",
-	UpdatedAt:  "updated_at",
-	DeletedAt:  "deleted_at",
+	ID:             "id",
+	MultiAddresses: "multi_addresses",
+	UpdatedAt:      "updated_at",
+	CreatedAt:      "created_at",
 }
 
 var PeerTableColumns = struct {
-	ID         string
-	FirstDial  string
-	LastDial   string
-	NextDial   string
-	FailedDial string
-	Dials      string
-	CreatedAt  string
-	UpdatedAt  string
-	DeletedAt  string
+	ID             string
+	MultiAddresses string
+	UpdatedAt      string
+	CreatedAt      string
 }{
-	ID:         "peers.id",
-	FirstDial:  "peers.first_dial",
-	LastDial:   "peers.last_dial",
-	NextDial:   "peers.next_dial",
-	FailedDial: "peers.failed_dial",
-	Dials:      "peers.dials",
-	CreatedAt:  "peers.created_at",
-	UpdatedAt:  "peers.updated_at",
-	DeletedAt:  "peers.deleted_at",
+	ID:             "peers.id",
+	MultiAddresses: "peers.multi_addresses",
+	UpdatedAt:      "peers.updated_at",
+	CreatedAt:      "peers.created_at",
 }
 
 // Generated where
 
+type whereHelpertypes_StringArray struct{ field string }
+
+func (w whereHelpertypes_StringArray) EQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpertypes_StringArray) NEQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpertypes_StringArray) IsNull() qm.QueryMod { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpertypes_StringArray) IsNotNull() qm.QueryMod {
+	return qmhelper.WhereIsNotNull(w.field)
+}
+func (w whereHelpertypes_StringArray) LT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpertypes_StringArray) LTE(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpertypes_StringArray) GT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var PeerWhere = struct {
-	ID         whereHelperstring
-	FirstDial  whereHelpertime_Time
-	LastDial   whereHelpertime_Time
-	NextDial   whereHelpertime_Time
-	FailedDial whereHelpernull_Time
-	Dials      whereHelperint
-	CreatedAt  whereHelpertime_Time
-	UpdatedAt  whereHelpertime_Time
-	DeletedAt  whereHelpernull_Time
+	ID             whereHelperstring
+	MultiAddresses whereHelpertypes_StringArray
+	UpdatedAt      whereHelpertime_Time
+	CreatedAt      whereHelpertime_Time
 }{
-	ID:         whereHelperstring{field: "\"peers\".\"id\""},
-	FirstDial:  whereHelpertime_Time{field: "\"peers\".\"first_dial\""},
-	LastDial:   whereHelpertime_Time{field: "\"peers\".\"last_dial\""},
-	NextDial:   whereHelpertime_Time{field: "\"peers\".\"next_dial\""},
-	FailedDial: whereHelpernull_Time{field: "\"peers\".\"failed_dial\""},
-	Dials:      whereHelperint{field: "\"peers\".\"dials\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"peers\".\"created_at\""},
-	UpdatedAt:  whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
-	DeletedAt:  whereHelpernull_Time{field: "\"peers\".\"deleted_at\""},
+	ID:             whereHelperstring{field: "\"peers\".\"id\""},
+	MultiAddresses: whereHelpertypes_StringArray{field: "\"peers\".\"multi_addresses\""},
+	UpdatedAt:      whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
+	CreatedAt:      whereHelpertime_Time{field: "\"peers\".\"created_at\""},
 }
 
 // PeerRels is where relationship names are stored.
 var PeerRels = struct {
-	MultiAddress string
+	Sessions string
 }{
-	MultiAddress: "MultiAddress",
+	Sessions: "Sessions",
 }
 
 // peerR is where relationships are stored.
 type peerR struct {
-	MultiAddress *MultiAddress `boil:"MultiAddress" json:"MultiAddress" toml:"MultiAddress" yaml:"MultiAddress"`
+	Sessions SessionSlice `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
 }
 
 // NewStruct creates a new relationship struct
@@ -127,8 +117,8 @@ func (*peerR) NewStruct() *peerR {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"id", "first_dial", "last_dial", "next_dial", "failed_dial", "dials", "created_at", "updated_at", "deleted_at"}
-	peerColumnsWithoutDefault = []string{"id", "first_dial", "last_dial", "next_dial", "failed_dial", "dials", "created_at", "updated_at", "deleted_at"}
+	peerAllColumns            = []string{"id", "multi_addresses", "updated_at", "created_at"}
+	peerColumnsWithoutDefault = []string{"id", "multi_addresses", "updated_at", "created_at"}
 	peerColumnsWithDefault    = []string{}
 	peerPrimaryKeyColumns     = []string{"id"}
 )
@@ -408,23 +398,30 @@ func (q peerQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool,
 	return count > 0, nil
 }
 
-// MultiAddress pointed to by the foreign key.
-func (o *Peer) MultiAddress(mods ...qm.QueryMod) multiAddressQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"peer_id\" = ?", o.ID),
+// Sessions retrieves all the session's Sessions with an executor.
+func (o *Peer) Sessions(mods ...qm.QueryMod) sessionQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
 	}
 
-	queryMods = append(queryMods, mods...)
+	queryMods = append(queryMods,
+		qm.Where("\"sessions\".\"peer_id\"=?", o.ID),
+	)
 
-	query := MultiAddresses(queryMods...)
-	queries.SetFrom(query.Query, "\"multi_addresses\"")
+	query := Sessions(queryMods...)
+	queries.SetFrom(query.Query, "\"sessions\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"sessions\".*"})
+	}
 
 	return query
 }
 
-// LoadMultiAddress allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-1 relationship.
-func (peerL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+// LoadSessions allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (peerL) LoadSessions(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
 	var slice []*Peer
 	var object *Peer
 
@@ -462,8 +459,8 @@ func (peerL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singu
 	}
 
 	query := NewQuery(
-		qm.From(`multi_addresses`),
-		qm.WhereIn(`multi_addresses.peer_id in ?`, args...),
+		qm.From(`sessions`),
+		qm.WhereIn(`sessions.peer_id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -471,48 +468,45 @@ func (peerL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singu
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load MultiAddress")
+		return errors.Wrap(err, "failed to eager load sessions")
 	}
 
-	var resultSlice []*MultiAddress
+	var resultSlice []*Session
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice MultiAddress")
+		return errors.Wrap(err, "failed to bind eager loaded slice sessions")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for multi_addresses")
+		return errors.Wrap(err, "failed to close results in eager load on sessions")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for multi_addresses")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for sessions")
 	}
 
-	if len(peerAfterSelectHooks) != 0 {
+	if len(sessionAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
 			}
 		}
 	}
-
-	if len(resultSlice) == 0 {
+	if singular {
+		object.R.Sessions = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &sessionR{}
+			}
+			foreign.R.Peer = object
+		}
 		return nil
 	}
 
-	if singular {
-		foreign := resultSlice[0]
-		object.R.MultiAddress = foreign
-		if foreign.R == nil {
-			foreign.R = &multiAddressR{}
-		}
-		foreign.R.Peer = object
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
 			if local.ID == foreign.PeerID {
-				local.R.MultiAddress = foreign
+				local.R.Sessions = append(local.R.Sessions, foreign)
 				if foreign.R == nil {
-					foreign.R = &multiAddressR{}
+					foreign.R = &sessionR{}
 				}
 				foreign.R.Peer = local
 				break
@@ -523,53 +517,55 @@ func (peerL) LoadMultiAddress(ctx context.Context, e boil.ContextExecutor, singu
 	return nil
 }
 
-// SetMultiAddress of the peer to the related item.
-// Sets o.R.MultiAddress to related.
-// Adds o to related.R.Peer.
-func (o *Peer) SetMultiAddress(ctx context.Context, exec boil.ContextExecutor, insert bool, related *MultiAddress) error {
+// AddSessions adds the given related objects to the existing relationships
+// of the peer, optionally inserting them as new records.
+// Appends related to o.R.Sessions.
+// Sets related.R.Peer appropriately.
+func (o *Peer) AddSessions(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Session) error {
 	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PeerID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"sessions\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+				strmangle.WhereClause("\"", "\"", 2, sessionPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
 
-	if insert {
-		related.PeerID = o.ID
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
 
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
+			rel.PeerID = o.ID
 		}
-	} else {
-		updateQuery := fmt.Sprintf(
-			"UPDATE \"multi_addresses\" SET %s WHERE %s",
-			strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
-			strmangle.WhereClause("\"", "\"", 2, multiAddressPrimaryKeyColumns),
-		)
-		values := []interface{}{o.ID, related.PeerID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, updateQuery)
-			fmt.Fprintln(writer, values)
-		}
-		if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-			return errors.Wrap(err, "failed to update foreign table")
-		}
-
-		related.PeerID = o.ID
-
 	}
 
 	if o.R == nil {
 		o.R = &peerR{
-			MultiAddress: related,
+			Sessions: related,
 		}
 	} else {
-		o.R.MultiAddress = related
+		o.R.Sessions = append(o.R.Sessions, related...)
 	}
 
-	if related.R == nil {
-		related.R = &multiAddressR{
-			Peer: o,
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &sessionR{
+				Peer: o,
+			}
+		} else {
+			rel.R.Peer = o
 		}
-	} else {
-		related.R.Peer = o
 	}
 	return nil
 }
@@ -621,11 +617,11 @@ func (o *Peer) Insert(ctx context.Context, exec boil.ContextExecutor, columns bo
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
 
-		if o.CreatedAt.IsZero() {
-			o.CreatedAt = currTime
-		}
 		if o.UpdatedAt.IsZero() {
 			o.UpdatedAt = currTime
+		}
+		if o.CreatedAt.IsZero() {
+			o.CreatedAt = currTime
 		}
 	}
 
@@ -842,10 +838,10 @@ func (o *Peer) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnCo
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
 
+		o.UpdatedAt = currTime
 		if o.CreatedAt.IsZero() {
 			o.CreatedAt = currTime
 		}
-		o.UpdatedAt = currTime
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {

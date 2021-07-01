@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+type Monitor struct{}
+
+func NewMonitor() (*Monitor, error) {
+	return &Monitor{}, nil
+}
+
 func Start(ctx context.Context) {
 	for {
 		select {

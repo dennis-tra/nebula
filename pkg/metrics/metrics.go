@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"contrib.go.opencensus.io/integrations/ocsql"
+
 	"contrib.go.opencensus.io/exporter/prometheus"
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
 	"github.com/pkg/errors"
@@ -21,15 +23,18 @@ func RegisterListenAndServe(host string, port int) error {
 		return errors.Wrap(err, "new prometheus exporter")
 	}
 
-	// Register the views
+	// Register kademlia metrics
 	if err = view.Register(kadmetrics.DefaultViews...); err != nil {
 		return errors.Wrap(err, "register kademlia default views")
 	}
 
-	// Register the views
+	// Register nebula views
 	if err = view.Register(DefaultViews...); err != nil {
 		return errors.Wrap(err, "register nebula default views")
 	}
+
+	// Enable ocsql metrics with OpenCensus
+	ocsql.RegisterAllViews()
 
 	go func() {
 		mux := http.NewServeMux()
@@ -40,20 +45,6 @@ func RegisterListenAndServe(host string, port int) error {
 	}()
 	return nil
 }
-
-//func RegisterDB(db *db.Client) error {
-//	return db.Use(gormprom.New(gormprom.Config{
-//		DBName:          "nebula_db", // use `DBName` as metrics label
-//		RefreshInterval: 15,          // Refresh metrics interval (default 15 seconds)
-//		StartServer:     true,        // start http server to expose metrics
-//		HTTPServerPort:  6667,        // configure http server port, default port 8080 (if you have configured multiple instances, only the first `HTTPServerPort` will be used to start server)
-//		//MetricsCollector: []prometheus.MetricsCollector{
-//		//	&prometheus.DBStats{
-//		//		VariableNames: []string{"Threads_running"},
-//		//	},
-//		//}, // user defined metrics
-//	}))
-//}
 
 // Keys
 var (
@@ -81,6 +72,7 @@ var (
 	FetchNeighborsDuration = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
 	FetchedNeighborsCount  = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
 	CrawledPeersCount      = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
+	CrawledUpsertDuration  = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
 	PeerCrawlDuration      = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
 	PeersToCrawlCount      = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
 )
@@ -115,13 +107,15 @@ var (
 	}
 	CrawledPeersCountView = &view.View{
 		Measure:     CrawledPeersCount,
-		TagKeys:     []tag.Key{KeyAgentVersion},
 		Aggregation: fibonacciDistribution,
 	}
 	PeerCrawlDurationView = &view.View{
 		Measure:     PeerCrawlDuration,
-		TagKeys:     []tag.Key{KeyAgentVersion},
 		Aggregation: defaultMillisecondsDistribution,
+	}
+	CrawledUpsertDurationView = &view.View{
+		Measure:     CrawledUpsertDuration,
+		Aggregation: ocsql.DefaultMillisecondsDistribution,
 	}
 	PeersToCrawlCountView = &view.View{
 		Measure:     PeersToCrawlCount,
@@ -140,4 +134,5 @@ var DefaultViews = []*view.View{
 	CrawledPeersCountView,
 	PeerCrawlDurationView,
 	PeersToCrawlCountView,
+	CrawledUpsertDurationView,
 }

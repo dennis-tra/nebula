@@ -13,116 +13,115 @@ import "testing"
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
 	t.Run("Crawls", testCrawls)
-	t.Run("MultiAddresses", testMultiAddresses)
 	t.Run("PeerProperties", testPeerProperties)
 	t.Run("Peers", testPeers)
+	t.Run("Sessions", testSessions)
 }
 
 func TestDelete(t *testing.T) {
 	t.Run("Crawls", testCrawlsDelete)
-	t.Run("MultiAddresses", testMultiAddressesDelete)
 	t.Run("PeerProperties", testPeerPropertiesDelete)
 	t.Run("Peers", testPeersDelete)
+	t.Run("Sessions", testSessionsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsQueryDeleteAll)
-	t.Run("MultiAddresses", testMultiAddressesQueryDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
+	t.Run("Sessions", testSessionsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsSliceDeleteAll)
-	t.Run("MultiAddresses", testMultiAddressesSliceDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
+	t.Run("Sessions", testSessionsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
 	t.Run("Crawls", testCrawlsExists)
-	t.Run("MultiAddresses", testMultiAddressesExists)
 	t.Run("PeerProperties", testPeerPropertiesExists)
 	t.Run("Peers", testPeersExists)
+	t.Run("Sessions", testSessionsExists)
 }
 
 func TestFind(t *testing.T) {
 	t.Run("Crawls", testCrawlsFind)
-	t.Run("MultiAddresses", testMultiAddressesFind)
 	t.Run("PeerProperties", testPeerPropertiesFind)
 	t.Run("Peers", testPeersFind)
+	t.Run("Sessions", testSessionsFind)
 }
 
 func TestBind(t *testing.T) {
 	t.Run("Crawls", testCrawlsBind)
-	t.Run("MultiAddresses", testMultiAddressesBind)
 	t.Run("PeerProperties", testPeerPropertiesBind)
 	t.Run("Peers", testPeersBind)
+	t.Run("Sessions", testSessionsBind)
 }
 
 func TestOne(t *testing.T) {
 	t.Run("Crawls", testCrawlsOne)
-	t.Run("MultiAddresses", testMultiAddressesOne)
 	t.Run("PeerProperties", testPeerPropertiesOne)
 	t.Run("Peers", testPeersOne)
+	t.Run("Sessions", testSessionsOne)
 }
 
 func TestAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsAll)
-	t.Run("MultiAddresses", testMultiAddressesAll)
 	t.Run("PeerProperties", testPeerPropertiesAll)
 	t.Run("Peers", testPeersAll)
+	t.Run("Sessions", testSessionsAll)
 }
 
 func TestCount(t *testing.T) {
 	t.Run("Crawls", testCrawlsCount)
-	t.Run("MultiAddresses", testMultiAddressesCount)
 	t.Run("PeerProperties", testPeerPropertiesCount)
 	t.Run("Peers", testPeersCount)
+	t.Run("Sessions", testSessionsCount)
 }
 
 func TestHooks(t *testing.T) {
 	t.Run("Crawls", testCrawlsHooks)
-	t.Run("MultiAddresses", testMultiAddressesHooks)
 	t.Run("PeerProperties", testPeerPropertiesHooks)
 	t.Run("Peers", testPeersHooks)
+	t.Run("Sessions", testSessionsHooks)
 }
 
 func TestInsert(t *testing.T) {
 	t.Run("Crawls", testCrawlsInsert)
 	t.Run("Crawls", testCrawlsInsertWhitelist)
-	t.Run("MultiAddresses", testMultiAddressesInsert)
-	t.Run("MultiAddresses", testMultiAddressesInsertWhitelist)
 	t.Run("PeerProperties", testPeerPropertiesInsert)
 	t.Run("PeerProperties", testPeerPropertiesInsertWhitelist)
 	t.Run("Peers", testPeersInsert)
 	t.Run("Peers", testPeersInsertWhitelist)
+	t.Run("Sessions", testSessionsInsert)
+	t.Run("Sessions", testSessionsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOne(t *testing.T) {
-	t.Run("MultiAddressToPeerUsingPeer", testMultiAddressToOnePeerUsingPeer)
 	t.Run("PeerPropertyToCrawlUsingCrawl", testPeerPropertyToOneCrawlUsingCrawl)
+	t.Run("SessionToPeerUsingPeer", testSessionToOnePeerUsingPeer)
 }
 
 // TestOneToOne tests cannot be run in parallel
 // or deadlocks can occur.
-func TestOneToOne(t *testing.T) {
-	t.Run("PeerToMultiAddressUsingMultiAddress", testPeerOneToOneMultiAddressUsingMultiAddress)
-}
+func TestOneToOne(t *testing.T) {}
 
 // TestToMany tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyPeerProperties)
+	t.Run("PeerToSessions", testPeerToManySessions)
 }
 
 // TestToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOneSet(t *testing.T) {
-	t.Run("MultiAddressToPeerUsingMultiAddress", testMultiAddressToOneSetOpPeerUsingPeer)
 	t.Run("PeerPropertyToCrawlUsingPeerProperties", testPeerPropertyToOneSetOpCrawlUsingCrawl)
+	t.Run("SessionToPeerUsingSessions", testSessionToOneSetOpPeerUsingPeer)
 }
 
 // TestToOneRemove tests cannot be run in parallel
@@ -131,9 +130,7 @@ func TestToOneRemove(t *testing.T) {}
 
 // TestOneToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
-func TestOneToOneSet(t *testing.T) {
-	t.Run("PeerToMultiAddressUsingMultiAddress", testPeerOneToOneSetOpMultiAddressUsingMultiAddress)
-}
+func TestOneToOneSet(t *testing.T) {}
 
 // TestOneToOneRemove tests cannot be run in parallel
 // or deadlocks can occur.
@@ -143,6 +140,7 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyAddOpPeerProperties)
+	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
 }
 
 // TestToManySet tests cannot be run in parallel
@@ -155,35 +153,35 @@ func TestToManyRemove(t *testing.T) {}
 
 func TestReload(t *testing.T) {
 	t.Run("Crawls", testCrawlsReload)
-	t.Run("MultiAddresses", testMultiAddressesReload)
 	t.Run("PeerProperties", testPeerPropertiesReload)
 	t.Run("Peers", testPeersReload)
+	t.Run("Sessions", testSessionsReload)
 }
 
 func TestReloadAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsReloadAll)
-	t.Run("MultiAddresses", testMultiAddressesReloadAll)
 	t.Run("PeerProperties", testPeerPropertiesReloadAll)
 	t.Run("Peers", testPeersReloadAll)
+	t.Run("Sessions", testSessionsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
 	t.Run("Crawls", testCrawlsSelect)
-	t.Run("MultiAddresses", testMultiAddressesSelect)
 	t.Run("PeerProperties", testPeerPropertiesSelect)
 	t.Run("Peers", testPeersSelect)
+	t.Run("Sessions", testSessionsSelect)
 }
 
 func TestUpdate(t *testing.T) {
 	t.Run("Crawls", testCrawlsUpdate)
-	t.Run("MultiAddresses", testMultiAddressesUpdate)
 	t.Run("PeerProperties", testPeerPropertiesUpdate)
 	t.Run("Peers", testPeersUpdate)
+	t.Run("Sessions", testSessionsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsSliceUpdateAll)
-	t.Run("MultiAddresses", testMultiAddressesSliceUpdateAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
+	t.Run("Sessions", testSessionsSliceUpdateAll)
 }

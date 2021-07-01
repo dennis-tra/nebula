@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
@@ -49,9 +48,10 @@ type CrawlResult struct {
 type Worker struct {
 	*service.Service
 
-	host   host.Host
-	config *config.Config
-	pm     *pb.ProtocolMessenger
+	host         host.Host
+	config       *config.Config
+	pm           *pb.ProtocolMessenger
+	crawledPeers int
 }
 
 func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
@@ -81,6 +81,11 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
+func (w *Worker) Shutdown() {
+	defer w.Service.Shutdown()
+	log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)
+}
+
 func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan CrawlResult) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
@@ -88,7 +93,8 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 	ctx := w.ServiceContext()
 	for pi := range crawlQueue {
 		start := time.Now()
-		log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Crawling peer ", pi.ID.Pretty()[:16])
+		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
+		logEntry.Debugln("Crawling peer ", pi.ID.Pretty()[:16])
 		stats.Record(ctx, metrics.WorkersWorkingCount.M(float64(runningWorkers.Inc())))
 
 		cr := CrawlResult{
@@ -101,19 +107,23 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 			// Extract agent
 			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
 				cr.Agent = agent.(string)
-				ctx, _ = tag.New(ctx, metrics.UpsertAgentVersion(cr.Agent))
 			}
 			// Fetch all neighbors
 			cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 		}
-
-		resultsQueue <- cr
 
 		go func(cpi peer.AddrInfo) {
 			if err := w.host.Network().ClosePeer(cpi.ID); err != nil {
 				log.WithError(err).WithField("targetID", cpi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
 			}
 		}(pi)
+
+		w.crawledPeers++
+		select {
+		case resultsQueue <- cr:
+		case <-w.SigShutdown():
+			return
+		}
 
 		stats.Record(ctx,
 			metrics.WorkersWorkingCount.M(float64(runningWorkers.Dec())),
@@ -125,6 +135,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 			return
 		default:
 		}
+		logEntry.Debugln("Crawled peer ", pi.ID.Pretty()[:16])
 	}
 }
 
