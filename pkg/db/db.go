@@ -76,8 +76,8 @@ ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
   CASE
 	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < '30s'::interval THEN
 		EXCLUDED.last_successful_dial + '30s'::interval
-	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '1d'::interval THEN
-		EXCLUDED.last_successful_dial + '1d'::interval
+	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '40m'::interval THEN
+		EXCLUDED.last_successful_dial + '40m'::interval
 	 ELSE
         EXCLUDED.last_successful_dial + 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
   END;
