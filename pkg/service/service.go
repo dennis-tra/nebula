@@ -79,7 +79,7 @@ func New(id string) *Service {
 
 // ServiceStarted marks this service as started.
 func (s *Service) ServiceStarted() {
-	log.WithField("serviceId", s.id).Debugln("Service has started")
+	log.WithField("serviceId", s.id).Traceln("Service has started")
 
 	s.StartTime = time.Now()
 
@@ -130,7 +130,7 @@ func (s *Service) ServiceStopped() {
 
 	close(s.done)
 	s.DoneTime = time.Now()
-	log.WithField("serviceId", s.id).Debugln("Service has stopped")
+	log.WithField("serviceId", s.id).Traceln("Service has stopped")
 }
 
 // ServiceContext returns the context associated with this
@@ -146,7 +146,7 @@ func (s *Service) ServiceContext() context.Context {
 // This function blocks until the done channel was closed
 // which happens when ServiceStopped is called.
 func (s *Service) Shutdown() {
-	log.WithField("serviceId", s.id).Debugln("Service shutting down...")
+	log.WithField("serviceId", s.id).Traceln("Service shutting down...")
 
 	s.lk.Lock()
 	if s.state != Started {
@@ -159,5 +159,5 @@ func (s *Service) Shutdown() {
 	close(s.shutdown)
 	s.ShutdownTime = time.Now()
 	<-s.done
-	log.WithField("serviceId", s.id).Debugln("Service was shut down")
+	log.WithField("serviceId", s.id).Traceln("Service was shut down")
 }
