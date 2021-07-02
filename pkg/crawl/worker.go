@@ -40,6 +40,9 @@ type CrawlResult struct {
 	// The agent version of the crawled peer
 	Agent string
 
+	// The protocols the peer supports
+	Protocols []string
+
 	// Any error that has occurred during the crawl
 	Error error
 }
@@ -58,7 +61,7 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 	ms := &msgSender{
 		h:         h,
 		protocols: ProtocolStrings,
-		timeout:   time.Second * 30,
+		timeout:   conf.DialTimeout,
 	}
 
 	pm, err := pb.NewProtocolMessenger(ms)
@@ -99,7 +102,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 
 		cr := CrawlResult{
 			WorkerID: w.Identifier(),
-			Peer:     filterPublicMaddrs(pi),
+			Peer:     filterPrivateMaddrs(pi),
 		}
 
 		cr.Error = w.connect(ctx, pi)
@@ -108,6 +111,12 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
 				cr.Agent = agent.(string)
 			}
+
+			// Extract protocols
+			if protocols, err := w.host.Peerstore().GetProtocols(pi.ID); err == nil {
+				cr.Protocols = protocols
+			}
+
 			// Fetch all neighbors
 			cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 		}
@@ -119,6 +128,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 		}(pi)
 
 		w.crawledPeers++
+
 		select {
 		case resultsQueue <- cr:
 		case <-w.SigShutdown():
@@ -145,10 +155,10 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 	start := time.Now()
 	stats.Record(ctx, metrics.ConnectsCount.M(1))
 
-	pi = filterPublicMaddrs(pi)
+	pi = filterPrivateMaddrs(pi)
 	if len(pi.Addrs) == 0 {
 		stats.Record(ctx, metrics.ConnectErrors.M(1))
-		return fmt.Errorf("skipping node as it has no public IP address")
+		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
@@ -191,10 +201,11 @@ func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.A
 			}
 
 			allNeighborsLk.Lock()
+			defer allNeighborsLk.Unlock()
 			for _, n := range neighbors {
 				allNeighbors = append(allNeighbors, *n)
 			}
-			allNeighborsLk.Unlock()
+
 			return nil
 		})
 	}
@@ -206,8 +217,8 @@ func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.A
 	return allNeighbors, err
 }
 
-// filterPublicMaddrs returns only the publicly reachable multiaddrs from the given peer address information.
-func filterPublicMaddrs(pi peer.AddrInfo) peer.AddrInfo {
+// filterPrivateMaddrs strips private multiaddrs from the given peer address information.
+func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	filtered := peer.AddrInfo{
 		ID:    pi.ID,
 		Addrs: []ma.Multiaddr{},
@@ -215,10 +226,10 @@ func filterPublicMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 
 	// Just keep public multi addresses
 	for _, maddr := range pi.Addrs {
-		if !manet.IsPublicAddr(maddr) { // TODO: Strip relays?
+		if manet.IsPrivateAddr(maddr) {
 			continue
 		}
-		filtered.Addrs = append(filtered.Addrs, maddr)
+		filtered.Addrs = append(filtered.Addrs, maddr) // TODO: Strip relays?
 	}
 
 	return filtered

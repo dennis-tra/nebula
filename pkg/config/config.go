@@ -25,7 +25,7 @@ const (
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
 	BootstrapPeers:     []string{}, // see init
-	DialTimeout:        10 * time.Second,
+	DialTimeout:        30 * time.Second,
 	WorkerCount:        500,
 	CrawlLimit:         0,
 	MinPingInterval:    time.Second * 30,

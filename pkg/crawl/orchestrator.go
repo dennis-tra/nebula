@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -80,11 +81,29 @@ type Orchestrator struct {
 	AgentVersion   map[string]int
 	AgentVersionLk sync.RWMutex
 
+	Protocols   map[string]int
+	ProtocolsLk sync.RWMutex
+
 	// The list of worker node references.
 	workers []*Worker
 
 	// A map of errors that happened during the crawl.
-	Errors sync.Map
+	Errors   map[string]int
+	ErrorsLk sync.RWMutex
+}
+
+// knownErrors contains a list of known errors. Property key + string to match for
+var knownErrors = map[string]string{
+	"io_timeout":                 "i/o timeout",
+	"connection_refused":         "connection refused",
+	"protocol_not_supported":     "protocol not supported",
+	"peer_id_mismatch":           "peer id mismatch",
+	"no_route_to_host":           "no route to host",
+	"network_unreachable":        "network is unreachable",
+	"no_good_addresses":          "no good addresses",
+	"context_deadline_exceeded":  "context deadline exceeded",
+	"no_public_ip":               "no public IP address",
+	"max_dial_attempts_exceeded": "max dial attempts exceeded",
 }
 
 func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
@@ -118,6 +137,8 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 		crawlQueue:        make(chan peer.AddrInfo),
 		resultsQueue:      make(chan CrawlResult),
 		AgentVersion:      map[string]int{},
+		Protocols:         map[string]int{},
+		Errors:            map[string]int{},
 		workers:           []*Worker{},
 	}
 	return p, nil
@@ -220,15 +241,19 @@ func (o *Orchestrator) Shutdown() {
 	}
 
 	o.AgentVersionLk.Lock()
+	o.ProtocolsLk.Lock()
+	o.ErrorsLk.Lock()
 	defer o.AgentVersionLk.Unlock()
+	defer o.ProtocolsLk.Unlock()
+	defer o.ErrorsLk.Unlock()
 
 	ppfull := map[string]int{}
 	ppcore := map[string]int{}
 	for version, count := range o.AgentVersion {
+		ppfull[version] += count
+
 		matches := agentVersionRegex.FindStringSubmatch(version)
-		if matches == nil {
-			ppfull[version] += count
-		} else {
+		if matches != nil {
 			ppcore[matches[1]] += count
 		}
 	}
@@ -238,6 +263,7 @@ func (o *Orchestrator) Shutdown() {
 		log.WithError(err).Warnln("Could not start txn")
 		return
 	}
+
 	for version, count := range ppfull {
 		pp := &models.PeerProperty{
 			Property: "agent_version",
@@ -251,6 +277,7 @@ func (o *Orchestrator) Shutdown() {
 			continue
 		}
 	}
+
 	for version, count := range ppcore {
 		pp := &models.PeerProperty{
 			Property: "agent_version_core",
@@ -264,8 +291,37 @@ func (o *Orchestrator) Shutdown() {
 			continue
 		}
 	}
+
+	for p, count := range o.Protocols {
+		pp := &models.PeerProperty{
+			Property: "protocol",
+			Value:    p,
+			Count:    count,
+			CrawlID:  crawl.ID,
+		}
+		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		if err != nil {
+			log.WithError(err).Warnln("Could not insert peer property txn")
+			continue
+		}
+	}
+
+	for errKey, count := range o.Errors {
+		pp := &models.PeerProperty{
+			Property: "error",
+			Value:    errKey,
+			Count:    count,
+			CrawlID:  crawl.ID,
+		}
+		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		if err != nil {
+			log.WithError(err).Warnln("Could not insert peer property txn")
+			continue
+		}
+	}
+
 	if err = txn.Commit(); err != nil {
-		log.WithError(err).Warnln()
+		log.WithError(err).Warnln("Could not commit transaction")
 	} else {
 		log.Infoln("Saved peer properties")
 	}
@@ -286,7 +342,6 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 	}
 	stats.Record(o.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
 
-	ctx := o.ServiceContext()
 	o.crawled.Store(cr.Peer.ID, true)
 	o.crawledCount.Inc()
 	o.inCrawlQueue.Delete(cr.Peer.ID)
@@ -300,11 +355,31 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 	}
 	o.AgentVersionLk.Unlock()
 
-	stats.Record(ctx, metrics.CrawledPeersCount.M(1))
+	o.ProtocolsLk.Lock()
+	for _, p := range cr.Protocols {
+		o.Protocols[p] += 1
+	}
+	o.ProtocolsLk.Unlock()
+	stats.Record(o.ServiceContext(), metrics.CrawledPeersCount.M(1))
 
 	if cr.Error != nil {
-		o.Errors.Store(cr.Error.Error(), cr.Error.Error())
 		o.crawlErrors.Inc()
+
+		o.ErrorsLk.Lock()
+		known := false
+		for errKey, errStr := range knownErrors {
+			if strings.Contains(cr.Error.Error(), errStr) {
+				o.Errors[errKey] += 1
+				known = true
+				break
+			}
+		}
+		if !known {
+			o.Errors["unknown"] += 1
+			logEntry = logEntry.WithError(cr.Error)
+		}
+		o.ErrorsLk.Unlock()
+
 		logEntry.WithError(cr.Error).Debugln("Error crawling peer")
 	} else {
 		for _, pi := range cr.Neighbors {

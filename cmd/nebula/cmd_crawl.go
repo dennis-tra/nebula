@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
@@ -93,15 +91,6 @@ func CrawlAction(c *cli.Context) error {
 	case <-o.SigDone():
 		// the orchestrator finished autonomously
 	}
-
-	// Temporary code: save all errors that were encountered
-	f, _ := os.Create("errors.txt")
-	o.Errors.Range(func(errorStr, value interface{}) bool {
-		fmt.Fprintf(f, "%s\n", errorStr)
-		return true
-	})
-	f.Close()
-	// Temporary code: save all errors that were encountered
 
 	return nil
 }

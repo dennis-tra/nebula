@@ -8,9 +8,11 @@ var TableNames = struct {
 	PeerProperties string
 	Peers          string
 	Sessions       string
+	Test           string
 }{
 	Crawls:         "crawls",
 	PeerProperties: "peer_properties",
 	Peers:          "peers",
 	Sessions:       "sessions",
+	Test:           "test",
 }

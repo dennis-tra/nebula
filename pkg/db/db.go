@@ -74,12 +74,12 @@ ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
  updated_at           = EXCLUDED.updated_at,
  next_dial_attempt    = 
   CASE
-	 WHEN 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < '30s'::interval THEN
+	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < '30s'::interval THEN
 		EXCLUDED.last_successful_dial + '30s'::interval
-	 WHEN 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '1d'::interval THEN
+	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '1d'::interval THEN
 		EXCLUDED.last_successful_dial + '1d'::interval
 	 ELSE
-        EXCLUDED.last_successful_dial + 1.2 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
+        EXCLUDED.last_successful_dial + 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
   END;
 `
 	rows, err := queries.Raw(query, peerID).Query(dbh)
