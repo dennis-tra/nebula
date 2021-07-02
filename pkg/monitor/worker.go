@@ -33,9 +33,6 @@ type PingResult struct {
 
 	// Whether the pinged peer is alive
 	Alive bool
-
-	// Any error that has occurred during the crawl
-	Error error
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
