@@ -97,14 +97,26 @@ func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan Pi
 				continue
 			}
 
+			done := make(chan struct{})
+			go func() {
+				select {
+				case <-done:
+				case <-w.SigShutdown():
+					pinger.Stop()
+				}
+			}()
+
 			pinger.Timeout = w.config.DialTimeout
 			pinger.Count = 1
 
 			logEntry.WithField("addr", addr).Debugln("Pinging peer")
 			if err = pinger.Run(); err != nil {
 				logEntry.WithError(err).WithField("addr", addr).Debugln("Error running pinger")
+				close(done)
 				continue
 			}
+			close(done)
+
 			if pinger.PacketsRecv > 0 {
 				pr.Alive = true
 				break

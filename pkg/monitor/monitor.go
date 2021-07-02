@@ -185,7 +185,7 @@ func (m *Monitor) StartMonitoring() error {
 				log.WithField("peerID", session.R.Peer.ID).WithError(err).Warnln("Could not parse peer ID")
 				continue
 			}
-			logEntry := log.WithField("peerID", peerID.Pretty())
+			logEntry := log.WithField("peerID", peerID.Pretty()[:16])
 
 			// Parse multi addresses from database
 			pi := peer.AddrInfo{ID: peerID}
