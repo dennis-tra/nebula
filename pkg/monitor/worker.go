@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -107,9 +108,17 @@ func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan Pi
 			if pinger.PacketsRecv > 0 {
 				pr.Alive = true
 				break
-			} else {
-				logEntry.WithField("addr", addr).Traceln("Pinged peer unreachable under this address")
 			}
+			logEntry.WithField("addr", addr).Debugln("Peer not responding to ping, trying proper connect")
+
+			ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
+			if err = w.host.Connect(ctx, pi); err == nil {
+				pr.Alive = true
+				cancel()
+				break
+			}
+			cancel()
+			logEntry.WithField("addr", addr).Debugln("Also cannot properly connect to peer")
 		}
 
 		select {

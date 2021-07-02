@@ -216,7 +216,7 @@ func (m *Monitor) StartMonitoring() error {
 		}
 
 		select {
-		case <-time.Tick(30 * time.Second):
+		case <-time.Tick(10 * time.Second):
 		case <-m.SigShutdown():
 			return nil
 		}
