@@ -137,7 +137,7 @@ func (m *Monitor) StartMonitoring() error {
 				logEntry.Traceln("Pinged peer still reachable")
 				err = db.UpsertSessionSuccess(m.dbh, pr.Peer.ID.Pretty())
 			} else {
-				logEntry.Traceln("Pinged peer unreachable not reachable anymore")
+				logEntry.Traceln("Pinged peer not reachable anymore")
 				err = db.UpsertSessionError(m.dbh, pr.Peer.ID.Pretty())
 			}
 
@@ -165,8 +165,8 @@ func (m *Monitor) StartMonitoring() error {
 		}
 
 		// Get sessions from the database and do nothing on error, just wait
-		log.Infoln("Fetching sessions from database...")
-		sessions, err := db.FetchDueSessions(m.ServiceContext(), m.dbh)
+		log.Infoln("Fetching due sessions from database...")
+		dueSessions, err := db.FetchDueSessions(m.ServiceContext(), m.dbh)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch due sessions")
 			continue
@@ -174,10 +174,22 @@ func (m *Monitor) StartMonitoring() error {
 			log.Infoln("No sessions due to ping")
 			continue
 		}
-		log.Infof("Found %d due sessions\n", len(sessions))
+		log.Infof("Found %d due sessions\n", len(dueSessions))
+
+		// Get sessions from the database and do nothing on error, just wait
+		log.Infoln("Fetching recently finished sessions from database...")
+		recentlyFinishedSessions, err := db.FetchRecentlyGoneSessions(m.ServiceContext(), m.dbh)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.WithError(err).Warnln("Could not fetch recently finished sessions")
+			continue
+		} else if errors.Is(err, sql.ErrNoRows) {
+			log.Infoln("No recently finished sessions to ping")
+			continue
+		}
+		log.Infof("Found %d recently finished sessions\n", len(recentlyFinishedSessions))
 
 		// For every due session schedule that it gets pushed into the pingQueue
-		for _, session := range sessions {
+		for _, session := range append(dueSessions, recentlyFinishedSessions...) {
 
 			// Parse peer ID from database
 			peerID, err := peer.Decode(session.R.Peer.ID)
@@ -200,12 +212,12 @@ func (m *Monitor) StartMonitoring() error {
 
 			select {
 			case <-m.SigShutdown():
-				log.Debugln("Skipping dispatch as monitor shuts down")
+				log.Infoln("Skipping dispatch as monitor shuts down")
 				return nil
 			default:
 				// Check if peer is already in ping queue
 				if _, inPingQueue := m.inPingQueue.LoadOrStore(peerID, pi); inPingQueue {
-					logEntry.Debugln("Peer already in ping queue")
+					logEntry.Infoln("Peer already in ping queue")
 					continue
 				}
 				// Schedule ping for peer

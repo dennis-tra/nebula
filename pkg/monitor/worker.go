@@ -103,8 +103,12 @@ func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan Pi
 				}
 			}()
 
+			pinger.OnRecv = func(packet *ping.Packet) {
+				pinger.Stop()
+			}
+
 			pinger.Timeout = w.config.DialTimeout
-			pinger.Count = 1
+			pinger.Count = 5
 
 			logEntry.WithField("addr", addr).Debugln("Pinging peer")
 			if err = pinger.Run(); err != nil {
