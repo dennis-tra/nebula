@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/protocol"
+
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -27,8 +29,8 @@ var workerID = atomic.NewInt32(0)
 
 var runningWorkers = atomic.NewInt32(0)
 
-// CrawlResult captures data that is gathered from crawling a single peer.
-type CrawlResult struct {
+// Result captures data that is gathered from crawling a single peer.
+type Result struct {
 	WorkerID string
 
 	// The crawled peer
@@ -89,7 +91,7 @@ func (w *Worker) Shutdown() {
 	log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)
 }
 
-func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan CrawlResult) {
+func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
@@ -100,7 +102,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 		logEntry.Debugln("Crawling peer ", pi.ID.Pretty()[:16])
 		stats.Record(ctx, metrics.WorkersWorkingCount.M(float64(runningWorkers.Inc())))
 
-		cr := CrawlResult{
+		cr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     filterPrivateMaddrs(pi),
 		}

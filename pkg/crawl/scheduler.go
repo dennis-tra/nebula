@@ -12,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -31,8 +30,7 @@ const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prere
 
 var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 
-// The Scheduler handles the scheduling and managing of worker
-// that crawl the network. I'm still not quite happy with that name...
+// The Scheduler handles the scheduling and managing of workers that crawl the network.
 type Scheduler struct {
 	// Service represents an entity that runs in a
 	// separate go routine and where its lifecycle
@@ -69,8 +67,8 @@ type Scheduler struct {
 	crawlQueue chan peer.AddrInfo
 
 	// The queue that the workers publish their crawl results on, so that the
-	// orchestrator can handle them, e.g. update the maps above etc.
-	resultsQueue chan CrawlResult
+	// scheduler can handle them, e.g. update the maps above etc.
+	resultsQueue chan Result
 
 	AgentVersion   map[string]int
 	AgentVersionLk sync.RWMutex
@@ -120,7 +118,7 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	p := &Scheduler{
-		Service:           service.New("orchestrator"),
+		Service:           service.New("scheduler"),
 		host:              h,
 		dbh:               dbh,
 		config:            conf,
@@ -129,7 +127,7 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 		crawled:           sync.Map{},
 		crawledCount:      atomic.Uint32{},
 		crawlQueue:        make(chan peer.AddrInfo),
-		resultsQueue:      make(chan CrawlResult),
+		resultsQueue:      make(chan Result),
 		AgentVersion:      map[string]int{},
 		Protocols:         map[string]int{},
 		Errors:            map[string]int{},
@@ -163,14 +161,14 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		s.dispatchCrawl(b)
 	}
 
-	// Block until the orchestrator shuts down.
+	// Block until the scheduler shuts down.
 	<-s.SigShutdown()
 
 	s.Cleanup()
 	return nil
 }
 
-// Cleanup handles the release of all resources allocated by the orchestrator.
+// Cleanup handles the release of all resources allocated by the scheduler.
 func (s *Scheduler) Cleanup() {
 	// drain crawl queue
 OUTER:
@@ -321,7 +319,7 @@ func (s *Scheduler) Shutdown() {
 	}
 }
 
-func (s *Scheduler) handleCrawlResult(cr CrawlResult) {
+func (s *Scheduler) handleCrawlResult(cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"workerID": cr.WorkerID,
 		"targetID": cr.Peer.ID.Pretty()[:16],
@@ -422,7 +420,7 @@ func (s *Scheduler) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dia
 func (s *Scheduler) dispatchCrawl(pi peer.AddrInfo) {
 	select {
 	case <-s.SigShutdown():
-		log.Debugln("Skipping dispatch as orchestrator shuts down")
+		log.Debugln("Skipping dispatch as scheduler shuts down")
 		return
 	default:
 		s.inCrawlQueue.Store(pi.ID, true)

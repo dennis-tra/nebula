@@ -76,16 +76,16 @@ func CrawlAction(c *cli.Context) error {
 		return errors.Wrap(err, "parsing multi addresses to peer addresses")
 	}
 
-	// Initialize orchestrator that handles crawling the network.
+	// Initialize scheduler that handles crawling the network.
 	o, _ := crawl.NewScheduler(c.Context, dbh)
 	go o.CrawlNetwork(pis)
 
 	select {
 	case <-c.Context.Done():
-		// Nebula was asked to stop (e.g. SIGINT) -> tell the orchestrator to stop
+		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
 		o.Shutdown()
 	case <-o.SigDone():
-		// the orchestrator finished autonomously
+		// the scheduler finished autonomously
 	}
 
 	return nil

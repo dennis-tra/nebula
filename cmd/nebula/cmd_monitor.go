@@ -55,7 +55,7 @@ func MonitorAction(c *cli.Context) error {
 		return errors.Wrap(err, "initialize metrics")
 	}
 
-	// Initialize orchestrator that handles crawling the network.
+	// Initialize the monitoring task
 	m, _ := monitor.NewMonitor(c.Context, dbh)
 	go m.StartMonitoring()
 
