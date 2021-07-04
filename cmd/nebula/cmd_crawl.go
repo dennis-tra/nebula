@@ -77,7 +77,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize orchestrator that handles crawling the network.
-	o, _ := crawl.NewOrchestrator(c.Context, dbh)
+	o, _ := crawl.NewScheduler(c.Context, dbh)
 	go o.CrawlNetwork(pis)
 
 	select {

@@ -37,9 +37,9 @@ var (
 	}
 )
 
-// The Orchestrator handles the scheduling and managing of worker
+// The Scheduler handles the scheduling and managing of worker
 // that crawl the network. I'm still not quite happy with that name...
-type Orchestrator struct {
+type Scheduler struct {
 	// Service represents an entity that runs in a
 	// separate go routine and where its lifecycle
 	// needs to be handled externally.
@@ -106,7 +106,7 @@ var knownErrors = map[string]string{
 	"max_dial_attempts_exceeded": "max dial attempts exceeded",
 }
 
-func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
+func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
 	// TODO: is the key pair really necessary? see "weak keys" handling in weizenbaum crawler.
@@ -125,7 +125,7 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 		return nil, err
 	}
 
-	p := &Orchestrator{
+	p := &Scheduler{
 		Service:           service.New("orchestrator"),
 		host:              h,
 		dbh:               dbh,
@@ -146,52 +146,52 @@ func NewOrchestrator(ctx context.Context, dbh *sql.DB) (*Orchestrator, error) {
 
 // CrawlNetwork starts the configured amount of workers and fills
 // the worker queue with bootstrap nodes to start with.
-func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
-	o.ServiceStarted()
-	defer o.ServiceStopped()
+func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
+	s.ServiceStarted()
+	defer s.ServiceStopped()
 
 	// Handle the results of crawls of a particular node in a separate go routine
 	// TODO: handle sync here and get rid of sync.Map/atomic.Int32?
-	go o.handleCrawlResults()
+	go s.handleCrawlResults()
 
 	// Start all workers
-	for i := 0; i < o.config.CrawlWorkerCount; i++ {
-		w, err := NewWorker(o.host, o.config)
+	for i := 0; i < s.config.CrawlWorkerCount; i++ {
+		w, err := NewWorker(s.host, s.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
 		}
-		o.workers = append(o.workers, w)
-		go w.StartCrawling(o.crawlQueue, o.resultsQueue)
+		s.workers = append(s.workers, w)
+		go w.StartCrawling(s.crawlQueue, s.resultsQueue)
 	}
 
 	// Fill the queue with bootstrap nodes
 	for _, b := range bootstrap {
-		o.dispatchCrawl(b)
+		s.dispatchCrawl(b)
 	}
 
 	// Block until the orchestrator shuts down.
-	<-o.SigShutdown()
+	<-s.SigShutdown()
 
-	o.Cleanup()
+	s.Cleanup()
 	return nil
 }
 
 // Cleanup handles the release of all resources allocated by the orchestrator.
-func (o *Orchestrator) Cleanup() {
+func (s *Scheduler) Cleanup() {
 	// drain crawl queue
 OUTER:
 	for {
 		select {
-		case pi := <-o.crawlQueue:
+		case pi := <-s.crawlQueue:
 			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
 		default:
 			break OUTER
 		}
 	}
-	close(o.crawlQueue)
+	close(s.crawlQueue)
 
 	var wg sync.WaitGroup
-	for _, w := range o.workers {
+	for _, w := range s.workers {
 		wg.Add(1)
 		go func(w *Worker) {
 			w.Shutdown()
@@ -201,55 +201,55 @@ OUTER:
 	wg.Wait()
 
 	// After all workers have stopped and won't send any results we can close the results channel.
-	close(o.resultsQueue)
+	close(s.resultsQueue)
 }
 
-func (o *Orchestrator) handleCrawlResults() {
-	for result := range o.resultsQueue {
-		o.handleCrawlResult(result)
+func (s *Scheduler) handleCrawlResults() {
+	for result := range s.resultsQueue {
+		s.handleCrawlResult(result)
 	}
 }
 
-func (o *Orchestrator) Shutdown() {
-	defer o.Service.Shutdown()
+func (s *Scheduler) Shutdown() {
+	defer s.Service.Shutdown()
 
 	log.WithFields(log.Fields{
-		"crawledPeers":    o.crawledCount.Load(),
-		"crawlDuration":   time.Now().Sub(o.StartTime).String(),
-		"dialablePeers":   o.crawledCount.Load() - o.crawlErrors.Load(),
-		"undialablePeers": o.crawlErrors.Load(),
+		"crawledPeers":    s.crawledCount.Load(),
+		"crawlDuration":   time.Now().Sub(s.StartTime).String(),
+		"dialablePeers":   s.crawledCount.Load() - s.crawlErrors.Load(),
+		"undialablePeers": s.crawlErrors.Load(),
 	}).Infoln("Successfully finished crawl")
 
 	// The Database handler can be null if it's a dry run
-	if o.dbh == nil {
+	if s.dbh == nil {
 		return
 	}
 	log.Infoln("Saving crawl results to database")
 
 	crawl := &models.Crawl{
-		StartedAt:       o.StartTime,
+		StartedAt:       s.StartTime,
 		FinishedAt:      time.Now(),
-		CrawledPeers:    int(o.crawledCount.Load()),
-		DialablePeers:   int(o.crawledCount.Load() - o.crawlErrors.Load()),
-		UndialablePeers: int(o.crawlErrors.Load()),
+		CrawledPeers:    int(s.crawledCount.Load()),
+		DialablePeers:   int(s.crawledCount.Load() - s.crawlErrors.Load()),
+		UndialablePeers: int(s.crawlErrors.Load()),
 	}
 
-	err := crawl.Insert(o.ServiceContext(), o.dbh, boil.Infer())
+	err := crawl.Insert(s.ServiceContext(), s.dbh, boil.Infer())
 	if err != nil {
 		log.WithError(err).Warnln("Could not save crawl result")
 		return
 	}
 
-	o.AgentVersionLk.Lock()
-	o.ProtocolsLk.Lock()
-	o.ErrorsLk.Lock()
-	defer o.AgentVersionLk.Unlock()
-	defer o.ProtocolsLk.Unlock()
-	defer o.ErrorsLk.Unlock()
+	s.AgentVersionLk.Lock()
+	s.ProtocolsLk.Lock()
+	s.ErrorsLk.Lock()
+	defer s.AgentVersionLk.Unlock()
+	defer s.ProtocolsLk.Unlock()
+	defer s.ErrorsLk.Unlock()
 
 	ppfull := map[string]int{}
 	ppcore := map[string]int{}
-	for version, count := range o.AgentVersion {
+	for version, count := range s.AgentVersion {
 		ppfull[version] += count
 
 		matches := agentVersionRegex.FindStringSubmatch(version)
@@ -258,7 +258,7 @@ func (o *Orchestrator) Shutdown() {
 		}
 	}
 
-	txn, err := o.dbh.BeginTx(o.ServiceContext(), nil)
+	txn, err := s.dbh.BeginTx(s.ServiceContext(), nil)
 	if err != nil {
 		log.WithError(err).Warnln("Could not start txn")
 		return
@@ -271,7 +271,7 @@ func (o *Orchestrator) Shutdown() {
 			Count:    count,
 			CrawlID:  crawl.ID,
 		}
-		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
 		if err != nil {
 			log.WithError(err).Warnln("Could not insert peer property txn")
 			continue
@@ -285,35 +285,35 @@ func (o *Orchestrator) Shutdown() {
 			Count:    count,
 			CrawlID:  crawl.ID,
 		}
-		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
 		if err != nil {
 			log.WithError(err).Warnln("Could not insert peer property txn")
 			continue
 		}
 	}
 
-	for p, count := range o.Protocols {
+	for p, count := range s.Protocols {
 		pp := &models.PeerProperty{
 			Property: "protocol",
 			Value:    p,
 			Count:    count,
 			CrawlID:  crawl.ID,
 		}
-		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
 		if err != nil {
 			log.WithError(err).Warnln("Could not insert peer property txn")
 			continue
 		}
 	}
 
-	for errKey, count := range o.Errors {
+	for errKey, count := range s.Errors {
 		pp := &models.PeerProperty{
 			Property: "error",
 			Value:    errKey,
 			Count:    count,
 			CrawlID:  crawl.ID,
 		}
-		err = pp.Insert(o.ServiceContext(), txn, boil.Infer())
+		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
 		if err != nil {
 			log.WithError(err).Warnln("Could not insert peer property txn")
 			continue
@@ -327,7 +327,7 @@ func (o *Orchestrator) Shutdown() {
 	}
 }
 
-func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
+func (s *Scheduler) handleCrawlResult(cr CrawlResult) {
 	logEntry := log.WithFields(log.Fields{
 		"workerID": cr.WorkerID,
 		"targetID": cr.Peer.ID.Pretty()[:16],
@@ -336,88 +336,88 @@ func (o *Orchestrator) handleCrawlResult(cr CrawlResult) {
 
 	// TODO: Another go routine?
 	startUpsert := time.Now()
-	err := o.upsertCrawlResult(cr.Peer.ID, cr.Peer.Addrs, cr.Error)
+	err := s.upsertCrawlResult(cr.Peer.ID, cr.Peer.Addrs, cr.Error)
 	if err != nil {
 		log.WithError(err).Warnln("Could not update peer")
 	}
-	stats.Record(o.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
+	stats.Record(s.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
 
-	o.crawled.Store(cr.Peer.ID, true)
-	o.crawledCount.Inc()
-	o.inCrawlQueue.Delete(cr.Peer.ID)
-	stats.Record(o.ServiceContext(), metrics.PeersToCrawlCount.M(float64(o.inCrawlQueueCount.Dec())))
+	s.crawled.Store(cr.Peer.ID, true)
+	s.crawledCount.Inc()
+	s.inCrawlQueue.Delete(cr.Peer.ID)
+	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(s.inCrawlQueueCount.Dec())))
 
-	o.AgentVersionLk.Lock()
+	s.AgentVersionLk.Lock()
 	if cr.Agent != "" {
-		o.AgentVersion[cr.Agent] += 1
+		s.AgentVersion[cr.Agent] += 1
 	} else {
-		o.AgentVersion["n.a."] += 1
+		s.AgentVersion["n.a."] += 1
 	}
-	o.AgentVersionLk.Unlock()
+	s.AgentVersionLk.Unlock()
 
-	o.ProtocolsLk.Lock()
+	s.ProtocolsLk.Lock()
 	for _, p := range cr.Protocols {
-		o.Protocols[p] += 1
+		s.Protocols[p] += 1
 	}
-	o.ProtocolsLk.Unlock()
-	stats.Record(o.ServiceContext(), metrics.CrawledPeersCount.M(1))
+	s.ProtocolsLk.Unlock()
+	stats.Record(s.ServiceContext(), metrics.CrawledPeersCount.M(1))
 
 	if cr.Error != nil {
-		o.crawlErrors.Inc()
+		s.crawlErrors.Inc()
 
-		o.ErrorsLk.Lock()
+		s.ErrorsLk.Lock()
 		known := false
 		for errKey, errStr := range knownErrors {
 			if strings.Contains(cr.Error.Error(), errStr) {
-				o.Errors[errKey] += 1
+				s.Errors[errKey] += 1
 				known = true
 				break
 			}
 		}
 		if !known {
-			o.Errors["unknown"] += 1
+			s.Errors["unknown"] += 1
 			logEntry = logEntry.WithError(cr.Error)
 		}
-		o.ErrorsLk.Unlock()
+		s.ErrorsLk.Unlock()
 
 		logEntry.WithError(cr.Error).Debugln("Error crawling peer")
 	} else {
 		for _, pi := range cr.Neighbors {
-			_, inCrawlQueue := o.inCrawlQueue.Load(pi.ID)
-			_, crawled := o.crawled.Load(pi.ID)
+			_, inCrawlQueue := s.inCrawlQueue.Load(pi.ID)
+			_, crawled := s.crawled.Load(pi.ID)
 			if !inCrawlQueue && !crawled {
-				o.dispatchCrawl(pi)
+				s.dispatchCrawl(pi)
 			}
 		}
 	}
 
 	logEntry.WithFields(map[string]interface{}{
-		"inCrawlQueue": o.inCrawlQueueCount.Load(),
-		"crawled":      o.crawledCount.Load(),
+		"inCrawlQueue": s.inCrawlQueueCount.Load(),
+		"crawled":      s.crawledCount.Load(),
 	}).Infoln("Handled crawl result from worker", cr.WorkerID)
 
-	if o.inCrawlQueueCount.Load() == 0 || (o.config.CrawlLimit > 0 && int(o.crawledCount.Load()) >= o.config.CrawlLimit) {
-		o.Shutdown()
+	if s.inCrawlQueueCount.Load() == 0 || (s.config.CrawlLimit > 0 && int(s.crawledCount.Load()) >= s.config.CrawlLimit) {
+		s.Shutdown()
 	}
 }
 
 // upsertCrawlResult inserts the given peer with its multi addresses in the database and
 // upserts its currently active session
-func (o *Orchestrator) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dialErr error) error {
+func (s *Scheduler) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dialErr error) error {
 	// Check if we're in a dry-run
-	if o.dbh == nil {
+	if s.dbh == nil {
 		return nil
 	}
 
 	if dialErr == nil {
-		if err := db.UpsertPeer(o.ServiceContext(), o.dbh, peerID.Pretty(), maddrs); err != nil {
+		if err := db.UpsertPeer(s.ServiceContext(), s.dbh, peerID.Pretty(), maddrs); err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}
-		if err := db.UpsertSessionSuccess(o.dbh, peerID.Pretty()); err != nil {
+		if err := db.UpsertSessionSuccess(s.dbh, peerID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}
-	} else if dialErr != o.ServiceContext().Err() {
-		if err := db.UpsertSessionError(o.dbh, peerID.Pretty()); err != nil {
+	} else if dialErr != s.ServiceContext().Err() {
+		if err := db.UpsertSessionError(s.dbh, peerID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session error")
 		}
 	}
@@ -425,14 +425,14 @@ func (o *Orchestrator) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, 
 	return nil
 }
 
-func (o *Orchestrator) dispatchCrawl(pi peer.AddrInfo) {
+func (s *Scheduler) dispatchCrawl(pi peer.AddrInfo) {
 	select {
-	case <-o.SigShutdown():
+	case <-s.SigShutdown():
 		log.Debugln("Skipping dispatch as orchestrator shuts down")
 		return
 	default:
-		o.inCrawlQueue.Store(pi.ID, true)
-		stats.Record(o.ServiceContext(), metrics.PeersToCrawlCount.M(float64(o.inCrawlQueueCount.Inc())))
-		go func() { o.crawlQueue <- pi }()
+		s.inCrawlQueue.Store(pi.ID, true)
+		stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(s.inCrawlQueueCount.Inc())))
+		go func() { s.crawlQueue <- pi }()
 	}
 }
