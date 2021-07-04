@@ -71,7 +71,6 @@ var (
 	ConnectDuration             = stats.Float64("connect_duration", "Duration of connecting to peers", stats.UnitMilliseconds)
 	ConnectsCount               = stats.Float64("connects_count", "Number of connection establishment attempts", stats.UnitDimensionless)
 	ConnectErrorsCount          = stats.Float64("connect_errors_count", "Number of successful connection establishment errors", stats.UnitDimensionless)
-	WorkersWorkingCount         = stats.Float64("workers_working_count", "Number of workers that are currently working", stats.UnitDimensionless)
 	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
 	FetchedNeighborsCount       = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
 	CrawledPeersCount           = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
@@ -96,10 +95,6 @@ var (
 	ConnectErrorsCountView = &view.View{
 		Measure:     ConnectErrorsCount,
 		Aggregation: view.Count(),
-	}
-	WorkersWorkingCountView = &view.View{
-		Measure:     WorkersWorkingCount,
-		Aggregation: view.LastValue(),
 	}
 	FetchNeighborsDurationView = &view.View{
 		Measure:     FetchNeighborsDuration,
@@ -146,7 +141,6 @@ var DefaultCrawlViews = []*view.View{
 	ConnectDurationView,
 	ConnectsCountView,
 	ConnectErrorsCountView,
-	WorkersWorkingCountView,
 	FetchNeighborsDurationView,
 	FetchedNeighborsCountView,
 	CrawledPeersCountView,

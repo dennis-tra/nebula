@@ -27,8 +27,6 @@ import (
 
 var workerID = atomic.NewInt32(0)
 
-var runningWorkers = atomic.NewInt32(0)
-
 // Result captures data that is gathered from crawling a single peer.
 type Result struct {
 	WorkerID string
@@ -59,6 +57,7 @@ type Worker struct {
 	crawledPeers int
 }
 
+// NewWorker initializes a new worker based on the given configuration.
 func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 	ms := &msgSender{
 		h:         h,
@@ -82,14 +81,7 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 	return c, nil
 }
 
-func millisSince(start time.Time) float64 {
-	return float64(time.Since(start)) / float64(time.Millisecond)
-}
-
-func (w *Worker) Shutdown() {
-	defer w.Service.Shutdown()
-}
-
+// StartCrawling reads from the given crawl queue and publishes the results on the results queue until interrupted.
 func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
@@ -97,38 +89,10 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 
 	ctx := w.ServiceContext()
 	for pi := range crawlQueue {
-		start := time.Now()
 		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
 		logEntry.Debugln("Crawling peer ", pi.ID.Pretty()[:16])
-		stats.Record(ctx, metrics.WorkersWorkingCount.M(float64(runningWorkers.Inc())))
 
-		cr := Result{
-			WorkerID: w.Identifier(),
-			Peer:     filterPrivateMaddrs(pi),
-			Agent:    "n.a.",
-		}
-
-		cr.Error = w.connect(ctx, pi)
-		if cr.Error == nil {
-			// Extract agent
-			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
-				cr.Agent = agent.(string)
-			}
-
-			// Extract protocols
-			if protocols, err := w.host.Peerstore().GetProtocols(pi.ID); err == nil {
-				cr.Protocols = protocols
-			}
-
-			// Fetch all neighbors
-			cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
-		}
-
-		if err := w.host.Network().ClosePeer(pi.ID); err != nil {
-			log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
-		}
-
-		w.crawledPeers++
+		cr := w.crawlPeer(ctx, pi)
 
 		select {
 		case resultsQueue <- cr:
@@ -136,18 +100,51 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 			return
 		}
 
-		stats.Record(ctx,
-			metrics.WorkersWorkingCount.M(float64(runningWorkers.Dec())),
-			metrics.PeerCrawlDuration.M(millisSince(start)),
-		)
-
-		select {
-		case <-w.SigShutdown():
-			return
-		default:
-		}
 		logEntry.Debugln("Crawled peer ", pi.ID.Pretty()[:16])
 	}
+}
+
+func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
+	start := time.Now()
+	defer stats.Record(ctx, metrics.PeerCrawlDuration.M(millisSince(start)))
+
+	cr := Result{
+		WorkerID: w.Identifier(),
+		Peer:     filterPrivateMaddrs(pi),
+		Agent:    "n.a.",
+	}
+
+	cr.Error = w.connect(ctx, pi)
+	if cr.Error == nil {
+
+		ps := w.host.Peerstore()
+
+		// Extract agent
+		if agent, err := ps.Get(pi.ID, "AgentVersion"); err == nil {
+			cr.Agent = agent.(string)
+		}
+
+		// Extract protocols
+		if protocols, err := ps.GetProtocols(pi.ID); err == nil {
+			cr.Protocols = protocols
+		}
+
+		// Fetch all neighbors
+		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
+	}
+
+	if err := w.host.Network().ClosePeer(pi.ID); err != nil {
+		log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
+	}
+
+	w.crawledPeers++
+
+	return cr
+}
+
+// millisSince returns the number of milliseconds between now and the given time.
+func millisSince(start time.Time) float64 {
+	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
 // connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
