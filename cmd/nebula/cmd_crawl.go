@@ -63,7 +63,10 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Start prometheus metrics endpoint
-	if err = metrics.RegisterListenAndServe(conf.PrometheusHost, conf.PrometheusPort, "crawl"); err != nil {
+	if err = metrics.RegisterCrawlMetrics(); err != nil {
+		return err
+	}
+	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
 		return errors.Wrap(err, "initialize metrics")
 	}
 

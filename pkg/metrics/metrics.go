@@ -14,28 +14,31 @@ import (
 	"go.opencensus.io/tag"
 )
 
-func RegisterListenAndServe(host string, port int, cmd string) error {
-	pe, err := prometheus.NewExporter(prometheus.Options{
-		Namespace: "nebula",
-	})
-	if err != nil {
-		return errors.Wrap(err, "new prometheus exporter")
+func RegisterCrawlMetrics() error {
+	if err := view.Register(kadmetrics.DefaultViews...); err != nil {
+		return errors.Wrap(err, "register kademlia default views")
 	}
+	if err := view.Register(DefaultCrawlViews...); err != nil {
+		return errors.Wrap(err, "register nebula default crawl views")
+	}
+	return nil
+}
 
-	// Register kademlia metrics
-	if err = view.Register(kadmetrics.DefaultViews...); err != nil {
+func RegisterMonitorMetrics() error {
+	if err := view.Register(kadmetrics.DefaultViews...); err != nil {
 		return errors.Wrap(err, "register kademlia default views")
 	}
 
-	// Register nebula views TODO: don't use cmd string parameter here
-	if cmd == "crawl" {
-		if err = view.Register(DefaultCrawlViews...); err != nil {
-			return errors.Wrap(err, "register nebula default crawl views")
-		}
-	} else if cmd == "monitor" {
-		if err = view.Register(DefaultMonitorViews...); err != nil {
-			return errors.Wrap(err, "register nebula default monitor views")
-		}
+	if err := view.Register(DefaultMonitorViews...); err != nil {
+		return errors.Wrap(err, "register nebula default monitor views")
+	}
+	return nil
+}
+
+func ListenAndServe(host string, port int) error {
+	pe, err := prometheus.NewExporter(prometheus.Options{Namespace: "nebula"})
+	if err != nil {
+		return errors.Wrap(err, "new prometheus exporter")
 	}
 
 	// Enable ocsql metrics with OpenCensus
