@@ -157,7 +157,7 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 
 	pi = filterPrivateMaddrs(pi)
 	if len(pi.Addrs) == 0 {
-		stats.Record(ctx, metrics.ConnectErrors.M(1))
+		stats.Record(ctx, metrics.ConnectErrorsCount.M(1))
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
@@ -165,7 +165,7 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 	defer cancel()
 
 	if err := w.host.Connect(ctx, pi); err != nil {
-		stats.Record(ctx, metrics.ConnectErrors.M(1))
+		stats.Record(ctx, metrics.ConnectErrorsCount.M(1))
 		return err
 	}
 

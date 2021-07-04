@@ -65,18 +65,19 @@ var (
 
 // Measures
 var (
-	ConnectDuration        = stats.Float64("connect_duration", "Duration of connecting to peers", stats.UnitMilliseconds)
-	ConnectsCount          = stats.Float64("connects_count", "Number of connection establishment attempts", stats.UnitDimensionless)
-	ConnectErrors          = stats.Float64("connect_errors_count", "Number of successful connection establishment errors", stats.UnitDimensionless)
-	WorkersWorkingCount    = stats.Float64("workers_working_count", "Number of workers that are currently working", stats.UnitDimensionless)
-	FetchNeighborsDuration = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
-	FetchedNeighborsCount  = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
-	CrawledPeersCount      = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
-	CrawledUpsertDuration  = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
-	PeerCrawlDuration      = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
-	PeerPingDuration       = stats.Float64("peer_ping_duration", "Duration of pinging peers", stats.UnitMilliseconds)
-	PeersToCrawlCount      = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
-	PeersToPingCount       = stats.Float64("peers_to_ping_count", "Number of peers in the queue to ping", stats.UnitDimensionless)
+	ConnectDuration             = stats.Float64("connect_duration", "Duration of connecting to peers", stats.UnitMilliseconds)
+	ConnectsCount               = stats.Float64("connects_count", "Number of connection establishment attempts", stats.UnitDimensionless)
+	ConnectErrorsCount          = stats.Float64("connect_errors_count", "Number of successful connection establishment errors", stats.UnitDimensionless)
+	WorkersWorkingCount         = stats.Float64("workers_working_count", "Number of workers that are currently working", stats.UnitDimensionless)
+	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
+	FetchedNeighborsCount       = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
+	CrawledPeersCount           = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
+	CrawledUpsertDuration       = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
+	PeerCrawlDuration           = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
+	PeerPingDuration            = stats.Float64("peer_ping_duration", "Duration of pinging peers", stats.UnitMilliseconds)
+	PeersToCrawlCount           = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
+	PeersToPingCount            = stats.Float64("peers_to_ping_count", "Number of peers in the queue to ping", stats.UnitDimensionless)
+	PingBlockedDialSuccessCount = stats.Float64("ping_blocked_dial_success_count", "Number of instances where a ping failed but a dial succeeded", stats.UnitDimensionless)
 )
 
 // Views
@@ -89,8 +90,8 @@ var (
 		Measure:     ConnectsCount,
 		Aggregation: view.Count(),
 	}
-	ConnectErrorsView = &view.View{
-		Measure:     ConnectErrors,
+	ConnectErrorsCountView = &view.View{
+		Measure:     ConnectErrorsCount,
 		Aggregation: view.Count(),
 	}
 	WorkersWorkingCountView = &view.View{
@@ -131,13 +132,17 @@ var (
 		Measure:     PeersToPingCount,
 		Aggregation: view.LastValue(),
 	}
+	PingBlockedDialSuccessCountView = &view.View{
+		Measure:     PingBlockedDialSuccessCount,
+		Aggregation: view.Count(),
+	}
 )
 
 // DefaultCrawlViews with all views in it.
 var DefaultCrawlViews = []*view.View{
 	ConnectDurationView,
 	ConnectsCountView,
-	ConnectErrorsView,
+	ConnectErrorsCountView,
 	WorkersWorkingCountView,
 	FetchNeighborsDurationView,
 	FetchedNeighborsCountView,
@@ -151,4 +156,5 @@ var DefaultCrawlViews = []*view.View{
 var DefaultMonitorViews = []*view.View{
 	PeerPingDurationView,
 	PeersToPingCountView,
+	PingBlockedDialSuccessCountView,
 }

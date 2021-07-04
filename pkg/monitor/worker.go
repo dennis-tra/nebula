@@ -123,6 +123,7 @@ func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan Pi
 			ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
 			if err = w.host.Connect(ctx, pi); err == nil {
 				pr.Alive = true
+				stats.Record(ctx, metrics.PingBlockedDialSuccessCount.M(1))
 				go func(cpi peer.AddrInfo) {
 					if err := w.host.Network().ClosePeer(cpi.ID); err != nil {
 						log.WithError(err).WithField("targetID", cpi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
