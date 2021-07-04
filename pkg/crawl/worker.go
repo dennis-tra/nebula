@@ -151,11 +151,11 @@ func millisSince(start time.Time) float64 {
 // It also handles metric capturing.
 func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 	start := time.Now()
-	stats.Record(ctx, metrics.ConnectsCount.M(1))
+	stats.Record(ctx, metrics.CrawlConnectsCount.M(1))
 
 	pi = filterPrivateMaddrs(pi)
 	if len(pi.Addrs) == 0 {
-		stats.Record(ctx, metrics.ConnectErrorsCount.M(1))
+		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
@@ -163,11 +163,11 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
 	defer cancel()
 
 	if err := w.host.Connect(ctx, pi); err != nil {
-		stats.Record(ctx, metrics.ConnectErrorsCount.M(1))
+		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
 		return err
 	}
 
-	stats.Record(w.ServiceContext(), metrics.ConnectDuration.M(millisSince(start)))
+	stats.Record(w.ServiceContext(), metrics.CrawlConnectDuration.M(millisSince(start)))
 	return nil
 }
 

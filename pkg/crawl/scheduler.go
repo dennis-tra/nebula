@@ -132,6 +132,8 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.ServiceStarted()
 	defer s.ServiceStopped()
 
+	s.StartTime = time.Now()
+
 	// Start all workers
 	for i := 0; i < s.config.CrawlWorkerCount; i++ {
 		w, err := NewWorker(s.host, s.config)
@@ -177,21 +179,21 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 }
 
 // readResultsQueue listens for crawl results on the resultsQueue channel and handles any
-// entries in HandleResult. If the scheduler is shut down it schedules a cleanup of resources
+// entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
 func (s *Scheduler) readResultsQueue() {
 	for {
 		select {
 		case result := <-s.resultsQueue:
-			s.HandleResult(result)
+			s.handleResult(result)
 		case <-s.SigShutdown():
 			return
 		}
 	}
 }
 
-// HandleResult takes a crawl result and persist the information in the database and schedules
+// handleResult takes a crawl result and persist the information in the database and schedules
 // new crawls.
-func (s *Scheduler) HandleResult(cr Result) {
+func (s *Scheduler) handleResult(cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"workerID": cr.WorkerID,
 		"targetID": cr.Peer.ID.Pretty()[:16],
@@ -291,7 +293,7 @@ func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 
 // cleanup handles the release of all resources allocated by the scheduler.
 // Make sure to not access any maps here as this is run in a separate
-// go routine from the HandleResult method.
+// go routine from the handleResult method.
 //
 // remove all peers from the crawl queue. There could be pending writes on the crawl
 // queue in scheduleCrawl() that would lead to `panic: send on closed channel` if we

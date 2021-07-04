@@ -16,7 +16,6 @@ func TestParent(t *testing.T) {
 	t.Run("PeerProperties", testPeerProperties)
 	t.Run("Peers", testPeers)
 	t.Run("Sessions", testSessions)
-	t.Run("Tests", testTests)
 }
 
 func TestDelete(t *testing.T) {
@@ -24,7 +23,6 @@ func TestDelete(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesDelete)
 	t.Run("Peers", testPeersDelete)
 	t.Run("Sessions", testSessionsDelete)
-	t.Run("Tests", testTestsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
@@ -32,7 +30,6 @@ func TestQueryDeleteAll(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
 	t.Run("Sessions", testSessionsQueryDeleteAll)
-	t.Run("Tests", testTestsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
@@ -40,7 +37,6 @@ func TestSliceDeleteAll(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
 	t.Run("Sessions", testSessionsSliceDeleteAll)
-	t.Run("Tests", testTestsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
@@ -48,7 +44,6 @@ func TestExists(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesExists)
 	t.Run("Peers", testPeersExists)
 	t.Run("Sessions", testSessionsExists)
-	t.Run("Tests", testTestsExists)
 }
 
 func TestFind(t *testing.T) {
@@ -56,7 +51,6 @@ func TestFind(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesFind)
 	t.Run("Peers", testPeersFind)
 	t.Run("Sessions", testSessionsFind)
-	t.Run("Tests", testTestsFind)
 }
 
 func TestBind(t *testing.T) {
@@ -64,7 +58,6 @@ func TestBind(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesBind)
 	t.Run("Peers", testPeersBind)
 	t.Run("Sessions", testSessionsBind)
-	t.Run("Tests", testTestsBind)
 }
 
 func TestOne(t *testing.T) {
@@ -72,7 +65,6 @@ func TestOne(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesOne)
 	t.Run("Peers", testPeersOne)
 	t.Run("Sessions", testSessionsOne)
-	t.Run("Tests", testTestsOne)
 }
 
 func TestAll(t *testing.T) {
@@ -80,7 +72,6 @@ func TestAll(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesAll)
 	t.Run("Peers", testPeersAll)
 	t.Run("Sessions", testSessionsAll)
-	t.Run("Tests", testTestsAll)
 }
 
 func TestCount(t *testing.T) {
@@ -88,7 +79,6 @@ func TestCount(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesCount)
 	t.Run("Peers", testPeersCount)
 	t.Run("Sessions", testSessionsCount)
-	t.Run("Tests", testTestsCount)
 }
 
 func TestHooks(t *testing.T) {
@@ -96,7 +86,6 @@ func TestHooks(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesHooks)
 	t.Run("Peers", testPeersHooks)
 	t.Run("Sessions", testSessionsHooks)
-	t.Run("Tests", testTestsHooks)
 }
 
 func TestInsert(t *testing.T) {
@@ -108,8 +97,6 @@ func TestInsert(t *testing.T) {
 	t.Run("Peers", testPeersInsertWhitelist)
 	t.Run("Sessions", testSessionsInsert)
 	t.Run("Sessions", testSessionsInsertWhitelist)
-	t.Run("Tests", testTestsInsert)
-	t.Run("Tests", testTestsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
@@ -169,7 +156,6 @@ func TestReload(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesReload)
 	t.Run("Peers", testPeersReload)
 	t.Run("Sessions", testSessionsReload)
-	t.Run("Tests", testTestsReload)
 }
 
 func TestReloadAll(t *testing.T) {
@@ -177,7 +163,6 @@ func TestReloadAll(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesReloadAll)
 	t.Run("Peers", testPeersReloadAll)
 	t.Run("Sessions", testSessionsReloadAll)
-	t.Run("Tests", testTestsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
@@ -185,7 +170,6 @@ func TestSelect(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesSelect)
 	t.Run("Peers", testPeersSelect)
 	t.Run("Sessions", testSessionsSelect)
-	t.Run("Tests", testTestsSelect)
 }
 
 func TestUpdate(t *testing.T) {
@@ -193,7 +177,6 @@ func TestUpdate(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesUpdate)
 	t.Run("Peers", testPeersUpdate)
 	t.Run("Sessions", testSessionsUpdate)
-	t.Run("Tests", testTestsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
@@ -201,5 +184,4 @@ func TestSliceUpdateAll(t *testing.T) {
 	t.Run("PeerProperties", testPeerPropertiesSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
 	t.Run("Sessions", testSessionsSliceUpdateAll)
-	t.Run("Tests", testTestsSliceUpdateAll)
 }

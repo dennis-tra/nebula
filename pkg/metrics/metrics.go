@@ -68,32 +68,45 @@ var (
 
 // Measures
 var (
-	ConnectDuration             = stats.Float64("connect_duration", "Duration of connecting to peers", stats.UnitMilliseconds)
-	ConnectsCount               = stats.Float64("connects_count", "Number of connection establishment attempts", stats.UnitDimensionless)
-	ConnectErrorsCount          = stats.Float64("connect_errors_count", "Number of successful connection establishment errors", stats.UnitDimensionless)
-	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
-	FetchedNeighborsCount       = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
-	CrawledPeersCount           = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
-	CrawledUpsertDuration       = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
-	PeerCrawlDuration           = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
-	PeerPingDuration            = stats.Float64("peer_ping_duration", "Duration of pinging peers", stats.UnitMilliseconds)
-	PeersToCrawlCount           = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
-	PeersToPingCount            = stats.Float64("peers_to_ping_count", "Number of peers in the queue to ping", stats.UnitDimensionless)
-	PingBlockedDialSuccessCount = stats.Float64("ping_blocked_dial_success_count", "Number of instances where a ping failed but a dial succeeded", stats.UnitDimensionless)
+	CrawlConnectDuration      = stats.Float64("crawl_connect_duration", "Duration of connecting to peers during crawl", stats.UnitMilliseconds)
+	MonitorConnectDuration    = stats.Float64("monitor_connect_duration", "Duration of connecting to peers during monitoring", stats.UnitMilliseconds)
+	CrawlConnectsCount        = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
+	MonitorConnectsCount      = stats.Float64("monitor_connects_count", "Number of connection establishment attempts during monitoring", stats.UnitDimensionless)
+	CrawlConnectErrorsCount   = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
+	MonitorConnectErrorsCount = stats.Float64("monitor_connect_errors_count", "Number of successful connection establishment errors during monitoring", stats.UnitDimensionless)
+	FetchNeighborsDuration    = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
+	FetchedNeighborsCount     = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
+	CrawledPeersCount         = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
+	CrawledUpsertDuration     = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
+	PeerCrawlDuration         = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
+	PeersToCrawlCount         = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
+	PeersToConnectCount       = stats.Float64("peers_to_connect_count", "Number of peers in the queue to connect", stats.UnitDimensionless)
 )
 
 // Views
 var (
-	ConnectDurationView = &view.View{
-		Measure:     ConnectDuration,
+	CrawlConnectDurationView = &view.View{
+		Measure:     CrawlConnectDuration,
 		Aggregation: defaultMillisecondsDistribution,
 	}
-	ConnectsCountView = &view.View{
-		Measure:     ConnectsCount,
+	MonitorConnectDurationView = &view.View{
+		Measure:     MonitorConnectDuration,
+		Aggregation: defaultMillisecondsDistribution,
+	}
+	CrawlConnectsCountView = &view.View{
+		Measure:     CrawlConnectsCount,
 		Aggregation: view.Count(),
 	}
-	ConnectErrorsCountView = &view.View{
-		Measure:     ConnectErrorsCount,
+	MonitorConnectsCountView = &view.View{
+		Measure:     MonitorConnectsCount,
+		Aggregation: view.Count(),
+	}
+	CrawlConnectErrorsCountView = &view.View{
+		Measure:     CrawlConnectErrorsCount,
+		Aggregation: view.Count(),
+	}
+	MonitorConnectErrorsCountView = &view.View{
+		Measure:     MonitorConnectErrorsCount,
 		Aggregation: view.Count(),
 	}
 	FetchNeighborsDurationView = &view.View{
@@ -114,10 +127,6 @@ var (
 		Measure:     PeerCrawlDuration,
 		Aggregation: defaultMillisecondsDistribution,
 	}
-	PeerPingDurationView = &view.View{
-		Measure:     PeerPingDuration,
-		Aggregation: defaultMillisecondsDistribution,
-	}
 	CrawledUpsertDurationView = &view.View{
 		Measure:     CrawledUpsertDuration,
 		Aggregation: ocsql.DefaultMillisecondsDistribution,
@@ -126,21 +135,17 @@ var (
 		Measure:     PeersToCrawlCount,
 		Aggregation: view.LastValue(),
 	}
-	PeersToPingCountView = &view.View{
-		Measure:     PeersToPingCount,
+	PeersToConnectCountView = &view.View{
+		Measure:     PeersToConnectCount,
 		Aggregation: view.LastValue(),
-	}
-	PingBlockedDialSuccessCountView = &view.View{
-		Measure:     PingBlockedDialSuccessCount,
-		Aggregation: view.Count(),
 	}
 )
 
 // DefaultCrawlViews with all views in it.
 var DefaultCrawlViews = []*view.View{
-	ConnectDurationView,
-	ConnectsCountView,
-	ConnectErrorsCountView,
+	CrawlConnectDurationView,
+	CrawlConnectsCountView,
+	CrawlConnectErrorsCountView,
 	FetchNeighborsDurationView,
 	FetchedNeighborsCountView,
 	CrawledPeersCountView,
@@ -151,7 +156,8 @@ var DefaultCrawlViews = []*view.View{
 
 // DefaultMonitorViews with all views in it.
 var DefaultMonitorViews = []*view.View{
-	PeerPingDurationView,
-	PeersToPingCountView,
-	PingBlockedDialSuccessCountView,
+	MonitorConnectDurationView,
+	PeersToConnectCountView,
+	MonitorConnectsCountView,
+	MonitorConnectErrorsCountView,
 }

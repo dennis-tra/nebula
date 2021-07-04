@@ -123,6 +123,6 @@ func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, er
 	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '10s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
 }
 
-func FetchRecentlyGoneSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
+func FetchRecentlyFinishedSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
 	return models.Sessions(qm.Where("NOW() - first_failed_dial >= '30s'::interval AND NOW() - first_failed_dial < '1m'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
 }

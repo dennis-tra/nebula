@@ -6,11 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
-
-	"github.com/go-ping/ping"
-
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	log "github.com/sirupsen/logrus"
@@ -24,8 +19,8 @@ import (
 
 var workerID = atomic.NewInt32(0)
 
-// PingResult captures data that is gathered from pinging a single peer.
-type PingResult struct {
+// Result captures data that is gathered from pinging a single peer.
+type Result struct {
 	WorkerID string
 
 	// The pinged peer
@@ -60,84 +55,25 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
-func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan PingResult) {
+func (w *Worker) StartConnecting(connectQueue chan peer.AddrInfo, resultsQueue chan Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
-	for pi := range pingQueue {
-		start := time.Now()
+	for pi := range connectQueue {
 		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
-		logEntry.Debugln("Pinging peer ", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Connecting to peer ", pi.ID.Pretty()[:16])
 
-		pr := PingResult{
+		pr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     pi,
 		}
 
-		// Parse addresses we can ping - using map as there can be multiple maddrs with same IP but different transports
-		hostAddrs := map[string]ma.Multiaddr{}
-		for _, maddr := range pi.Addrs {
-			addr, err := w.getHostAddr(maddr)
-			if err != nil {
-				logEntry.WithError(err).WithField("maddr", maddr.String()).Debugln("Could not parse host address")
-				continue
+		if err := w.connect(ctx, pi); err == nil {
+			pr.Alive = true
+			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
+				log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
 			}
-			hostAddrs[addr] = maddr
-		}
-
-		// Loop through all addresses and try to ping them.
-		for addr := range hostAddrs {
-			pinger, err := ping.NewPinger(addr)
-			if err != nil {
-				logEntry.WithError(err).WithField("addr", addr).Debugln("Could not init pinger")
-				continue
-			}
-
-			done := make(chan struct{})
-			go func() {
-				select {
-				case <-done:
-				case <-w.SigShutdown():
-					pinger.Stop()
-				}
-			}()
-
-			pinger.OnRecv = func(packet *ping.Packet) {
-				pinger.Stop()
-			}
-
-			pinger.Timeout = w.config.DialTimeout
-			pinger.Count = 5
-
-			logEntry.WithField("addr", addr).Debugln("Pinging peer")
-			if err = pinger.Run(); err != nil {
-				logEntry.WithError(err).WithField("addr", addr).Debugln("Error running pinger")
-				close(done)
-				continue
-			}
-			close(done)
-
-			if pinger.PacketsRecv > 0 {
-				pr.Alive = true
-				break
-			}
-			logEntry.WithField("addr", addr).Debugln("Peer not responding to ping, trying proper connect")
-
-			ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
-			if err = w.host.Connect(ctx, pi); err == nil {
-				pr.Alive = true
-				stats.Record(ctx, metrics.PingBlockedDialSuccessCount.M(1))
-				go func(cpi peer.AddrInfo) {
-					if err := w.host.Network().ClosePeer(cpi.ID); err != nil {
-						log.WithError(err).WithField("targetID", cpi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
-					}
-				}(pi)
-				cancel()
-				break
-			}
-			cancel()
-			logEntry.WithField("addr", addr).Debugln("Also cannot properly connect to peer")
 		}
 
 		select {
@@ -146,32 +82,24 @@ func (w *Worker) StartPinging(pingQueue chan peer.AddrInfo, resultsQueue chan Pi
 			return
 		}
 
-		stats.Record(ctx, metrics.PeerPingDuration.M(millisSince(start)))
-
-		select {
-		case <-w.SigShutdown():
-			return
-		default:
-		}
-		logEntry.Debugln("Pinged peer", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Connected to peer", pi.ID.Pretty()[:16])
 	}
 }
 
-func (w *Worker) getHostAddr(maddr ma.Multiaddr) (string, error) {
-	protocols := []int{
-		ma.P_IP4,
-		ma.P_IP6,
-		ma.P_DNS,
-		ma.P_DNS4,
-		ma.P_DNS6,
-		ma.P_DNSADDR,
+// connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
+// It also handles metric capturing.
+func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
+	start := time.Now()
+	stats.Record(ctx, metrics.MonitorConnectsCount.M(1))
+
+	ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
+	defer cancel()
+
+	if err := w.host.Connect(ctx, pi); err != nil {
+		stats.Record(ctx, metrics.MonitorConnectErrorsCount.M(1))
+		return err
 	}
 
-	for _, p := range protocols {
-		if addr, err := maddr.ValueForProtocol(p); err == nil {
-			return addr, nil
-		}
-	}
-
-	return "", errors.New("could not parse host address")
+	stats.Record(w.ServiceContext(), metrics.MonitorConnectDuration.M(millisSince(start)))
+	return nil
 }

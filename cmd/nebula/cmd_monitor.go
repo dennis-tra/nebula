@@ -56,16 +56,16 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Initialize the monitoring task
-	m, _ := monitor.NewMonitor(c.Context, dbh)
-	go m.StartMonitoring()
-
-	select {
-	case <-c.Context.Done():
-		// Nebula was asked to stop (e.g. SIGINT) -> tell the monitor to stop
-		m.Shutdown()
-	case <-m.SigDone():
-		// monitor finished autonomously
+	s, err := monitor.NewScheduler(c.Context, dbh)
+	if err != nil {
+		return errors.Wrap(err, "creating new scheduler")
 	}
 
-	return nil
+	go func() {
+		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
+		<-c.Context.Done()
+		s.Shutdown()
+	}()
+
+	return s.StartMonitoring()
 }
