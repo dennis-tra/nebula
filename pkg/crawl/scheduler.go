@@ -147,17 +147,11 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		s.scheduleCrawl(b)
 	}
 
-	// Handle the results of crawls here
-OUTER:
-	for {
-		select {
-		case result := <-s.resultsQueue:
-			s.HandleResult(result)
-		case <-s.SigShutdown():
-			s.Cleanup()
-			break OUTER
-		}
-	}
+	// Read from the results queue blocking
+	s.readResultsQueue()
+
+	// release all resources
+	s.cleanup()
 
 	defer func() {
 		log.WithFields(log.Fields{
@@ -169,12 +163,12 @@ OUTER:
 	}()
 
 	if s.dbh != nil {
-		crawl, err := s.PersistCrawl(context.Background())
+		crawl, err := s.persistCrawl(context.Background())
 		if err != nil {
 			return errors.Wrap(err, "persist crawl")
 		}
 
-		if err := s.PersistPeerProperties(context.Background(), crawl.ID); err != nil {
+		if err := s.persistPeerProperties(context.Background(), crawl.ID); err != nil {
 			return errors.Wrap(err, "persist peer properties")
 		}
 	}
@@ -182,46 +176,17 @@ OUTER:
 	return nil
 }
 
-// Cleanup handles the release of all resources allocated by the scheduler.
-// Make sure to not access any maps here as this is run in a separate
-// go routine from the HandleResult method.
-func (s *Scheduler) Cleanup() {
-	// remove all peers from the crawl queue. There could be pending writes on the crawl
-	// queue in scheduleCrawl() that would lead to `panic: send on closed channel` if we
-	// didn't drain the queue prior closing the channel.
-	s.drainCrawlQueue()
-	close(s.crawlQueue)
-	s.shutdownWorkers()
-	close(s.resultsQueue)
-}
-
-// drainCrawlQueue reads all entries from crawlQueue and discards them.
-func (s *Scheduler) drainCrawlQueue() {
-	// drain crawl queue
-OUTER:
+// readResultsQueue listens for crawl results on the resultsQueue channel and handles any
+// entries in HandleResult. If the scheduler is shut down it schedules a cleanup of resources
+func (s *Scheduler) readResultsQueue() {
 	for {
 		select {
-		case pi := <-s.crawlQueue:
-			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
-		default:
-			break OUTER
+		case result := <-s.resultsQueue:
+			s.HandleResult(result)
+		case <-s.SigShutdown():
+			return
 		}
 	}
-}
-
-// shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
-func (s *Scheduler) shutdownWorkers() {
-	var wg sync.WaitGroup
-	s.workers.Range(func(_, worker interface{}) bool {
-		w := worker.(*Worker)
-		wg.Add(1)
-		go func(w *Worker) {
-			w.Shutdown()
-			wg.Done()
-		}(w)
-		return true
-	})
-	wg.Wait()
 }
 
 // HandleResult takes a crawl result and persist the information in the database and schedules
@@ -324,8 +289,49 @@ func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	}()
 }
 
-// PersistCrawl writes crawl statistics to the database.
-func (s *Scheduler) PersistCrawl(ctx context.Context) (*models.Crawl, error) {
+// cleanup handles the release of all resources allocated by the scheduler.
+// Make sure to not access any maps here as this is run in a separate
+// go routine from the HandleResult method.
+//
+// remove all peers from the crawl queue. There could be pending writes on the crawl
+// queue in scheduleCrawl() that would lead to `panic: send on closed channel` if we
+// didn't drain the queue prior closing the channel.
+func (s *Scheduler) cleanup() {
+	s.drainCrawlQueue()
+	close(s.crawlQueue)
+	s.shutdownWorkers()
+	close(s.resultsQueue)
+}
+
+// drainCrawlQueue reads all entries from crawlQueue and discards them.
+func (s *Scheduler) drainCrawlQueue() {
+	for {
+		select {
+		case pi := <-s.crawlQueue:
+			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
+		default:
+			return
+		}
+	}
+}
+
+// shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
+func (s *Scheduler) shutdownWorkers() {
+	var wg sync.WaitGroup
+	s.workers.Range(func(_, worker interface{}) bool {
+		w := worker.(*Worker)
+		wg.Add(1)
+		go func(w *Worker) {
+			w.Shutdown()
+			wg.Done()
+		}(w)
+		return true
+	})
+	wg.Wait()
+}
+
+// persistCrawl writes crawl statistics to the database.
+func (s *Scheduler) persistCrawl(ctx context.Context) (*models.Crawl, error) {
 	log.Infoln("Persisting crawl result...")
 
 	crawl := &models.Crawl{
@@ -339,8 +345,8 @@ func (s *Scheduler) PersistCrawl(ctx context.Context) (*models.Crawl, error) {
 	return crawl, crawl.Insert(ctx, s.dbh, boil.Infer())
 }
 
-// PersistPeerProperties writes peer property statistics to the database.
-func (s *Scheduler) PersistPeerProperties(ctx context.Context, crawlID int) error {
+// persistPeerProperties writes peer property statistics to the database.
+func (s *Scheduler) persistPeerProperties(ctx context.Context, crawlID int) error {
 	log.Infoln("Persisting peer properties...")
 
 	// Extract full and core agent versions. Core agent versions are just strings like 0.8.0 or 0.5.0
