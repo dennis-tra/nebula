@@ -17,7 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.opencensus.io/stats"
-	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
@@ -30,7 +29,8 @@ const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prere
 
 var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 
-// The Scheduler handles the scheduling and managing of workers that crawl the network.
+// The Scheduler handles the scheduling and managing of workers that crawl the network
+// as well as handling the crawl the results by persisting them in the database.
 type Scheduler struct {
 	// Service represents an entity that runs in a
 	// separate go routine and where its lifecycle
@@ -48,20 +48,11 @@ type Scheduler struct {
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put it there again.
-	inCrawlQueue sync.Map
-
-	// The number of peers in the crawl queue.
-	inCrawlQueueCount atomic.Uint32
+	inCrawlQueue map[peer.ID]peer.AddrInfo
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer has already been crawled
 	// in the past, so we don't put in the crawl queue again.
-	crawled sync.Map
-
-	// The number of crawled peers.
-	crawledCount atomic.Uint32
-
-	// The number of crawled peers.
-	crawlErrors atomic.Uint32
+	crawled map[peer.ID]peer.AddrInfo
 
 	// The queue of peer.AddrInfo's that still need to be crawled.
 	crawlQueue chan peer.AddrInfo
@@ -70,18 +61,17 @@ type Scheduler struct {
 	// scheduler can handle them, e.g. update the maps above etc.
 	resultsQueue chan Result
 
-	AgentVersion   map[string]int
-	AgentVersionLk sync.RWMutex
+	// A map of agent versions and their occurrences that happened during the crawl.
+	AgentVersion map[string]int
 
-	Protocols   map[string]int
-	ProtocolsLk sync.RWMutex
-
-	// The list of worker node references.
-	workers []*Worker
+	// A map of protocols and their occurrences that happened during the crawl.
+	Protocols map[string]int
 
 	// A map of errors that happened during the crawl.
-	Errors   map[string]int
-	ErrorsLk sync.RWMutex
+	Errors map[string]int
+
+	// The list of worker node references.
+	workers sync.Map
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -98,6 +88,7 @@ var knownErrors = map[string]string{
 	"max_dial_attempts_exceeded": "max dial attempts exceeded",
 }
 
+// NewScheduler initializes a new libp2p host and scheduler instance.
 func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
@@ -118,21 +109,20 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	p := &Scheduler{
-		Service:           service.New("scheduler"),
-		host:              h,
-		dbh:               dbh,
-		config:            conf,
-		inCrawlQueue:      sync.Map{},
-		inCrawlQueueCount: atomic.Uint32{},
-		crawled:           sync.Map{},
-		crawledCount:      atomic.Uint32{},
-		crawlQueue:        make(chan peer.AddrInfo),
-		resultsQueue:      make(chan Result),
-		AgentVersion:      map[string]int{},
-		Protocols:         map[string]int{},
-		Errors:            map[string]int{},
-		workers:           []*Worker{},
+		Service:      service.New("scheduler"),
+		host:         h,
+		dbh:          dbh,
+		config:       conf,
+		inCrawlQueue: map[peer.ID]peer.AddrInfo{},
+		crawled:      map[peer.ID]peer.AddrInfo{},
+		crawlQueue:   make(chan peer.AddrInfo),
+		resultsQueue: make(chan Result),
+		AgentVersion: map[string]int{},
+		Protocols:    map[string]int{},
+		Errors:       map[string]int{},
+		workers:      sync.Map{},
 	}
+
 	return p, nil
 }
 
@@ -142,34 +132,71 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.ServiceStarted()
 	defer s.ServiceStopped()
 
-	// Handle the results of crawls of a particular node in a separate go routine
-	// TODO: handle sync here and get rid of sync.Map/atomic.Int32?
-	go s.handleCrawlResults()
-
 	// Start all workers
 	for i := 0; i < s.config.CrawlWorkerCount; i++ {
 		w, err := NewWorker(s.host, s.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
 		}
-		s.workers = append(s.workers, w)
+		s.workers.Store(i, w)
 		go w.StartCrawling(s.crawlQueue, s.resultsQueue)
 	}
 
 	// Fill the queue with bootstrap nodes
 	for _, b := range bootstrap {
-		s.dispatchCrawl(b)
+		s.scheduleCrawl(b)
 	}
 
-	// Block until the scheduler shuts down.
-	<-s.SigShutdown()
+	// Handle the results of crawls here
+OUTER:
+	for {
+		select {
+		case result := <-s.resultsQueue:
+			s.HandleResult(result)
+		case <-s.SigShutdown():
+			s.Cleanup()
+			break OUTER
+		}
+	}
 
-	s.Cleanup()
+	defer func() {
+		log.WithFields(log.Fields{
+			"crawledPeers":    len(s.crawled),
+			"crawlDuration":   time.Now().Sub(s.StartTime).String(),
+			"dialablePeers":   len(s.crawled) - s.TotalErrors(),
+			"undialablePeers": s.TotalErrors(),
+		}).Infoln("Finished crawl")
+	}()
+
+	if s.dbh != nil {
+		crawl, err := s.PersistCrawl(context.Background())
+		if err != nil {
+			return errors.Wrap(err, "persist crawl")
+		}
+
+		if err := s.PersistPeerProperties(context.Background(), crawl.ID); err != nil {
+			return errors.Wrap(err, "persist peer properties")
+		}
+	}
+
 	return nil
 }
 
 // Cleanup handles the release of all resources allocated by the scheduler.
+// Make sure to not access any maps here as this is run in a separate
+// go routine from the HandleResult method.
 func (s *Scheduler) Cleanup() {
+	// remove all peers from the crawl queue. There could be pending writes on the crawl
+	// queue in scheduleCrawl() that would lead to `panic: send on closed channel` if we
+	// didn't drain the queue prior closing the channel.
+	s.drainCrawlQueue()
+	close(s.crawlQueue)
+	s.shutdownWorkers()
+	close(s.resultsQueue)
+}
+
+// drainCrawlQueue reads all entries from crawlQueue and discards them.
+func (s *Scheduler) drainCrawlQueue() {
 	// drain crawl queue
 OUTER:
 	for {
@@ -180,216 +207,82 @@ OUTER:
 			break OUTER
 		}
 	}
-	close(s.crawlQueue)
+}
 
+// shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
+func (s *Scheduler) shutdownWorkers() {
 	var wg sync.WaitGroup
-	for _, w := range s.workers {
+	s.workers.Range(func(_, worker interface{}) bool {
+		w := worker.(*Worker)
 		wg.Add(1)
 		go func(w *Worker) {
 			w.Shutdown()
 			wg.Done()
 		}(w)
-	}
+		return true
+	})
 	wg.Wait()
-
-	// After all workers have stopped and won't send any results we can close the results channel.
-	close(s.resultsQueue)
 }
 
-func (s *Scheduler) handleCrawlResults() {
-	for result := range s.resultsQueue {
-		s.handleCrawlResult(result)
-	}
-}
-
-func (s *Scheduler) Shutdown() {
-	defer s.Service.Shutdown()
-
-	log.WithFields(log.Fields{
-		"crawledPeers":    s.crawledCount.Load(),
-		"crawlDuration":   time.Now().Sub(s.StartTime).String(),
-		"dialablePeers":   s.crawledCount.Load() - s.crawlErrors.Load(),
-		"undialablePeers": s.crawlErrors.Load(),
-	}).Infoln("Successfully finished crawl")
-
-	// The Database handler can be null if it's a dry run
-	if s.dbh == nil {
-		return
-	}
-	log.Infoln("Saving crawl results to database")
-
-	crawl := &models.Crawl{
-		StartedAt:       s.StartTime,
-		FinishedAt:      time.Now(),
-		CrawledPeers:    int(s.crawledCount.Load()),
-		DialablePeers:   int(s.crawledCount.Load() - s.crawlErrors.Load()),
-		UndialablePeers: int(s.crawlErrors.Load()),
-	}
-
-	err := crawl.Insert(s.ServiceContext(), s.dbh, boil.Infer())
-	if err != nil {
-		log.WithError(err).Warnln("Could not save crawl result")
-		return
-	}
-
-	s.AgentVersionLk.Lock()
-	s.ProtocolsLk.Lock()
-	s.ErrorsLk.Lock()
-	defer s.AgentVersionLk.Unlock()
-	defer s.ProtocolsLk.Unlock()
-	defer s.ErrorsLk.Unlock()
-
-	ppfull := map[string]int{}
-	ppcore := map[string]int{}
-	for version, count := range s.AgentVersion {
-		ppfull[version] += count
-
-		matches := agentVersionRegex.FindStringSubmatch(version)
-		if matches != nil {
-			ppcore[matches[1]] += count
-		}
-	}
-
-	txn, err := s.dbh.BeginTx(s.ServiceContext(), nil)
-	if err != nil {
-		log.WithError(err).Warnln("Could not start txn")
-		return
-	}
-
-	for version, count := range ppfull {
-		pp := &models.PeerProperty{
-			Property: "agent_version",
-			Value:    version,
-			Count:    count,
-			CrawlID:  crawl.ID,
-		}
-		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
-		if err != nil {
-			log.WithError(err).Warnln("Could not insert peer property txn")
-			continue
-		}
-	}
-
-	for version, count := range ppcore {
-		pp := &models.PeerProperty{
-			Property: "agent_version_core",
-			Value:    version,
-			Count:    count,
-			CrawlID:  crawl.ID,
-		}
-		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
-		if err != nil {
-			log.WithError(err).Warnln("Could not insert peer property txn")
-			continue
-		}
-	}
-
-	for p, count := range s.Protocols {
-		pp := &models.PeerProperty{
-			Property: "protocol",
-			Value:    p,
-			Count:    count,
-			CrawlID:  crawl.ID,
-		}
-		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
-		if err != nil {
-			log.WithError(err).Warnln("Could not insert peer property txn")
-			continue
-		}
-	}
-
-	for errKey, count := range s.Errors {
-		pp := &models.PeerProperty{
-			Property: "error",
-			Value:    errKey,
-			Count:    count,
-			CrawlID:  crawl.ID,
-		}
-		err = pp.Insert(s.ServiceContext(), txn, boil.Infer())
-		if err != nil {
-			log.WithError(err).Warnln("Could not insert peer property txn")
-			continue
-		}
-	}
-
-	if err = txn.Commit(); err != nil {
-		log.WithError(err).Warnln("Could not commit transaction")
-	} else {
-		log.Infoln("Saved peer properties")
-	}
-}
-
-func (s *Scheduler) handleCrawlResult(cr Result) {
+// HandleResult takes a crawl result and persist the information in the database and schedules
+// new crawls.
+func (s *Scheduler) HandleResult(cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"workerID": cr.WorkerID,
 		"targetID": cr.Peer.ID.Pretty()[:16],
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.WorkerID)
 
-	// TODO: Another go routine?
-	startUpsert := time.Now()
-	err := s.upsertCrawlResult(cr.Peer.ID, cr.Peer.Addrs, cr.Error)
-	if err != nil {
+	// update maps
+	s.crawled[cr.Peer.ID] = cr.Peer
+	stats.Record(s.ServiceContext(), metrics.CrawledPeersCount.M(1))
+	delete(s.inCrawlQueue, cr.Peer.ID)
+	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+
+	// persist session information
+	if err := s.upsertCrawlResult(cr.Peer.ID, cr.Peer.Addrs, cr.Error); err != nil {
 		log.WithError(err).Warnln("Could not update peer")
 	}
-	stats.Record(s.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
 
-	s.crawled.Store(cr.Peer.ID, true)
-	s.crawledCount.Inc()
-	s.inCrawlQueue.Delete(cr.Peer.ID)
-	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(s.inCrawlQueueCount.Dec())))
+	// track agent versions
+	s.AgentVersion[cr.Agent] += 1
 
-	s.AgentVersionLk.Lock()
-	if cr.Agent != "" {
-		s.AgentVersion[cr.Agent] += 1
-	} else {
-		s.AgentVersion["n.a."] += 1
-	}
-	s.AgentVersionLk.Unlock()
-
-	s.ProtocolsLk.Lock()
+	// track seen protocols
 	for _, p := range cr.Protocols {
 		s.Protocols[p] += 1
 	}
-	s.ProtocolsLk.Unlock()
-	stats.Record(s.ServiceContext(), metrics.CrawledPeersCount.M(1))
 
+	// track error or schedule new crawls
 	if cr.Error != nil {
-		s.crawlErrors.Inc()
-
-		s.ErrorsLk.Lock()
-		known := false
-		for errKey, errStr := range knownErrors {
+		errKey := "unknown"
+		for key, errStr := range knownErrors {
 			if strings.Contains(cr.Error.Error(), errStr) {
-				s.Errors[errKey] += 1
-				known = true
+				errKey = key
 				break
 			}
 		}
-		if !known {
-			s.Errors["unknown"] += 1
+		s.Errors[errKey] += 1
+		if errKey == "unknown" {
 			logEntry = logEntry.WithError(cr.Error)
 		}
-		s.ErrorsLk.Unlock()
-
-		logEntry.WithError(cr.Error).Debugln("Error crawling peer")
+		logEntry.Debugln("Error crawling peer")
 	} else {
 		for _, pi := range cr.Neighbors {
-			_, inCrawlQueue := s.inCrawlQueue.Load(pi.ID)
-			_, crawled := s.crawled.Load(pi.ID)
+			_, inCrawlQueue := s.inCrawlQueue[pi.ID]
+			_, crawled := s.crawled[pi.ID]
 			if !inCrawlQueue && !crawled {
-				s.dispatchCrawl(pi)
+				s.scheduleCrawl(pi)
 			}
 		}
 	}
 
 	logEntry.WithFields(map[string]interface{}{
-		"inCrawlQueue": s.inCrawlQueueCount.Load(),
-		"crawled":      s.crawledCount.Load(),
+		"inCrawlQueue": len(s.inCrawlQueue),
+		"crawled":      len(s.crawled),
 	}).Infoln("Handled crawl result from worker", cr.WorkerID)
 
-	if s.inCrawlQueueCount.Load() == 0 || (s.config.CrawlLimit > 0 && int(s.crawledCount.Load()) >= s.config.CrawlLimit) {
-		s.Shutdown()
+	if len(s.inCrawlQueue) == 0 || (s.config.CrawlLimit > 0 && len(s.crawled) >= s.config.CrawlLimit) {
+		go s.Shutdown()
 	}
 }
 
@@ -401,6 +294,7 @@ func (s *Scheduler) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dia
 		return nil
 	}
 
+	startUpsert := time.Now()
 	if dialErr == nil {
 		if err := db.UpsertPeer(s.ServiceContext(), s.dbh, peerID.Pretty(), maddrs); err != nil {
 			return errors.Wrap(err, "upsert peer")
@@ -413,18 +307,91 @@ func (s *Scheduler) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dia
 			return errors.Wrap(err, "upsert session error")
 		}
 	}
-
+	stats.Record(s.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
 	return nil
 }
 
-func (s *Scheduler) dispatchCrawl(pi peer.AddrInfo) {
-	select {
-	case <-s.SigShutdown():
-		log.Debugln("Skipping dispatch as scheduler shuts down")
-		return
-	default:
-		s.inCrawlQueue.Store(pi.ID, true)
-		stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(s.inCrawlQueueCount.Inc())))
-		go func() { s.crawlQueue <- pi }()
+// schedule crawl takes the address information and inserts it in the crawl queue in a separate
+// go routine so we don't block the results handler. Buffered channels won't work here as there could
+// be thousands of peers waiting to be crawled, so we spawn a separate go routine each time.
+func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
+	s.inCrawlQueue[pi.ID] = pi
+	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+	go func() {
+		if s.IsStarted() {
+			s.crawlQueue <- pi
+		}
+	}()
+}
+
+// PersistCrawl writes crawl statistics to the database.
+func (s *Scheduler) PersistCrawl(ctx context.Context) (*models.Crawl, error) {
+	log.Infoln("Persisting crawl result...")
+
+	crawl := &models.Crawl{
+		StartedAt:       s.StartTime,
+		FinishedAt:      time.Now(),
+		CrawledPeers:    len(s.crawled),
+		DialablePeers:   len(s.crawled) - s.TotalErrors(),
+		UndialablePeers: s.TotalErrors(),
 	}
+
+	return crawl, crawl.Insert(ctx, s.dbh, boil.Infer())
+}
+
+// PersistPeerProperties writes peer property statistics to the database.
+func (s *Scheduler) PersistPeerProperties(ctx context.Context, crawlID int) error {
+	log.Infoln("Persisting peer properties...")
+
+	// Extract full and core agent versions. Core agent versions are just strings like 0.8.0 or 0.5.0
+	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
+	avFull := map[string]int{}
+	avCore := map[string]int{}
+	for version, count := range s.AgentVersion {
+		avFull[version] += count
+		matches := agentVersionRegex.FindStringSubmatch(version)
+		if matches != nil {
+			avCore[matches[1]] += count
+		}
+	}
+
+	txn, err := s.dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.New("start txn")
+	}
+
+	for property, valuesMap := range map[string]map[string]int{
+		"agent_version":      avFull,
+		"agent_version_core": avCore,
+		"protocol":           s.Protocols,
+		"error":              s.Errors,
+	} {
+		for value, count := range valuesMap {
+			pp := &models.PeerProperty{
+				Property: property,
+				Value:    value,
+				Count:    count,
+				CrawlID:  crawlID,
+			}
+			err := pp.Insert(ctx, txn, boil.Infer())
+			if err != nil {
+				log.WithError(err).WithFields(log.Fields{
+					"property": property,
+					"value":    value,
+				}).Warnln("Could not insert peer property txn")
+				continue
+			}
+		}
+	}
+
+	return txn.Commit()
+}
+
+// TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.
+func (s *Scheduler) TotalErrors() int {
+	sum := 0
+	for _, count := range s.Errors {
+		sum += count
+	}
+	return sum
 }

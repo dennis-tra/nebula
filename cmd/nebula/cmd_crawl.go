@@ -77,16 +77,16 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	o, _ := crawl.NewScheduler(c.Context, dbh)
-	go o.CrawlNetwork(pis)
-
-	select {
-	case <-c.Context.Done():
-		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
-		o.Shutdown()
-	case <-o.SigDone():
-		// the scheduler finished autonomously
+	s, err := crawl.NewScheduler(c.Context, dbh)
+	if err != nil {
+		return errors.Wrap(err, "creating new scheduler")
 	}
 
-	return nil
+	go func() {
+		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
+		<-c.Context.Done()
+		s.Shutdown()
+	}()
+
+	return s.CrawlNetwork(pis)
 }

@@ -88,12 +88,12 @@ func millisSince(start time.Time) float64 {
 
 func (w *Worker) Shutdown() {
 	defer w.Service.Shutdown()
-	log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)
 }
 
 func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
+	defer log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)
 
 	ctx := w.ServiceContext()
 	for pi := range crawlQueue {
@@ -105,6 +105,7 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 		cr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     filterPrivateMaddrs(pi),
+			Agent:    "n.a.",
 		}
 
 		cr.Error = w.connect(ctx, pi)
@@ -123,11 +124,9 @@ func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan 
 			cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 		}
 
-		go func(cpi peer.AddrInfo) {
-			if err := w.host.Network().ClosePeer(cpi.ID); err != nil {
-				log.WithError(err).WithField("targetID", cpi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
-			}
-		}(pi)
+		if err := w.host.Network().ClosePeer(pi.ID); err != nil {
+			log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
+		}
 
 		w.crawledPeers++
 

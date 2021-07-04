@@ -117,6 +117,18 @@ func (s *Service) SigDone() chan struct{} {
 	return s.done
 }
 
+func (s *Service) IsStopping() bool {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	return s.state == Stopping
+}
+
+func (s *Service) IsStarted() bool {
+	s.lk.Lock()
+	defer s.lk.Unlock()
+	return s.state == Started
+}
+
 // ServiceStopped marks this service as stopped and
 // ultimately releases an external call to Shutdown.
 func (s *Service) ServiceStopped() {
@@ -146,13 +158,13 @@ func (s *Service) ServiceContext() context.Context {
 // This function blocks until the done channel was closed
 // which happens when ServiceStopped is called.
 func (s *Service) Shutdown() {
-	log.WithField("serviceId", s.id).Traceln("Service shutting down...")
-
 	s.lk.Lock()
 	if s.state != Started {
 		s.lk.Unlock()
 		return
 	}
+
+	log.WithField("serviceId", s.id).Traceln("Service shutting down...")
 	s.state = Stopping
 	s.lk.Unlock()
 
