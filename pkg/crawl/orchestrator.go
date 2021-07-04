@@ -155,7 +155,7 @@ func (o *Orchestrator) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	go o.handleCrawlResults()
 
 	// Start all workers
-	for i := 0; i < o.config.WorkerCount; i++ {
+	for i := 0; i < o.config.CrawlWorkerCount; i++ {
 		w, err := NewWorker(o.host, o.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")

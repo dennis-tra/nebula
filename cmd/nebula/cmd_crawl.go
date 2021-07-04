@@ -35,6 +35,11 @@ var CrawlCommand = &cli.Command{
 			DefaultText: strconv.Itoa(config.DefaultConfig.CrawlLimit),
 			Value:       config.DefaultConfig.CrawlLimit,
 		},
+		&cli.BoolFlag{
+			Name:    "dry-run",
+			Usage:   "Don't persist anything to a database (you don't need a running DB)",
+			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
+		},
 	},
 }
 

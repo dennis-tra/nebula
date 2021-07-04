@@ -45,30 +45,24 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "debug",
-				Usage:   "Set this flag to enable debug logging.",
+				Usage:   "Set this flag to enable debug logging",
 				EnvVars: []string{"NEBULA_DEBUG"},
 			},
 			&cli.IntFlag{
 				Name:        "log-level",
-				Usage:       "Set this flag to a value from 0 to 6. Overrides the --debug flag.",
+				Usage:       "Set this flag to a value from 0 to 6. Overrides the --debug flag",
 				EnvVars:     []string{"NEBULA_LOG_LEVEL"},
 				Value:       4,
 				DefaultText: "4",
 			},
 			&cli.StringFlag{
 				Name:    "config",
-				Aliases: []string{"c"},
 				Usage:   "Load configuration from `FILE`",
 				EnvVars: []string{"NEBULA_CONFIG_FILE"},
 			},
-			&cli.BoolFlag{
-				Name:    "dry-run",
-				Usage:   "Don't persist anything to a database (you don't need a running DB)",
-				EnvVars: []string{"NEBULA_DRY_RUN"},
-			},
 			&cli.DurationFlag{
 				Name:        "dial-timeout",
-				Usage:       "How long should be waited before a dial is considered unsuccessful.",
+				Usage:       "How long should be waited before a dial is considered unsuccessful",
 				EnvVars:     []string{"NEBULA_DIAL_TIMEOUT"},
 				DefaultText: config.DefaultConfig.DialTimeout.String(),
 				Value:       config.DefaultConfig.DialTimeout,
@@ -92,6 +86,7 @@ func main() {
 				Usage:       "Enable pprof profiling endpoint on given port",
 				EnvVars:     []string{"NEBULA_PPROF_PORT"},
 				DefaultText: "disabled",
+				Hidden:      true,
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -130,10 +125,15 @@ func main() {
 			},
 			&cli.StringSliceFlag{
 				Name:        "protocols",
-				Usage:       "List of protocols that this crawler should look for",
+				Usage:       "Comma separated list of protocols that this crawler should look for",
 				EnvVars:     []string{"NEBULA_PROTOCOLS"},
 				DefaultText: "IPFS DHT: " + strings.Join(config.DefaultConfig.Protocols, ","),
 				Value:       cli.NewStringSlice(config.DefaultConfig.Protocols...),
+			},
+			&cli.StringSliceFlag{
+				Name:    "bootstrap-peers",
+				Usage:   "Comma separated list of multi addresses of bootstrap peers",
+				EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
 			},
 		},
 		EnableBashCompletion: true,

@@ -104,6 +104,7 @@ type whereHelpernull_Time struct{ field string }
 func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
+
 func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
@@ -112,12 +113,15 @@ func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsN
 func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
+
 func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
+
 func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
+
 func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
@@ -127,6 +131,7 @@ type whereHelpernull_String struct{ field string }
 func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
+
 func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
@@ -135,12 +140,15 @@ func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereI
 func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
+
 func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
+
 func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
+
 func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
@@ -242,16 +250,20 @@ var (
 	_ = qmhelper.Where
 )
 
-var sessionBeforeInsertHooks []SessionHook
-var sessionBeforeUpdateHooks []SessionHook
-var sessionBeforeDeleteHooks []SessionHook
-var sessionBeforeUpsertHooks []SessionHook
+var (
+	sessionBeforeInsertHooks []SessionHook
+	sessionBeforeUpdateHooks []SessionHook
+	sessionBeforeDeleteHooks []SessionHook
+	sessionBeforeUpsertHooks []SessionHook
+)
 
-var sessionAfterInsertHooks []SessionHook
-var sessionAfterSelectHooks []SessionHook
-var sessionAfterUpdateHooks []SessionHook
-var sessionAfterDeleteHooks []SessionHook
-var sessionAfterUpsertHooks []SessionHook
+var (
+	sessionAfterInsertHooks []SessionHook
+	sessionAfterSelectHooks []SessionHook
+	sessionAfterUpdateHooks []SessionHook
+	sessionAfterDeleteHooks []SessionHook
+	sessionAfterUpsertHooks []SessionHook
+)
 
 // doBeforeInsertHooks executes all "before insert" hooks.
 func (o *Session) doBeforeInsertHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {

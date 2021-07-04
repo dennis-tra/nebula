@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -18,7 +17,7 @@ import (
 // MonitorCommand contains the receive sub-command configuration.
 var MonitorCommand = &cli.Command{
 	Name:   "monitor",
-	Usage:  "Monitors the network by periodically pinging discovered peers.",
+	Usage:  "Monitors the network by periodically dialing and pinging previously crawled peers.",
 	Action: MonitorAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
@@ -31,7 +30,7 @@ var MonitorCommand = &cli.Command{
 	},
 }
 
-// MonitorAction is the function that is called when running pcp receive.
+// MonitorAction is the function that is called when running `nebula monitor`.
 func MonitorAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula monitor...")
 
@@ -43,11 +42,9 @@ func MonitorAction(c *cli.Context) error {
 	c.Context = ctx
 
 	// Acquire database handle
-	var dbh *sql.DB
-	if !c.Bool("dry-run") {
-		if dbh, err = db.Open(c.Context); err != nil {
-			return err
-		}
+	dbh, err := db.Open(c.Context)
+	if err != nil {
+		return err
 	}
 
 	// Start prometheus metrics endpoint

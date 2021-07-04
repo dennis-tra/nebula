@@ -148,7 +148,7 @@ func (m *Monitor) StartMonitoring() error {
 	}()
 
 	// Start all workers
-	for i := 0; i < m.config.WorkerCount; i++ {
+	for i := 0; i < m.config.MonitorWorkerCount; i++ {
 		w, err := NewWorker(m.dbh, m.host, m.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
