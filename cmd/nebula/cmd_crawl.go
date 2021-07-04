@@ -21,24 +21,12 @@ var CrawlCommand = &cli.Command{
 	Usage:  "Crawls the entire network based on a set of bootstrap nodes.",
 	Action: CrawlAction,
 	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "dry-run",
-			Usage:   "Don't persist results but just crawl the network.",
-			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
-		},
 		&cli.IntFlag{
 			Name:        "workers",
 			Usage:       "How many concurrent workers should dial and crawl peers.",
 			EnvVars:     []string{"NEBULA_CRAWL_WORKER_COUNT"},
-			DefaultText: strconv.Itoa(config.DefaultConfig.WorkerCount),
-			Value:       config.DefaultConfig.WorkerCount,
-		},
-		&cli.DurationFlag{
-			Name:        "dial-timeout",
-			Usage:       "How long should be waited before a dial is considered unsuccessful.",
-			EnvVars:     []string{"NEBULA_CRAWL_DIAL_TIMEOUT"},
-			DefaultText: config.DefaultConfig.DialTimeout.String(),
-			Value:       config.DefaultConfig.DialTimeout,
+			DefaultText: strconv.Itoa(config.DefaultConfig.CrawlWorkerCount),
+			Value:       config.DefaultConfig.CrawlWorkerCount,
 		},
 		&cli.IntFlag{
 			Name:        "limit",

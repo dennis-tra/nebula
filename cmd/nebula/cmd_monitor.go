@@ -21,24 +21,12 @@ var MonitorCommand = &cli.Command{
 	Usage:  "Monitors the network by periodically pinging discovered peers.",
 	Action: MonitorAction,
 	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:    "dry-run",
-			Usage:   "Don't persist results but just ping found peers.",
-			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
-		},
 		&cli.IntFlag{
 			Name:        "workers",
 			Usage:       "How many concurrent workers should ping peers.",
-			EnvVars:     []string{"NEBULA_CRAWL_WORKER_COUNT"},
-			DefaultText: strconv.Itoa(config.DefaultConfig.WorkerCount),
-			Value:       config.DefaultConfig.WorkerCount,
-		},
-		&cli.DurationFlag{
-			Name:        "dial-timeout",
-			Usage:       "How long should be waited before a dial is considered unsuccessful.",
-			EnvVars:     []string{"NEBULA_CRAWL_DIAL_TIMEOUT"},
-			DefaultText: config.DefaultConfig.DialTimeout.String(),
-			Value:       config.DefaultConfig.DialTimeout,
+			EnvVars:     []string{"NEBULA_MONITOR_WORKER_COUNT"},
+			DefaultText: strconv.Itoa(config.DefaultConfig.MonitorWorkerCount),
+			Value:       config.DefaultConfig.MonitorWorkerCount,
 		},
 	},
 }

@@ -13,21 +13,33 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
 const (
-	Prefix     = "nebula"
+	// Prefix is used to determine the XDG config directory.
+	Prefix = "nebula"
+
+	// ContextKey represents the key under which the configuration
+	// is put in a regular context.Context. The loaded configuration
+	// is placed in the context and thus accessible everywhere where
+	// a context is passed.
 	ContextKey = "config"
 )
+
+// configFile contains the path suffix that's appended to
+// an XDG compliant directory to find the settings file.
+var configFile = filepath.Join(Prefix, "config.json")
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
 	BootstrapPeers:     []string{}, // see init
 	DialTimeout:        30 * time.Second,
-	WorkerCount:        500,
+	CrawlWorkerCount:   1000,
 	CrawlLimit:         0,
+	MonitorWorkerCount: 1000,
 	MinPingInterval:    time.Second * 30,
 	PingIntervalFactor: 1.2,
 	PrometheusHost:     "localhost",
@@ -37,25 +49,16 @@ var DefaultConfig = Config{
 	DatabaseName:       "nebula",
 	DatabasePassword:   "password",
 	DatabaseUser:       "nebula",
+	Protocols:          []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
 }
-
-func init() {
-	for _, maddr := range dht.DefaultBootstrapPeers {
-		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
-	}
-}
-
-// configFile contains the path suffix that's appended to
-// an XDG compliant directory to find the settings file.
-var configFile = filepath.Join(Prefix, "config.json")
 
 // Config contains general user configuration.
 type Config struct {
 	// The path where the configuration file is located.
 	Path string `json:"-"`
 
-	// Whether the configuration file existed when the tool was started
-	Exists bool `json:"-"`
+	// Whether the configuration file existed when nebula was started
+	Existed bool `json:"-"`
 
 	// The list of multi addresses that will make up the entry points to the network.
 	BootstrapPeers []string
@@ -64,7 +67,10 @@ type Config struct {
 	DialTimeout time.Duration
 
 	// How many parallel workers should crawl the network.
-	WorkerCount int
+	CrawlWorkerCount int
+
+	// How many parallel workers should crawl the network.
+	MonitorWorkerCount int
 
 	// Only crawl the specified amount of peers
 	CrawlLimit int
@@ -95,27 +101,51 @@ type Config struct {
 
 	// Determines the username with which we access the database.
 	DatabaseUser string
+
+	// The list of protocols that this crawler should look for.
+	Protocols []string
 }
 
-// Save saves the peer settings and identity information
-// to disk.
+func init() {
+	for _, maddr := range dht.DefaultBootstrapPeers {
+		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
+	}
+}
+
+// Save persists the configuration to disk using the `Path` field.
+// Permissions will be 0o744
 func (c *Config) Save() error {
 	log.Infoln("Saving configuration file to", c.Path)
+
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	if err = ioutil.WriteFile(c.Path, data, 0o744); err == nil {
-		c.Exists = true
+	if c.Path == "" {
+		c.Path, err = xdg.ConfigFile(configFile)
+		if err != nil {
+			return err
+		}
 	}
-	return err
+
+	return ioutil.WriteFile(c.Path, data, 0o744)
 }
 
 // Apply takes command line arguments and overwrites the respective configurations.
 func (c *Config) Apply(ctx *cli.Context) {
 	if ctx.IsSet("workers") {
-		c.WorkerCount = ctx.Int("workers")
+		if ctx.Command.Name == "crawl" {
+			c.CrawlWorkerCount = ctx.Int("workers")
+		} else if ctx.Command.Name == "monitor" {
+			c.MonitorWorkerCount = ctx.Int("workers")
+		}
+	}
+	if ctx.IsSet("crawl-workers") {
+		c.CrawlWorkerCount = ctx.Int("crawl-workers")
+	}
+	if ctx.IsSet("monitor-workers") {
+		c.CrawlWorkerCount = ctx.Int("monitor-workers")
 	}
 	if ctx.IsSet("limit") {
 		c.CrawlLimit = ctx.Int("limit")
@@ -147,9 +177,12 @@ func (c *Config) Apply(ctx *cli.Context) {
 	if ctx.IsSet("db-user") {
 		c.DatabaseUser = ctx.String("db-user")
 	}
+	if ctx.IsSet("protocols") {
+		c.Protocols = ctx.StringSlice("protocols")
+	}
 }
 
-// Apply takes command line arguments and overwrites the respective configurations.
+// String prints the configuration as a json string
 func (c *Config) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
 	return fmt.Sprintf("%s", data)
@@ -181,7 +214,8 @@ func LoadConfig(path string) (*Config, error) {
 			return nil, err
 		}
 	}
-	log.Debugln("Using configuration file at:", path)
+
+	log.Debugln("Loading configuration from:", path)
 	config := DefaultConfig
 	config.Path = path
 	data, err := ioutil.ReadFile(path)
@@ -190,7 +224,7 @@ func LoadConfig(path string) (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		config.Exists = true
+		config.Existed = true
 		return &config, nil
 	} else if !os.IsNotExist(err) {
 		return nil, err
@@ -209,7 +243,7 @@ func FillContext(c *cli.Context) (context.Context, *Config, error) {
 	conf.Apply(c)
 
 	// Print full configuration.
-	log.Traceln("Configuration (CLI params overwrite file config):\n", conf)
+	log.Debugln("Configuration (CLI params overwrite file config):\n", conf)
 
 	// Populate the context with the configuration.
 	return context.WithValue(c.Context, ContextKey, conf), conf, nil
@@ -218,12 +252,12 @@ func FillContext(c *cli.Context) (context.Context, *Config, error) {
 func FromContext(ctx context.Context) (*Config, error) {
 	obj := ctx.Value(ContextKey)
 	if obj == nil {
-		return nil, fmt.Errorf("config not found in context")
+		return nil, errors.New("config not found in context")
 	}
 
 	config, ok := obj.(*Config)
 	if !ok {
-		return nil, fmt.Errorf("config not found in context")
+		return nil, errors.New("config in context has wrong type")
 	}
 
 	return config, nil

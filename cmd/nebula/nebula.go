@@ -7,13 +7,13 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
-
-	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	_ "net/http/pprof"
 )
 
@@ -32,35 +32,16 @@ func main() {
 
 	app := &cli.App{
 		Name:      "nebula",
-		Usage:     "A libp2p DHT crawler that exposes timely information about the network.",
+		Usage:     "A libp2p DHT crawler and monitor that exposes timely information about DHT networks.",
 		UsageText: "nebula [global options] command [command options] [arguments...]",
 		Authors: []*cli.Author{
 			{
 				Name:  "Dennis Trautwein",
-				Email: "nebula-crawler@dtrautwein.eu",
+				Email: "nebula@dtrautwein.eu",
 			},
 		},
 		Version: verTag,
-		Before: func(c *cli.Context) error {
-			if c.Bool("debug") {
-				log.SetLevel(log.DebugLevel)
-			}
-			if c.IsSet("log-level") {
-				ll := c.Int("log-level")
-				log.SetLevel(log.Level(ll))
-				if ll == int(log.TraceLevel) {
-					boil.DebugMode = true
-				}
-			}
-			if c.Bool("pprof") {
-				go func() {
-					if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-						log.WithError(err).Warnln("Error serving pprof")
-					}
-				}()
-			}
-			return nil
-		},
+		Before:  Before,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:    "debug",
@@ -80,20 +61,18 @@ func main() {
 				Usage:   "Load configuration from `FILE`",
 				EnvVars: []string{"NEBULA_CONFIG_FILE"},
 			},
-			//&cli.DurationFlag{
-			//	Name:        "min-ping-interval",
-			//	Usage:       "The minimum time interval between two consecutive visits of a peer",
-			//	EnvVars:     []string{"NEBULA_MIN_PING_INTERVAL"},
-			//	DefaultText: config.DefaultConfig.MinPingInterval.String(),
-			//	Value:       config.DefaultConfig.MinPingInterval,
-			//},
-			//&cli.Float64Flag{
-			//	Name:        "ping-interval-factor",
-			//	Usage:       "The factor with which the next ping timestamp should be calculated",
-			//	EnvVars:     []string{"NEBULA_PING_INTERVAL_FACTOR"},
-			//	DefaultText: fmt.Sprintf("%f", config.DefaultConfig.PingIntervalFactor),
-			//	Value:       config.DefaultConfig.PingIntervalFactor,
-			//},
+			&cli.BoolFlag{
+				Name:    "dry-run",
+				Usage:   "Don't persist anything to a database (you don't need a running DB)",
+				EnvVars: []string{"NEBULA_DRY_RUN"},
+			},
+			&cli.DurationFlag{
+				Name:        "dial-timeout",
+				Usage:       "How long should be waited before a dial is considered unsuccessful.",
+				EnvVars:     []string{"NEBULA_DIAL_TIMEOUT"},
+				DefaultText: config.DefaultConfig.DialTimeout.String(),
+				Value:       config.DefaultConfig.DialTimeout,
+			},
 			&cli.IntFlag{
 				Name:        "prom-port",
 				Usage:       "On which port should prometheus serve the metrics endpoint",
@@ -108,10 +87,11 @@ func main() {
 				DefaultText: config.DefaultConfig.PrometheusHost,
 				Value:       config.DefaultConfig.PrometheusHost,
 			},
-			&cli.BoolFlag{
-				Name:    "pprof",
-				Usage:   "Enable pprof profiling endpoint on port 6060",
-				EnvVars: []string{"NEBULA_PPROF_ENABLED"},
+			&cli.IntFlag{
+				Name:        "pprof-port",
+				Usage:       "Enable pprof profiling endpoint on given port",
+				EnvVars:     []string{"NEBULA_PPROF_PORT"},
+				DefaultText: "disabled",
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -148,11 +128,19 @@ func main() {
 				DefaultText: config.DefaultConfig.DatabaseUser,
 				Value:       config.DefaultConfig.DatabaseUser,
 			},
+			&cli.StringSliceFlag{
+				Name:        "protocols",
+				Usage:       "List of protocols that this crawler should look for",
+				EnvVars:     []string{"NEBULA_PROTOCOLS"},
+				DefaultText: "IPFS DHT: " + strings.Join(config.DefaultConfig.Protocols, ","),
+				Value:       cli.NewStringSlice(config.DefaultConfig.Protocols...),
+			},
 		},
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			CrawlCommand,
 			MonitorCommand,
+			DaemonCommand,
 		},
 	}
 
@@ -171,4 +159,32 @@ func main() {
 		log.Printf("error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// Before is executed before any subcommands are run, but after the context is ready
+// If a non-nil error is returned, no subcommands are run.
+func Before(c *cli.Context) error {
+	if c.Bool("debug") {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	if c.IsSet("log-level") {
+		ll := c.Int("log-level")
+		log.SetLevel(log.Level(ll))
+		if ll == int(log.TraceLevel) {
+			boil.DebugMode = true
+		}
+	}
+
+	if c.IsSet("pprof-port") {
+		go func() {
+			pprof := fmt.Sprintf("localhost:%d", c.Int("pprof-port"))
+			log.Debugln("Starting profiling endpoint at", pprof)
+			if err := http.ListenAndServe(pprof, nil); err != nil {
+				log.WithError(err).Warnln("Error serving pprof")
+			}
+		}()
+	}
+
+	return nil
 }
