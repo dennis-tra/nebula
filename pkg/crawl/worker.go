@@ -60,7 +60,7 @@ type Worker struct {
 func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 	ms := &msgSender{
 		h:         h,
-		protocols: ProtocolStrings,
+		protocols: protocol.ConvertFromStrings(conf.Protocols),
 		timeout:   conf.DialTimeout,
 	}
 

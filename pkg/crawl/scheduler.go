@@ -29,13 +29,7 @@ import (
 
 const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prerelease>\w+)?\/(?P<commit>\w+)?`
 
-var (
-	agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
-	ProtocolStrings   = []protocol.ID{
-		"/ipfs/kad/1.0.0",
-		"/ipfs/kad/2.0.0",
-	}
-)
+var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 
 // The Scheduler handles the scheduling and managing of worker
 // that crawl the network. I'm still not quite happy with that name...
