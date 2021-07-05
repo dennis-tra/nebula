@@ -3,17 +3,13 @@ package service
 import (
 	"sync"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewService_lifecycle(t *testing.T) {
 	s := New("test")
 
 	s.ServiceStopped()
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 	s.ServiceStopped()
 	s.ServiceStopped()
 }
@@ -21,8 +17,7 @@ func TestNewService_lifecycle(t *testing.T) {
 func TestNewService_shutdown(t *testing.T) {
 	s := New("test")
 
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -36,8 +31,7 @@ func TestNewService_shutdown(t *testing.T) {
 
 func TestNewService_contexts_stopped(t *testing.T) {
 	s := New("test")
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -53,8 +47,7 @@ func TestNewService_contexts_stopped(t *testing.T) {
 
 func TestNewService_contexts_shutdown(t *testing.T) {
 	s := New("test")
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -70,8 +63,7 @@ func TestNewService_contexts_shutdown(t *testing.T) {
 
 func TestNewService_restart(t *testing.T) {
 	s := New("test")
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
@@ -88,24 +80,18 @@ func TestNewService_restart(t *testing.T) {
 	}()
 	go s.ServiceStopped()
 	wg.Wait()
-
-	err = s.ServiceStarted()
-	require.Error(t, err)
-	assert.Equal(t, ErrServiceAlreadyStarted, err)
 }
 
 func TestService_SigDone(t *testing.T) {
 	s := New("test")
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 	s.ServiceStopped()
 	<-s.SigDone()
 }
 
 func TestService_SigShutdown(t *testing.T) {
 	s := New("test")
-	err := s.ServiceStarted()
-	require.NoError(t, err)
+	s.ServiceStarted()
 	go s.Shutdown()
 	<-s.SigShutdown()
 }
