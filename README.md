@@ -3,7 +3,9 @@
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 
-A libp2p DHT crawler that gathers information about the network. Starting with a set of bootstrap nodes it recursively asks all nodes in the network for their DHT neighbors and follows them until all peers were dialed.
+A libp2p DHT crawler that gathers information about running nodes in the network. Starting with a set of bootstrap nodes it recursively asks all peers for their DHT neighbors and follows them until all peers were dialed.
+
+You can find the current dashboard here: [nebula.dtrautwein.eu](https://nebula.dtrautwein.eu/dashboard/snapshot/a6Iq775l67c3BC4TQtyzCpfHAOzFszvl?orgId=1&kiosk)
 
 <details><summary>Screenshot</summary>
 <img src="./docs/grafana-screenshot.png" alt="Screenshot from a Grafana dashboard">
@@ -11,15 +13,14 @@ A libp2p DHT crawler that gathers information about the network. Starting with a
 
 ## Table of Contents
 
-- [Table of Contents](#table-of-contents)
-- [Motivation](#motivation)
 - [Project Status](#project-status)
-- [How does it work?](#how-does-it-work)
 - [Usage](#usage)
+- [How does it work?](#how-does-it-work)
+  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`daemon`](#daemon)
 - [Install](#install)
-  - [Release download](#release-download)
-  - [From source](#from-source)
+  - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
+  - [Database](#database)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
@@ -27,18 +28,60 @@ A libp2p DHT crawler that gathers information about the network. Starting with a
 - [Other Projects](#other-projects)
 - [License](#license)
 
-## Motivation
+[comment]: <> (## Motivation)
 
-https://github.com/protocol/ResNetLab/discussions/34
+[comment]: <> (https://github.com/protocol/ResNetLab/discussions/34)
 
 ## Project Status
 
-## How does it work?
+The crawler is in a working state as it's successfully visiting and following all nodes in the network. However, the project
+is very young and thus has its sharp edges here and there in the codebase and documentation. Most importantly, the gathered numbers are in
+line with existing data like the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). This crawler also
+powers a Grafana dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
 
 ## Usage
 
 Nebula is a command line tool and provides the three sub-commands `crawl`, `monitor` and `daemon`. See the command
-line help page [further below](#cli-help-page).
+line help page below for configuration options:
+
+```shell
+NAME:
+   nebula - A libp2p DHT crawler and monitor that exposes timely information about DHT networks.
+
+USAGE:
+   nebula [global options] command [command options] [arguments...]
+
+VERSION:
+   vdev+5f3759df
+
+AUTHOR:
+   Dennis Trautwein <nebula@dtrautwein.eu>
+
+COMMANDS:
+   crawl    Crawls the entire network based on a set of bootstrap nodes.
+   monitor  Monitors the network by periodically dialing and pinging previously crawled peers.
+   daemon   Start a long running process that crawls and monitors the DHT network
+   help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --debug                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
+   --log-level value        Set this flag to a value from 0 to 6. Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
+   --config FILE            Load configuration from FILE [$NEBULA_CONFIG_FILE]
+   --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 30s) [$NEBULA_DIAL_TIMEOUT]
+   --prom-port value        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
+   --prom-host value        Where should prometheus serve the metrics endpoint (default: localhost) [$NEBULA_PROMETHEUS_HOST]
+   --db-host value          On which host address can nebula reach the database (default: localhost) [$NEBULA_DATABASE_HOST]
+   --db-port value          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
+   --db-name value          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
+   --db-password value      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
+   --db-user value          The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
+   --protocols value        Comma separated list of protocols that this crawler should look for (default: "/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0") [$NEBULA_PROTOCOLS]
+   --bootstrap-peers value  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
+   --help, -h               show help (default: false)
+   --version, -v            print the version (default: false)
+```
+
+## How does it work?
 
 ### `crawl`
 
@@ -90,7 +133,7 @@ At the end of each crawl `nebula` persists general statistics about the crawl li
 
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
 
-## `monitor`
+### `monitor`
 
 The `monitor` sub-command polls every 10 seconds all sessions from the database (see above) that are due to be dialed
 in the next 10 seconds (based on the `NextDialAttempt` timestamp). It attempts to dial all peers using previously
@@ -100,49 +143,10 @@ The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` 
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
 
-## `daemon`
+### `daemon`
 
 **Work in progress:** The `daemon` sub-command combines the `crawl` and `monitor` tasks in a single process. It uses application level
 scheduling of the crawls rather than e.g. using OS-level cron configurations.
-
-### CLI help page:
-
-```shell
-NAME:
-   nebula - A libp2p DHT crawler and monitor that exposes timely information about DHT networks.
-
-USAGE:
-   nebula [global options] command [command options] [arguments...]
-
-VERSION:
-   vdev+5f3759df
-
-AUTHOR:
-   Dennis Trautwein <nebula@dtrautwein.eu>
-
-COMMANDS:
-   crawl    Crawls the entire network based on a set of bootstrap nodes.
-   monitor  Monitors the network by periodically dialing and pinging previously crawled peers.
-   daemon   Start a long running process that crawls and monitors the DHT network
-   help, h  Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --debug                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
-   --log-level value        Set this flag to a value from 0 to 6. Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
-   --config FILE            Load configuration from FILE [$NEBULA_CONFIG_FILE]
-   --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 30s) [$NEBULA_DIAL_TIMEOUT]
-   --prom-port value        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
-   --prom-host value        Where should prometheus serve the metrics endpoint (default: localhost) [$NEBULA_PROMETHEUS_HOST]
-   --db-host value          On which host address can nebula reach the database (default: localhost) [$NEBULA_DATABASE_HOST]
-   --db-port value          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
-   --db-name value          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
-   --db-password value      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
-   --db-user value          The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
-   --protocols value        Comma separated list of protocols that this crawler should look for (default: "/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0") [$NEBULA_PROTOCOLS]
-   --bootstrap-peers value  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
-   --help, -h               show help (default: false)
-   --version, -v            print the version (default: false)
-```
 
 ## Install
 
@@ -150,17 +154,15 @@ GLOBAL OPTIONS:
 
 There is no release yet.
 
-[comment]: <> (Head over to the [releases]&#40;https://github.com/dennis-tra/nebula-crawler/releases&#41; and download the latest archive for)
-
-[comment]: <> (your platform.)
-
 ### From source
 
 To compile it yourself run:
 
 ```shell
-go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest
+go install github.com/dennis-tra/nebula/cmd/nebula@latest # Go 1.16 or higher is required (may work with a lower version too)
 ```
+
+Make sure the $GOPATH/bin is in your PATH variable to access the installed pcp executable.
 
 ## Development
 
