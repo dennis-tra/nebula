@@ -106,7 +106,7 @@ func TestNextDialSession(t *testing.T) {
 	err := UpsertSessionSuccess(db, peerID)
 	require.NoError(t, err)
 
-	err = UpsertSessionError(db, peerID)
+	err = UpsertSessionErrorTS(db, peerID, time.Now())
 	require.NoError(t, err)
 
 	err = UpsertSessionSuccess(db, peerID)

@@ -28,6 +28,11 @@ type Result struct {
 
 	// Whether the pinged peer is alive
 	Alive bool
+
+	// Tracks the timestamp of the first time we couldn't dial the remote peer.
+	// Due to retries this could deviate significantly from the time when this
+	// result is published.
+	FirstFailedDial *time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -69,11 +74,23 @@ func (w *Worker) StartConnecting(connectQueue chan peer.AddrInfo, resultsQueue c
 			Peer:     pi,
 		}
 
-		if err := w.connect(ctx, pi); err == nil {
-			pr.Alive = true
-			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
-				log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
+		retries := 3
+		for i := 0; i < retries; i++ {
+			if err := w.connect(ctx, pi); err != nil {
+				if pr.FirstFailedDial == nil {
+					now := time.Now()
+					pr.FirstFailedDial = &now
+				}
+				continue
 			}
+			pr.Alive = true
+			pr.FirstFailedDial = nil
+
+			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
+				logEntry.WithError(err).Warnln("Could not close connection to peer")
+			}
+
+			break
 		}
 
 		select {
@@ -82,7 +99,7 @@ func (w *Worker) StartConnecting(connectQueue chan peer.AddrInfo, resultsQueue c
 			return
 		}
 
-		logEntry.Debugln("Connected to peer", pi.ID.Pretty()[:16])
+		logEntry.WithField("alive", pr.Alive).Debugln("Connected to peer", pi.ID.Pretty()[:16])
 	}
 }
 

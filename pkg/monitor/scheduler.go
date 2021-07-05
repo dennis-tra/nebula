@@ -137,7 +137,11 @@ func (s *Scheduler) handleResults() {
 			err = db.UpsertSessionSuccess(s.dbh, dr.Peer.ID.Pretty())
 		} else {
 			logEntry.Traceln("Peer not reachable anymore")
-			err = db.UpsertSessionError(s.dbh, dr.Peer.ID.Pretty())
+			if dr.FirstFailedDial == nil {
+				err = db.UpsertSessionError(s.dbh, dr.Peer.ID.Pretty())
+			} else {
+				err = db.UpsertSessionErrorTS(s.dbh, dr.Peer.ID.Pretty(), *dr.FirstFailedDial)
+			}
 		}
 
 		if err != nil {
@@ -149,6 +153,7 @@ func (s *Scheduler) handleResults() {
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
 func (s *Scheduler) monitorDatabase() {
 	for {
+		log.Infof("In connect queue %d peers", s.inConnectQueueCount.Load())
 		sessions, err := s.fetchSessions()
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")

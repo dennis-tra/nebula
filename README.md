@@ -102,7 +102,7 @@ the `NextDialAttempt` timestamp to a time further in the future.
 
 ## `daemon`
 
-The `daemon` sub-command combines the `crawl` and `monitor` tasks in a single process. It uses application level
+**Work in progress:** The `daemon` sub-command combines the `crawl` and `monitor` tasks in a single process. It uses application level
 scheduling of the crawls rather than e.g. using OS-level cron configurations.
 
 ### CLI help page:
