@@ -26,13 +26,13 @@ type Result struct {
 	// The pinged peer
 	Peer peer.AddrInfo
 
-	// Whether the pinged peer is alive
-	Alive bool
-
 	// Tracks the timestamp of the first time we couldn't dial the remote peer.
 	// Due to retries this could deviate significantly from the time when this
 	// result is published.
-	FirstFailedDial *time.Time
+	FirstFailedDial time.Time
+
+	// If error is set the peer was not dialable
+	Error error
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -60,63 +60,80 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
-func (w *Worker) StartConnecting(connectQueue chan peer.AddrInfo, resultsQueue chan Result) {
+func (w *Worker) StartDialing(dialQueue chan peer.AddrInfo, resultsQueue chan Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
-	for pi := range connectQueue {
-		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
+	for pi := range dialQueue {
+		start := time.Now()
+
+		// Creating log entry
+		logEntry := log.WithFields(log.Fields{
+			"workerID": w.Identifier(),
+			"targetID": pi.ID.Pretty()[:16],
+		})
 		logEntry.Debugln("Connecting to peer ", pi.ID.Pretty()[:16])
 
-		pr := Result{
+		// Initialize dial result
+		dr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     pi,
 		}
 
-		retries := 3
-		for i := 0; i < retries; i++ {
-			if err := w.connect(ctx, pi); err != nil {
-				if pr.FirstFailedDial == nil {
-					now := time.Now()
-					pr.FirstFailedDial = &now
-				}
+		// Add peer information to peer store so that DialPeer can pick it up from there
+		w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
+
+		// Try to dial the peer 3 times
+		for i := 0; i < 3; i++ {
+
+			// Update log entry
+			logEntry = logEntry.WithField("retry", i)
+
+			// Actually dial the peer
+			if err := w.dial(ctx, pi.ID); err != nil {
+				dr.FirstFailedDial = time.Now()
+				dr.Error = err
+				sleepDuration := time.Duration(float64(5*(i+1)) * float64(time.Second))
+				logEntry.WithError(err).WithField("retry", i).Debugf("Dial failed, sleeping %s\n", sleepDuration)
+				time.Sleep(sleepDuration)
 				continue
 			}
-			pr.Alive = true
-			pr.FirstFailedDial = nil
 
+			// Dial was successful - reset error
+			dr.Error = nil
+
+			// Close established connection to prevent running out of FDs?
 			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
 				logEntry.WithError(err).Warnln("Could not close connection to peer")
 			}
 
+			// Break out of for loop as the connection was successfully established
 			break
 		}
 
 		select {
-		case resultsQueue <- pr:
+		case resultsQueue <- dr:
 		case <-w.SigShutdown():
 			return
 		}
 
-		logEntry.WithField("alive", pr.Alive).Debugln("Connected to peer", pi.ID.Pretty()[:16])
+		logEntry.WithFields(log.Fields{
+			"duration": time.Since(start),
+			"alive":    dr.Error == nil,
+		}).Debugln("Tried to connect to peer", pi.ID.Pretty()[:16])
 	}
 }
 
-// connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
-// It also handles metric capturing.
-func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
+func (w *Worker) dial(ctx context.Context, peerID peer.ID) error {
 	start := time.Now()
-	stats.Record(ctx, metrics.MonitorConnectsCount.M(1))
+	stats.Record(ctx, metrics.MonitorDialCount.M(1))
 
-	ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
-	defer cancel()
-
-	if err := w.host.Connect(ctx, pi); err != nil {
-		stats.Record(ctx, metrics.MonitorConnectErrorsCount.M(1))
+	if _, err := w.host.Network().DialPeer(ctx, peerID); err != nil {
+		stats.Record(ctx, metrics.MonitorDialErrorsCount.M(1))
 		return err
 	}
 
-	stats.Record(w.ServiceContext(), metrics.MonitorConnectDuration.M(millisSince(start)))
+	stats.Record(ctx, metrics.MonitorDialDuration.M(millisSince(start)))
 	return nil
 }

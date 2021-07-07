@@ -6,21 +6,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 type Scheduler struct { // Service represents an entity that runs in a
@@ -37,17 +38,17 @@ type Scheduler struct { // Service represents an entity that runs in a
 	// The configuration of timeouts etc.
 	config *config.Config
 
-	// The queue of peer.AddrInfo's that need to be connected to.
-	connectQueue chan peer.AddrInfo
+	// The queue of peer.AddrInfo's that need to be dialed to.
+	dialQueue chan peer.AddrInfo
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put it there again.
-	inConnectQueue sync.Map
+	inDialQueue sync.Map
 
 	// The number of peers in the ping queue.
-	inConnectQueueCount atomic.Uint32
+	inDialQueueCount atomic.Uint32
 
-	// The queue that the workers publish their connect results on
+	// The queue that the workers publish their dial results on
 	resultsQueue chan Result
 
 	// The list of worker node references.
@@ -59,6 +60,9 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Set the timeout for dialing peers
+	ctx = network.WithDialPeerTimeout(ctx, conf.DialTimeout)
 
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
@@ -75,14 +79,14 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	m := &Scheduler{
-		Service:        service.New("scheduler"),
-		host:           h,
-		dbh:            dbh,
-		config:         conf,
-		inConnectQueue: sync.Map{},
-		connectQueue:   make(chan peer.AddrInfo),
-		resultsQueue:   make(chan Result),
-		workers:        sync.Map{},
+		Service:      service.New("scheduler"),
+		host:         h,
+		dbh:          dbh,
+		config:       conf,
+		inDialQueue:  sync.Map{},
+		dialQueue:    make(chan peer.AddrInfo),
+		resultsQueue: make(chan Result),
+		workers:      sync.Map{},
 	}
 
 	return m, nil
@@ -101,20 +105,20 @@ func (s *Scheduler) StartMonitoring() error {
 			return errors.Wrap(err, "new worker")
 		}
 		s.workers.Store(i, w)
-		go w.StartConnecting(s.connectQueue, s.resultsQueue)
+		go w.StartDialing(s.dialQueue, s.resultsQueue)
 	}
 
 	// Async handle the results from workers
 	go s.handleResults()
 
-	// Monitor the database and schedule connect jobs
+	// Monitor the database and schedule dial jobs
 	s.monitorDatabase()
 
 	// release all resources
 	s.cleanup()
 
 	log.WithFields(log.Fields{
-		"inConnectQueue":  s.inConnectQueueCount.Load(),
+		"inDialQueue":     s.inDialQueueCount.Load(),
 		"monitorDuration": time.Now().Sub(s.StartTime).String(),
 	}).Infoln("Finished monitoring")
 
@@ -126,29 +130,26 @@ func (s *Scheduler) handleResults() {
 		logEntry := log.WithFields(log.Fields{
 			"workerID": dr.WorkerID,
 			"targetID": dr.Peer.ID.Pretty()[:16],
-			"alive":    dr.Alive,
+			"alive":    dr.Error == nil,
 		})
-		logEntry.Infoln("Handling connect result from worker", dr.WorkerID)
+		if dr.Error != nil {
+			logEntry = logEntry.WithError(dr.Error)
+		}
+		logEntry.Infoln("Handling dial result from worker", dr.WorkerID)
 
 		// Update maps
-		s.inConnectQueue.Delete(dr.Peer.ID)
-		stats.Record(s.ServiceContext(), metrics.PeersToConnectCount.M(float64(s.inConnectQueueCount.Dec())))
+		s.inDialQueue.Delete(dr.Peer.ID)
+		stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
 		var err error
-		if dr.Alive {
-			logEntry.Traceln("Peer still reachable")
+		if dr.Error == nil {
 			err = db.UpsertSessionSuccess(s.dbh, dr.Peer.ID.Pretty())
 		} else {
-			logEntry.Traceln("Peer not reachable anymore")
-			if dr.FirstFailedDial == nil {
-				err = db.UpsertSessionError(s.dbh, dr.Peer.ID.Pretty())
-			} else {
-				err = db.UpsertSessionErrorTS(s.dbh, dr.Peer.ID.Pretty(), *dr.FirstFailedDial)
-			}
+			err = db.UpsertSessionErrorTS(s.dbh, dr.Peer.ID.Pretty(), dr.FirstFailedDial)
 		}
 
 		if err != nil {
-			logEntry.WithError(err).WithField("alive", dr.Alive).Warn("Could not update session record")
+			logEntry.WithError(err).Warn("Could not update session record")
 		}
 	}
 }
@@ -156,17 +157,17 @@ func (s *Scheduler) handleResults() {
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
 func (s *Scheduler) monitorDatabase() {
 	for {
-		log.Infof("In connect queue %d peers", s.inConnectQueueCount.Load())
+		log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
 		sessions, err := s.fetchSessions()
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
 		}
 
-		// For every session schedule that it gets pushed into the connectQueue
+		// For every session schedule that it gets pushed into the dialQueue
 		for _, session := range sessions {
-			if err = s.scheduleConnect(session); err != nil {
-				log.WithError(err).Warnln("Could not schedule connect")
+			if err = s.scheduleDial(session); err != nil {
+				log.WithError(err).Warnln("Could not schedule dial")
 			}
 		}
 
@@ -195,7 +196,7 @@ func (s *Scheduler) fetchSessions() (models.SessionSlice, error) {
 	return append(dueSessions, rfSessions...), nil
 }
 
-func (s *Scheduler) scheduleConnect(session *models.Session) error {
+func (s *Scheduler) scheduleDial(session *models.Session) error {
 	// Parse peer ID from database
 	peerID, err := peer.Decode(session.R.Peer.ID)
 	if err != nil {
@@ -214,17 +215,17 @@ func (s *Scheduler) scheduleConnect(session *models.Session) error {
 		pi.Addrs = append(pi.Addrs, maddr)
 	}
 
-	// Check if peer is already in connect queue
-	if _, inPingQueue := s.inConnectQueue.LoadOrStore(peerID, pi); inPingQueue {
-		logEntry.Infoln("Peer already in connect queue")
+	// Check if peer is already in dial queue
+	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
+		logEntry.Infoln("Peer already in dial queue")
 		return nil
 	}
-	stats.Record(s.ServiceContext(), metrics.PeersToConnectCount.M(float64(s.inConnectQueueCount.Inc())))
+	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
-	// Schedule connect for peer
+	// Schedule dial for peer
 	go func() {
 		if s.IsStarted() {
-			s.connectQueue <- pi
+			s.dialQueue <- pi
 		}
 	}()
 
@@ -232,17 +233,17 @@ func (s *Scheduler) scheduleConnect(session *models.Session) error {
 }
 
 func (s *Scheduler) cleanup() {
-	s.drainConnectQueue()
-	close(s.connectQueue)
+	s.drainDialQueue()
+	close(s.dialQueue)
 	s.shutdownWorkers()
 	close(s.resultsQueue)
 }
 
-// drainConnectQueue reads all entries from crawlQueue and discards them.
-func (s *Scheduler) drainConnectQueue() {
+// drainDialQueue reads all entries from crawlQueue and discards them.
+func (s *Scheduler) drainDialQueue() {
 	for {
 		select {
-		case pi := <-s.connectQueue:
+		case pi := <-s.dialQueue:
 			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
 		default:
 			return

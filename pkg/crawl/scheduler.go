@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/network"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -94,6 +96,9 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Set the timeout for dialing peers
+	ctx = network.WithDialPeerTimeout(ctx, conf.DialTimeout)
 
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
