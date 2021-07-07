@@ -55,6 +55,14 @@ type Scheduler struct { // Service represents an entity that runs in a
 }
 
 func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
+	conf, err := config.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
+	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+
 	// Initialize a single libp2p node that's shared between all workers.
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
@@ -62,11 +70,6 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	h, err := libp2p.New(ctx, libp2p.Identity(priv), libp2p.NoListenAddrs)
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}

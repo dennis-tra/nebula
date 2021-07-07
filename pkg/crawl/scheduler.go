@@ -90,6 +90,14 @@ var knownErrors = map[string]string{
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
 func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
+	conf, err := config.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
+	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+
 	// Initialize a single libp2p node that's shared between all workers.
 	// TODO: experiment with multiple nodes.
 	// TODO: is the key pair really necessary? see "weak keys" handling in weizenbaum crawler.
@@ -99,11 +107,6 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	h, err := libp2p.New(ctx, libp2p.Identity(priv), libp2p.NoListenAddrs)
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
