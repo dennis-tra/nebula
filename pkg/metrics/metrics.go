@@ -57,6 +57,7 @@ func ListenAndServe(host string, port int) error {
 // Keys
 var (
 	KeyAgentVersion, _ = tag.NewKey("agent_version")
+	KeyError, _        = tag.NewKey("error")
 )
 
 // Distributions
@@ -81,6 +82,7 @@ var (
 	PeerCrawlDuration       = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
 	PeersToCrawlCount       = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
 	PeersToDialCount        = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
+	PeersToDialErrorsCount  = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
 )
 
 // Views
@@ -139,6 +141,11 @@ var (
 		Measure:     PeersToDialCount,
 		Aggregation: view.LastValue(),
 	}
+	PeersToDialErrorsCountView = &view.View{
+		Measure:     PeersToDialErrorsCount,
+		TagKeys:     []tag.Key{KeyError},
+		Aggregation: fibonacciDistribution,
+	}
 )
 
 // DefaultCrawlViews with all views in it.
@@ -160,4 +167,5 @@ var DefaultMonitorViews = []*view.View{
 	PeersToDialCountView,
 	MonitorDialsCountView,
 	MonitorDialErrorsCountView,
+	PeersToDialErrorsCountView,
 }
