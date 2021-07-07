@@ -130,7 +130,10 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		}
 
 		// Fetch all neighbors
-		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
+		timeoutCtx, cancel := context.WithTimeout(ctx, network.DialPeerTimeout)
+		defer cancel()
+
+		cr.Neighbors, cr.Error = w.fetchNeighbors(timeoutCtx, pi)
 	}
 
 	if err := w.host.Network().ClosePeer(pi.ID); err != nil {
