@@ -3,9 +3,7 @@
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 
-A libp2p DHT crawler that gathers information about running nodes in the network. Starting with a set of bootstrap nodes it recursively asks all peers for their DHT neighbors and follows them until all peers were dialed.
-
-You can find the current dashboard here: [nebula.dtrautwein.eu](https://nebula.dtrautwein.eu/dashboard/snapshot/a6Iq775l67c3BC4TQtyzCpfHAOzFszvl?orgId=1&kiosk)
+A libp2p DHT crawler that gathers information about running nodes in the network. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited.
 
 <details><summary>Screenshot</summary>
 <img src="./docs/grafana-screenshot.png" alt="Screenshot from a Grafana dashboard">
@@ -35,9 +33,9 @@ You can find the current dashboard here: [nebula.dtrautwein.eu](https://nebula.d
 ## Project Status
 
 The crawler is in a working state as it's successfully visiting and following all nodes in the network. However, the project
-is very young and thus has its sharp edges here and there in the codebase and documentation. Most importantly, the gathered numbers are in
-line with existing data like the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). This crawler also
-powers a Grafana dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
+is very young and thus has its sharp edges here and there; in the codebase and documentation. Most importantly, the gathered numbers are in
+line with existing data like the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also
+powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
 
 ## Usage
 
@@ -162,7 +160,7 @@ To compile it yourself run:
 go install github.com/dennis-tra/nebula/cmd/nebula@latest # Go 1.16 or higher is required (may work with a lower version too)
 ```
 
-Make sure the $GOPATH/bin is in your PATH variable to access the installed pcp executable.
+Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
 
 ## Development
 
@@ -226,7 +224,7 @@ sqlboiler psql
 
 ## Contributing
 
-Feel free to dive in! [Open an issue](https://github.com/dennis-tra/pcp/issues/new) or submit PRs.
+Feel free to dive in! [Open an issue](https://github.com/dennis-tra/nebula/issues/new) or submit PRs.
 
 ## Support
 
