@@ -1,8 +1,12 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"os"
+	"runtime/pprof"
 	"strconv"
+	"time"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 
@@ -82,6 +86,8 @@ func CrawlAction(c *cli.Context) error {
 		return errors.Wrap(err, "creating new scheduler")
 	}
 
+	go dumpGoRoutines(c.Context)
+
 	go func() {
 		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
 		<-c.Context.Done()
@@ -89,4 +95,17 @@ func CrawlAction(c *cli.Context) error {
 	}()
 
 	return s.CrawlNetwork(pis)
+}
+
+func dumpGoRoutines(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(5 * time.Minute):
+			if err := pprof.Lookup("goroutine").WriteTo(os.Stdout, 1); err != nil {
+				log.WithError(err).Warnln("Could not dump goroutines")
+			}
+		}
+	}
 }
