@@ -36,7 +36,7 @@ var configFile = filepath.Join(Prefix, "config.json")
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
 	BootstrapPeers:     []string{}, // see init
-	DialTimeout:        30 * time.Second,
+	DialTimeout:        time.Minute,
 	CrawlWorkerCount:   1000,
 	CrawlLimit:         0,
 	MonitorWorkerCount: 1000,
