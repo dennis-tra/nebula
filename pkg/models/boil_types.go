@@ -50,3 +50,18 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	strmangle.PutBuffer(buf)
 	return str
 }
+
+// Enum values for failure_type
+const (
+	FailureTypeIoTimeout               = "io_timeout"
+	FailureTypeConnectionRefused       = "connection_refused"
+	FailureTypeProtocolNotSupported    = "protocol_not_supported"
+	FailureTypePeerIDMismatch          = "peer_id_mismatch"
+	FailureTypeNoRouteToHost           = "no_route_to_host"
+	FailureTypeNetworkUnreachable      = "network_unreachable"
+	FailureTypeNoGoodAddresses         = "no_good_addresses"
+	FailureTypeContextDeadlineExceeded = "context_deadline_exceeded"
+	FailureTypeNoPublicIP              = "no_public_ip"
+	FailureTypeMaxDialAttemptsExceeded = "max_dial_attempts_exceeded"
+	FailureTypeUnknown                 = "unknown"
+)
