@@ -36,7 +36,7 @@ func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
 	}
 }
 
-func upsertFetchSession(t *testing.T, ctx context.Context, db *sql.DB, peerID string) *models.Session {
+func upsertSuccessFetchSession(t *testing.T, ctx context.Context, db *sql.DB, peerID string) *models.Session {
 	// Create a session object
 	err := UpsertSessionSuccess(db, peerID)
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestUpsertSessionSuccess_insertsRowIfNotExists(t *testing.T) {
 	assert.Equal(t, s.Finished, false)
 	assert.Equal(t, s.CreatedAt, s.UpdatedAt)
 	assert.Equal(t, s.CreatedAt, s.FirstSuccessfulDial)
-	assert.False(t, s.FailureReason.Valid)
+	assert.False(t, s.FinishReason.Valid)
 	assert.False(t, s.MinDuration.Valid)
 	assert.False(t, s.MaxDuration.Valid)
 }
@@ -102,7 +102,7 @@ func TestUpsertSessionSuccess_upsertsRowIfExists(t *testing.T) {
 	assert.Equal(t, s.SuccessfulDials, 2)
 	assert.Equal(t, s.Finished, false)
 	assert.InDelta(t, s.CreatedAt.Add(dur).UnixNano(), s.UpdatedAt.UnixNano(), float64(tolerance), "The last successful dial should roughly be sleepDur larger")
-	assert.False(t, s.FailureReason.Valid)
+	assert.False(t, s.FinishReason.Valid)
 	assert.False(t, s.MinDuration.Valid)
 	assert.False(t, s.MaxDuration.Valid)
 	assert.Equal(t, s.CreatedAt, s.FirstSuccessfulDial)
@@ -139,7 +139,7 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 			uptime := tt.uptime
 
 			// Create a session object
-			s := upsertFetchSession(t, ctx, db, peerID)
+			s := upsertSuccessFetchSession(t, ctx, db, peerID)
 
 			// Move its creation time 5 minutes in the past
 			now := time.Now()
@@ -154,7 +154,7 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 
 			// Upsert the same session object
 			upsert := time.Now()
-			s = upsertFetchSession(t, ctx, db, peerID)
+			s = upsertSuccessFetchSession(t, ctx, db, peerID)
 
 			// Assert things
 			assert.Equal(t, s.PeerID, peerID)
@@ -165,4 +165,30 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 			assert.Equal(t, time.Now().Add(tt.nextDial).Unix(), s.NextDialAttempt.Time.Unix())
 		})
 	}
+}
+
+func TestUpsertSessionError(t *testing.T) {
+	ctx, db, peerID, teardown := setup(t)
+	defer teardown(t)
+
+	// Create a session object
+	s1 := upsertSuccessFetchSession(t, ctx, db, peerID)
+
+	failedAt := time.Now()
+	err := UpsertSessionError(db, peerID, failedAt, models.DialErrorIoTimeout)
+	require.NoError(t, err)
+
+	// Fetch object from database
+	s2, err := FetchSession(ctx, db, peerID)
+	require.NoError(t, err)
+
+	// Assert things
+	assert.Equal(t, s2.PeerID, peerID)
+	assert.Equal(t, s1.FirstSuccessfulDial, s2.FirstSuccessfulDial)
+	assert.Equal(t, s1.LastSuccessfulDial, s2.LastSuccessfulDial)
+	assert.Equal(t, s1.FirstSuccessfulDial, s1.LastSuccessfulDial)
+	assert.Equal(t, s2.FirstFailedDial.UnixNano(), failedAt.UnixNano())
+	assert.Equal(t, s2.FinishReason.String, models.DialErrorIoTimeout)
+	assert.True(t, s2.Finished)
+	// TODO: assert max duration, min duration, updated at
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -78,16 +77,25 @@ type Scheduler struct {
 
 // knownErrors contains a list of known errors. Property key + string to match for
 var knownErrors = map[string]string{
-	"io_timeout":                 "i/o timeout",
-	"connection_refused":         "connection refused",
-	"protocol_not_supported":     "protocol not supported",
-	"peer_id_mismatch":           "peer id mismatch",
-	"no_route_to_host":           "no route to host",
-	"network_unreachable":        "network is unreachable",
-	"no_good_addresses":          "no good addresses",
-	"context_deadline_exceeded":  "context deadline exceeded",
-	"no_public_ip":               "no public IP address",
-	"max_dial_attempts_exceeded": "max dial attempts exceeded",
+	models.DialErrorIoTimeout:               "i/o timeout",
+	models.DialErrorConnectionRefused:       "connection refused",
+	models.DialErrorProtocolNotSupported:    "protocol not supported",
+	models.DialErrorPeerIDMismatch:          "peer id mismatch",
+	models.DialErrorNoRouteToHost:           "no route to host",
+	models.DialErrorNetworkUnreachable:      "network is unreachable",
+	models.DialErrorNoGoodAddresses:         "no good addresses",
+	models.DialErrorContextDeadlineExceeded: "context deadline exceeded",
+	models.DialErrorNoPublicIP:              "no public IP address",
+	models.DialErrorMaxDialAttemptsExceeded: "max dial attempts exceeded",
+}
+
+func determineDialError(err error) string {
+	for key, errStr := range knownErrors {
+		if strings.Contains(err.Error(), errStr) {
+			return key
+		}
+	}
+	return models.DialErrorUnknown
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -215,7 +223,7 @@ func (s *Scheduler) handleResult(cr Result) {
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 
 	// persist session information
-	if err := s.upsertCrawlResult(cr.Peer.ID, cr.Peer.Addrs, cr.Error); err != nil {
+	if err := s.upsertCrawlResult(cr); err != nil {
 		log.WithError(err).Warnln("Could not update peer")
 	}
 
@@ -228,20 +236,7 @@ func (s *Scheduler) handleResult(cr Result) {
 	}
 
 	// track error or schedule new crawls
-	if cr.Error != nil {
-		errKey := "unknown"
-		for key, errStr := range knownErrors {
-			if strings.Contains(cr.Error.Error(), errStr) {
-				errKey = key
-				break
-			}
-		}
-		s.Errors[errKey] += 1
-		if errKey == "unknown" {
-			logEntry = logEntry.WithError(cr.Error)
-		}
-		logEntry.Debugln("Error crawling peer")
-	} else {
+	if cr.Error == nil {
 		for _, pi := range cr.Neighbors {
 			_, inCrawlQueue := s.inCrawlQueue[pi.ID]
 			_, crawled := s.crawled[pi.ID]
@@ -263,22 +258,23 @@ func (s *Scheduler) handleResult(cr Result) {
 
 // upsertCrawlResult inserts the given peer with its multi addresses in the database and
 // upserts its currently active session
-func (s *Scheduler) upsertCrawlResult(peerID peer.ID, maddrs []ma.Multiaddr, dialErr error) error {
+func (s *Scheduler) upsertCrawlResult(cr Result) error {
 	// Check if we're in a dry-run
 	if s.dbh == nil {
 		return nil
 	}
 
 	startUpsert := time.Now()
-	if dialErr == nil {
-		if err := db.UpsertPeer(s.ServiceContext(), s.dbh, peerID.Pretty(), maddrs); err != nil {
+	if cr.Error == nil {
+		if err := db.UpsertPeer(s.ServiceContext(), s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs); err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}
-		if err := db.UpsertSessionSuccess(s.dbh, peerID.Pretty()); err != nil {
+		if err := db.UpsertSessionSuccess(s.dbh, cr.Peer.ID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}
-	} else if dialErr != s.ServiceContext().Err() {
-		if err := db.UpsertSessionError(s.dbh, peerID.Pretty()); err != nil {
+	} else if cr.Error != s.ServiceContext().Err() {
+		dialErr := determineDialError(cr.Error)
+		if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), cr.ErrorTime, dialErr); err != nil {
 			return errors.Wrap(err, "upsert session error")
 		}
 	}

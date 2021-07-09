@@ -59,16 +59,25 @@ type Scheduler struct { // Service represents an entity that runs in a
 
 // knownErrors contains a list of known errors. Property key + string to match for
 var knownErrors = map[string]string{
-	"io_timeout":                 "i/o timeout",
-	"connection_refused":         "connection refused",
-	"protocol_not_supported":     "protocol not supported",
-	"peer_id_mismatch":           "peer id mismatch",
-	"no_route_to_host":           "no route to host",
-	"network_unreachable":        "network is unreachable",
-	"no_good_addresses":          "no good addresses",
-	"context_deadline_exceeded":  "context deadline exceeded",
-	"no_public_ip":               "no public IP address",
-	"max_dial_attempts_exceeded": "max dial attempts exceeded",
+	models.DialErrorIoTimeout:               "i/o timeout",
+	models.DialErrorConnectionRefused:       "connection refused",
+	models.DialErrorProtocolNotSupported:    "protocol not supported",
+	models.DialErrorPeerIDMismatch:          "peer id mismatch",
+	models.DialErrorNoRouteToHost:           "no route to host",
+	models.DialErrorNetworkUnreachable:      "network is unreachable",
+	models.DialErrorNoGoodAddresses:         "no good addresses",
+	models.DialErrorContextDeadlineExceeded: "context deadline exceeded",
+	models.DialErrorNoPublicIP:              "no public IP address",
+	models.DialErrorMaxDialAttemptsExceeded: "max dial attempts exceeded",
+}
+
+func determineDialError(err error) string {
+	for key, errStr := range knownErrors {
+		if strings.Contains(err.Error(), errStr) {
+			return key
+		}
+	}
+	return models.DialErrorUnknown
 }
 
 func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
@@ -157,23 +166,15 @@ func (s *Scheduler) handleResults() {
 		s.inDialQueue.Delete(dr.Peer.ID)
 		stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
-		errKey := "unknown"
-		for key, errStr := range knownErrors {
-			if strings.Contains(dr.Error.Error(), errStr) {
-				errKey = key
-				break
-			}
-		}
-
-		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, errKey)); err == nil {
-			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
-		}
-
 		var err error
 		if dr.Error == nil {
 			err = db.UpsertSessionSuccess(s.dbh, dr.Peer.ID.Pretty())
 		} else {
-			err = db.UpsertSessionErrorTS(s.dbh, dr.Peer.ID.Pretty(), dr.FirstFailedDial)
+			dialErr := determineDialError(dr.Error)
+			if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
+				stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
+			}
+			err = db.UpsertSessionError(s.dbh, dr.Peer.ID.Pretty(), dr.ErrorTime, dialErr)
 		}
 
 		if err != nil {

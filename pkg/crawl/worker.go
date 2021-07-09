@@ -44,6 +44,9 @@ type Result struct {
 
 	// Any error that has occurred during the crawl
 	Error error
+
+	// As it can take some time to handle the result we track the timestamp explicitly
+	ErrorTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -130,6 +133,11 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 
 		// Fetch all neighbors
 		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
+	}
+
+	// If connection or neighbor fetching failed we track the timestamp
+	if cr.Error != nil {
+		cr.ErrorTime = time.Now()
 	}
 
 	// Free connection resources

@@ -100,36 +100,19 @@ ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
 	return rows.Close()
 }
 
-func UpsertSessionError(dbh *sql.DB, peerID string) error {
+func UpsertSessionError(dbh *sql.DB, peerID string, failedAt time.Time, reason string) error {
 	query := `
 UPDATE sessions SET
-    first_failed_dial = NOW(),
-    min_duration = last_successful_dial - first_successful_dial,
-    max_duration = NOW() - first_successful_dial,
-    finished = true,
-    updated_at = NOW(),
-    next_dial_attempt = null
+  first_failed_dial = $2,
+  min_duration = last_successful_dial - first_successful_dial,
+  max_duration = NOW() - first_successful_dial,
+  finished = true,
+  updated_at = NOW(),
+  next_dial_attempt = null,
+  finish_reason = $3
 WHERE peer_id = $1 AND finished = false;
 `
-	rows, err := queries.Raw(query, peerID).Query(dbh)
-	if err != nil {
-		return err
-	}
-	return rows.Close()
-}
-
-func UpsertSessionErrorTS(dbh *sql.DB, peerID string, failedDial time.Time) error {
-	query := `
-UPDATE sessions SET
-    first_failed_dial = $2,
-    min_duration = last_successful_dial - first_successful_dial,
-    max_duration = NOW() - first_successful_dial,
-    finished = true,
-    updated_at = NOW(),
-    next_dial_attempt = null
-WHERE peer_id = $1 AND finished = false;
-`
-	rows, err := queries.Raw(query, peerID, failedDial.Format(time.RFC3339Nano)).Query(dbh)
+	rows, err := queries.Raw(query, peerID, failedAt.Format(time.RFC3339Nano), reason).Query(dbh)
 	if err != nil {
 		return err
 	}

@@ -51,17 +51,17 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	return str
 }
 
-// Enum values for failure_type
+// Enum values for dial_error
 const (
-	FailureTypeIoTimeout               = "io_timeout"
-	FailureTypeConnectionRefused       = "connection_refused"
-	FailureTypeProtocolNotSupported    = "protocol_not_supported"
-	FailureTypePeerIDMismatch          = "peer_id_mismatch"
-	FailureTypeNoRouteToHost           = "no_route_to_host"
-	FailureTypeNetworkUnreachable      = "network_unreachable"
-	FailureTypeNoGoodAddresses         = "no_good_addresses"
-	FailureTypeContextDeadlineExceeded = "context_deadline_exceeded"
-	FailureTypeNoPublicIP              = "no_public_ip"
-	FailureTypeMaxDialAttemptsExceeded = "max_dial_attempts_exceeded"
-	FailureTypeUnknown                 = "unknown"
+	DialErrorIoTimeout               = "io_timeout"
+	DialErrorConnectionRefused       = "connection_refused"
+	DialErrorProtocolNotSupported    = "protocol_not_supported"
+	DialErrorPeerIDMismatch          = "peer_id_mismatch"
+	DialErrorNoRouteToHost           = "no_route_to_host"
+	DialErrorNetworkUnreachable      = "network_unreachable"
+	DialErrorNoGoodAddresses         = "no_good_addresses"
+	DialErrorContextDeadlineExceeded = "context_deadline_exceeded"
+	DialErrorNoPublicIP              = "no_public_ip"
+	DialErrorMaxDialAttemptsExceeded = "max_dial_attempts_exceeded"
+	DialErrorUnknown                 = "unknown"
 )

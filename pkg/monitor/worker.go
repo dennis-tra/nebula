@@ -26,13 +26,14 @@ type Result struct {
 	// The pinged peer
 	Peer peer.AddrInfo
 
+	// If error is set the peer was not dialable
+	Error error
+
+	// As it can take some time to handle the result we track the timestamp explicitly
 	// Tracks the timestamp of the first time we couldn't dial the remote peer.
 	// Due to retries this could deviate significantly from the time when this
 	// result is published.
-	FirstFailedDial time.Time
-
-	// If error is set the peer was not dialable
-	Error error
+	ErrorTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -92,7 +93,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 
 			// Actually dial the peer
 			if err := w.dial(ctx, pi.ID); err != nil {
-				dr.FirstFailedDial = time.Now()
+				dr.ErrorTime = time.Now()
 				dr.Error = err
 				sleepDuration := time.Duration(float64(5*(i+1)) * float64(time.Second))
 				logEntry.WithError(err).WithField("retry", i).Debugf("Dial failed, sleeping %s\n", sleepDuration)
@@ -102,6 +103,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 
 			// Dial was successful - reset error
 			dr.Error = nil
+			dr.ErrorTime = time.Time{}
 
 			// Close established connection to prevent running out of FDs?
 			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
