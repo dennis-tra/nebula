@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	MinInterval = 30 * time.Second
-	MaxInterval = 40 * time.Minute
+	MinInterval        = time.Minute
+	MaxInterval        = 40 * time.Minute
+	IntervalMultiplier = 1.1
 )
 
 func Open(ctx context.Context) (*sql.DB, error) {
@@ -67,31 +68,31 @@ func UpsertSessionSuccess(dbh *sql.DB, peerID string) error {
 	// TODO: use config for min interval and factor
 	query := `
 INSERT INTO sessions (
- peer_id,
- first_successful_dial,
- last_successful_dial,
- first_failed_dial,
- next_dial_attempt,
- successful_dials,
- finished,
- created_at,
- updated_at
-) VALUES ($1, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
+  peer_id,
+  first_successful_dial,
+  last_successful_dial,
+  first_failed_dial,
+  next_dial_attempt,
+  successful_dials,
+  finished,
+  created_at,
+  updated_at
+) VALUES ($1, NOW(), NOW(), '1970-01-01', NOW() + $2::interval, 1, false, NOW(), NOW())
 ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
- last_successful_dial = EXCLUDED.last_successful_dial,
- successful_dials     = sessions.successful_dials + 1,
- updated_at           = EXCLUDED.updated_at,
- next_dial_attempt    = 
-  CASE
-	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < '30s'::interval THEN
-		EXCLUDED.last_successful_dial + '30s'::interval
-	 WHEN 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > '40m'::interval THEN
-		EXCLUDED.last_successful_dial + '40m'::interval
-	 ELSE
-        EXCLUDED.last_successful_dial + 1.1 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
-  END;
+  last_successful_dial = EXCLUDED.last_successful_dial,
+  successful_dials     = sessions.successful_dials + 1,
+  updated_at           = EXCLUDED.updated_at,
+  next_dial_attempt    = 
+   CASE
+     WHEN $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < $2::interval THEN
+       EXCLUDED.last_successful_dial + $2::interval
+     WHEN $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > $3::interval THEN
+       EXCLUDED.last_successful_dial + $3::interval
+     ELSE
+       EXCLUDED.last_successful_dial + $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
+   END;
 `
-	rows, err := queries.Raw(query, peerID).Query(dbh)
+	rows, err := queries.Raw(query, peerID, MinInterval.String(), MaxInterval.String(), IntervalMultiplier).Query(dbh)
 	if err != nil {
 		return err
 	}

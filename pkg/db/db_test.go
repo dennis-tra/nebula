@@ -7,13 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/volatiletech/sqlboiler/v4/boil"
-
 	_ "github.com/lib/pq"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
@@ -36,6 +34,17 @@ func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
 		_, err = models.Sessions().DeleteAll(ctx, db)
 		require.NoError(t, err)
 	}
+}
+
+func upsertFetchSession(t *testing.T, ctx context.Context, db *sql.DB, peerID string) *models.Session {
+	// Create a session object
+	err := UpsertSessionSuccess(db, peerID)
+	require.NoError(t, err)
+
+	// Fetch object from database
+	s, err := FetchSession(ctx, db, peerID)
+	require.NoError(t, err)
+	return s
 }
 
 func TestUpsertSessionSuccess_insertsRowIfNotExists(t *testing.T) {
@@ -100,17 +109,6 @@ func TestUpsertSessionSuccess_upsertsRowIfExists(t *testing.T) {
 	assert.Equal(t, s.NextDialAttempt.Time, s.LastSuccessfulDial.Add(MinInterval))
 }
 
-func createSession(t *testing.T, ctx context.Context, db *sql.DB, peerID string) *models.Session {
-	// Create a session object
-	err := UpsertSessionSuccess(db, peerID)
-	require.NoError(t, err)
-
-	// Fetch object from database
-	s, err := FetchSession(ctx, db, peerID)
-	require.NoError(t, err)
-	return s
-}
-
 func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -125,7 +123,7 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 		{
 			name:     "intermediate",
 			uptime:   5 * time.Minute,
-			nextDial: time.Duration(float64(5*time.Minute) * 1.1),
+			nextDial: time.Duration(float64(5*time.Minute) * IntervalMultiplier),
 		},
 		{
 			name:     "upper limit",
@@ -141,7 +139,7 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 			uptime := tt.uptime
 
 			// Create a session object
-			s := createSession(t, ctx, db, peerID)
+			s := upsertFetchSession(t, ctx, db, peerID)
 
 			// Move its creation time 5 minutes in the past
 			now := time.Now()
@@ -156,12 +154,7 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 
 			// Upsert the same session object
 			upsert := time.Now()
-			err = UpsertSessionSuccess(db, peerID)
-			require.NoError(t, err)
-
-			// Fetch session from database again
-			s, err = FetchSession(ctx, db, peerID)
-			require.NoError(t, err)
+			s = upsertFetchSession(t, ctx, db, peerID)
 
 			// Assert things
 			assert.Equal(t, s.PeerID, peerID)
@@ -172,86 +165,4 @@ func TestUpsertSessionSuccess_nextDialCalculation(t *testing.T) {
 			assert.Equal(t, time.Now().Add(tt.nextDial).Unix(), s.NextDialAttempt.Time.Unix())
 		})
 	}
-}
-
-func TestUpsertSession(t *testing.T) {
-	ctx, db, peerID, teardown := setup(t)
-	defer teardown(t)
-
-	err := UpsertSessionSuccess(db, peerID)
-	require.NoError(t, err)
-
-	session, err := models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
-	require.NoError(t, err)
-
-	assert.Equal(t, session.PeerID, peerID)
-	assert.Equal(t, session.FirstSuccessfulDial, session.LastSuccessfulDial)
-	assert.Equal(t, session.NextDialAttempt.Time, session.LastSuccessfulDial.Add(30*time.Second))
-	assert.Equal(t, session.FirstFailedDial.Local(), time.Unix(0, 0))
-	assert.Equal(t, session.Finished, false)
-	assert.Equal(t, session.SuccessfulDials, 1)
-	assert.Equal(t, session.CreatedAt, session.UpdatedAt)
-	assert.Equal(t, session.CreatedAt, session.FirstSuccessfulDial)
-
-	err = UpsertSessionSuccess(db, peerID)
-	require.NoError(t, err)
-
-	session, err = models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
-	require.NoError(t, err)
-
-	assert.Equal(t, session.PeerID, peerID)
-	assert.Greaterf(t, session.LastSuccessfulDial.UnixNano(), session.FirstSuccessfulDial.UnixNano(), "")
-	assert.Equal(t, session.NextDialAttempt.Time, session.LastSuccessfulDial.Add(30*time.Second))
-	assert.Equal(t, session.FirstFailedDial.Local(), time.Unix(0, 0))
-	assert.Equal(t, session.Finished, false)
-	assert.Equal(t, session.SuccessfulDials, 2)
-	assert.Greaterf(t, session.UpdatedAt.UnixNano(), session.CreatedAt.UnixNano(), "")
-	assert.Equal(t, session.CreatedAt, session.FirstSuccessfulDial)
-
-	session.LastSuccessfulDial = session.LastSuccessfulDial.Add(time.Minute)
-	_, err = session.Update(ctx, db, boil.Infer())
-	require.NoError(t, err)
-
-	session, err = models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
-	require.NoError(t, err)
-
-	// TODO:
-	// assert.Equal(t, session.PeerID, peerID)
-	// assert.Equal(t, session.NextDialAttempt.Time.String(), session.LastSuccessfulDial.Add(time.Duration(float64(session.LastSuccessfulDial.Sub(session.FirstSuccessfulDial))*1.5)).String())
-	// assert.Equal(t, session.FirstFailedDial.Local(), time.Unix(0, 0))
-	// assert.Equal(t, session.Finished, false)
-	// assert.Equal(t, session.SuccessfulDials, 2)
-	// assert.Greaterf(t, session.UpdatedAt.UnixNano(), session.CreatedAt.UnixNano(), "")
-	// assert.Equal(t, session.CreatedAt, session.FirstSuccessfulDial)
-
-	err = UpsertSessionError(db, peerID)
-	require.NoError(t, err)
-
-	err = session.Reload(ctx, db)
-	require.NoError(t, err)
-
-	assert.Equal(t, true, session.Finished)
-	assert.Equal(t, 2, session.SuccessfulDials)
-	assert.False(t, session.NextDialAttempt.Valid)
-}
-
-func TestNextDialSession(t *testing.T) {
-	ctx, db, peerID, teardown := setup(t)
-	defer teardown(t)
-
-	err := UpsertSessionSuccess(db, peerID)
-	require.NoError(t, err)
-
-	err = UpsertSessionErrorTS(db, peerID, time.Now())
-	require.NoError(t, err)
-
-	err = UpsertSessionSuccess(db, peerID)
-	require.NoError(t, err)
-
-	err = UpsertSessionError(db, peerID)
-	require.NoError(t, err)
-
-	sessions, err := models.Sessions(qm.Where("peer_id = ?", peerID)).All(ctx, db)
-	require.NoError(t, err)
-	assert.Lenf(t, sessions, 2, "")
 }
