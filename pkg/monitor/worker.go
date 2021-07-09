@@ -132,7 +132,11 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 				default:
 				}
 				logEntry.WithError(err).Debugf(errMsg)
-				time.Sleep(sleepDur)
+				select {
+				case <-time.After(sleepDur):
+				case <-w.SigShutdown():
+					return
+				}
 				continue retryLoop
 			}
 
