@@ -65,19 +65,7 @@ func DaemonAction(c *cli.Context) error {
 	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
 		return errors.Wrap(err, "initialize metrics")
 	}
-
 	_ = dbh
-	//// Initialize scheduler that handles crawling the network.
-	//m, _ := monitor.NewDaemon(c.Context, dbh)
-	//go m.StartDaemoning()
-	//
-	//select {
-	//case <-c.Context.Done():
-	//	// Nebula was asked to stop (e.g. SIGINT) -> tell the monitor to stop
-	//	m.Shutdown()
-	//case <-m.SigDone():
-	//	// monitor finished autonomously
-	//}
 
-	return nil
+	return errors.New("this command isn't implemented yet :/")
 }
