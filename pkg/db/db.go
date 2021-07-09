@@ -19,6 +19,11 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
+const (
+	MinInterval = 30 * time.Second
+	MaxInterval = 40 * time.Minute
+)
+
 func Open(ctx context.Context) (*sql.DB, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
@@ -54,6 +59,10 @@ func Open(ctx context.Context) (*sql.DB, error) {
 	return db, nil
 }
 
+func FetchSession(ctx context.Context, db *sql.DB, peerID string) (*models.Session, error) {
+	return models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
+}
+
 func UpsertSessionSuccess(dbh *sql.DB, peerID string) error {
 	// TODO: use config for min interval and factor
 	query := `
@@ -67,8 +76,7 @@ INSERT INTO sessions (
  finished,
  created_at,
  updated_at
-) VALUES (
-$1, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
+) VALUES ($1, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
 ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
  last_successful_dial = EXCLUDED.last_successful_dial,
  successful_dials     = sessions.successful_dials + 1,
