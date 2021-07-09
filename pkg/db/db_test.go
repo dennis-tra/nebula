@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+
 	_ "github.com/lib/pq"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +24,7 @@ func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
 	db, err := sql.Open("postgres", "dbname=nebula user=nebula password=password sslmode=disable")
 	require.NoError(t, err)
 
-	peerID := fmt.Sprintf("some-id-%d", time.Now().Nanosecond())
+	peerID := fmt.Sprintf("some-id-%d", time.Now().UnixNano())
 
 	_, err = models.Sessions().DeleteAll(ctx, db)
 	require.NoError(t, err)
@@ -191,4 +193,24 @@ func TestUpsertSessionError(t *testing.T) {
 	assert.Equal(t, s2.FinishReason.String, models.DialErrorIoTimeout)
 	assert.True(t, s2.Finished)
 	// TODO: assert max duration, min duration, updated at
+}
+
+func TestUpsertPeer(t *testing.T) {
+	ctx, db, peerID, teardown := setup(t)
+	defer teardown(t)
+
+	p1, err := models.Peers(qm.Where("id = ?", peerID)).One(ctx, db)
+	require.NoError(t, err)
+
+	newAddrs := []string{"/ip4/1.1.1.1/tcp/111"}
+
+	maddr, err := ma.NewMultiaddr(newAddrs[0])
+	require.NoError(t, err)
+	err = UpsertPeer(ctx, db, peerID, []ma.Multiaddr{maddr})
+
+	p2, err := models.Peers(qm.Where("id = ?", peerID)).One(ctx, db)
+	require.NoError(t, err)
+
+	assert.EqualValues(t, newAddrs, p2.MultiAddresses)
+	assert.NotEqual(t, p1.UpdatedAt, p2.UpdatedAt)
 }

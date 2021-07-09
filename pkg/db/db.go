@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	MinInterval        = 30 * time.Second
+	MinInterval        = 71 * time.Second
 	MaxInterval        = 40 * time.Minute
 	IntervalMultiplier = 1.1
 )
@@ -127,7 +127,7 @@ func UpsertPeer(ctx context.Context, dbh *sql.DB, peerID string, maddrs []ma.Mul
 	for i, maddr := range maddrs {
 		p.MultiAddresses[i] = maddr.String()
 	}
-	return p.Upsert(ctx, dbh, true, []string{"id"}, boil.Whitelist("updated_at"), boil.Infer())
+	return p.Upsert(ctx, dbh, true, []string{"id"}, boil.Whitelist("multi_addresses", "updated_at"), boil.Infer())
 }
 
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
