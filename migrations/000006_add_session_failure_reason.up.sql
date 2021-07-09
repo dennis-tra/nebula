@@ -12,4 +12,4 @@ CREATE TYPE failure_type AS ENUM (
     'unknown'
 );
 
-ALTER TABLE sessions ADD failure_reason failure_type;
+ALTER TABLE sessions ADD failure_reason failure_type NOT NULL default 'unknown';
