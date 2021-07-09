@@ -82,7 +82,7 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 }
 
 // StartCrawling reads from the given crawl queue and publishes the results on the results queue until interrupted.
-func (w *Worker) StartCrawling(crawlQueue chan peer.AddrInfo, resultsQueue chan Result) {
+func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue chan<- Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 	defer log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)

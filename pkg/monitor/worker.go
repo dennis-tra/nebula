@@ -60,7 +60,7 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
-func (w *Worker) StartDialing(dialQueue chan peer.AddrInfo, resultsQueue chan Result) {
+func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<- Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
