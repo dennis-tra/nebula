@@ -104,7 +104,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 					break retryLoop
 				}
 
-				sleepDur := time.Duration(float64(10*(retry+1)) * float64(time.Second))
+				sleepDur := time.Duration(float64(retry+1) * float64(10*time.Second))
 				errMsg := fmt.Sprintf("Dial failed, sleeping %s", sleepDur)
 
 				switch determineDialError(dr.Error) {
