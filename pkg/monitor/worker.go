@@ -109,7 +109,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 
 				switch determineDialError(dr.Error) {
 				case models.DialErrorPeerIDMismatch:
-					logEntry.WithError(err).Debugln("Dial failed due peer ID mismatch - stopping retry")
+					logEntry.WithError(err).Debugln("Dial failed due to peer ID mismatch - stopping retry")
 					// TODO: properly connect to new peer and see if it is part of the DHT.
 					break retryLoop
 				case models.DialErrorNoPublicIP, models.DialErrorNoGoodAddresses:
