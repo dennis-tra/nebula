@@ -21,8 +21,8 @@ import (
 
 const (
 	MinInterval        = 30 * time.Second
-	MaxInterval        = 40 * time.Minute
-	IntervalMultiplier = 1.1
+	MaxInterval        = 15 * time.Minute
+	IntervalMultiplier = 0.5
 )
 
 func Open(ctx context.Context) (*sql.DB, error) {
