@@ -76,7 +76,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			"workerID": w.Identifier(),
 			"targetID": pi.ID.Pretty()[:16],
 		})
-		logEntry.Debugln("Connecting to peer ", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Connecting to peer", pi.ID.Pretty()[:16])
 
 		// Initialize dial result
 		dr := Result{

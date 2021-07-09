@@ -92,7 +92,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 	ctx := w.ServiceContext()
 	for pi := range crawlQueue {
 		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
-		logEntry.Debugln("Crawling peer ", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Crawling peer", pi.ID.Pretty()[:16])
 
 		cr := w.crawlPeer(ctx, pi)
 
@@ -102,7 +102,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 			return
 		}
 
-		logEntry.Debugln("Crawled peer ", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Crawled peer", pi.ID.Pretty()[:16])
 	}
 }
 
