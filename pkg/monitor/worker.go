@@ -8,12 +8,14 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -82,23 +84,56 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			Peer:     pi,
 		}
 
-		// Add peer information to peer store so that DialPeer can pick it up from there
-		w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
-
 		// Try to dial the peer 3 times
-		for i := 0; i < 3; i++ {
+	retryLoop:
+		for retry := 0; retry < 3; retry++ {
 
 			// Update log entry
-			logEntry = logEntry.WithField("retry", i)
+			logEntry = logEntry.WithField("retry", retry)
+
+			// Add peer information to peer store so that DialPeer can pick it up from there
+			// Do this in every retry due to the TTL of one minute
+			w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 			// Actually dial the peer
 			if err := w.dial(ctx, pi.ID); err != nil {
 				dr.ErrorTime = time.Now()
 				dr.Error = err
-				sleepDuration := time.Duration(float64(5*(i+1)) * float64(time.Second))
-				logEntry.WithError(err).WithField("retry", i).Debugf("Dial failed, sleeping %s\n", sleepDuration)
-				time.Sleep(sleepDuration)
-				continue
+
+				if errors.Is(err, context.Canceled) {
+					break retryLoop
+				}
+
+				sleepDur := time.Duration(float64(10*(retry+1)) * float64(time.Second))
+				errMsg := fmt.Sprintf("Dial failed, sleeping %s", sleepDur)
+
+				switch determineDialError(dr.Error) {
+				case models.DialErrorPeerIDMismatch:
+					logEntry.WithError(err).Debugln("Dial failed due peer ID mismatch - stopping retry")
+					// TODO: properly connect to new peer and see if it is part of the DHT.
+					break retryLoop
+				case models.DialErrorNoPublicIP, models.DialErrorNoGoodAddresses:
+					logEntry.WithError(err).Debugln("Dial failed due to no public ip - stopping retry")
+					break retryLoop
+				case models.DialErrorMaxDialAttemptsExceeded:
+					sleepDur = 70 * time.Second
+					errMsg = fmt.Sprintf("Max dial attempts exceeded, sleeping longer %s", sleepDur)
+				case models.DialErrorConnectionRefused:
+					// The monitoring task receives a lot of "connection refused" messages. I guess there is
+					// a limit somewhere of how often a peer can connect. I could imagine that this rate limiting
+					// is set to one minute. As the scheduler fetches all sessions that are due in the next 10
+					// seconds I'll add that and another one just to be sure ¯\_(ツ)_/¯
+					if retry >= 1 {
+						logEntry.WithError(err).Debugf("Received 'connection refused' the second time - stopping retry")
+						break retryLoop
+					}
+					sleepDur = 70 * time.Second
+					errMsg = fmt.Sprintf("Connection refused, sleeping longer %s", sleepDur)
+				default:
+				}
+				logEntry.WithError(err).Debugf(errMsg)
+				time.Sleep(sleepDur)
+				continue retryLoop
 			}
 
 			// Dial was successful - reset error

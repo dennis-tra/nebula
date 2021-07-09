@@ -246,7 +246,7 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 
 	// Check if peer is already in dial queue
 	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
-		logEntry.Infoln("Peer already in dial queue")
+		logEntry.Traceln("Peer already in dial queue")
 		return nil
 	}
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
