@@ -219,4 +219,4 @@ $RECYCLE.BIN/
 
 errors*
 dist/
-nebula
+./nebula
