@@ -186,7 +186,7 @@ func (s *Scheduler) handleResults() {
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
 func (s *Scheduler) monitorDatabase() {
 	for {
-		log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
+		log.Infof("Looking for sessions to check...")
 		sessions, err := s.fetchSessions()
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
@@ -199,6 +199,7 @@ func (s *Scheduler) monitorDatabase() {
 				log.WithError(err).Warnln("Could not schedule dial")
 			}
 		}
+		log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
 
 	TICK:
 		select {
@@ -216,13 +217,7 @@ func (s *Scheduler) fetchSessions() (models.SessionSlice, error) {
 	}
 	log.Infof("Found %d due sessions\n", len(dueSessions))
 
-	rfSessions, err := db.FetchRecentlyFinishedSessions(s.ServiceContext(), s.dbh)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "fetch recently finished sessions")
-	}
-	log.Infof("Found %d recently finished sessions\n", len(rfSessions))
-
-	return append(dueSessions, rfSessions...), nil
+	return dueSessions, nil
 }
 
 func (s *Scheduler) scheduleDial(session *models.Session) error {
