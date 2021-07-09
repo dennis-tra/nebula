@@ -29,7 +29,9 @@ func (ms *msgSender) SendRequest(ctx context.Context, p peer.ID, pmes *pb.Messag
 	defer stats.Record(ctx, kadmetrics.SentRequests.M(1))
 
 	start := time.Now()
-	s, err := ms.h.NewStream(ctx, p, ms.protocols...)
+	tctx, cancel := context.WithTimeout(ctx, ms.timeout)
+	defer cancel()
+	s, err := ms.h.NewStream(tctx, p, ms.protocols...)
 	if err != nil {
 		stats.Record(ctx, kadmetrics.SentRequestErrors.M(1))
 		return nil, err
@@ -42,7 +44,7 @@ func (ms *msgSender) SendRequest(ctx context.Context, p peer.ID, pmes *pb.Messag
 	}
 
 	r := protoio.NewDelimitedReader(s, network.MessageSizeMax)
-	tctx, cancel := context.WithTimeout(ctx, ms.timeout)
+	tctx, cancel = context.WithTimeout(ctx, ms.timeout)
 	defer cancel()
 	defer func() { _ = s.Close() }()
 

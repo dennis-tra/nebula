@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -130,16 +129,15 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		}
 
 		// Fetch all neighbors
-		timeoutCtx, cancel := context.WithTimeout(ctx, network.DialPeerTimeout)
-		defer cancel()
-
-		cr.Neighbors, cr.Error = w.fetchNeighbors(timeoutCtx, pi)
+		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 	}
 
+	// Free connection resources
 	if err := w.host.Network().ClosePeer(pi.ID); err != nil {
 		log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
 	}
 
+	// We've now crawled this peer, so increment
 	w.crawledPeers++
 
 	return cr
