@@ -222,9 +222,6 @@ func (s *Scheduler) handleResult(cr Result) {
 	delete(s.inCrawlQueue, cr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 
-	// Count errors
-	s.Errors[determineDialError(cr.Error)] += 1
-
 	// persist session information
 	if err := s.upsertCrawlResult(cr); err != nil {
 		log.WithError(err).Warnln("Could not update peer")
@@ -247,6 +244,9 @@ func (s *Scheduler) handleResult(cr Result) {
 				s.scheduleCrawl(pi)
 			}
 		}
+	} else {
+		// Count errors
+		s.Errors[determineDialError(cr.Error)] += 1
 	}
 
 	logEntry.WithFields(map[string]interface{}{
