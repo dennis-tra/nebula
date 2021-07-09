@@ -22,7 +22,7 @@ import (
 // CrawlCommand contains the crawl sub-command configuration.
 var CrawlCommand = &cli.Command{
 	Name:   "crawl",
-	Usage:  "Crawls the entire network based on a set of bootstrap nodes.",
+	Usage:  "Crawls the entire network starting with a set of bootstrap nodes.",
 	Action: CrawlAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
@@ -47,7 +47,7 @@ var CrawlCommand = &cli.Command{
 	},
 }
 
-// CrawlAction is the function that is called when running nebula crawl.
+// CrawlAction is the function that is called when running `nebula crawl`.
 func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 

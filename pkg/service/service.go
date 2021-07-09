@@ -13,8 +13,8 @@ import (
 // State represents the lifecycle states of a service.
 type State uint8
 
+// These are the concrete lifecycle manifestations.
 const (
-	// These are the concrete lifecycle manifestations.
 	Idle State = iota
 	Started
 	Stopping

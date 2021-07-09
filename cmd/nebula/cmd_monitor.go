@@ -14,15 +14,15 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
 )
 
-// MonitorCommand contains the receive sub-command configuration.
+// MonitorCommand contains the monitor sub-command configuration.
 var MonitorCommand = &cli.Command{
 	Name:   "monitor",
-	Usage:  "Monitors the network by periodically dialing and pinging previously crawled peers.",
+	Usage:  "Monitors the network by periodically dialing previously crawled peers.",
 	Action: MonitorAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:        "workers",
-			Usage:       "How many concurrent workers should ping peers.",
+			Usage:       "How many concurrent workers should dial peers.",
 			EnvVars:     []string{"NEBULA_MONITOR_WORKER_COUNT"},
 			DefaultText: strconv.Itoa(config.DefaultConfig.MonitorWorkerCount),
 			Value:       config.DefaultConfig.MonitorWorkerCount,
