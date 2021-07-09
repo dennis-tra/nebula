@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	MinInterval        = 71 * time.Second
+	MinInterval        = 30 * time.Second
 	MaxInterval        = 40 * time.Minute
 	IntervalMultiplier = 1.1
 )
