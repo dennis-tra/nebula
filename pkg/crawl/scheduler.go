@@ -200,7 +200,9 @@ func (s *Scheduler) readResultsQueue() {
 	for {
 		select {
 		case result := <-s.resultsQueue:
+			start := time.Now()
 			s.handleResult(result)
+			stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
 		case <-s.SigShutdown():
 			return
 		}
@@ -288,6 +290,8 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 // schedule crawl takes the address information and inserts it in the crawl queue in a separate
 // go routine so we don't block the results handler. Buffered channels won't work here as there could
 // be thousands of peers waiting to be crawled, so we spawn a separate go routine each time.
+// I'm not happy with this approach - isn't there another fan out concurrency pattern based on channels?
+// This could be an approach: https://github.com/AsynkronIT/goring though it's without channels and only single consumer
 func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	s.inCrawlQueue[pi.ID] = pi
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
