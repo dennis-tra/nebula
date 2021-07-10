@@ -220,3 +220,10 @@ $RECYCLE.BIN/
 errors*
 dist/
 ./nebula
+
+# data dir
+data/geoip/COPYRIGHT.txt
+data/geoip/LICENSE.txt
+data/geoip/*.mmdb
+
+node_modules/
