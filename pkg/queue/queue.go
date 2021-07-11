@@ -15,48 +15,84 @@ type ringBuffer struct {
 type Queue struct {
 	len     int64
 	content *ringBuffer
+	items   chan interface{}
+	listen  chan interface{}
 	lock    sync.Mutex
 }
 
 func New(initialSize int64) *Queue {
-	return &Queue{
+	q := &Queue{
 		content: &ringBuffer{
 			buffer: make([]interface{}, initialSize),
 			head:   0,
 			tail:   0,
 			mod:    initialSize,
 		},
-		len: 0,
+		items:  make(chan interface{}),
+		listen: make(chan interface{}),
+		len:    0,
+	}
+
+	go q.bind()
+
+	return q
+}
+
+func (q *Queue) Close() {
+	close(q.items)
+	close(q.listen)
+}
+
+func (q *Queue) Listen() <-chan interface{} {
+	return q.listen
+}
+
+func (q *Queue) bind() {
+	for {
+		item, ok := q.pop()
+		if !ok {
+			item = <-q.items
+		}
+		q.listen <- item
 	}
 }
 
 func (q *Queue) Push(item interface{}) {
+	select {
+	case q.items <- item:
+		return
+	default:
+	}
+
 	q.lock.Lock()
-	c := q.content
-	c.tail = (c.tail + 1) % c.mod
-	if c.tail == c.head {
-		var fillFactor int64 = 2
-		// we need to resize
-
-		newLen := c.mod * fillFactor
-		newBuff := make([]interface{}, newLen)
-
-		for i := int64(0); i < c.mod; i++ {
-			buffIndex := (c.tail + i) % c.mod
-			newBuff[i] = c.buffer[buffIndex]
-		}
-		// set the new buffer and reset head and tail
-		newContent := &ringBuffer{
-			buffer: newBuff,
-			head:   0,
-			tail:   c.mod,
-			mod:    newLen,
-		}
-		q.content = newContent
+	q.content.tail = (q.content.tail + 1) % q.content.mod
+	if q.content.tail == q.content.head {
+		q.resize()
 	}
 	atomic.AddInt64(&q.len, 1)
 	q.content.buffer[q.content.tail] = item
 	q.lock.Unlock()
+}
+
+func (q *Queue) resize() {
+	var fillFactor int64 = 2
+	// we need to resize
+
+	newLen := q.content.mod * fillFactor
+	newBuff := make([]interface{}, newLen)
+
+	for i := int64(0); i < q.content.mod; i++ {
+		buffIndex := (q.content.tail + i) % q.content.mod
+		newBuff[i] = q.content.buffer[buffIndex]
+	}
+	// set the new buffer and reset head and tail
+	newContent := &ringBuffer{
+		buffer: newBuff,
+		head:   0,
+		tail:   q.content.mod,
+		mod:    newLen,
+	}
+	q.content = newContent
 }
 
 func (q *Queue) Length() int64 {
@@ -67,12 +103,11 @@ func (q *Queue) Empty() bool {
 	return q.Length() == 0
 }
 
-// single consumer
-func (q *Queue) Pop() (interface{}, bool) {
+func (q *Queue) pop() (interface{}, bool) {
 	if q.Empty() {
 		return nil, false
 	}
-	// as we are a single consumer, no other thread can have poped the items there are guaranteed to be items now
+	// as we are a single consumer, no other thread can have popped the items there are guaranteed to be items now
 
 	q.lock.Lock()
 	c := q.content

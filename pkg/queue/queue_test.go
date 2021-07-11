@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -15,7 +14,7 @@ import (
 func TestPushPop(t *testing.T) {
 	q := New(10)
 	q.Push("hello")
-	res, _ := q.Pop()
+	res := <-q.Listen()
 	assert.Equal(t, "hello", res)
 	assert.True(t, q.Empty())
 }
@@ -24,7 +23,7 @@ func TestPushPopRepeated(t *testing.T) {
 	q := New(10)
 	for i := 0; i < 100; i++ {
 		q.Push("hello")
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, "hello", res)
 		assert.True(t, q.Empty())
 	}
@@ -35,7 +34,7 @@ func TestPushPopMany(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		item := fmt.Sprintf("hello%v", i)
 		q.Push(item)
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, item, res)
 	}
 	assert.True(t, q.Empty())
@@ -49,7 +48,7 @@ func TestPushPopMany2(t *testing.T) {
 	}
 	for i := 0; i < 10000; i++ {
 		item := fmt.Sprintf("hello%v", i)
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, item, res)
 	}
 	assert.True(t, q.Empty())
@@ -65,7 +64,7 @@ func TestExpand(t *testing.T) {
 	// head is now at 40
 	for i := 0; i < 40; i++ {
 		item := fmt.Sprintf("hello%v", i)
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, item, res)
 	}
 	// make sure tail wraps around => tail is at (80+50)%100=30
@@ -76,7 +75,7 @@ func TestExpand(t *testing.T) {
 	// now pop enough to make the head wrap around => (40 + 80)%100=20
 	for i := 0; i < 80; i++ {
 		item := fmt.Sprintf("hello%v", i+40)
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, item, res)
 	}
 	// push enough to cause expansion
@@ -87,7 +86,7 @@ func TestExpand(t *testing.T) {
 	// empty the queue
 	for i := 0; i < 110; i++ {
 		item := fmt.Sprintf("hello%v", i+120)
-		res, _ := q.Pop()
+		res := <-q.Listen()
 		assert.Equal(t, item, res)
 	}
 	assert.True(t, q.Empty())
@@ -102,12 +101,7 @@ func TestQueueConsistency(t *testing.T) {
 	go func() {
 		i := 0
 		seen := make(map[string]string)
-		for {
-			r, ok := q.Pop()
-			if !ok {
-				runtime.Gosched()
-				continue
-			}
+		for r := range q.Listen() {
 			i++
 			s := r.(string)
 			_, present := seen[s]
@@ -140,10 +134,11 @@ func TestQueueConsistency(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	// queue should be empty
 	for i := 0; i < 100; i++ {
-		r, ok := q.Pop()
-		if ok {
+		select {
+		case r := <-q.Listen():
 			log.Printf("unexpected result %+v", r)
 			t.FailNow()
+		default:
 		}
 	}
 }
