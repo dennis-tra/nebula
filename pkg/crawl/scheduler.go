@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	ma "github.com/multiformats/go-multiaddr"
+
 	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/libp2p/go-libp2p"
@@ -248,7 +250,11 @@ func (s *Scheduler) handleResult(cr Result) {
 		}
 	} else {
 		// Count errors
-		s.Errors[determineDialError(cr.Error)] += 1
+		dialErr := determineDialError(cr.Error)
+		s.Errors[dialErr] += 1
+		if dialErr == models.DialErrorUnknown {
+			logEntry = logEntry.WithError(cr.Error)
+		}
 	}
 
 	logEntry.WithFields(map[string]interface{}{
@@ -271,12 +277,27 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 
 	startUpsert := time.Now()
 	if cr.Error == nil {
-		oldMaddrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
+		// No error, update peer record in DB
+		oldMaddrStrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
 		if err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}
-		// TODO: Compare old with new
-		_ = oldMaddrs
+
+		// Parse old multi-addresses
+		oldMaddrs, err := addrsToMaddrs(oldMaddrStrs)
+		if err != nil {
+			return errors.Wrap(err, "addrs to maddrs")
+		}
+
+		// Check if the new multi-addresses constitute a new session
+		if isNewSession(oldMaddrs, cr.Peer.Addrs) {
+			// This is a new session as there is no overlap in multi-addresses - invalidate current session
+			if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), time.Now(), models.DialErrorMaddrReset); err != nil {
+				return errors.Wrap(err, "upsert session error maddr reset")
+			}
+		}
+
+		// Upsert peer session
 		if err := db.UpsertSessionSuccess(s.dbh, cr.Peer.ID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}
@@ -288,6 +309,42 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 	}
 	stats.Record(s.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
 	return nil
+}
+
+func isNewSession(oldMaddrs []ma.Multiaddr, newMaddrs []ma.Multiaddr) bool {
+	if len(oldMaddrs) == 0 && len(newMaddrs) == 0 {
+		return false
+	}
+
+	for _, oldMaddr := range oldMaddrs {
+		for _, newMaddr := range newMaddrs {
+			// If any multi address is equal to the previous one it is considered the same session.
+			if oldMaddr.Equal(newMaddr) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func addrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
+	maddrs := make([]ma.Multiaddr, len(addrs))
+	for i, addr := range addrs {
+		maddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			return nil, err
+		}
+		maddrs[i] = maddr
+	}
+	return maddrs, nil
+}
+
+func maddrsToAddrs(maddrs []ma.Multiaddr) []string {
+	addrs := make([]string, len(maddrs))
+	for i, maddr := range maddrs {
+		addrs[i] = maddr.String()
+	}
+	return addrs
 }
 
 // schedule crawl takes the address information and inserts it in the crawl queue in a separate

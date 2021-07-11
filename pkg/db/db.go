@@ -6,19 +6,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/volatiletech/sqlboiler/v4/types"
-
 	"contrib.go.opencensus.io/integrations/ocsql"
-
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	_ "github.com/lib/pq"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/volatiletech/sqlboiler/v4/types"
 )
 
 const (
@@ -38,7 +34,7 @@ func Open(ctx context.Context) (*sql.DB, error) {
 		return nil, errors.Wrap(err, "register ocsql")
 	}
 
-	// Open handle to database
+	// Open database handle
 	srcName := fmt.Sprintf(
 		"host=%s port=%d dbname=%s user=%s password=%s sslmode=disable",
 		conf.DatabaseHost,
@@ -56,8 +52,6 @@ func Open(ctx context.Context) (*sql.DB, error) {
 	if err = db.Ping(); err != nil {
 		return nil, errors.Wrap(err, "pinging database")
 	}
-
-	boil.SetDB(db)
 
 	return db, nil
 }

@@ -64,4 +64,5 @@ const (
 	DialErrorNoPublicIP              = "no_public_ip"
 	DialErrorMaxDialAttemptsExceeded = "max_dial_attempts_exceeded"
 	DialErrorUnknown                 = "unknown"
+	DialErrorMaddrReset              = "maddr_reset"
 )

@@ -677,7 +677,7 @@ func testSessionsSelect(t *testing.T) {
 }
 
 var (
-	sessionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `FirstSuccessfulDial`: `timestamp with time zone`, `LastSuccessfulDial`: `timestamp with time zone`, `NextDialAttempt`: `timestamp with time zone`, `FirstFailedDial`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `Finished`: `boolean`, `SuccessfulDials`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `FinishReason`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown')`}
+	sessionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `FirstSuccessfulDial`: `timestamp with time zone`, `LastSuccessfulDial`: `timestamp with time zone`, `NextDialAttempt`: `timestamp with time zone`, `FirstFailedDial`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `Finished`: `boolean`, `SuccessfulDials`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `FinishReason`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset')`}
 	_              = bytes.MinRead
 )
 
