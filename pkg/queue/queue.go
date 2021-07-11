@@ -13,11 +13,12 @@ type ringBuffer struct {
 }
 
 type Queue struct {
-	len     int64
-	content *ringBuffer
-	items   chan interface{}
-	listen  chan interface{}
-	lock    sync.Mutex
+	len      int64
+	content  *ringBuffer
+	items    chan interface{}
+	listen   chan interface{}
+	maxBatch int64
+	lock     sync.Mutex
 }
 
 func New(initialSize int64) *Queue {
@@ -28,9 +29,10 @@ func New(initialSize int64) *Queue {
 			tail:   0,
 			mod:    initialSize,
 		},
-		items:  make(chan interface{}),
-		listen: make(chan interface{}),
-		len:    0,
+		items:    make(chan interface{}),
+		listen:   make(chan interface{}),
+		maxBatch: 1000,
+		len:      0,
 	}
 
 	go q.bind()
@@ -49,11 +51,21 @@ func (q *Queue) Listen() <-chan interface{} {
 
 func (q *Queue) bind() {
 	for {
-		item, ok := q.pop()
-		if !ok {
-			item = <-q.items
+		batch := q.maxBatch
+		if q.Length() < batch {
+			batch = q.Length()
 		}
-		q.listen <- item
+		if got, ok := q.popMany(batch); ok {
+			for _, item := range got {
+				q.listen <- item
+			}
+		} else {
+			item, ok := <-q.items
+			if !ok {
+				return
+			}
+			q.listen <- item
+		}
 	}
 }
 
@@ -65,13 +77,14 @@ func (q *Queue) Push(item interface{}) {
 	}
 
 	q.lock.Lock()
+	defer q.lock.Unlock()
+
 	q.content.tail = (q.content.tail + 1) % q.content.mod
 	if q.content.tail == q.content.head {
 		q.resize()
 	}
 	atomic.AddInt64(&q.len, 1)
 	q.content.buffer[q.content.tail] = item
-	q.lock.Unlock()
 }
 
 func (q *Queue) resize() {
@@ -119,7 +132,7 @@ func (q *Queue) pop() (interface{}, bool) {
 	return res, true
 }
 
-func (q *Queue) PopMany(count int64) ([]interface{}, bool) {
+func (q *Queue) popMany(count int64) ([]interface{}, bool) {
 	if q.Empty() {
 		return nil, false
 	}

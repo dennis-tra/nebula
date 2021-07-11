@@ -13,6 +13,7 @@ import (
 
 func TestPushPop(t *testing.T) {
 	q := New(10)
+	defer q.Close()
 	q.Push("hello")
 	res := <-q.Listen()
 	assert.Equal(t, "hello", res)
@@ -21,6 +22,7 @@ func TestPushPop(t *testing.T) {
 
 func TestPushPopRepeated(t *testing.T) {
 	q := New(10)
+	defer q.Close()
 	for i := 0; i < 100; i++ {
 		q.Push("hello")
 		res := <-q.Listen()
@@ -31,6 +33,7 @@ func TestPushPopRepeated(t *testing.T) {
 
 func TestPushPopMany(t *testing.T) {
 	q := New(10)
+	defer q.Close()
 	for i := 0; i < 10000; i++ {
 		item := fmt.Sprintf("hello%v", i)
 		q.Push(item)
@@ -42,6 +45,7 @@ func TestPushPopMany(t *testing.T) {
 
 func TestPushPopMany2(t *testing.T) {
 	q := New(10)
+	defer q.Close()
 	for i := 0; i < 10000; i++ {
 		item := fmt.Sprintf("hello%v", i)
 		q.Push(item)
@@ -56,6 +60,7 @@ func TestPushPopMany2(t *testing.T) {
 
 func TestExpand(t *testing.T) {
 	q := New(10)
+	defer q.Close()
 	// expand to 100
 	for i := 0; i < 80; i++ {
 		item := fmt.Sprintf("hello%v", i)
@@ -98,6 +103,7 @@ func TestQueueConsistency(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	q := New(10)
+	defer q.Close()
 	go func() {
 		i := 0
 		seen := make(map[string]string)
