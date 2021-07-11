@@ -271,9 +271,12 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 
 	startUpsert := time.Now()
 	if cr.Error == nil {
-		if err := db.UpsertPeer(s.ServiceContext(), s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs); err != nil {
+		oldMaddrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
+		if err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}
+		// TODO: Compare old with new
+		_ = oldMaddrs
 		if err := db.UpsertSessionSuccess(s.dbh, cr.Peer.ID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}

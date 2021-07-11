@@ -24,37 +24,42 @@ import (
 
 // Peer is an object representing the database table.
 type Peer struct {
-	ID             string            `boil:"id" json:"id" toml:"id" yaml:"id"`
-	MultiAddresses types.StringArray `boil:"multi_addresses" json:"multi_addresses,omitempty" toml:"multi_addresses" yaml:"multi_addresses,omitempty"`
-	UpdatedAt      time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt      time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID                string            `boil:"id" json:"id" toml:"id" yaml:"id"`
+	MultiAddresses    types.StringArray `boil:"multi_addresses" json:"multi_addresses,omitempty" toml:"multi_addresses" yaml:"multi_addresses,omitempty"`
+	UpdatedAt         time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt         time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	OldMultiAddresses types.StringArray `boil:"old_multi_addresses" json:"old_multi_addresses,omitempty" toml:"old_multi_addresses" yaml:"old_multi_addresses,omitempty"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PeerColumns = struct {
-	ID             string
-	MultiAddresses string
-	UpdatedAt      string
-	CreatedAt      string
+	ID                string
+	MultiAddresses    string
+	UpdatedAt         string
+	CreatedAt         string
+	OldMultiAddresses string
 }{
-	ID:             "id",
-	MultiAddresses: "multi_addresses",
-	UpdatedAt:      "updated_at",
-	CreatedAt:      "created_at",
+	ID:                "id",
+	MultiAddresses:    "multi_addresses",
+	UpdatedAt:         "updated_at",
+	CreatedAt:         "created_at",
+	OldMultiAddresses: "old_multi_addresses",
 }
 
 var PeerTableColumns = struct {
-	ID             string
-	MultiAddresses string
-	UpdatedAt      string
-	CreatedAt      string
+	ID                string
+	MultiAddresses    string
+	UpdatedAt         string
+	CreatedAt         string
+	OldMultiAddresses string
 }{
-	ID:             "peers.id",
-	MultiAddresses: "peers.multi_addresses",
-	UpdatedAt:      "peers.updated_at",
-	CreatedAt:      "peers.created_at",
+	ID:                "peers.id",
+	MultiAddresses:    "peers.multi_addresses",
+	UpdatedAt:         "peers.updated_at",
+	CreatedAt:         "peers.created_at",
+	OldMultiAddresses: "peers.old_multi_addresses",
 }
 
 // Generated where
@@ -85,15 +90,17 @@ func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
 }
 
 var PeerWhere = struct {
-	ID             whereHelperstring
-	MultiAddresses whereHelpertypes_StringArray
-	UpdatedAt      whereHelpertime_Time
-	CreatedAt      whereHelpertime_Time
+	ID                whereHelperstring
+	MultiAddresses    whereHelpertypes_StringArray
+	UpdatedAt         whereHelpertime_Time
+	CreatedAt         whereHelpertime_Time
+	OldMultiAddresses whereHelpertypes_StringArray
 }{
-	ID:             whereHelperstring{field: "\"peers\".\"id\""},
-	MultiAddresses: whereHelpertypes_StringArray{field: "\"peers\".\"multi_addresses\""},
-	UpdatedAt:      whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
-	CreatedAt:      whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	ID:                whereHelperstring{field: "\"peers\".\"id\""},
+	MultiAddresses:    whereHelpertypes_StringArray{field: "\"peers\".\"multi_addresses\""},
+	UpdatedAt:         whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
+	CreatedAt:         whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	OldMultiAddresses: whereHelpertypes_StringArray{field: "\"peers\".\"old_multi_addresses\""},
 }
 
 // PeerRels is where relationship names are stored.
@@ -117,8 +124,8 @@ func (*peerR) NewStruct() *peerR {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"id", "multi_addresses", "updated_at", "created_at"}
-	peerColumnsWithoutDefault = []string{"id", "multi_addresses", "updated_at", "created_at"}
+	peerAllColumns            = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses"}
+	peerColumnsWithoutDefault = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses"}
 	peerColumnsWithDefault    = []string{}
 	peerPrimaryKeyColumns     = []string{"id"}
 )

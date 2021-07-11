@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/volatiletech/sqlboiler/v4/types"
+
 	"contrib.go.opencensus.io/integrations/ocsql"
 
 	_ "github.com/lib/pq"
@@ -119,15 +121,40 @@ WHERE peer_id = $1 AND finished = false;
 	return rows.Close()
 }
 
-func UpsertPeer(ctx context.Context, dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) error {
-	p := &models.Peer{
-		ID:             peerID,
-		MultiAddresses: make([]string, len(maddrs)),
-	}
+func UpsertPeer(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) (types.StringArray, error) {
+	maddrStrs := make(types.StringArray, len(maddrs))
 	for i, maddr := range maddrs {
-		p.MultiAddresses[i] = maddr.String()
+		maddrStrs[i] = maddr.String()
 	}
-	return p.Upsert(ctx, dbh, true, []string{"id"}, boil.Whitelist("multi_addresses", "updated_at"), boil.Infer())
+
+	query := `
+INSERT INTO peers (
+  id,
+  multi_addresses,
+  created_at,
+  updated_at
+) VALUES ($1, $2, NOW(), NOW())
+ON CONFLICT (id) DO UPDATE SET
+  multi_addresses     = EXCLUDED.multi_addresses,
+  old_multi_addresses = peers.multi_addresses,
+  updated_at          = EXCLUDED.updated_at
+RETURNING old_multi_addresses;
+`
+	rows, err := queries.Raw(query, peerID, maddrStrs).Query(dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := rows.Next(); !ok {
+		return nil, rows.Err()
+	}
+
+	var oldMaddrs types.StringArray
+	if err = rows.Scan(&oldMaddrs); err != nil {
+		return nil, err
+	}
+
+	return oldMaddrs, rows.Close()
 }
 
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {

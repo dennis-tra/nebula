@@ -7,15 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	_ "github.com/lib/pq"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
@@ -29,7 +27,10 @@ func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
 	_, err = models.Sessions().DeleteAll(ctx, db)
 	require.NoError(t, err)
 
-	err = UpsertPeer(ctx, db, peerID, []ma.Multiaddr{})
+	_, err = models.Peers().DeleteAll(ctx, db)
+	require.NoError(t, err)
+
+	_, err = UpsertPeer(db, peerID, []ma.Multiaddr{})
 	require.NoError(t, err)
 
 	return ctx, db, peerID, func(t *testing.T) {
@@ -202,15 +203,37 @@ func TestUpsertPeer(t *testing.T) {
 	p1, err := models.Peers(qm.Where("id = ?", peerID)).One(ctx, db)
 	require.NoError(t, err)
 
-	newAddrs := []string{"/ip4/1.1.1.1/tcp/111"}
+	newAddrs := []string{"/ip4/1.1.1.1/tcp/1111", "/ip4/2.2.2.2/tcp/2222"}
+	newMaddrs := []ma.Multiaddr{}
+	for _, newAddr := range newAddrs {
+		maddr, err := ma.NewMultiaddr(newAddr)
+		require.NoError(t, err)
+		newMaddrs = append(newMaddrs, maddr)
+	}
 
-	maddr, err := ma.NewMultiaddr(newAddrs[0])
 	require.NoError(t, err)
-	err = UpsertPeer(ctx, db, peerID, []ma.Multiaddr{maddr})
+	oldMaddrs, err := UpsertPeer(db, peerID, newMaddrs)
+	require.NoError(t, err)
+	assert.Len(t, oldMaddrs, 0)
 
 	p2, err := models.Peers(qm.Where("id = ?", peerID)).One(ctx, db)
 	require.NoError(t, err)
 
 	assert.EqualValues(t, newAddrs, p2.MultiAddresses)
+	assert.EqualValues(t, oldMaddrs, p2.OldMultiAddresses)
 	assert.NotEqual(t, p1.UpdatedAt, p2.UpdatedAt)
+
+	newAddrs2 := []string{"/ip4/2.2.2.2/tcp/3333"}
+	newMaddrs = []ma.Multiaddr{}
+	for _, newAddr := range newAddrs2 {
+		maddr, err := ma.NewMultiaddr(newAddr)
+		require.NoError(t, err)
+		newMaddrs = append(newMaddrs, maddr)
+	}
+
+	require.NoError(t, err)
+	oldMaddrs, err = UpsertPeer(db, peerID, newMaddrs)
+	require.NoError(t, err)
+	require.Len(t, oldMaddrs, 2)
+	assert.Equal(t, newAddrs, []string(oldMaddrs))
 }
