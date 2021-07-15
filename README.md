@@ -8,9 +8,7 @@
 
 A libp2p DHT crawler that gathers information about running nodes in the network. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited.
 
-<details><summary>Screenshot</summary>
-<img src="./docs/grafana-screenshot.png" alt="Screenshot from a Grafana dashboard">
-</details>
+![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
 ## Table of Contents
 
