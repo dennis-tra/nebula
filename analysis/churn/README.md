@@ -1,4 +1,5 @@
 # Churn
+
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 
 This part of the repository contains analysis scripts that evaluate the churn rate based on the observed session lengths of the crawler.
