@@ -22,6 +22,7 @@ A libp2p DHT crawler that gathers information about running nodes in the network
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
   - [Database](#database)
+- [Analysis](#analysis)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
@@ -219,6 +220,13 @@ To generate the ORM with SQLBoiler run:
 ```shell
 sqlboiler psql
 ```
+
+## Analysis
+
+There is a top-level `analysis` folder that contains various scripts to help understand the gathered data. More information can be found in the respective subfolders README file. The following evaluations can be found there
+
+- [`geoip`](./analysis/geoip) - Uses a [Maxmind](https://maxmind.com) database to map IP addresses to country ISO codes and plots the results.
+- More to come...
 
 ## Related Efforts
 
