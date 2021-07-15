@@ -1,4 +1,5 @@
 ![Nebula Crawler Logo](./docs/nebula-logo.svg)
+
 # Nebula Crawler
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
@@ -34,15 +35,19 @@ A libp2p DHT crawler that gathers information about running nodes in the network
 
 ## Project Status
 
-The crawler is in a working state as it's successfully visiting and following all nodes in the network. However, the project
-is very young and thus has its sharp edges here and there; in the codebase and documentation. Most importantly, the gathered numbers are in
-line with existing data like the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also
-powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
+The crawler is successfully visiting and following all reachable nodes in the IPFS and Filecoin networks. However, the project is still very young and thus has its sharp edges here and there. Most importantly, the gathered numbers about the IPFS network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
 
 ## Usage
 
-Nebula is a command line tool and provides the three sub-commands `crawl`, `monitor` and `daemon`. See the command
-line help page below for configuration options:
+Nebula is a command line tool and provides the three sub-commands `crawl`, `monitor` and `daemon`. To simply crawl the IPFS network run:
+
+```shell
+nebula crawl --dry-run
+```
+
+The `--dry-run` flag does not persist any data. One run takes ~5-10 min dependent on your internet connection.
+
+See the command line help page below for configuration options:
 
 ```shell
 NAME:
@@ -171,11 +176,12 @@ To develop this project you need Go `> 1.16` and the following tools:
 - [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.14.1`
 - [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.6.0`
 
-To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable. 
+To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
 
 ### Database
 
 You need a running postgres instance to persist and/or read the crawl results. Use the following command to start a local instance of postgres:
+
 ```shell
 docker run -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:13
 ```
@@ -191,7 +197,7 @@ Host     = "localhost",
 Port     = 5432,
 ```
 
-To run migrations then run:
+To apply migrations then run:
 
 ```shell
 # Up migrations
