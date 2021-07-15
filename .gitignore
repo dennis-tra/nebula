@@ -222,3 +222,5 @@ dist/
 ./nebula
 
 node_modules/
+
+plot.png
