@@ -7,7 +7,7 @@ import seaborn as sns
 sns.set_style("darkgrid")
 sns.set()
 
-PEERS_CVS = "2021-07-14T1924-peers-filecoin.csv"
+PEERS_CVS = "2021-07-15T0925-peers-ipfs.csv"
 
 
 def node_address(maddr):
@@ -37,8 +37,8 @@ with geoip2.database.Reader("./GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
             found = False
             for maddr_str in maddr_strs:
                 maddr = Multiaddr(maddr_str)
-                address = node_address(maddr)
                 try:
+                    address = node_address(maddr)
                     iso_code = geoipreader.country(address).country.iso_code
                     if iso_code in result:
                         result[iso_code] += 1
@@ -52,7 +52,7 @@ with geoip2.database.Reader("./GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
                 print("Unknown: ", maddr_strs)
 
 pie_data = {"other": 0}
-threshold = 20
+threshold = 50
 for key in result:
     if result[key] < threshold:
         pie_data["other"] += result[key]
@@ -71,6 +71,6 @@ plt.pie(
     pctdistance=1.1,
     labeldistance=1.2,
 )
-plt.title("Filecoin Network - Country Distribution")
+plt.title("IPFS Network - Country Distribution (2021-07-15 09:25 CEST)")
 plt.tight_layout()
 plt.savefig("plot.png", dpi=200)
