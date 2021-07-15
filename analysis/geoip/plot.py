@@ -51,9 +51,6 @@ with geoip2.database.Reader("./GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
             if not found:
                 print("Unknown: ", maddr_strs)
 
-labels = list(result.keys())
-values = list(result.values())
-
 pie_data = {"other": 0}
 threshold = 20
 for key in result:
@@ -75,4 +72,5 @@ plt.pie(
     labeldistance=1.2,
 )
 plt.title("Filecoin Network - Country Distribution")
+plt.tight_layout()
 plt.savefig("plot.png", dpi=200)
