@@ -2,6 +2,8 @@
 # Nebula Crawler
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
+[![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
+[![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula-crawler)](https://github.com/dennis-tra/nebula-crawler/blob/main/LICENSE)
 
 A libp2p DHT crawler that gathers information about running nodes in the network. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited.
 
