@@ -1,0 +1,52 @@
+version: "3.9"
+services:
+  nebula:
+    image: nebula-crawler:latest
+    restart: always
+    user: nebula
+    ports:
+      - 6666:6666
+    entrypoint: ["./docker-entrypoint.sh", "nebula", "monitor"]
+    environment:
+      NEBULA_DATABASE_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:13
+    restart: always
+    user: postgres
+    ports:
+      - 5432:5432
+    volumes:
+      - psql_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nebula"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    environment:
+      POSTGRES_PASSWORD: password # TODO: load from somewhere else
+      POSTGRES_USER: nebula
+      POSTGRES_DB: nebula
+#  prometheus:
+#    image: prom/prometheus:v2.28.0
+#    restart: always
+#    volumes:
+#      - ./prometheus/:/etc/prometheus/ # configuration
+#      - prometheus_data:/prometheus # gathered data
+#    ports:
+#      - 9090:9090
+#  grafana:
+#    image: grafana/grafana:7.5.9
+#    restart: always
+#    depends_on:
+#      - prometheus
+#    ports:
+#      - 3000:3000
+#    volumes:
+#      - grafana_data:/var/lib/grafana
+volumes:
+  psql_data: {}
+  prometheus_data: {}
+  grafana_data: {}
