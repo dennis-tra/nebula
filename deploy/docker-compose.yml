@@ -1,7 +1,8 @@
 version: "3.9"
 services:
-  nebula:
-    image: nebula-crawler:latest
+  nebula_monitor:
+    image: dennis-tra/nebula-crawler:latest
+    container_name: nebula_monitor
     restart: always
     user: nebula
     entrypoint: ["./docker-entrypoint.sh", "nebula", "--prom-port=6667", "monitor"]
@@ -14,8 +15,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      nebula:
   postgres:
     image: postgres:13
+    container_name: nebula_db
     restart: always
     user: postgres
     ports:
@@ -31,13 +35,21 @@ services:
       POSTGRES_PASSWORD: password # TODO: unsafe
       POSTGRES_USER: nebula
       POSTGRES_DB: nebula
+    networks:
+      nebula:
   prometheus:
+    container_name: nebula_prometheus
     image: prom/prometheus:v2.28.0
     restart: always
+    ports:
+      - 9090:9090
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
+    networks:
+      nebula:
   grafana: # default - user: admin, pw: admin
+    container_name: nebula_grafana
     image: grafana/grafana:7.5.9
     restart: always
     ports:
@@ -47,6 +59,11 @@ services:
       - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - ./dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
+    networks:
+      nebula:
+networks:
+  nebula:
+    name: nebula
 volumes:
   psql_data: {}
   prometheus_data: {}

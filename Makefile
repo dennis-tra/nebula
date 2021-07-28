@@ -14,6 +14,9 @@ format:
 clean:
 	rm -r dist || true
 
+docker:
+	docker build . -t dennis-tra/nebula-crawler:latest
+
 tools:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.14.1
 	go install github.com/volatiletech/sqlboiler/v4@v4.6.0

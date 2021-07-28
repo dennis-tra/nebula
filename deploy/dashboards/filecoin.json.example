@@ -15,7 +15,7 @@
   "editable": true,
   "gnetId": null,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 5,
   "links": [
     {
       "asDropdown": false,
@@ -32,7 +32,7 @@
   ],
   "panels": [
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "To how many peers could we connect to during the last crawl.",
       "fieldConfig": {
         "defaults": {
@@ -66,7 +66,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -87,7 +87,7 @@
             [
               {
                 "params": [
-                    "dialable_peers"
+                  "dialable_peers"
                 ],
                 "type": "column"
               }
@@ -109,7 +109,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "Peers will leave the network in between crawls. This is the most recent and accurate approximation of dialable peers. This number is lower than the other one.",
       "fieldConfig": {
         "defaults": {
@@ -143,7 +143,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -164,13 +164,13 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -189,9 +189,9 @@
               "datatype": "bool",
               "name": "",
               "params": [
-                  "finished",
-                  "=",
-                  "'false'"
+                "finished",
+                "=",
+                "'false'"
               ],
               "type": "expression"
             }
@@ -202,7 +202,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "This panel answers the question: How many peers did we find in the DHT but could not connect to?",
       "fieldConfig": {
         "defaults": {
@@ -236,7 +236,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -257,7 +257,7 @@
             [
               {
                 "params": [
-                    "undialable_peers"
+                  "undialable_peers"
                 ],
                 "type": "column"
               }
@@ -279,7 +279,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "In the next minute the monitoring (not crawling) process will dial this number of peers.",
       "fieldConfig": {
         "defaults": {
@@ -313,7 +313,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -328,8 +328,8 @@
           "group": [
             {
               "params": [
-                  "48h",
-                  "none"
+                "48h",
+                "none"
               ],
               "type": "time"
             }
@@ -343,19 +343,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -369,9 +369,9 @@
               "datatype": "timestamptz",
               "name": "",
               "params": [
-                  "next_dial_attempt",
-                  "<",
-                  "NOW()+'1m'::interval"
+                "next_dial_attempt",
+                "<",
+                "NOW()+'1m'::interval"
               ],
               "type": "expression"
             }
@@ -382,8 +382,113 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
-      "description": "Distribution of agent versions that match roughly \"/go-ipfs/*/*\" while the middle part is summed up and displayed here.",
+      "datasource": "Nebula Postgres Filecoin",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 78,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 0,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 9,
+        "x": 0,
+        "y": 7
+      },
+      "id": 51,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  created_at AS \"time\",\n  EXTRACT(EPOCH FROM finished_at - started_at) as \"duration\"\nFROM crawls\nWHERE\n  $__timeFilter(created_at)\nORDER BY 1",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "crawled_peers"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "table": "crawls",
+          "timeColumn": "created_at",
+          "timeColumnType": "timestamptz",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Crawl durations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -403,147 +508,7 @@
       "gridPos": {
         "h": 9,
         "w": 7,
-        "x": 0,
-        "y": 7
-      },
-      "id": 12,
-      "options": {
-        "displayLabels": [],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "values": [
-              "percent",
-              "value"
-          ]
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-              "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version_core'\nORDER BY 1",
-          "refId": "A",
-          "select": [
-            [
-              {
-                "params": [
-                    "count"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                    " "
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                    "value"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "peer_properties",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                  "property",
-                  "=",
-                  "'agent_version_core'"
-              ],
-              "type": "expression"
-            }
-          ]
-        }
-      ],
-      "title": "go-ipfs Agent Version Distribution",
-      "type": "piechart"
-    },
-    {
-      "datasource": "Nebula Postgres",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                    "  go-ipfs/0.7.0/",
-                    "  go-ipfs/0.7.0/ea77213",
-                    "  go-ipfs/0.8.0/",
-                    "  go-ipfs/0.8.0/28bea0ee5",
-                    "  go-ipfs/0.8.0/48f94e2",
-                    "  go-ipfs/0.8.0/ce693d7",
-                    "  go-ipfs/0.9.0/",
-                    "  go-ipfs/0.9.0/179d1d1",
-                    "  hydra-booster/0.7.3",
-                    "  hydra-booster/0.7.4",
-                    "  storm",
-                    "other"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 7,
+        "x": 9,
         "y": 7
       },
       "id": 14,
@@ -552,14 +517,14 @@
           "displayMode": "table",
           "placement": "right",
           "values": [
-              "percent",
-              "value"
+            "percent",
+            "value"
           ]
         },
         "pieType": "pie",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -580,7 +545,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -588,13 +553,13 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -613,9 +578,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'agent_version'"
+                "property",
+                "=",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -623,9 +588,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  ">=",
-                  "100"
+                "count",
+                ">=",
+                "100"
               ],
               "type": "expression"
             }
@@ -636,8 +601,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -651,19 +616,19 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "sum"
+                  "sum"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "other"
+                  "other"
                 ],
                 "type": "alias"
               }
@@ -682,9 +647,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'agent_version'"
+                "property",
+                "=",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -692,9 +657,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  "<",
-                  "100"
+                "count",
+                "<",
+                "100"
               ],
               "type": "expression"
             }
@@ -705,7 +670,7 @@
       "type": "piechart"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "The distribution of connection errors that happened in the last crawl. 'unknown' means that there is no dedicated label for it yet.",
       "fieldConfig": {
         "defaults": {
@@ -725,8 +690,8 @@
       },
       "gridPos": {
         "h": 9,
-        "w": 9,
-        "x": 15,
+        "w": 8,
+        "x": 16,
         "y": 7
       },
       "id": 32,
@@ -735,14 +700,14 @@
           "displayMode": "table",
           "placement": "right",
           "values": [
-              "percent",
-              "value"
+            "percent",
+            "value"
           ]
         },
         "pieType": "pie",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -763,13 +728,13 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -777,7 +742,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -796,9 +761,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'error'"
+                "property",
+                "=",
+                "'error'"
               ],
               "type": "expression"
             }
@@ -809,7 +774,7 @@
       "type": "piechart"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -863,7 +828,7 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 9,
+        "w": 12,
         "x": 0,
         "y": 16
       },
@@ -871,7 +836,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -892,13 +857,13 @@
             [
               {
                 "params": [
-                    "crawled_peers"
+                  "crawled_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Total Peers"
+                  "Total Peers"
                 ],
                 "type": "alias"
               }
@@ -906,13 +871,13 @@
             [
               {
                 "params": [
-                    "dialable_peers"
+                  "dialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Dialable Peers"
+                  "Dialable Peers"
                 ],
                 "type": "alias"
               }
@@ -920,13 +885,13 @@
             [
               {
                 "params": [
-                    "undialable_peers"
+                  "undialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Undialable Peers"
+                  "Undialable Peers"
                 ],
                 "type": "alias"
               }
@@ -948,7 +913,8 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
+      "description": "The distribution of errors that happened during a crawl.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1001,15 +967,15 @@
       },
       "gridPos": {
         "h": 10,
-        "w": 9,
-        "x": 9,
+        "w": 12,
+        "x": 12,
         "y": 16
       },
-      "id": 33,
+      "id": 31,
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1024,19 +990,19 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
+          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1044,7 +1010,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1063,166 +1029,16 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'protocol'"
-              ],
-              "type": "expression"
-            },
-            {
-              "datatype": "int4",
-              "name": "",
-              "params": [
-                  "count",
-                  ">",
-                  "200"
+                "property",
+                "=",
+                "'error'"
               ],
               "type": "expression"
             }
           ]
         }
       ],
-      "title": "Supported Protocols (count >= 200)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Nebula Postgres",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 4,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 18,
-        "y": 16
-      },
-      "id": 55,
-      "options": {
-        "legend": {
-          "calcs": [
-              "lastNotNull"
-          ],
-          "displayMode": "hidden",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  finished_at AS \"time\",\n  cast(dialable_peers as decimal)/cast(crawled_peers as decimal) AS \"Ratio Dialable Peers\"\nFROM crawls\nWHERE\n  $__timeFilter(finished_at)\nORDER BY 1",
-          "refId": "A",
-          "select": [
-            [
-              {
-                "params": [
-                    "crawled_peers"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                    "Total Peers"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                    "dialable_peers"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                    "Dialable Peers"
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                    "undialable_peers"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                    "Undialable Peers"
-                ],
-                "type": "alias"
-              }
-            ]
-          ],
-          "table": "crawls",
-          "timeColumn": "finished_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            }
-          ]
-        }
-      ],
-      "title": "Percentage Dialable Peers",
+      "title": "Crawl errors",
       "type": "timeseries"
     },
     {
@@ -1298,7 +1114,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "nebula_peers_to_dial_count{instance=\"nebula_monitor:6667\"}",
+          "expr": "nebula_peers_to_dial_count{instance=\"localhost:6669\"}",
           "interval": "",
           "legendFormat": "Count",
           "refId": "A"
@@ -1380,14 +1196,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_monitor_dials_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_monitor_dials_count{instance=\"localhost:6669\"}[5m])",
           "interval": "",
           "legendFormat": "Dials",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "rate(nebula_monitor_dial_errors_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_monitor_dial_errors_count{instance=\"localhost:6669\"}[5m])",
           "hide": false,
           "interval": "",
           "legendFormat": "Errors",
@@ -1460,7 +1276,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1472,7 +1288,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_peers_to_dial_errors_count_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_peers_to_dial_errors_count_count{instance=\"localhost:6669\"}[5m])",
           "interval": "",
           "legendFormat": "{{ error }}",
           "refId": "A"
@@ -1482,7 +1298,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1543,7 +1359,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1565,7 +1381,7 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               }
@@ -1573,7 +1389,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1592,9 +1408,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "~*",
-                  "'agent_version'"
+                "property",
+                "~*",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -1602,9 +1418,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "value",
-                  "!~*",
-                  "/go-ipfs"
+                "value",
+                "!~*",
+                "/go-ipfs"
               ],
               "type": "expression"
             }
@@ -1615,7 +1431,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1676,7 +1492,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1698,7 +1514,7 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               }
@@ -1706,7 +1522,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1725,9 +1541,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "~*",
-                  "'agent_version'"
+                "property",
+                "~*",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -1735,9 +1551,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "value",
-                  "!~*",
-                  "/go-ipfs"
+                "value",
+                "!~*",
+                "/go-ipfs"
               ],
               "type": "expression"
             }
@@ -1748,8 +1564,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
-      "description": "The distribution of errors that happened during a crawl.",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1806,11 +1621,11 @@
         "x": 12,
         "y": 38
       },
-      "id": 31,
+      "id": 33,
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1825,19 +1640,19 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1845,7 +1660,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1864,20 +1679,30 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'error'"
+                "property",
+                "=",
+                "'protocol'"
+              ],
+              "type": "expression"
+            },
+            {
+              "datatype": "int4",
+              "name": "",
+              "params": [
+                "count",
+                ">",
+                "200"
               ],
               "type": "expression"
             }
           ]
         }
       ],
-      "title": "Crawl errors",
+      "title": "Supported Protocols (count >= 200)",
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1938,7 +1763,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1959,13 +1784,13 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1973,7 +1798,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1992,9 +1817,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'protocol'"
+                "property",
+                "=",
+                "'protocol'"
               ],
               "type": "expression"
             },
@@ -2002,9 +1827,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  "<=",
-                  "200"
+                "count",
+                "<=",
+                "200"
               ],
               "type": "expression"
             }
@@ -2100,14 +1925,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "nebula_peers_to_crawl_count{instance=\"nebula_crawler:6666\"}",
+          "expr": "nebula_peers_to_crawl_count{instance=\"localhost:6668\"}",
           "interval": "",
           "legendFormat": "Peers to crawl",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "sum(nebula_crawled_peers_count_count{instance=\"nebula_crawler:6666\"})",
+          "expr": "sum(nebula_crawled_peers_count_count{instance=\"localhost:6668\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "Peers crawled",
@@ -2115,7 +1940,7 @@
         },
         {
           "exemplar": true,
-          "expr": "nebula_connect_errors_count{instance=\"nebula_crawler:6666\"}",
+          "expr": "nebula_connect_errors_count{instance=\"localhost:6668\"}",
           "hide": false,
           "interval": "",
           "legendFormat": "Dial errors",
@@ -2123,7 +1948,7 @@
         },
         {
           "exemplar": true,
-          "expr": "sum(nebula_peers_to_crawl_count{instance=\"nebula_crawler:6666\"})+sum(nebula_crawled_peers_count_count{instance=\"nebula_crawler:6666\"})",
+          "expr": "sum(nebula_peers_to_crawl_count{instance=\"localhost:6668\"})+sum(nebula_crawled_peers_count_count{instance=\"localhost:6668\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "Found peers",
@@ -2134,7 +1959,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2156,7 +1981,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 6,
+        "w": 4,
         "x": 0,
         "y": 61
       },
@@ -2168,7 +1993,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2183,8 +2008,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2197,19 +2022,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2223,9 +2048,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2236,7 +2061,7 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2258,8 +2083,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 4,
         "y": 61
       },
       "id": 54,
@@ -2270,7 +2095,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2285,8 +2110,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2299,19 +2124,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2325,9 +2150,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2338,113 +2163,66 @@
       "type": "stat"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": null,
+      "description": "The latency distribution of dialing peers during monitoring.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "barAlignment": 0,
-            "drawStyle": "bars",
-            "fillOpacity": 78,
-            "gradientMode": "hue",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 0,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "mode": "thresholds"
           },
           "mappings": [],
+          "max": 25000,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
                 "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           },
-          "unit": "s"
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
+        "w": 16,
+        "x": 8,
         "y": 61
       },
-      "id": 51,
+      "id": 49,
       "options": {
-        "legend": {
+        "displayMode": "gradient",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
-          "displayMode": "table",
-          "placement": "right"
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single"
-        }
+        "showUnfilled": false,
+        "text": {}
       },
+      "pluginVersion": "8.0.4",
       "targets": [
         {
-          "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  created_at AS \"time\",\n  EXTRACT(EPOCH FROM finished_at - started_at) as \"duration\"\nFROM crawls\nWHERE\n  $__timeFilter(created_at)\nORDER BY 1",
-          "refId": "A",
-          "select": [
-            [
-              {
-                "params": [
-                    "crawled_peers"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "crawls",
-          "timeColumn": "created_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            }
-          ]
+          "exemplar": true,
+          "expr": "nebula_monitor_dial_duration_bucket{instance=\"localhost:6669\"} > 200",
+          "format": "heatmap",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{le}}",
+          "refId": "A"
         }
       ],
-      "title": "Crawl durations",
-      "type": "timeseries"
+      "title": "Dial latency",
+      "type": "bargauge"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "description": "",
       "fieldConfig": {
         "defaults": {
@@ -2466,8 +2244,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 4,
         "y": 65
       },
       "id": 53,
@@ -2478,7 +2256,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2493,8 +2271,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2507,19 +2285,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2533,9 +2311,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2617,7 +2395,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_go_sql_client_calls{instance=~\"nebula_crawler:6666|nebula_monitor:6667\"}[1m])",
+          "expr": "rate(nebula_go_sql_client_calls{instance=~\"localhost:6668|localhost:6669\"}[1m])",
           "interval": "",
           "legendFormat": "{{job}} - {{go_sql_method}}",
           "refId": "A"
@@ -2627,7 +2405,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2703,8 +2481,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2717,19 +2495,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "avg"
+                  "avg"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2758,7 +2536,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -2778,7 +2556,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": "Nebula Postgres",
+      "datasource": "Nebula Postgres Filecoin",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2853,8 +2631,8 @@
           "group": [
             {
               "params": [
-                  "30m",
-                  "none"
+                "30m",
+                "none"
               ],
               "type": "time"
             }
@@ -2868,19 +2646,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "Sessions ended"
+                  "Sessions ended"
                 ],
                 "type": "alias"
               }
@@ -2902,8 +2680,8 @@
           "group": [
             {
               "params": [
-                  "30m",
-                  "none"
+                "30m",
+                "none"
               ],
               "type": "time"
             }
@@ -2917,19 +2695,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "Sessions started"
+                  "Sessions started"
                 ],
                 "type": "alias"
               }
@@ -2949,6 +2727,64 @@
       ],
       "title": "Sessions Lifecycle/30m",
       "type": "timeseries"
+    },
+    {
+      "datasource": null,
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 88
+      },
+      "id": 56,
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "text": {}
+      },
+      "pluginVersion": "8.0.4",
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "nebula_go_sql_client_latency_bucket{go_sql_status=\"OK\", job=\"nebula_monitor\", go_sql_method=\"go.sql.query\",instance=\"localhost:6667\"}",
+          "format": "heatmap",
+          "interval": "",
+          "legendFormat": "{{le}}",
+          "refId": "A"
+        }
+      ],
+      "title": "SQL Monitor OK latency distribution",
+      "type": "bargauge"
     }
   ],
   "refresh": false,
@@ -2964,7 +2800,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "IPFS Dashboard",
-  "uid": "Zhvb7kk7k",
-  "version": 0
+  "title": "Filecoin Dashboard",
+  "uid": "gXoa_Hm7z",
+  "version": 10
 }

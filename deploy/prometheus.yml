@@ -21,14 +21,14 @@ rule_files:
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
 scrape_configs:
-  - job_name: 'nebula_crawl'
+  - job_name: 'nebula_crawler'
     scrape_interval: 2s
     static_configs:
-      - targets: ['localhost:6666']
+      - targets: ['nebula_crawler:6666']
   - job_name: 'nebula_monitor'
     scrape_interval: 15s
     static_configs:
-      - targets: ['nebula:6667']
+      - targets: ['nebula_monitor:6667']
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
