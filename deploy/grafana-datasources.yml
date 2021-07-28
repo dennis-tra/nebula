@@ -1,0 +1,16 @@
+apiVersion: 1
+datasources:
+ - name: Nebula Prometheus
+   type: prometheus
+   url: prometheus:9090
+   isDefault: true
+ - name: Nebula Postgres
+   type: postgres
+   url: postgres:5432
+   user: nebula
+   database: nebula
+   jsonData:
+     sslmode: disable
+     postgresVersion: 12
+   secureJsonData:
+     password: password # TODO: unsafe
