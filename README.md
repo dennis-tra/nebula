@@ -6,7 +6,9 @@
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula-crawler)](https://github.com/dennis-tra/nebula-crawler/blob/main/LICENSE)
 
-A libp2p DHT crawler that gathers information about running nodes in the network. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited.
+A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
+
+🏆 _The crawler was awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
@@ -19,7 +21,8 @@ A libp2p DHT crawler that gathers information about running nodes in the network
 - [Install](#install)
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
-  - [Database](#database)
+  - [Database](#database)  
+- [Deployment](#deployment)
 - [Analysis](#analysis)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
@@ -27,10 +30,6 @@ A libp2p DHT crawler that gathers information about running nodes in the network
 - [Support](#support)
 - [Other Projects](#other-projects)
 - [License](#license)
-
-[comment]: <> (## Motivation)
-
-[comment]: <> (https://github.com/protocol/ResNetLab/discussions/34)
 
 ## Project Status
 
@@ -44,7 +43,7 @@ Nebula is a command line tool and provides the three sub-commands `crawl`, `moni
 nebula crawl --dry-run
 ```
 
-The `--dry-run` flag does not persist any data. One run takes ~5-10 min dependent on your internet connection.
+Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min dependent on your internet connection.
 
 See the command line help page below for configuration options:
 
@@ -150,20 +149,20 @@ the `NextDialAttempt` timestamp to a time further in the future.
 ### `daemon`
 
 **Work in progress:** The `daemon` sub-command combines the `crawl` and `monitor` tasks in a single process. It uses application level
-scheduling of the crawls rather than e.g. using OS-level cron configurations.
+scheduling of the crawls rather than e.g. OS-level cron configurations.
 
 ## Install
 
 ### Release download
 
-There is no release yet.
+There is no release yet. 
 
 ### From source
 
 To compile it yourself run:
 
 ```shell
-go install github.com/dennis-tra/nebula/cmd/nebula@latest # Go 1.16 or higher is required (may work with a lower version too)
+go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.16 or higher is required (may work with a lower version too)
 ```
 
 Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
@@ -174,6 +173,7 @@ To develop this project you need Go `> 1.16` and the following tools:
 
 - [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.14.1`
 - [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.6.0`
+- `docker` to run a local postgres instance
 
 To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
 
@@ -188,6 +188,7 @@ docker run -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
 
 The default database settings are:
+
 ```
 Name     = "nebula",
 Password = "password",
@@ -219,11 +220,55 @@ To generate the ORM with SQLBoiler run:
 sqlboiler psql
 ```
 
+## Deployment
+
+The `deploy` subfolder contains a `docker-compose` setup to get up and running quickly. It will start and configure `nebula` (monitoring mode), `postgres`, `prometheus` and `grafana`. The configuration can serve as a starting point to see how things fit together. First, you need to build the nebula docker image:
+
+```shell
+make docker
+# OR
+docker build . -t dennis-tra/nebula-crawler:latest
+```
+
+Then you can start the aforementioned services by changing in the `./deploy` directory and running:
+
+```shell
+docker compose up 
+```
+
+A few seconds later you should be able to access Grafana at `localhost:3000`. The initial credentials are
+
+```text
+USERNAME: admin
+PASSWORD: admin
+```
+
+There is one preconfigured dashboard in the `General` folder with the name `IPFS Dashboard`. To start a crawl that puts its results in the `docker compose` provisioned postgres database run:
+```shell
+
+./deploy/crawl.sh
+# OR
+docker run \
+  --network nebula \
+  --name nebula_crawler \
+  --hostname nebula_crawler \
+  dennis-tra/nebula-crawler:latest \
+  nebula --db-host=postgres crawl
+```
+
+Currently, I'm running the crawler docker-less on a tiny VPC in a 30m interval. The corresponding crontab configuration is:
+```text
+*/30 * * * * /some/path/nebula crawl 2> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stderr.log 1> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stdout.log
+```
+
+The logs will rotate every 7 days.
+
 ## Analysis
 
 There is a top-level `analysis` folder that contains various scripts to help understand the gathered data. More information can be found in the respective subfolders README file. The following evaluations can be found there
 
 - [`geoip`](./analysis/geoip) - Uses a [Maxmind](https://maxmind.com) database to map IP addresses to country ISO codes and plots the results.
+- [`churn`](./analysis/churn) - Uses a `sessions` database dump to construct a CDF of peer session lengths.
 - More to come...
 
 ## Related Efforts
