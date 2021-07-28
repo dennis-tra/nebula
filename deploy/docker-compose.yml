@@ -35,8 +35,8 @@ services:
     image: prom/prometheus:v2.28.0
     restart: always
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml # configuration
-      - prometheus_data:/prometheus # gathered data
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
   grafana: # default - user: admin, pw: admin
     image: grafana/grafana:7.5.9
     restart: always
@@ -44,6 +44,8 @@ services:
       - 3000:3000
     volumes:
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
 volumes:
   psql_data: {}
