@@ -268,7 +268,7 @@ func (s *Scheduler) drainDialQueue() {
 	for {
 		select {
 		case pi := <-s.dialQueue:
-			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
+			log.WithField("targetID", pi.ID.Pretty()[:16]).Traceln("Drained peer")
 		default:
 			return
 		}

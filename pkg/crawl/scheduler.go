@@ -174,6 +174,22 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.cleanup()
 
 	defer func() {
+		log.Infoln("Logging crawl results...")
+
+		log.Infoln("")
+		for err, count := range s.Errors {
+			log.WithField("count", count).WithField("value", err).Infoln("Dial Error")
+		}
+		log.Infoln("")
+		for agent, count := range s.AgentVersion {
+			log.WithField("count", count).WithField("value", agent).Infoln("Agent")
+		}
+		log.Infoln("")
+		for protocol, count := range s.Protocols {
+			log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
+		}
+		log.Infoln("")
+
 		log.WithFields(log.Fields{
 			"crawledPeers":    len(s.crawled),
 			"crawlDuration":   time.Now().Sub(s.StartTime).String(),
@@ -215,8 +231,9 @@ func (s *Scheduler) readResultsQueue() {
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
 	logEntry := log.WithFields(log.Fields{
-		"workerID": cr.WorkerID,
-		"targetID": cr.Peer.ID.Pretty()[:16],
+		"workerID":   cr.WorkerID,
+		"targetID":   cr.Peer.ID.Pretty()[:16],
+		"isDialable": cr.Error == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.WorkerID)
 
@@ -254,6 +271,8 @@ func (s *Scheduler) handleResult(cr Result) {
 		s.Errors[dialErr] += 1
 		if dialErr == models.DialErrorUnknown {
 			logEntry = logEntry.WithError(cr.Error)
+		} else {
+			logEntry = logEntry.WithField("dialErr", dialErr)
 		}
 	}
 
@@ -381,7 +400,7 @@ func (s *Scheduler) drainCrawlQueue() {
 	for {
 		select {
 		case pi := <-s.crawlQueue:
-			log.WithField("targetID", pi.ID.Pretty()[:16]).Debugln("Drained peer")
+			log.WithField("targetID", pi.ID.Pretty()[:16]).Traceln("Drained peer")
 		default:
 			return
 		}

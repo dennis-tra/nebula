@@ -87,11 +87,11 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue chan<- Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
-	defer log.Debugf("Worker %s crawled %d peers\n", w.Identifier(), w.crawledPeers)
 
 	ctx := w.ServiceContext()
+	logEntry := log.WithField("workerID", w.Identifier())
 	for pi := range crawlQueue {
-		logEntry := log.WithField("targetID", pi.ID.Pretty()[:16]).WithField("workerID", w.Identifier())
+		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16])
 		logEntry.Debugln("Crawling peer", pi.ID.Pretty()[:16])
 
 		cr := w.crawlPeer(ctx, pi)
@@ -104,6 +104,8 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 
 		logEntry.Debugln("Crawled peer", pi.ID.Pretty()[:16])
 	}
+
+	logEntry.Debugf("Crawled %d peers\n", w.crawledPeers)
 }
 
 func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
