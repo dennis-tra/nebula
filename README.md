@@ -222,7 +222,7 @@ sqlboiler psql
 
 ## Deployment
 
-The `deploy` subfolder contains a `docker-compose` setup to get up and running quickly. It will start and configure `nebula` (monitoring mode), `postgres`, `prometheus` and `grafana`. The configuration can serve as a starting point to see how things fit together. First, you need to build the nebula docker image:
+First, you need to build the nebula docker image:
 
 ```shell
 make docker
@@ -230,7 +230,7 @@ make docker
 docker build . -t dennis-tra/nebula-crawler:latest
 ```
 
-Then you can start the aforementioned services by changing in the `./deploy` directory and running:
+The `deploy` subfolder contains a `docker-compose` setup to get up and running quickly. It will start and configure `nebula` (monitoring mode), `postgres`, `prometheus` and `grafana`. The configuration can serve as a starting point to see how things fit together. Then you can start the aforementioned services by changing in the `./deploy` directory and running:
 
 ```shell
 docker compose up 
@@ -244,8 +244,8 @@ PASSWORD: admin
 ```
 
 There is one preconfigured dashboard in the `General` folder with the name `IPFS Dashboard`. To start a crawl that puts its results in the `docker compose` provisioned postgres database run:
-```shell
 
+```shell
 ./deploy/crawl.sh
 # OR
 docker run \
@@ -257,12 +257,80 @@ docker run \
 ```
 
 Currently, I'm running the crawler docker-less on a tiny VPC in a 30m interval. The corresponding crontab configuration is:
+
 ```text
 */30 * * * * /some/path/nebula crawl 2> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stderr.log 1> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stdout.log
 ```
 
 The logs will rotate every 7 days.
 
+--- 
+
+To run the crawler for multiple DHTs the idea is to also start multiple instances of `nebula` with the corresponding configuration. For instance, I'm running the crawler for the IPFS and Filecoin networks. The monitoring commands look like this:
+
+```shell
+nebula --prom-port=6667 monitor --workers=1000 # for IPFS
+nebula --prom-port=6669 --config filecoin.json monitor --workers=1000 # for Filecoin
+```
+
+The `filecoin.json` file contains the following content:
+
+```shell
+ {
+  "BootstrapPeers": [
+    "/ip4/3.224.142.21/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",
+    "/ip4/107.23.112.60/tcp/1347/p2p/12D3KooWCwevHg1yLCvktf2nvLu7L9894mcrJR4MsBCcm4syShVc",
+    "/ip4/100.25.69.197/tcp/1347/p2p/12D3KooWEWVwHGn2yR36gKLozmb4YjDJGerotAPGxmdWZx2nxMC4",
+    "/ip4/3.123.163.135/tcp/1347/p2p/12D3KooWKhgq8c7NQ9iGjbyK7v7phXvG6492HQfiDaGHLHLQjk7R",
+    "/ip4/18.198.196.213/tcp/1347/p2p/12D3KooWL6PsFNPhYftrJzGgF5U18hFoaVhfGk7xwzD8yVrHJ3Uc",
+    "/ip4/18.195.111.146/tcp/1347/p2p/12D3KooWLFynvDQiUpXoHroV1YxKHhPJgysQGH2k3ZGwtWzR4dFH",
+    "/ip4/52.77.116.139/tcp/1347/p2p/12D3KooWP5MwCiqdMETF9ub1P3MbCvQCcfconnYHbWg6sUJcDRQQ",
+    "/ip4/18.136.2.101/tcp/1347/p2p/12D3KooWRs3aY1p3juFjPy8gPN95PEQChm2QKGUCAdcDCC4EBMKf",
+    "/ip4/13.250.155.222/tcp/1347/p2p/12D3KooWScFR7385LTyR4zU1bYdzSiiAb5rnNABfVahPvVSzyTkR",
+    "/ip4/47.115.22.33/tcp/41778/p2p/12D3KooWGhufNmZHF3sv48aQeS13ng5XVJZ9E6qy2Ms4VzqeUsHk",
+    "/ip4/61.147.123.111/tcp/12757/p2p/12D3KooWGHpBMeZbestVEWkfdnC9u7p6uFHXL1n7m1ZBqsEmiUzz",
+    "/ip4/61.147.123.121/tcp/12757/p2p/12D3KooWQZrGH1PxSNZPum99M1zNvjNFM33d1AAu5DcvdHptuU7u",
+    "/ip4/3.129.112.217/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt",
+    "/ip4/36.103.232.198/tcp/34721/p2p/12D3KooWQnwEGNqcM2nAcPtRR9rAX8Hrg4k9kJLCHoTR5chJfz6d",
+    "/ip4/36.103.232.198/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP"
+  ],
+  "DialTimeout": 60000000000,
+  "CrawlWorkerCount": 1000,
+  "MonitorWorkerCount": 1000,
+  "CrawlLimit": 0,
+  "MinPingInterval": 30000000000,
+  "PrometheusHost": "localhost",
+  "PrometheusPort": 6668, // this is overwritten by the command line arg and only picked up by the crawl command
+  "DatabaseHost": "localhost",
+  "DatabasePort": 5432,
+  "DatabaseName": "nebula_filecoin",
+  "DatabasePassword": "<password>",
+  "DatabaseUser": "nebula_filecoin",
+  "Protocols": [
+    "/fil/kad/testnetnet/kad/1.0.0"
+  ]
+}
+```
+
+This configuration is created upon the first start of nebula in `$XDG_CONFIG_HOME/nebula/config.json` and can be adapted from there. 
+
+The corresponding crawl commands look like:
+
+```shell
+nebula crawl --workers=1000 # for IPFS (uses defaults like prom-port 6666)
+nebula --config filecoin.json crawl --workers=1000 # for Filecoin (uses configuration prom-port 6668)
+```
+
+The `workers` flag configures the amount of concurrent connection/dials. I increased it until I didn't notice any performance improvement anymore.
+
+So this is the prometheus ports configuration:
+
+- `nebula crawl` - `ipfs` - `6666`
+- `nebula monitor` - `ipfs` - `6667`
+- `nebula crawl` - `filecoin` - `6668`
+- `nebula monitor` - `filecoin` - `6669`
+
+Furthermore, `nebula` has a hidden flag called `--pprof-port` if this flag is set it also serves `pprof` at `localhost:given-port` for debugging.
 ## Analysis
 
 There is a top-level `analysis` folder that contains various scripts to help understand the gathered data. More information can be found in the respective subfolders README file. The following evaluations can be found there
