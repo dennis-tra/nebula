@@ -256,7 +256,7 @@ docker run \
   nebula --db-host=postgres crawl
 ```
 
-Currently, I'm running the crawler docker-less on a tiny VPC in a 30m interval. The corresponding crontab configuration is:
+Currently, I'm running the crawler docker-less on a tiny VPS in a 30m interval. The corresponding crontab configuration is:
 
 ```text
 */30 * * * * /some/path/nebula crawl 2> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stderr.log 1> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stdout.log
