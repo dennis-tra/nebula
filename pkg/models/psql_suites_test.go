@@ -8,6 +8,10 @@ import "testing"
 func TestUpsert(t *testing.T) {
 	t.Run("Crawls", testCrawlsUpsert)
 
+	t.Run("MonitoringConnections", testMonitoringConnectionsUpsert)
+
+	t.Run("MonitoringPeers", testMonitoringPeersUpsert)
+
 	t.Run("PeerProperties", testPeerPropertiesUpsert)
 
 	t.Run("Peers", testPeersUpsert)
