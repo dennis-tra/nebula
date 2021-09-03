@@ -19,18 +19,19 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/queries/qmhelper"
+	"github.com/volatiletech/sqlboiler/v4/types"
 	"github.com/volatiletech/strmangle"
 )
 
 // Connection is an object representing the database table.
 type Connection struct {
-	ID           int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID       string      `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
-	MultiAddress null.String `boil:"multi_address" json:"multi_address,omitempty" toml:"multi_address" yaml:"multi_address,omitempty"`
-	AgentVersion null.String `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
-	DialAttempt  null.Time   `boil:"dial_attempt" json:"dial_attempt,omitempty" toml:"dial_attempt" yaml:"dial_attempt,omitempty"`
-	Latency      null.String `boil:"latency" json:"latency,omitempty" toml:"latency" yaml:"latency,omitempty"`
-	IsSucceed    null.Bool   `boil:"is_succeed" json:"is_succeed,omitempty" toml:"is_succeed" yaml:"is_succeed,omitempty"`
+	ID           int               `boil:"id" json:"id" toml:"id" yaml:"id"`
+	PeerID       string            `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
+	MultiAddress types.StringArray `boil:"multi_address" json:"multi_address,omitempty" toml:"multi_address" yaml:"multi_address,omitempty"`
+	AgentVersion null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
+	DialAttempt  null.Time         `boil:"dial_attempt" json:"dial_attempt,omitempty" toml:"dial_attempt" yaml:"dial_attempt,omitempty"`
+	Latency      null.String       `boil:"latency" json:"latency,omitempty" toml:"latency" yaml:"latency,omitempty"`
+	IsSucceed    null.Bool         `boil:"is_succeed" json:"is_succeed,omitempty" toml:"is_succeed" yaml:"is_succeed,omitempty"`
 
 	R *connectionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L connectionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -120,6 +121,31 @@ func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
 	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
 }
 
+type whereHelpertypes_StringArray struct{ field string }
+
+func (w whereHelpertypes_StringArray) EQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpertypes_StringArray) NEQ(x types.StringArray) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpertypes_StringArray) IsNull() qm.QueryMod { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpertypes_StringArray) IsNotNull() qm.QueryMod {
+	return qmhelper.WhereIsNotNull(w.field)
+}
+func (w whereHelpertypes_StringArray) LT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpertypes_StringArray) LTE(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpertypes_StringArray) GT(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 type whereHelpernull_String struct{ field string }
 
 func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
@@ -192,7 +218,7 @@ func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
 var ConnectionWhere = struct {
 	ID           whereHelperint
 	PeerID       whereHelperstring
-	MultiAddress whereHelpernull_String
+	MultiAddress whereHelpertypes_StringArray
 	AgentVersion whereHelpernull_String
 	DialAttempt  whereHelpernull_Time
 	Latency      whereHelpernull_String
@@ -200,7 +226,7 @@ var ConnectionWhere = struct {
 }{
 	ID:           whereHelperint{field: "\"connections\".\"id\""},
 	PeerID:       whereHelperstring{field: "\"connections\".\"peer_id\""},
-	MultiAddress: whereHelpernull_String{field: "\"connections\".\"multi_address\""},
+	MultiAddress: whereHelpertypes_StringArray{field: "\"connections\".\"multi_address\""},
 	AgentVersion: whereHelpernull_String{field: "\"connections\".\"agent_version\""},
 	DialAttempt:  whereHelpernull_Time{field: "\"connections\".\"dial_attempt\""},
 	Latency:      whereHelpernull_String{field: "\"connections\".\"latency\""},
