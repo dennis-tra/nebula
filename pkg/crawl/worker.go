@@ -257,9 +257,14 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 
 func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	fmt.Println("Insert into the DB")
+	addrs := res.Peer.Addrs
+	addrStrs := make([]string, 0)
+	for _, addr := range addrs {
+		addrStrs = append(addrStrs, addr.String())
+	}
 	o := &models.Connection{
 		PeerID:       res.Peer.String(),
-		MultiAddress: null.StringFrom(res.Peer.String()),
+		MultiAddress: addrStrs,
 		AgentVersion: null.StringFrom(res.Agent),
 		DialAttempt:  null.TimeFrom(res.DialTime),
 		Latency:      null.StringFrom(fmt.Sprintf("%v", res.Latency)),
