@@ -6,11 +6,9 @@ package models
 import "testing"
 
 func TestUpsert(t *testing.T) {
+	t.Run("Connections", testConnectionsUpsert)
+
 	t.Run("Crawls", testCrawlsUpsert)
-
-	t.Run("MonitoringConnections", testMonitoringConnectionsUpsert)
-
-	t.Run("MonitoringPeers", testMonitoringPeersUpsert)
 
 	t.Run("PeerProperties", testPeerPropertiesUpsert)
 
