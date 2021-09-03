@@ -231,7 +231,7 @@ func (s *Scheduler) readResultsQueue() {
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
 	// Insert into our DB
-	InsertConnection(context.Background(), cr)
+	InsertConnection(context.Background(), s.dbh, cr)
 
 	logEntry := log.WithFields(log.Fields{
 		"workerID":   cr.WorkerID,

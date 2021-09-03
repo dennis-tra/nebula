@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sync"
 	"time"
@@ -254,7 +255,7 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	return filtered
 }
 
-func InsertConnection(ctx context.Context, res Result) error {
+func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	fmt.Println("Insert into the DB")
 	o := &models.Connection{
 		PeerID:       res.Peer.String(),
@@ -265,7 +266,7 @@ func InsertConnection(ctx context.Context, res Result) error {
 		IsSucceed:    null.BoolFrom(res.Error == nil),
 	}
 
-	tx, err := boil.BeginTx(ctx, nil)
+	tx, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
