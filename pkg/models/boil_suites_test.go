@@ -12,111 +12,98 @@ import "testing"
 // It does NOT run each operation group in parallel.
 // Separating the tests thusly grants avoidance of Postgres deadlocks.
 func TestParent(t *testing.T) {
+	t.Run("Connections", testConnections)
 	t.Run("Crawls", testCrawls)
-	t.Run("MonitoringConnections", testMonitoringConnections)
-	t.Run("MonitoringPeers", testMonitoringPeers)
 	t.Run("PeerProperties", testPeerProperties)
 	t.Run("Peers", testPeers)
 	t.Run("Sessions", testSessions)
 }
 
 func TestDelete(t *testing.T) {
+	t.Run("Connections", testConnectionsDelete)
 	t.Run("Crawls", testCrawlsDelete)
-	t.Run("MonitoringConnections", testMonitoringConnectionsDelete)
-	t.Run("MonitoringPeers", testMonitoringPeersDelete)
 	t.Run("PeerProperties", testPeerPropertiesDelete)
 	t.Run("Peers", testPeersDelete)
 	t.Run("Sessions", testSessionsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
+	t.Run("Connections", testConnectionsQueryDeleteAll)
 	t.Run("Crawls", testCrawlsQueryDeleteAll)
-	t.Run("MonitoringConnections", testMonitoringConnectionsQueryDeleteAll)
-	t.Run("MonitoringPeers", testMonitoringPeersQueryDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
 	t.Run("Sessions", testSessionsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
+	t.Run("Connections", testConnectionsSliceDeleteAll)
 	t.Run("Crawls", testCrawlsSliceDeleteAll)
-	t.Run("MonitoringConnections", testMonitoringConnectionsSliceDeleteAll)
-	t.Run("MonitoringPeers", testMonitoringPeersSliceDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
 	t.Run("Sessions", testSessionsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
+	t.Run("Connections", testConnectionsExists)
 	t.Run("Crawls", testCrawlsExists)
-	t.Run("MonitoringConnections", testMonitoringConnectionsExists)
-	t.Run("MonitoringPeers", testMonitoringPeersExists)
 	t.Run("PeerProperties", testPeerPropertiesExists)
 	t.Run("Peers", testPeersExists)
 	t.Run("Sessions", testSessionsExists)
 }
 
 func TestFind(t *testing.T) {
+	t.Run("Connections", testConnectionsFind)
 	t.Run("Crawls", testCrawlsFind)
-	t.Run("MonitoringConnections", testMonitoringConnectionsFind)
-	t.Run("MonitoringPeers", testMonitoringPeersFind)
 	t.Run("PeerProperties", testPeerPropertiesFind)
 	t.Run("Peers", testPeersFind)
 	t.Run("Sessions", testSessionsFind)
 }
 
 func TestBind(t *testing.T) {
+	t.Run("Connections", testConnectionsBind)
 	t.Run("Crawls", testCrawlsBind)
-	t.Run("MonitoringConnections", testMonitoringConnectionsBind)
-	t.Run("MonitoringPeers", testMonitoringPeersBind)
 	t.Run("PeerProperties", testPeerPropertiesBind)
 	t.Run("Peers", testPeersBind)
 	t.Run("Sessions", testSessionsBind)
 }
 
 func TestOne(t *testing.T) {
+	t.Run("Connections", testConnectionsOne)
 	t.Run("Crawls", testCrawlsOne)
-	t.Run("MonitoringConnections", testMonitoringConnectionsOne)
-	t.Run("MonitoringPeers", testMonitoringPeersOne)
 	t.Run("PeerProperties", testPeerPropertiesOne)
 	t.Run("Peers", testPeersOne)
 	t.Run("Sessions", testSessionsOne)
 }
 
 func TestAll(t *testing.T) {
+	t.Run("Connections", testConnectionsAll)
 	t.Run("Crawls", testCrawlsAll)
-	t.Run("MonitoringConnections", testMonitoringConnectionsAll)
-	t.Run("MonitoringPeers", testMonitoringPeersAll)
 	t.Run("PeerProperties", testPeerPropertiesAll)
 	t.Run("Peers", testPeersAll)
 	t.Run("Sessions", testSessionsAll)
 }
 
 func TestCount(t *testing.T) {
+	t.Run("Connections", testConnectionsCount)
 	t.Run("Crawls", testCrawlsCount)
-	t.Run("MonitoringConnections", testMonitoringConnectionsCount)
-	t.Run("MonitoringPeers", testMonitoringPeersCount)
 	t.Run("PeerProperties", testPeerPropertiesCount)
 	t.Run("Peers", testPeersCount)
 	t.Run("Sessions", testSessionsCount)
 }
 
 func TestHooks(t *testing.T) {
+	t.Run("Connections", testConnectionsHooks)
 	t.Run("Crawls", testCrawlsHooks)
-	t.Run("MonitoringConnections", testMonitoringConnectionsHooks)
-	t.Run("MonitoringPeers", testMonitoringPeersHooks)
 	t.Run("PeerProperties", testPeerPropertiesHooks)
 	t.Run("Peers", testPeersHooks)
 	t.Run("Sessions", testSessionsHooks)
 }
 
 func TestInsert(t *testing.T) {
+	t.Run("Connections", testConnectionsInsert)
+	t.Run("Connections", testConnectionsInsertWhitelist)
 	t.Run("Crawls", testCrawlsInsert)
 	t.Run("Crawls", testCrawlsInsertWhitelist)
-	t.Run("MonitoringConnections", testMonitoringConnectionsInsert)
-	t.Run("MonitoringConnections", testMonitoringConnectionsInsertWhitelist)
-	t.Run("MonitoringPeers", testMonitoringPeersInsert)
-	t.Run("MonitoringPeers", testMonitoringPeersInsertWhitelist)
 	t.Run("PeerProperties", testPeerPropertiesInsert)
 	t.Run("PeerProperties", testPeerPropertiesInsertWhitelist)
 	t.Run("Peers", testPeersInsert)
@@ -178,45 +165,40 @@ func TestToManySet(t *testing.T) {}
 func TestToManyRemove(t *testing.T) {}
 
 func TestReload(t *testing.T) {
+	t.Run("Connections", testConnectionsReload)
 	t.Run("Crawls", testCrawlsReload)
-	t.Run("MonitoringConnections", testMonitoringConnectionsReload)
-	t.Run("MonitoringPeers", testMonitoringPeersReload)
 	t.Run("PeerProperties", testPeerPropertiesReload)
 	t.Run("Peers", testPeersReload)
 	t.Run("Sessions", testSessionsReload)
 }
 
 func TestReloadAll(t *testing.T) {
+	t.Run("Connections", testConnectionsReloadAll)
 	t.Run("Crawls", testCrawlsReloadAll)
-	t.Run("MonitoringConnections", testMonitoringConnectionsReloadAll)
-	t.Run("MonitoringPeers", testMonitoringPeersReloadAll)
 	t.Run("PeerProperties", testPeerPropertiesReloadAll)
 	t.Run("Peers", testPeersReloadAll)
 	t.Run("Sessions", testSessionsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
+	t.Run("Connections", testConnectionsSelect)
 	t.Run("Crawls", testCrawlsSelect)
-	t.Run("MonitoringConnections", testMonitoringConnectionsSelect)
-	t.Run("MonitoringPeers", testMonitoringPeersSelect)
 	t.Run("PeerProperties", testPeerPropertiesSelect)
 	t.Run("Peers", testPeersSelect)
 	t.Run("Sessions", testSessionsSelect)
 }
 
 func TestUpdate(t *testing.T) {
+	t.Run("Connections", testConnectionsUpdate)
 	t.Run("Crawls", testCrawlsUpdate)
-	t.Run("MonitoringConnections", testMonitoringConnectionsUpdate)
-	t.Run("MonitoringPeers", testMonitoringPeersUpdate)
 	t.Run("PeerProperties", testPeerPropertiesUpdate)
 	t.Run("Peers", testPeersUpdate)
 	t.Run("Sessions", testSessionsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
+	t.Run("Connections", testConnectionsSliceUpdateAll)
 	t.Run("Crawls", testCrawlsSliceUpdateAll)
-	t.Run("MonitoringConnections", testMonitoringConnectionsSliceUpdateAll)
-	t.Run("MonitoringPeers", testMonitoringPeersSliceUpdateAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
 	t.Run("Sessions", testSessionsSliceUpdateAll)
