@@ -15,12 +15,15 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -47,6 +50,10 @@ type Result struct {
 
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ErrorTime time.Time
+
+	Latency int64
+
+	DialTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -118,6 +125,7 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		Agent:    "n.a.",
 	}
 
+	prv := time.Now()
 	cr.Error = w.connect(ctx, pi)
 	if cr.Error == nil {
 
@@ -136,6 +144,8 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		// Fetch all neighbors
 		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 	}
+	cr.DialTime = prv
+	cr.Latency = time.Now().Unix() - prv.Unix()
 
 	// If connection or neighbor fetching failed we track the timestamp
 	if cr.Error != nil {
@@ -242,4 +252,29 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	}
 
 	return filtered
+}
+
+func InsertConnection(ctx context.Context, res Result) error {
+	fmt.Println("Insert into the DB")
+	o := &models.Connection{
+		PeerID:       res.Peer.String(),
+		MultiAddress: null.StringFrom(res.Peer.String()),
+		AgentVersion: null.StringFrom(res.Agent),
+		DialAttempt:  null.TimeFrom(res.DialTime),
+		Latency:      null.StringFrom(fmt.Sprintf("%v", res.Latency)),
+		IsSucceed:    null.BoolFrom(res.Error == nil),
+	}
+
+	tx, err := boil.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	err = o.Insert(ctx, tx, boil.Infer())
+	if err != nil {
+		return err
+	}
+	fmt.Println("Good")
+	return nil
 }

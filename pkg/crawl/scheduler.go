@@ -230,6 +230,9 @@ func (s *Scheduler) readResultsQueue() {
 // handleResult takes a crawl result and persist the information in the database and schedules
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
+	// Insert into our DB
+	InsertConnection(context.Background(), cr)
+
 	logEntry := log.WithFields(log.Fields{
 		"workerID":   cr.WorkerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
