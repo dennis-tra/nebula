@@ -52,7 +52,7 @@ type Result struct {
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ErrorTime time.Time
 
-	Latency int64
+	Latency time.Duration
 
 	DialTime time.Time
 }
@@ -146,7 +146,7 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 	}
 	cr.DialTime = prv
-	cr.Latency = time.Now().Unix() - prv.Unix()
+	cr.Latency = time.Now().Sub(prv)
 
 	// If connection or neighbor fetching failed we track the timestamp
 	if cr.Error != nil {
@@ -256,18 +256,24 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 }
 
 func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
-	fmt.Println("Insert into the DB")
 	addrs := res.Peer.Addrs
 	addrStrs := make([]string, 0)
 	for _, addr := range addrs {
 		addrStrs = append(addrStrs, addr.String())
 	}
+	var latency string
+	if res.Latency.Microseconds() < 1000 {
+		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
+	} else {
+		latency = res.Latency.String()
+	}
+
 	o := &models.Connection{
-		PeerID:       res.Peer.String(),
+		PeerID:       res.Peer.ID.String(),
 		MultiAddress: addrStrs,
 		AgentVersion: null.StringFrom(res.Agent),
 		DialAttempt:  null.TimeFrom(res.DialTime),
-		Latency:      null.StringFrom(fmt.Sprintf("%v", res.Latency)),
+		Latency:      null.StringFrom(latency),
 		IsSucceed:    null.BoolFrom(res.Error == nil),
 	}
 
@@ -281,6 +287,5 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Good")
 	return nil
 }

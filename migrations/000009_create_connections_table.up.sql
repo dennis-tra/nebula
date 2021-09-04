@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS connections
     -- multi address of the peer
     multi_address         VARCHAR(255) ARRAY,
     -- The version string of agent
-    agent_version         VARCHAR(20),
+    agent_version         VARCHAR(255),
     -- Time of dial
     dial_attempt          TIMESTAMPTZ,
     -- Latency 
