@@ -287,5 +287,5 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	if err != nil {
 		return err
 	}
-	return nil
+	return tx.Commit()
 }
