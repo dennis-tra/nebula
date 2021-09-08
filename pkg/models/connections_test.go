@@ -568,7 +568,7 @@ func testConnectionsSelect(t *testing.T) {
 }
 
 var (
-	connectionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `MultiAddress`: `ARRAYcharacter varying`, `AgentVersion`: `character varying`, `DialAttempt`: `timestamp with time zone`, `Latency`: `interval`, `IsSucceed`: `boolean`}
+	connectionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `DialAttempt`: `timestamp with time zone`, `Latency`: `interval`, `IsSucceed`: `boolean`, `Error`: `character varying`}
 	_                 = bytes.MinRead
 )
 
