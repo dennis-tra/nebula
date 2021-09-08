@@ -126,9 +126,10 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		Agent:    "n.a.",
 	}
 
-	prv := time.Now()
+	cr.DialTime = time.Now()
 	cr.Error = w.connect(ctx, pi)
 	if cr.Error == nil {
+		cr.Latency = time.Now().Sub(cr.DialTime)
 
 		ps := w.host.Peerstore()
 
@@ -145,8 +146,6 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		// Fetch all neighbors
 		cr.Neighbors, cr.Error = w.fetchNeighbors(ctx, pi)
 	}
-	cr.DialTime = prv
-	cr.Latency = time.Now().Sub(prv)
 
 	// If connection or neighbor fetching failed we track the timestamp
 	if cr.Error != nil {
@@ -256,11 +255,6 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 }
 
 func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
-	addrs := res.Peer.Addrs
-	addrStrs := make([]string, 0)
-	for _, addr := range addrs {
-		addrStrs = append(addrStrs, addr.String())
-	}
 	var latency string
 	if res.Latency.Microseconds() < 1000 {
 		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
@@ -269,12 +263,14 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	}
 
 	o := &models.Connection{
-		PeerID:       res.Peer.ID.String(),
-		MultiAddress: addrStrs,
-		AgentVersion: null.StringFrom(res.Agent),
-		DialAttempt:  null.TimeFrom(res.DialTime),
-		Latency:      null.StringFrom(latency),
-		IsSucceed:    null.BoolFrom(res.Error == nil),
+		PeerID:      res.Peer.ID.String(),
+		DialAttempt: null.TimeFrom(res.DialTime),
+		IsSucceed:   null.BoolFrom(res.Error == nil),
+	}
+	if res.Error == nil {
+		o.Latency = null.StringFrom(latency)
+	} else {
+		o.Error = null.StringFrom(res.Error.Error())
 	}
 
 	tx, err := dbh.BeginTx(ctx, nil)

@@ -94,20 +94,18 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 		}
 
 		// Try to dial the peer 3 times
-		prv := time.Now()
-		dr.DialTime = prv
 	retryLoop:
 		for retry := 0; retry < 3; retry++ {
 
 			// Update log entry
 			logEntry = logEntry.WithField("retry", retry)
-			dr.Latency = time.Now().Sub(prv)
 
 			// Add peer information to peer store so that DialPeer can pick it up from there
 			// Do this in every retry due to the TTL of one minute
 			w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 			// Actually dial the peer
+			dr.DialTime = time.Now()
 			if err := w.dial(ctx, pi.ID); err != nil {
 				dr.ErrorTime = time.Now()
 				dr.Error = err
@@ -155,8 +153,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			// Dial was successful - reset error
 			dr.Error = nil
 			dr.ErrorTime = time.Time{}
-			dr.DialTime = prv
-			dr.Latency = time.Now().Sub(prv)
+			dr.Latency = time.Now().Sub(dr.DialTime)
 			// Extract agent
 			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
 				dr.Agent = agent.(string)
@@ -198,11 +195,6 @@ func (w *Worker) dial(ctx context.Context, peerID peer.ID) error {
 }
 
 func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
-	addrs := res.Peer.Addrs
-	addrStrs := make([]string, 0)
-	for _, addr := range addrs {
-		addrStrs = append(addrStrs, addr.String())
-	}
 	var latency string
 	if res.Latency.Microseconds() < 1000 {
 		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
@@ -211,12 +203,14 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	}
 
 	o := &models.Connection{
-		PeerID:       res.Peer.ID.String(),
-		MultiAddress: addrStrs,
-		AgentVersion: null.StringFrom(res.Agent),
-		DialAttempt:  null.TimeFrom(res.DialTime),
-		Latency:      null.StringFrom(latency),
-		IsSucceed:    null.BoolFrom(res.Error == nil),
+		PeerID:      res.Peer.ID.String(),
+		DialAttempt: null.TimeFrom(res.DialTime),
+		IsSucceed:   null.BoolFrom(res.Error == nil),
+	}
+	if res.Error == nil {
+		o.Latency = null.StringFrom(latency)
+	} else {
+		o.Error = null.StringFrom(res.Error.Error())
 	}
 
 	tx, err := dbh.BeginTx(ctx, nil)
