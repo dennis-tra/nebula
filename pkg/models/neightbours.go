@@ -24,44 +24,58 @@ import (
 
 // Neightbour is an object representing the database table.
 type Neightbour struct {
+	ID               int       `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PeerID           string    `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	NeightbourPeerID string    `boil:"neightbour_peer_id" json:"neightbour_peer_id" toml:"neightbour_peer_id" yaml:"neightbour_peer_id"`
 	CreatedAt        null.Time `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	CrawlStartAt     null.Time `boil:"crawl_start_at" json:"crawl_start_at,omitempty" toml:"crawl_start_at" yaml:"crawl_start_at,omitempty"`
 
 	R *neightbourR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L neightbourL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var NeightbourColumns = struct {
+	ID               string
 	PeerID           string
 	NeightbourPeerID string
 	CreatedAt        string
+	CrawlStartAt     string
 }{
+	ID:               "id",
 	PeerID:           "peer_id",
 	NeightbourPeerID: "neightbour_peer_id",
 	CreatedAt:        "created_at",
+	CrawlStartAt:     "crawl_start_at",
 }
 
 var NeightbourTableColumns = struct {
+	ID               string
 	PeerID           string
 	NeightbourPeerID string
 	CreatedAt        string
+	CrawlStartAt     string
 }{
+	ID:               "neightbours.id",
 	PeerID:           "neightbours.peer_id",
 	NeightbourPeerID: "neightbours.neightbour_peer_id",
 	CreatedAt:        "neightbours.created_at",
+	CrawlStartAt:     "neightbours.crawl_start_at",
 }
 
 // Generated where
 
 var NeightbourWhere = struct {
+	ID               whereHelperint
 	PeerID           whereHelperstring
 	NeightbourPeerID whereHelperstring
 	CreatedAt        whereHelpernull_Time
+	CrawlStartAt     whereHelpernull_Time
 }{
+	ID:               whereHelperint{field: "\"neightbours\".\"id\""},
 	PeerID:           whereHelperstring{field: "\"neightbours\".\"peer_id\""},
 	NeightbourPeerID: whereHelperstring{field: "\"neightbours\".\"neightbour_peer_id\""},
 	CreatedAt:        whereHelpernull_Time{field: "\"neightbours\".\"created_at\""},
+	CrawlStartAt:     whereHelpernull_Time{field: "\"neightbours\".\"crawl_start_at\""},
 }
 
 // NeightbourRels is where relationship names are stored.
@@ -81,10 +95,10 @@ func (*neightbourR) NewStruct() *neightbourR {
 type neightbourL struct{}
 
 var (
-	neightbourAllColumns            = []string{"peer_id", "neightbour_peer_id", "created_at"}
-	neightbourColumnsWithoutDefault = []string{"peer_id", "neightbour_peer_id", "created_at"}
-	neightbourColumnsWithDefault    = []string{}
-	neightbourPrimaryKeyColumns     = []string{"peer_id", "neightbour_peer_id"}
+	neightbourAllColumns            = []string{"id", "peer_id", "neightbour_peer_id", "created_at", "crawl_start_at"}
+	neightbourColumnsWithoutDefault = []string{"peer_id", "neightbour_peer_id", "created_at", "crawl_start_at"}
+	neightbourColumnsWithDefault    = []string{"id"}
+	neightbourPrimaryKeyColumns     = []string{"id"}
 )
 
 type (
@@ -370,7 +384,7 @@ func Neightbours(mods ...qm.QueryMod) neightbourQuery {
 
 // FindNeightbour retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindNeightbour(ctx context.Context, exec boil.ContextExecutor, peerID string, neightbourPeerID string, selectCols ...string) (*Neightbour, error) {
+func FindNeightbour(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*Neightbour, error) {
 	neightbourObj := &Neightbour{}
 
 	sel := "*"
@@ -378,10 +392,10 @@ func FindNeightbour(ctx context.Context, exec boil.ContextExecutor, peerID strin
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"neightbours\" where \"peer_id\"=$1 AND \"neightbour_peer_id\"=$2", sel,
+		"select %s from \"neightbours\" where \"id\"=$1", sel,
 	)
 
-	q := queries.Raw(query, peerID, neightbourPeerID)
+	q := queries.Raw(query, iD)
 
 	err := q.Bind(ctx, exec, neightbourObj)
 	if err != nil {
@@ -746,7 +760,7 @@ func (o *Neightbour) Delete(ctx context.Context, exec boil.ContextExecutor) (int
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), neightbourPrimaryKeyMapping)
-	sql := "DELETE FROM \"neightbours\" WHERE \"peer_id\"=$1 AND \"neightbour_peer_id\"=$2"
+	sql := "DELETE FROM \"neightbours\" WHERE \"id\"=$1"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -843,7 +857,7 @@ func (o NeightbourSlice) DeleteAll(ctx context.Context, exec boil.ContextExecuto
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Neightbour) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindNeightbour(ctx, exec, o.PeerID, o.NeightbourPeerID)
+	ret, err := FindNeightbour(ctx, exec, o.ID)
 	if err != nil {
 		return err
 	}
@@ -882,16 +896,16 @@ func (o *NeightbourSlice) ReloadAll(ctx context.Context, exec boil.ContextExecut
 }
 
 // NeightbourExists checks if the Neightbour row exists.
-func NeightbourExists(ctx context.Context, exec boil.ContextExecutor, peerID string, neightbourPeerID string) (bool, error) {
+func NeightbourExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"neightbours\" where \"peer_id\"=$1 AND \"neightbour_peer_id\"=$2 limit 1)"
+	sql := "select exists(select 1 from \"neightbours\" where \"id\"=$1 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, peerID, neightbourPeerID)
+		fmt.Fprintln(writer, iD)
 	}
-	row := exec.QueryRowContext(ctx, sql, peerID, neightbourPeerID)
+	row := exec.QueryRowContext(ctx, sql, iD)
 
 	err := row.Scan(&exists)
 	if err != nil {

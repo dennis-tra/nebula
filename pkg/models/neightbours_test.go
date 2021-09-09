@@ -149,7 +149,7 @@ func testNeightboursExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := NeightbourExists(ctx, tx, o.PeerID, o.NeightbourPeerID)
+	e, err := NeightbourExists(ctx, tx, o.ID)
 	if err != nil {
 		t.Errorf("Unable to check if Neightbour exists: %s", err)
 	}
@@ -175,7 +175,7 @@ func testNeightboursFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	neightbourFound, err := FindNeightbour(ctx, tx, o.PeerID, o.NeightbourPeerID)
+	neightbourFound, err := FindNeightbour(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,7 +568,7 @@ func testNeightboursSelect(t *testing.T) {
 }
 
 var (
-	neightbourDBTypes = map[string]string{`PeerID`: `character varying`, `NeightbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`}
+	neightbourDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `NeightbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`}
 	_                 = bytes.MinRead
 )
 
