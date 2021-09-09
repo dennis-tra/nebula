@@ -14,6 +14,7 @@ import "testing"
 func TestParent(t *testing.T) {
 	t.Run("Connections", testConnections)
 	t.Run("Crawls", testCrawls)
+	t.Run("Neightbours", testNeightbours)
 	t.Run("PeerProperties", testPeerProperties)
 	t.Run("Peers", testPeers)
 	t.Run("Sessions", testSessions)
@@ -22,6 +23,7 @@ func TestParent(t *testing.T) {
 func TestDelete(t *testing.T) {
 	t.Run("Connections", testConnectionsDelete)
 	t.Run("Crawls", testCrawlsDelete)
+	t.Run("Neightbours", testNeightboursDelete)
 	t.Run("PeerProperties", testPeerPropertiesDelete)
 	t.Run("Peers", testPeersDelete)
 	t.Run("Sessions", testSessionsDelete)
@@ -30,6 +32,7 @@ func TestDelete(t *testing.T) {
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("Connections", testConnectionsQueryDeleteAll)
 	t.Run("Crawls", testCrawlsQueryDeleteAll)
+	t.Run("Neightbours", testNeightboursQueryDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
 	t.Run("Sessions", testSessionsQueryDeleteAll)
@@ -38,6 +41,7 @@ func TestQueryDeleteAll(t *testing.T) {
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("Connections", testConnectionsSliceDeleteAll)
 	t.Run("Crawls", testCrawlsSliceDeleteAll)
+	t.Run("Neightbours", testNeightboursSliceDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
 	t.Run("Sessions", testSessionsSliceDeleteAll)
@@ -46,6 +50,7 @@ func TestSliceDeleteAll(t *testing.T) {
 func TestExists(t *testing.T) {
 	t.Run("Connections", testConnectionsExists)
 	t.Run("Crawls", testCrawlsExists)
+	t.Run("Neightbours", testNeightboursExists)
 	t.Run("PeerProperties", testPeerPropertiesExists)
 	t.Run("Peers", testPeersExists)
 	t.Run("Sessions", testSessionsExists)
@@ -54,6 +59,7 @@ func TestExists(t *testing.T) {
 func TestFind(t *testing.T) {
 	t.Run("Connections", testConnectionsFind)
 	t.Run("Crawls", testCrawlsFind)
+	t.Run("Neightbours", testNeightboursFind)
 	t.Run("PeerProperties", testPeerPropertiesFind)
 	t.Run("Peers", testPeersFind)
 	t.Run("Sessions", testSessionsFind)
@@ -62,6 +68,7 @@ func TestFind(t *testing.T) {
 func TestBind(t *testing.T) {
 	t.Run("Connections", testConnectionsBind)
 	t.Run("Crawls", testCrawlsBind)
+	t.Run("Neightbours", testNeightboursBind)
 	t.Run("PeerProperties", testPeerPropertiesBind)
 	t.Run("Peers", testPeersBind)
 	t.Run("Sessions", testSessionsBind)
@@ -70,6 +77,7 @@ func TestBind(t *testing.T) {
 func TestOne(t *testing.T) {
 	t.Run("Connections", testConnectionsOne)
 	t.Run("Crawls", testCrawlsOne)
+	t.Run("Neightbours", testNeightboursOne)
 	t.Run("PeerProperties", testPeerPropertiesOne)
 	t.Run("Peers", testPeersOne)
 	t.Run("Sessions", testSessionsOne)
@@ -78,6 +86,7 @@ func TestOne(t *testing.T) {
 func TestAll(t *testing.T) {
 	t.Run("Connections", testConnectionsAll)
 	t.Run("Crawls", testCrawlsAll)
+	t.Run("Neightbours", testNeightboursAll)
 	t.Run("PeerProperties", testPeerPropertiesAll)
 	t.Run("Peers", testPeersAll)
 	t.Run("Sessions", testSessionsAll)
@@ -86,6 +95,7 @@ func TestAll(t *testing.T) {
 func TestCount(t *testing.T) {
 	t.Run("Connections", testConnectionsCount)
 	t.Run("Crawls", testCrawlsCount)
+	t.Run("Neightbours", testNeightboursCount)
 	t.Run("PeerProperties", testPeerPropertiesCount)
 	t.Run("Peers", testPeersCount)
 	t.Run("Sessions", testSessionsCount)
@@ -94,6 +104,7 @@ func TestCount(t *testing.T) {
 func TestHooks(t *testing.T) {
 	t.Run("Connections", testConnectionsHooks)
 	t.Run("Crawls", testCrawlsHooks)
+	t.Run("Neightbours", testNeightboursHooks)
 	t.Run("PeerProperties", testPeerPropertiesHooks)
 	t.Run("Peers", testPeersHooks)
 	t.Run("Sessions", testSessionsHooks)
@@ -104,6 +115,8 @@ func TestInsert(t *testing.T) {
 	t.Run("Connections", testConnectionsInsertWhitelist)
 	t.Run("Crawls", testCrawlsInsert)
 	t.Run("Crawls", testCrawlsInsertWhitelist)
+	t.Run("Neightbours", testNeightboursInsert)
+	t.Run("Neightbours", testNeightboursInsertWhitelist)
 	t.Run("PeerProperties", testPeerPropertiesInsert)
 	t.Run("PeerProperties", testPeerPropertiesInsertWhitelist)
 	t.Run("Peers", testPeersInsert)
@@ -167,6 +180,7 @@ func TestToManyRemove(t *testing.T) {}
 func TestReload(t *testing.T) {
 	t.Run("Connections", testConnectionsReload)
 	t.Run("Crawls", testCrawlsReload)
+	t.Run("Neightbours", testNeightboursReload)
 	t.Run("PeerProperties", testPeerPropertiesReload)
 	t.Run("Peers", testPeersReload)
 	t.Run("Sessions", testSessionsReload)
@@ -175,6 +189,7 @@ func TestReload(t *testing.T) {
 func TestReloadAll(t *testing.T) {
 	t.Run("Connections", testConnectionsReloadAll)
 	t.Run("Crawls", testCrawlsReloadAll)
+	t.Run("Neightbours", testNeightboursReloadAll)
 	t.Run("PeerProperties", testPeerPropertiesReloadAll)
 	t.Run("Peers", testPeersReloadAll)
 	t.Run("Sessions", testSessionsReloadAll)
@@ -183,6 +198,7 @@ func TestReloadAll(t *testing.T) {
 func TestSelect(t *testing.T) {
 	t.Run("Connections", testConnectionsSelect)
 	t.Run("Crawls", testCrawlsSelect)
+	t.Run("Neightbours", testNeightboursSelect)
 	t.Run("PeerProperties", testPeerPropertiesSelect)
 	t.Run("Peers", testPeersSelect)
 	t.Run("Sessions", testSessionsSelect)
@@ -191,6 +207,7 @@ func TestSelect(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	t.Run("Connections", testConnectionsUpdate)
 	t.Run("Crawls", testCrawlsUpdate)
+	t.Run("Neightbours", testNeightboursUpdate)
 	t.Run("PeerProperties", testPeerPropertiesUpdate)
 	t.Run("Peers", testPeersUpdate)
 	t.Run("Sessions", testSessionsUpdate)
@@ -199,6 +216,7 @@ func TestUpdate(t *testing.T) {
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("Connections", testConnectionsSliceUpdateAll)
 	t.Run("Crawls", testCrawlsSliceUpdateAll)
+	t.Run("Neightbours", testNeightboursSliceUpdateAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
 	t.Run("Sessions", testSessionsSliceUpdateAll)

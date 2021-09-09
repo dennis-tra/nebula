@@ -10,6 +10,8 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("Crawls", testCrawlsUpsert)
 
+	t.Run("Neightbours", testNeightboursUpsert)
+
 	t.Run("PeerProperties", testPeerPropertiesUpsert)
 
 	t.Run("Peers", testPeersUpsert)
