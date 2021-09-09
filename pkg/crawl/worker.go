@@ -285,3 +285,26 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	}
 	return tx.Commit()
 }
+
+func InsertNeighbour(ctx context.Context, dbh *sql.DB, res Result, startTime time.Time) error {
+	tx, err := dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	if res.Error == nil {
+		defer func() { _ = tx.Rollback() }()
+		for _, neighbour := range res.Neighbors {
+			o := &models.Neightbour{
+				PeerID:           res.Peer.ID.String(),
+				NeightbourPeerID: neighbour.ID.String(),
+				CreatedAt:        null.TimeFrom(res.DialTime),
+				CrawlStartAt:     null.TimeFrom(startTime),
+			}
+			err = o.Insert(ctx, tx, boil.Infer())
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
+}
