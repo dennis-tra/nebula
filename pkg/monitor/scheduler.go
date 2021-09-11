@@ -152,9 +152,10 @@ func (s *Scheduler) StartMonitoring() error {
 
 func (s *Scheduler) handleResults() {
 	for dr := range s.resultsQueue {
-
 		// Insert into our DB
-		InsertConnection(context.Background(), s.dbh, dr)
+		if s.dbh != nil {
+			go InsertConnection(context.Background(), s.dbh, dr)
+		}
 
 		logEntry := log.WithFields(log.Fields{
 			"workerID": dr.WorkerID,
