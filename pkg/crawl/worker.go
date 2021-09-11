@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -287,12 +288,8 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 }
 
 func InsertNeighbour(ctx context.Context, dbh *sql.DB, res Result, startTime time.Time) error {
-	tx, err := dbh.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
 	if res.Error == nil {
-		defer func() { _ = tx.Rollback() }()
+		neighbours := make([]*models.Neightbour, 0)
 		for _, neighbour := range res.Neighbors {
 			o := &models.Neightbour{
 				PeerID:           res.Peer.ID.String(),
@@ -300,11 +297,26 @@ func InsertNeighbour(ctx context.Context, dbh *sql.DB, res Result, startTime tim
 				CreatedAt:        null.TimeFrom(res.DialTime),
 				CrawlStartAt:     null.TimeFrom(startTime),
 			}
-			err = o.Insert(ctx, tx, boil.Infer())
-			if err != nil {
-				return err
-			}
+			neighbours = append(neighbours, o)
 		}
+		return BulkInsert(dbh, neighbours)
 	}
-	return tx.Commit()
+	return nil
+}
+
+func BulkInsert(dbh *sql.DB, unsavedRows []*models.Neightbour) error {
+	valueStrings := make([]string, 0, len(unsavedRows))
+	valueArgs := make([]interface{}, 0, len(unsavedRows)*4)
+	i := 0
+	for _, post := range unsavedRows {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4))
+		valueArgs = append(valueArgs, post.PeerID)
+		valueArgs = append(valueArgs, post.NeightbourPeerID)
+		valueArgs = append(valueArgs, post.CreatedAt)
+		valueArgs = append(valueArgs, post.CrawlStartAt)
+		i++
+	}
+	stmt := fmt.Sprintf("INSERT INTO \"neightbours\" (peer_id, neightbour_peer_id, created_at, crawl_start_at) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := dbh.Exec(stmt, valueArgs...)
+	return err
 }

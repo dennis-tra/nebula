@@ -231,7 +231,7 @@ func (s *Scheduler) readResultsQueue() {
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
 	// Insert into our DB
-	InsertNeighbour(context.Background(), s.dbh, cr, s.StartTime)
+	go InsertNeighbour(context.Background(), s.dbh, cr, s.StartTime)
 	InsertConnection(context.Background(), s.dbh, cr)
 
 	logEntry := log.WithFields(log.Fields{
