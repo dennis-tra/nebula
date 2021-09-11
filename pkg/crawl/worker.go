@@ -271,7 +271,7 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	if res.Error == nil {
 		o.Latency = null.StringFrom(latency)
 	} else {
-		o.Error = null.StringFrom(res.Error.Error())
+		o.Error = null.StringFrom(determineDialError(res.Error))
 	}
 
 	tx, err := dbh.BeginTx(ctx, nil)
