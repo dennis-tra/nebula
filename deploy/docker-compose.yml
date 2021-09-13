@@ -1,11 +1,27 @@
 version: "3.9"
 services:
+  nebula_init_crawler:
+    image: wcgcyx/nebula-crawler:latest
+    container_name: nebula_init_crawler
+    user: nebula
+    entrypoint: [ "./docker-entrypoint.sh", "nebula", "--prom-port=6667", "crawl" ]
+    environment:
+      NEBULA_DATABASE_HOST: postgres
+      NEBULA_DATABASE_PORT: 5432
+      NEBULA_DATABASE_NAME: nebula
+      NEBULA_DATABASE_USER: nebula
+      NEBULA_DATABASE_PASSWORD: password # TODO: unsafe
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      nebula:
   nebula_monitor:
-    image: dennis-tra/nebula-crawler:latest
+    image: wcgcyx/nebula-crawler:latest
     container_name: nebula_monitor
     restart: always
     user: nebula
-    entrypoint: ["./docker-entrypoint.sh", "nebula", "--prom-port=6667", "monitor"]
+    entrypoint: ["./docker-entrypoint-monitor.sh", "nebula", "--prom-port=6667", "monitor"]
     environment:
       NEBULA_DATABASE_HOST: postgres
       NEBULA_DATABASE_PORT: 5432
