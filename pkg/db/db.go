@@ -151,6 +151,46 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
+func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocol string) (types.StringArray, error) {
+	maddrStrs := make(types.StringArray, len(maddrs))
+	for i, maddr := range maddrs {
+		maddrStrs[i] = maddr.String()
+	}
+
+	query := `
+INSERT INTO peers (
+  id,
+  multi_addresses,
+  created_at,
+  updated_at,
+  agent_version,
+  protocol,
+) VALUES ($1, $2, NOW(), NOW(), $3, $4)
+ON CONFLICT (id) DO UPDATE SET
+  multi_addresses     = EXCLUDED.multi_addresses,
+  old_multi_addresses = peers.multi_addresses,
+  updated_at          = EXCLUDED.updated_at,
+  agent_version 	  = EXCLUDED.agent_version,
+  protocol		 	  = EXCLUDED.protocol,
+RETURNING old_multi_addresses;
+`
+	rows, err := queries.Raw(query, peerID, maddrStrs, agentVersion, protocol).Query(dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := rows.Next(); !ok {
+		return nil, rows.Err()
+	}
+
+	var oldMaddrs types.StringArray
+	if err = rows.Scan(&oldMaddrs); err != nil {
+		return nil, err
+	}
+
+	return oldMaddrs, rows.Close()
+}
+
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
 	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '10s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
 }
