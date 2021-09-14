@@ -164,14 +164,14 @@ INSERT INTO peers (
   created_at,
   updated_at,
   agent_version,
-  protocol,
+  protocol
 ) VALUES ($1, $2, NOW(), NOW(), $3, $4)
 ON CONFLICT (id) DO UPDATE SET
   multi_addresses     = EXCLUDED.multi_addresses,
   old_multi_addresses = peers.multi_addresses,
   updated_at          = EXCLUDED.updated_at,
   agent_version 	  = EXCLUDED.agent_version,
-  protocol		 	  = EXCLUDED.protocol,
+  protocol		 	  = EXCLUDED.protocol
 RETURNING old_multi_addresses;
 `
 	rows, err := queries.Raw(query, peerID, maddrStrs, agentVersion, protocol).Query(dbh)
