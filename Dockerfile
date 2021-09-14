@@ -27,5 +27,6 @@ COPY --chown=nebula migrations migrations
 COPY --chown=nebula deploy/docker-entrypoint.sh .
 COPY --chown=nebula deploy/docker-entrypoint-monitor.sh .
 RUN chmod +x docker-entrypoint.sh
+RUN chmod +x docker-entrypoint-monitor.sh
 
 CMD nebula
