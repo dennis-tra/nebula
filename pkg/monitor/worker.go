@@ -10,6 +10,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
@@ -36,6 +38,12 @@ type Result struct {
 	// Due to retries this could deviate significantly from the time when this
 	// result is published.
 	ErrorTime time.Time
+
+	Agent string
+
+	Latency time.Duration
+
+	DialTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -82,6 +90,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 		dr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     pi,
+			Agent:    "n.a.",
 		}
 
 		// Try to dial the peer 3 times
@@ -96,6 +105,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 			// Actually dial the peer
+			dr.DialTime = time.Now()
 			if err := w.dial(ctx, pi.ID); err != nil {
 				dr.ErrorTime = time.Now()
 				dr.Error = err
@@ -143,6 +153,11 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			// Dial was successful - reset error
 			dr.Error = nil
 			dr.ErrorTime = time.Time{}
+			dr.Latency = time.Now().Sub(dr.DialTime)
+			// Extract agent
+			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
+				dr.Agent = agent.(string)
+			}
 
 			// Close established connection to prevent running out of FDs?
 			if err := w.host.Network().ClosePeer(pi.ID); err != nil {
@@ -177,4 +192,36 @@ func (w *Worker) dial(ctx context.Context, peerID peer.ID) error {
 
 	stats.Record(ctx, metrics.MonitorDialDuration.M(millisSince(start)))
 	return nil
+}
+
+func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
+	var latency string
+	if res.Latency.Microseconds() < 1000 {
+		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
+	} else {
+		latency = res.Latency.String()
+	}
+
+	o := &models.Connection{
+		PeerID:      res.Peer.ID.String(),
+		DialAttempt: null.TimeFrom(res.DialTime),
+		IsSucceed:   null.BoolFrom(res.Error == nil),
+	}
+	if res.Error == nil {
+		o.Latency = null.StringFrom(latency)
+	} else {
+		o.Error = null.StringFrom(determineDialError(res.Error))
+	}
+
+	tx, err := dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	err = o.Insert(ctx, tx, boil.Infer())
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }

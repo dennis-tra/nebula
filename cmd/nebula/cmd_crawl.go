@@ -44,6 +44,11 @@ var CrawlCommand = &cli.Command{
 			Usage:   "Don't persist anything to a database (you don't need a running DB)",
 			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
 		},
+		&cli.BoolFlag{
+			Name:    "save-neighbours",
+			Usage:   "Save the neighbours raletions in this crawl",
+			EnvVars: []string{"NEBULA_SAVE_NEIGHBOUR"},
+		},
 	},
 }
 
@@ -65,6 +70,10 @@ func CrawlAction(c *cli.Context) error {
 			return err
 		}
 	}
+	saveNeighbour := false
+	if c.Bool("save-neighbours") {
+		saveNeighbour = true
+	}
 
 	// Start prometheus metrics endpoint
 	if err = metrics.RegisterCrawlMetrics(); err != nil {
@@ -81,7 +90,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(c.Context, dbh)
+	s, err := crawl.NewScheduler(c.Context, dbh, saveNeighbour)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

@@ -75,6 +75,8 @@ type Scheduler struct {
 
 	// The list of worker node references.
 	workers sync.Map
+
+	saveNeighbour bool
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -101,7 +103,7 @@ func determineDialError(err error) string {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
+func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -127,18 +129,19 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	p := &Scheduler{
-		Service:      service.New("scheduler"),
-		host:         h,
-		dbh:          dbh,
-		config:       conf,
-		inCrawlQueue: map[peer.ID]peer.AddrInfo{},
-		crawled:      map[peer.ID]peer.AddrInfo{},
-		crawlQueue:   make(chan peer.AddrInfo),
-		resultsQueue: make(chan Result),
-		AgentVersion: map[string]int{},
-		Protocols:    map[string]int{},
-		Errors:       map[string]int{},
-		workers:      sync.Map{},
+		Service:       service.New("scheduler"),
+		host:          h,
+		dbh:           dbh,
+		config:        conf,
+		inCrawlQueue:  map[peer.ID]peer.AddrInfo{},
+		crawled:       map[peer.ID]peer.AddrInfo{},
+		crawlQueue:    make(chan peer.AddrInfo),
+		resultsQueue:  make(chan Result),
+		AgentVersion:  map[string]int{},
+		Protocols:     map[string]int{},
+		Errors:        map[string]int{},
+		workers:       sync.Map{},
+		saveNeighbour: saveNeighbour,
 	}
 
 	return p, nil
@@ -230,6 +233,14 @@ func (s *Scheduler) readResultsQueue() {
 // handleResult takes a crawl result and persist the information in the database and schedules
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
+	// Insert into our DB
+	if s.dbh != nil {
+		go InsertConnection(context.Background(), s.dbh, cr)
+		if s.saveNeighbour {
+			go InsertNeighbour(context.Background(), s.dbh, cr, s.StartTime)
+		}
+	}
+
 	logEntry := log.WithFields(log.Fields{
 		"workerID":   cr.WorkerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
@@ -297,7 +308,7 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 	startUpsert := time.Now()
 	if cr.Error == nil {
 		// No error, update peer record in DB
-		oldMaddrStrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
+		oldMaddrStrs, err := db.UpsertPeerWithAgent(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs, cr.Agent, strings.Join(cr.Protocols, ";"))
 		if err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}

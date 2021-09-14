@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testConnections(t *testing.T) {
+func testNeightbours(t *testing.T) {
 	t.Parallel()
 
-	query := Connections()
+	query := Neightbours()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testConnectionsDelete(t *testing.T) {
+func testNeightboursDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testConnectionsDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testConnectionsDelete(t *testing.T) {
 	}
 }
 
-func testConnectionsQueryDeleteAll(t *testing.T) {
+func testNeightboursQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testConnectionsQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := Connections().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Neightbours().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testConnectionsQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testConnectionsSliceDeleteAll(t *testing.T) {
+func testNeightboursSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testConnectionsSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := ConnectionSlice{o}
+	slice := NeightbourSlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testConnectionsSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testConnectionsSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testConnectionsExists(t *testing.T) {
+func testNeightboursExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testConnectionsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := ConnectionExists(ctx, tx, o.ID)
+	e, err := NeightbourExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if Connection exists: %s", err)
+		t.Errorf("Unable to check if Neightbour exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected ConnectionExists to return true, but got false.")
+		t.Errorf("Expected NeightbourExists to return true, but got false.")
 	}
 }
 
-func testConnectionsFind(t *testing.T) {
+func testNeightboursFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testConnectionsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	connectionFound, err := FindConnection(ctx, tx, o.ID)
+	neightbourFound, err := FindNeightbour(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if connectionFound == nil {
+	if neightbourFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testConnectionsBind(t *testing.T) {
+func testNeightboursBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testConnectionsBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = Connections().Bind(ctx, tx, o); err != nil {
+	if err = Neightbours().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testConnectionsOne(t *testing.T) {
+func testNeightboursOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testConnectionsOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := Connections().One(ctx, tx); err != nil {
+	if x, err := Neightbours().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testConnectionsAll(t *testing.T) {
+func testNeightboursAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	connectionOne := &Connection{}
-	connectionTwo := &Connection{}
-	if err = randomize.Struct(seed, connectionOne, connectionDBTypes, false, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	neightbourOne := &Neightbour{}
+	neightbourTwo := &Neightbour{}
+	if err = randomize.Struct(seed, neightbourOne, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
-	if err = randomize.Struct(seed, connectionTwo, connectionDBTypes, false, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	if err = randomize.Struct(seed, neightbourTwo, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = connectionOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neightbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = connectionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neightbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := Connections().All(ctx, tx)
+	slice, err := Neightbours().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testConnectionsAll(t *testing.T) {
 	}
 }
 
-func testConnectionsCount(t *testing.T) {
+func testNeightboursCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	connectionOne := &Connection{}
-	connectionTwo := &Connection{}
-	if err = randomize.Struct(seed, connectionOne, connectionDBTypes, false, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	neightbourOne := &Neightbour{}
+	neightbourTwo := &Neightbour{}
+	if err = randomize.Struct(seed, neightbourOne, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
-	if err = randomize.Struct(seed, connectionTwo, connectionDBTypes, false, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	if err = randomize.Struct(seed, neightbourTwo, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = connectionOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neightbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = connectionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neightbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testConnectionsCount(t *testing.T) {
 	}
 }
 
-func connectionBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func connectionAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Connection) error {
-	*o = Connection{}
+func neightbourAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
+	*o = Neightbour{}
 	return nil
 }
 
-func testConnectionsHooks(t *testing.T) {
+func testNeightboursHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &Connection{}
-	o := &Connection{}
+	empty := &Neightbour{}
+	o := &Neightbour{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, connectionDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize Connection object: %s", err)
+	if err = randomize.Struct(seed, o, neightbourDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Neightbour object: %s", err)
 	}
 
-	AddConnectionHook(boil.BeforeInsertHook, connectionBeforeInsertHook)
+	AddNeightbourHook(boil.BeforeInsertHook, neightbourBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	connectionBeforeInsertHooks = []ConnectionHook{}
+	neightbourBeforeInsertHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.AfterInsertHook, connectionAfterInsertHook)
+	AddNeightbourHook(boil.AfterInsertHook, neightbourAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	connectionAfterInsertHooks = []ConnectionHook{}
+	neightbourAfterInsertHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.AfterSelectHook, connectionAfterSelectHook)
+	AddNeightbourHook(boil.AfterSelectHook, neightbourAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	connectionAfterSelectHooks = []ConnectionHook{}
+	neightbourAfterSelectHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.BeforeUpdateHook, connectionBeforeUpdateHook)
+	AddNeightbourHook(boil.BeforeUpdateHook, neightbourBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	connectionBeforeUpdateHooks = []ConnectionHook{}
+	neightbourBeforeUpdateHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.AfterUpdateHook, connectionAfterUpdateHook)
+	AddNeightbourHook(boil.AfterUpdateHook, neightbourAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	connectionAfterUpdateHooks = []ConnectionHook{}
+	neightbourAfterUpdateHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.BeforeDeleteHook, connectionBeforeDeleteHook)
+	AddNeightbourHook(boil.BeforeDeleteHook, neightbourBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	connectionBeforeDeleteHooks = []ConnectionHook{}
+	neightbourBeforeDeleteHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.AfterDeleteHook, connectionAfterDeleteHook)
+	AddNeightbourHook(boil.AfterDeleteHook, neightbourAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	connectionAfterDeleteHooks = []ConnectionHook{}
+	neightbourAfterDeleteHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.BeforeUpsertHook, connectionBeforeUpsertHook)
+	AddNeightbourHook(boil.BeforeUpsertHook, neightbourBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	connectionBeforeUpsertHooks = []ConnectionHook{}
+	neightbourBeforeUpsertHooks = []NeightbourHook{}
 
-	AddConnectionHook(boil.AfterUpsertHook, connectionAfterUpsertHook)
+	AddNeightbourHook(boil.AfterUpsertHook, neightbourAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	connectionAfterUpsertHooks = []ConnectionHook{}
+	neightbourAfterUpsertHooks = []NeightbourHook{}
 }
 
-func testConnectionsInsert(t *testing.T) {
+func testNeightboursInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testConnectionsInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testConnectionsInsert(t *testing.T) {
 	}
 }
 
-func testConnectionsInsertWhitelist(t *testing.T) {
+func testNeightboursInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(connectionColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(neightbourColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,14 +494,14 @@ func testConnectionsInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testConnectionsReload(t *testing.T) {
+func testNeightboursReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -516,14 +516,14 @@ func testConnectionsReload(t *testing.T) {
 	}
 }
 
-func testConnectionsReloadAll(t *testing.T) {
+func testNeightboursReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -533,21 +533,21 @@ func testConnectionsReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := ConnectionSlice{o}
+	slice := NeightbourSlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testConnectionsSelect(t *testing.T) {
+func testNeightboursSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -557,7 +557,7 @@ func testConnectionsSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := Connections().All(ctx, tx)
+	slice, err := Neightbours().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,25 +568,25 @@ func testConnectionsSelect(t *testing.T) {
 }
 
 var (
-	connectionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `DialAttempt`: `timestamp with time zone`, `Latency`: `interval`, `IsSucceed`: `boolean`, `Error`: `character varying`}
+	neightbourDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `NeightbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`}
 	_                 = bytes.MinRead
 )
 
-func testConnectionsUpdate(t *testing.T) {
+func testNeightboursUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(connectionPrimaryKeyColumns) {
+	if 0 == len(neightbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(connectionAllColumns) == len(connectionPrimaryKeyColumns) {
+	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -596,7 +596,7 @@ func testConnectionsUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -605,8 +605,8 @@ func testConnectionsUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -616,18 +616,18 @@ func testConnectionsUpdate(t *testing.T) {
 	}
 }
 
-func testConnectionsSliceUpdateAll(t *testing.T) {
+func testNeightboursSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(connectionAllColumns) == len(connectionPrimaryKeyColumns) {
+	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Connection{}
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := &Neightbour{}
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -637,7 +637,7 @@ func testConnectionsSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -646,18 +646,18 @@ func testConnectionsSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, connectionDBTypes, true, connectionPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(connectionAllColumns, connectionPrimaryKeyColumns) {
-		fields = connectionAllColumns
+	if strmangle.StringSliceMatch(neightbourAllColumns, neightbourPrimaryKeyColumns) {
+		fields = neightbourAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			connectionAllColumns,
-			connectionPrimaryKeyColumns,
+			neightbourAllColumns,
+			neightbourPrimaryKeyColumns,
 		)
 	}
 
@@ -675,7 +675,7 @@ func testConnectionsSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := ConnectionSlice{o}
+	slice := NeightbourSlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -683,29 +683,29 @@ func testConnectionsSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testConnectionsUpsert(t *testing.T) {
+func testNeightboursUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(connectionAllColumns) == len(connectionPrimaryKeyColumns) {
+	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := Connection{}
-	if err = randomize.Struct(seed, &o, connectionDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	o := Neightbour{}
+	if err = randomize.Struct(seed, &o, neightbourDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Connection: %s", err)
+		t.Errorf("Unable to upsert Neightbour: %s", err)
 	}
 
-	count, err := Connections().Count(ctx, tx)
+	count, err := Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -714,15 +714,15 @@ func testConnectionsUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, connectionDBTypes, false, connectionPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Connection struct: %s", err)
+	if err = randomize.Struct(seed, &o, neightbourDBTypes, false, neightbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neightbour struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Connection: %s", err)
+		t.Errorf("Unable to upsert Neightbour: %s", err)
 	}
 
-	count, err = Connections().Count(ctx, tx)
+	count, err = Neightbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
