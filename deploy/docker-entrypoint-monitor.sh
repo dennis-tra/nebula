@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # waiting for initial crawler to fill in DB
-sleep 30m
+sleep 10m
 
 set -e
 
