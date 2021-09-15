@@ -20,7 +20,7 @@ freq=$CRAWL_NEIGHBOUR_FREQUENCY
 truncate=$CRAWL_NEIGHBOUR_TRUNCATE
 
 monitor=0
-counter=1
+counter=$CRAWL_NEIGHBOUR_FREQUENCY
 while true; do
     start=$(date +%s)
     if [ $save -eq 1 ]
