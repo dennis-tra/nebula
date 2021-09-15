@@ -14,7 +14,7 @@ services:
       CRAWL_PERIOD: 1800
       CRAWL_NEIGHBOUR_SAVE: 1
       CRAWL_NEIGHBOUR_FREQUENCY: 48
-      CRAWL_NEIGHBOUR_TRUNCATE: 1
+      CRAWL_NEIGHBOUR_NOT_TRUNCATE: 0
     depends_on:
       postgres:
         condition: service_healthy

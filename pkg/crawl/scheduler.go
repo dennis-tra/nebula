@@ -78,7 +78,7 @@ type Scheduler struct {
 
 	saveNeighbour bool
 
-	truncateNeighbour bool
+	notTruncateNeighbour bool
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -105,7 +105,7 @@ func determineDialError(err error) string {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, truncateNeighbour bool) (*Scheduler, error) {
+func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, notTruncateNeighbour bool) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -131,20 +131,20 @@ func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, truncate
 	}
 
 	p := &Scheduler{
-		Service:           service.New("scheduler"),
-		host:              h,
-		dbh:               dbh,
-		config:            conf,
-		inCrawlQueue:      map[peer.ID]peer.AddrInfo{},
-		crawled:           map[peer.ID]peer.AddrInfo{},
-		crawlQueue:        make(chan peer.AddrInfo),
-		resultsQueue:      make(chan Result),
-		AgentVersion:      map[string]int{},
-		Protocols:         map[string]int{},
-		Errors:            map[string]int{},
-		workers:           sync.Map{},
-		saveNeighbour:     saveNeighbour,
-		truncateNeighbour: truncateNeighbour,
+		Service:              service.New("scheduler"),
+		host:                 h,
+		dbh:                  dbh,
+		config:               conf,
+		inCrawlQueue:         map[peer.ID]peer.AddrInfo{},
+		crawled:              map[peer.ID]peer.AddrInfo{},
+		crawlQueue:           make(chan peer.AddrInfo),
+		resultsQueue:         make(chan Result),
+		AgentVersion:         map[string]int{},
+		Protocols:            map[string]int{},
+		Errors:               map[string]int{},
+		workers:              sync.Map{},
+		saveNeighbour:        saveNeighbour,
+		notTruncateNeighbour: notTruncateNeighbour,
 	}
 
 	return p, nil
@@ -158,7 +158,7 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	s.StartTime = time.Now()
 
-	if s.dbh != nil && s.truncateNeighbour {
+	if s.dbh != nil && !s.notTruncateNeighbour {
 		log.Infoln("Truncate table neightbours...")
 		db.TruncateNeightbours(s.dbh)
 	}
