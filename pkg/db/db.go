@@ -151,10 +151,14 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
-func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocol []string) (types.StringArray, error) {
+func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocols []string) (types.StringArray, error) {
 	maddrStrs := make(types.StringArray, len(maddrs))
 	for i, maddr := range maddrs {
 		maddrStrs[i] = maddr.String()
+	}
+	protocolStrs := make(types.StringArray, len(protocols))
+	for i, protocol := range protocols {
+		protocolStrs[i] = protocol
 	}
 
 	query := `
@@ -174,7 +178,7 @@ ON CONFLICT (id) DO UPDATE SET
   protocol		 	  = EXCLUDED.protocol
 RETURNING old_multi_addresses;
 `
-	rows, err := queries.Raw(query, peerID, maddrStrs, agentVersion, protocol).Query(dbh)
+	rows, err := queries.Raw(query, peerID, maddrStrs, agentVersion, protocolStrs).Query(dbh)
 	if err != nil {
 		return nil, err
 	}
