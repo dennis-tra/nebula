@@ -51,8 +51,8 @@ var CrawlCommand = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:    "truncate-neighbours",
-			Usage:   "Save the neighbours raletions in this crawl",
-			EnvVars: []string{"NEBULA_SAVE_NEIGHBOUR"},
+			Usage:   "Truncate the neighbours raletions in this crawl",
+			EnvVars: []string{"NEBULA_TRUNCATE_NEIGHBOUR"},
 		},
 	},
 }
