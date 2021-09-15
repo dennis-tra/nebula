@@ -31,7 +31,7 @@ type Peer struct {
 	CreatedAt         time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	OldMultiAddresses types.StringArray `boil:"old_multi_addresses" json:"old_multi_addresses,omitempty" toml:"old_multi_addresses" yaml:"old_multi_addresses,omitempty"`
 	AgentVersion      null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
-	Protocol          null.String       `boil:"protocol" json:"protocol,omitempty" toml:"protocol" yaml:"protocol,omitempty"`
+	Protocol          types.StringArray `boil:"protocol" json:"protocol,omitempty" toml:"protocol" yaml:"protocol,omitempty"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -107,7 +107,7 @@ var PeerWhere = struct {
 	CreatedAt         whereHelpertime_Time
 	OldMultiAddresses whereHelpertypes_StringArray
 	AgentVersion      whereHelpernull_String
-	Protocol          whereHelpernull_String
+	Protocol          whereHelpertypes_StringArray
 }{
 	ID:                whereHelperstring{field: "\"peers\".\"id\""},
 	MultiAddresses:    whereHelpertypes_StringArray{field: "\"peers\".\"multi_addresses\""},
@@ -115,7 +115,7 @@ var PeerWhere = struct {
 	CreatedAt:         whereHelpertime_Time{field: "\"peers\".\"created_at\""},
 	OldMultiAddresses: whereHelpertypes_StringArray{field: "\"peers\".\"old_multi_addresses\""},
 	AgentVersion:      whereHelpernull_String{field: "\"peers\".\"agent_version\""},
-	Protocol:          whereHelpernull_String{field: "\"peers\".\"protocol\""},
+	Protocol:          whereHelpertypes_StringArray{field: "\"peers\".\"protocol\""},
 }
 
 // PeerRels is where relationship names are stored.
