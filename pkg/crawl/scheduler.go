@@ -308,11 +308,11 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 	startUpsert := time.Now()
 	if cr.Error == nil {
 		// No error, update peer record in DB
-		protocol := "unknown"
+		protocols := []string{"unknown"}
 		if len(cr.Protocols) > 0 {
-			protocol = cr.Protocols[0]
+			protocols = cr.Protocols
 		}
-		oldMaddrStrs, err := db.UpsertPeerWithAgent(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs, cr.Agent, protocol)
+		oldMaddrStrs, err := db.UpsertPeerWithAgent(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs, cr.Agent, protocols)
 		if err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}

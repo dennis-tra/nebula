@@ -151,7 +151,7 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
-func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocol string) (types.StringArray, error) {
+func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocol []string) (types.StringArray, error) {
 	maddrStrs := make(types.StringArray, len(maddrs))
 	for i, maddr := range maddrs {
 		maddrStrs[i] = maddr.String()
