@@ -29,9 +29,10 @@ while true; do
         then
             if [ $truncate -eq 1 ]
             then
-                echo "truncate db..."
+                nebula --prom-port=6666 crawl --save-neighbours --truncate-neighbours
+            else
+                nebula --prom-port=6666 crawl --save-neighbours
             fi
-            nebula --prom-port=6666 crawl --save-neighbours
             counter=1
         else
             nebula --prom-port=6666 crawl
