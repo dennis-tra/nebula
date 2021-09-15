@@ -16,8 +16,10 @@ FROM alpine:latest
 
 # Create user ot
 RUN adduser -D -H nebula
-USER nebula
 WORKDIR /home/nebula
+RUN mkdir .config
+RUN chown nebula:nebula .config
+USER nebula
 
 COPY --from=builder /build/nebula /usr/local/bin/nebula
 COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
