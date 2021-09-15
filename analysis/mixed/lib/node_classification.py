@@ -65,34 +65,3 @@ def get_dangling_nodes(conn, start, end):
         [start, end]
     )
     return [i for sub in cur.fetchall() for i in sub]
-
-conn = psycopg2.connect(
-    host="localhost",
-    port=5432,
-    database="nebula",
-    user="nebula",
-    password="password",
-)
-start = datetime.datetime.strptime("2021-09-15 18:00:00", "%Y-%m-%d %H:%M:%S").astimezone()
-start = start.astimezone(pytz.utc)
-end = datetime.datetime.strptime("2021-09-16 04:00:00", "%Y-%m-%d %H:%M:%S").astimezone()
-end = end.astimezone(pytz.utc)
-
-all = set(get_all_nodes(conn, start, end))
-print(len(all))
-
-off = set(get_off_nodes(conn, start, end))
-print(len(off))
-
-on = set(get_on_nodes(conn, start, end))
-print(len(on))
-
-
-dangle = set(get_dangling_nodes(conn, start, end))
-print(len(dangle))
-
-dangleC = all.difference(set.union(off, on))
-print(len(dangleC))
-
-diff = dangleC.difference(dangle)
-print(diff)
