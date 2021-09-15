@@ -31,7 +31,7 @@ while true; do
             then
                 echo "truncate db..."
             fi
-            nebula --prom-port=6666 crawl --save-neighbour
+            nebula --prom-port=6666 crawl --save-neighbours
             counter=1
         else
             nebula --prom-port=6666 crawl
