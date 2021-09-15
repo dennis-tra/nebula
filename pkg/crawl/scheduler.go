@@ -79,6 +79,10 @@ type Scheduler struct {
 	saveNeighbour bool
 
 	notTruncateNeighbour bool
+
+	saveConnection bool
+
+	notTruncateConnection bool
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -105,7 +109,7 @@ func determineDialError(err error) string {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, notTruncateNeighbour bool) (*Scheduler, error) {
+func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, notTruncateNeighbour bool, saveConnection bool, notTruncateConnection bool) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -158,9 +162,15 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	s.StartTime = time.Now()
 
-	if s.dbh != nil && !s.notTruncateNeighbour {
-		log.Infoln("Truncate table neightbours...")
-		db.TruncateNeightbours(s.dbh)
+	if s.dbh != nil {
+		if !s.notTruncateNeighbour {
+			log.Infoln("Truncate table neightbours...")
+			db.TruncateNeightbours(s.dbh)
+		}
+		if !s.notTruncateConnection {
+			log.Infoln("Truncate table connections...")
+			db.TruncateConnections(s.dbh)
+		}
 	}
 
 	// Start all workers
@@ -243,7 +253,9 @@ func (s *Scheduler) readResultsQueue() {
 func (s *Scheduler) handleResult(cr Result) {
 	// Insert into our DB
 	if s.dbh != nil {
-		go InsertConnection(context.Background(), s.dbh, cr)
+		if s.saveConnection {
+			go InsertConnection(context.Background(), s.dbh, cr)
+		}
 		if s.saveNeighbour {
 			go InsertNeighbour(context.Background(), s.dbh, cr, s.StartTime)
 		}

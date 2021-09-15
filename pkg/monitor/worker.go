@@ -10,8 +10,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
@@ -192,36 +190,4 @@ func (w *Worker) dial(ctx context.Context, peerID peer.ID) error {
 
 	stats.Record(ctx, metrics.MonitorDialDuration.M(millisSince(start)))
 	return nil
-}
-
-func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
-	var latency string
-	if res.Latency.Microseconds() < 1000 {
-		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
-	} else {
-		latency = res.Latency.String()
-	}
-
-	o := &models.Connection{
-		PeerID:      res.Peer.ID.String(),
-		DialAttempt: null.TimeFrom(res.DialTime),
-		IsSucceed:   null.BoolFrom(res.Error == nil),
-	}
-	if res.Error == nil {
-		o.Latency = null.StringFrom(latency)
-	} else {
-		o.Error = null.StringFrom(determineDialError(res.Error))
-	}
-
-	tx, err := dbh.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	err = o.Insert(ctx, tx, boil.Infer())
-	if err != nil {
-		return err
-	}
-	return tx.Commit()
 }
