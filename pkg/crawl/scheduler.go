@@ -155,6 +155,11 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	s.StartTime = time.Now()
 
+	if s.dbh != nil {
+		log.Infoln("Truncate table neightbours...")
+		db.TruncateNeightbours(s.dbh)
+	}
+
 	// Start all workers
 	for i := 0; i < s.config.CrawlWorkerCount; i++ {
 		w, err := NewWorker(s.host, s.config)

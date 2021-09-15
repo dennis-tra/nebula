@@ -195,6 +195,15 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
+func TruncateNeightbours(dbh *sql.DB) error {
+	query := `TRUNCATE table neightbours;`
+	rows, err := queries.Raw(query).Query(dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
 	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '10s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
 }
