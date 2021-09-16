@@ -320,6 +320,14 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 		if err := db.UpsertSessionSuccess(s.dbh, cr.Peer.ID.Pretty()); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}
+
+		// Persist latency measurement
+		if cr.Latency != nil {
+			if err := cr.Latency.Insert(s.ServiceContext(), s.dbh, boil.Infer()); err != nil {
+				return errors.Wrap(err, "insert latency measurement")
+			}
+		}
+
 	} else if cr.Error != s.ServiceContext().Err() {
 		dialErr := determineDialError(cr.Error)
 		if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), cr.ErrorTime, dialErr); err != nil {
