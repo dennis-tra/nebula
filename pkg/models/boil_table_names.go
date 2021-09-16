@@ -5,11 +5,13 @@ package models
 
 var TableNames = struct {
 	Crawls         string
+	Latencies      string
 	PeerProperties string
 	Peers          string
 	Sessions       string
 }{
 	Crawls:         "crawls",
+	Latencies:      "latencies",
 	PeerProperties: "peer_properties",
 	Peers:          "peers",
 	Sessions:       "sessions",

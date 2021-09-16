@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
@@ -35,6 +37,9 @@ type Result struct {
 
 	// The neighbors of the crawled peer
 	Neighbors []peer.AddrInfo
+
+	// The latency to the particular peer as measured via ICM ping packets
+	Latency *models.Latency
 
 	// The agent version of the crawled peer
 	Agent string
@@ -91,10 +96,14 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 	ctx := w.ServiceContext()
 	logEntry := log.WithField("workerID", w.Identifier())
 	for pi := range crawlQueue {
-		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16])
-		logEntry.Debugln("Crawling peer", pi.ID.Pretty()[:16])
+		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16]).WithField("crawlCount", w.crawledPeers)
+		logEntry.Debugln("Crawling peer")
 
 		cr := w.crawlPeer(ctx, pi)
+
+		if cr.Error == nil {
+			cr.Latency = w.measureLatency(ctx, pi)
+		}
 
 		select {
 		case resultsQueue <- cr:
@@ -102,7 +111,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 			return
 		}
 
-		logEntry.Debugln("Crawled peer", pi.ID.Pretty()[:16])
+		logEntry.Debugln("Crawled peer")
 	}
 
 	logEntry.Debugf("Crawled %d peers\n", w.crawledPeers)
@@ -151,6 +160,75 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	w.crawledPeers++
 
 	return cr
+}
+
+// measureLatency measures the ICM ping latency to the given peer
+func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) *models.Latency {
+	ppi := filterPrivateMaddrs(pi)
+	addrsMap := map[string]string{}
+	for _, maddr := range ppi.Addrs {
+		addr, err := maddr.ValueForProtocol(ma.P_IP4)
+		if err == nil {
+			addrsMap[addr] = addr
+			continue
+		}
+		addr, err = maddr.ValueForProtocol(ma.P_IP6)
+		if err == nil {
+			addrsMap[addr] = addr
+			continue
+		}
+	}
+	if len(addrsMap) == 0 {
+		log.Debugln("No good address")
+		return nil
+	}
+	var addrs []string
+	for addr := range addrsMap {
+		addrs = append(addrs, addr)
+	}
+
+	pinger, err := ping.NewPinger(addrs[0])
+	if err != nil {
+		log.WithError(errors.Wrap(err, "new pinger")).Warnln("Error pinging peer")
+		return nil
+	}
+
+	done := make(chan struct{})
+	defer close(done)
+
+	go func() {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			pinger.Stop()
+		}
+	}()
+
+	pinger.Timeout = time.Minute
+	pinger.Count = 10
+
+	pinger.OnRecv = func(packet *ping.Packet) {
+	}
+
+	err = pinger.Run() // Blocks until finished.
+	if err != nil {
+		log.WithError(errors.Wrap(err, "pinger run")).Warnln("Error pinging peer")
+		return nil
+	}
+	s := pinger.Statistics()
+
+	return &models.Latency{
+		PeerID:          pi.ID.Pretty(),
+		Address:         addrs[0],
+		PingLatencySAvg: s.AvgRtt.Seconds(),
+		PingLatencySSTD: s.StdDevRtt.Seconds(),
+		PingLatencySMin: s.MinRtt.Seconds(),
+		PingLatencySMax: s.MaxRtt.Seconds(),
+		PingPacketsSent: s.PacketsSent,
+		PingPacketsRecv: s.PacketsRecv,
+		PingPacketsDupl: s.PacketsRecvDuplicates,
+		PingPacketLoss:  s.PacketLoss,
+	}
 }
 
 // millisSince returns the number of milliseconds between now and the given time.

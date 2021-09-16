@@ -8,9 +8,10 @@ require (
 	github.com/adrg/xdg v0.3.3
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/friendsofgo/errors v0.9.2
-	github.com/go-ping/ping v0.0.0-20210506233800-ff8be3320020
+	github.com/go-ping/ping v0.0.0-20210911151512-381826476871
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/ipfs/go-ipns v0.1.0 // indirect
 	github.com/ipld/go-ipld-prime v0.10.0 // indirect
@@ -48,8 +49,8 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.18.1 // indirect
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e // indirect
-	golang.org/x/net v0.0.0-20210614182718-04defd469f4e // indirect
+	golang.org/x/net v0.0.0-20210916014120-12bc252f5db8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+	golang.org/x/sys v0.0.0-20210915083310-ed5796bab164 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
