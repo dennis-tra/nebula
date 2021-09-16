@@ -79,3 +79,23 @@ def get_dangling_nodes(conn, start, end):
         [start, end]
     )
     return [i for sub in cur.fetchall() for i in sub]
+
+
+# get_highly_dangling_nodes gets the id of all highly dangling nodes between two timestamps.
+# It takes an sql connection, the start time, the end time, the number of sessions as the arguments, and
+# returns the ids of all the highly dangling nodes.
+def get_highly_dangling_nodes(conn, start, end, num):
+    start = start.astimezone(pytz.utc)
+    end = end.astimezone(pytz.utc)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT peer_id
+        FROM sessions
+        WHERE updated_at > %s AND updated_at < %s AND first_successful_dial != last_successful_dial
+        GROUP BY peer_id
+        HAVING COUNT(*) > %s
+        """,
+        [start, end, num]
+    )
+    return [i for sub in cur.fetchall() for i in sub]

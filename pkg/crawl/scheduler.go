@@ -135,20 +135,22 @@ func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, notTrunc
 	}
 
 	p := &Scheduler{
-		Service:              service.New("scheduler"),
-		host:                 h,
-		dbh:                  dbh,
-		config:               conf,
-		inCrawlQueue:         map[peer.ID]peer.AddrInfo{},
-		crawled:              map[peer.ID]peer.AddrInfo{},
-		crawlQueue:           make(chan peer.AddrInfo),
-		resultsQueue:         make(chan Result),
-		AgentVersion:         map[string]int{},
-		Protocols:            map[string]int{},
-		Errors:               map[string]int{},
-		workers:              sync.Map{},
-		saveNeighbour:        saveNeighbour,
-		notTruncateNeighbour: notTruncateNeighbour,
+		Service:               service.New("scheduler"),
+		host:                  h,
+		dbh:                   dbh,
+		config:                conf,
+		inCrawlQueue:          map[peer.ID]peer.AddrInfo{},
+		crawled:               map[peer.ID]peer.AddrInfo{},
+		crawlQueue:            make(chan peer.AddrInfo),
+		resultsQueue:          make(chan Result),
+		AgentVersion:          map[string]int{},
+		Protocols:             map[string]int{},
+		Errors:                map[string]int{},
+		workers:               sync.Map{},
+		saveNeighbour:         saveNeighbour,
+		notTruncateNeighbour:  notTruncateNeighbour,
+		saveConnection:        saveConnection,
+		notTruncateConnection: notTruncateConnection,
 	}
 
 	return p, nil
