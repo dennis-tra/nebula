@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -39,7 +39,7 @@ type Result struct {
 	Neighbors []peer.AddrInfo
 
 	// The latency to the particular peer as measured via ICM ping packets
-	Latency *models.Latency
+	Latencies []*models.Latency
 
 	// The agent version of the crawled peer
 	Agent string
@@ -102,7 +102,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 		cr := w.crawlPeer(ctx, pi)
 
 		if cr.Error == nil {
-			cr.Latency = w.measureLatency(ctx, pi)
+			cr.Latencies = w.measureLatency(ctx, pi)
 		}
 
 		select {
@@ -163,7 +163,7 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 }
 
 // measureLatency measures the ICM ping latency to the given peer
-func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) *models.Latency {
+func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
 	ppi := filterPrivateMaddrs(pi)
 	addrsMap := map[string]string{}
 	for _, maddr := range ppi.Addrs {
@@ -187,48 +187,68 @@ func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) *models.L
 		addrs = append(addrs, addr)
 	}
 
-	pinger, err := ping.NewPinger(addrs[0])
-	if err != nil {
-		log.WithError(errors.Wrap(err, "new pinger")).Warnln("Error pinging peer")
-		return nil
-	}
+	var wg sync.WaitGroup
+	results := make(chan interface{}, len(addrsMap))
+	for addr := range addrsMap {
+		wg.Add(1)
 
-	done := make(chan struct{})
-	defer close(done)
+		pinger, err := ping.NewPinger(addr)
+		if err != nil {
+			log.WithError(errors.Wrap(err, "new pinger")).Warnln("Error pinging peer")
+			continue
+		}
+
+		pinger.Timeout = time.Minute
+		pinger.Count = 10
+
+		done := make(chan struct{})
+		go func() {
+			select {
+			case <-done:
+			case <-ctx.Done():
+				pinger.Stop()
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+			defer close(done)
+			// Blocks until finished.
+			if err := pinger.Run(); err != nil {
+				results <- err
+			} else {
+				results <- pinger.Statistics()
+			}
+		}()
+	}
 
 	go func() {
-		select {
-		case <-done:
-		case <-ctx.Done():
-			pinger.Stop()
-		}
+		wg.Wait()
+		close(results)
 	}()
 
-	pinger.Timeout = time.Minute
-	pinger.Count = 10
-
-	pinger.OnRecv = func(packet *ping.Packet) {
+	var latencies []*models.Latency
+	for result := range results {
+		switch res := result.(type) {
+		case error:
+			log.WithError(errors.Wrap(res, "pinger run")).Warnln("Error pinging peer")
+		case *ping.Statistics:
+			latencies = append(latencies, &models.Latency{
+				PeerID:          pi.ID.Pretty(),
+				Address:         res.Addr,
+				PingLatencySAvg: res.AvgRtt.Seconds(),
+				PingLatencySSTD: res.StdDevRtt.Seconds(),
+				PingLatencySMin: res.MinRtt.Seconds(),
+				PingLatencySMax: res.MaxRtt.Seconds(),
+				PingPacketsSent: res.PacketsSent,
+				PingPacketsRecv: res.PacketsRecv,
+				PingPacketsDupl: res.PacketsRecvDuplicates,
+				PingPacketLoss:  res.PacketLoss,
+			})
+		}
 	}
 
-	err = pinger.Run() // Blocks until finished.
-	if err != nil {
-		log.WithError(errors.Wrap(err, "pinger run")).Warnln("Error pinging peer")
-		return nil
-	}
-	s := pinger.Statistics()
-
-	return &models.Latency{
-		PeerID:          pi.ID.Pretty(),
-		Address:         addrs[0],
-		PingLatencySAvg: s.AvgRtt.Seconds(),
-		PingLatencySSTD: s.StdDevRtt.Seconds(),
-		PingLatencySMin: s.MinRtt.Seconds(),
-		PingLatencySMax: s.MaxRtt.Seconds(),
-		PingPacketsSent: s.PacketsSent,
-		PingPacketsRecv: s.PacketsRecv,
-		PingPacketsDupl: s.PacketsRecvDuplicates,
-		PingPacketLoss:  s.PacketLoss,
-	}
+	return latencies
 }
 
 // millisSince returns the number of milliseconds between now and the given time.

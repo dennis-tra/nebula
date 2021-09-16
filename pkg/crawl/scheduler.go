@@ -322,9 +322,18 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 		}
 
 		// Persist latency measurement
-		if cr.Latency != nil {
-			if err := cr.Latency.Insert(s.ServiceContext(), s.dbh, boil.Infer()); err != nil {
-				return errors.Wrap(err, "insert latency measurement")
+		if cr.Latencies != nil {
+			txn, err := s.dbh.BeginTx(s.ServiceContext(), nil)
+			if err != nil {
+				return errors.Wrap(err, "create latencies txn")
+			}
+			for _, latency := range cr.Latencies {
+				if err := latency.Insert(s.ServiceContext(), txn, boil.Infer()); err != nil {
+					return errors.Wrap(err, "insert latency measurement")
+				}
+			}
+			if err = txn.Commit(); err != nil {
+				return errors.Wrap(err, "commit latencies txn")
 			}
 		}
 
