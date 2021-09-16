@@ -2,11 +2,11 @@ import geoip2.database
 from multiaddr import Multiaddr
 
 
-# check_geolocation gets the geolocation of given peers.
+# get_geolocation gets the geolocation info of given peers.
 # It takes an sql connection, the peer ids as arguments, and
-# returns the geolocations of these peer ids.
-def check_geolocation(conn, peer_ids):
-    with geoip2.database.Reader("../geoip/GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
+# returns the geolocation info of these peer ids.
+def get_geolocation(conn, peer_ids):
+    with geoip2.database.Reader("../../geoip/GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
         cur = conn.cursor()
         res = dict()
         cur.execute(
@@ -34,7 +34,6 @@ def check_geolocation(conn, peer_ids):
             if not found:
                 res[id] = "unknown"
         return res
-
 
 # Helper function, copied from nebula crawler analysis.
 def node_address(maddr):

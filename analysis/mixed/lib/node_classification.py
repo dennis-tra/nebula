@@ -1,7 +1,9 @@
 import pytz
-import datetime
-import psycopg2
 
+
+# get_all_nodes gets the id of all nodes between two timestamps.
+# It takes an sql connection, the start time, the end time as the arguments, and
+# returns the ids of all the nodes.
 def get_all_nodes(conn, start, end):
     start = start.astimezone(pytz.utc)
     end = end.astimezone(pytz.utc)
@@ -16,6 +18,10 @@ def get_all_nodes(conn, start, end):
     )
     return [i for sub in cur.fetchall() for i in sub]
 
+
+# get_on_nodes gets the id of all on nodes between two timestamps.
+# It takes an sql connection, the start time, the end time as the arguments, and
+# returns the ids of all the on nodes.
 def get_on_nodes(conn, start, end):
     start = start.astimezone(pytz.utc)
     end = end.astimezone(pytz.utc)
@@ -34,6 +40,10 @@ def get_on_nodes(conn, start, end):
     )
     return [i for sub in cur.fetchall() for i in sub]
 
+
+# get_off_nodes gets the id of all off nodes between two timestamps.
+# It takes an sql connection, the start time, the end time as the arguments, and
+# returns the ids of all the off nodes.
 def get_off_nodes(conn, start, end):
     start = start.astimezone(pytz.utc)
     end = end.astimezone(pytz.utc)
@@ -52,6 +62,10 @@ def get_off_nodes(conn, start, end):
     )
     return [i for sub in cur.fetchall() for i in sub]
 
+
+# get_dangling_nodes gets the id of all dangling nodes between two timestamps.
+# It takes an sql connection, the start time, the end time as the arguments, and
+# returns the ids of all the dangling nodes.
 def get_dangling_nodes(conn, start, end):
     start = start.astimezone(pytz.utc)
     end = end.astimezone(pytz.utc)
