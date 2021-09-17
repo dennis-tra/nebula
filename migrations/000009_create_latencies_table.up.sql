@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS latencies
     created_at         TIMESTAMPTZ  NOT NULL,
 
     -- The peer ID should always point to an existing peer in the DB
-    CONSTRAINT fk_session_peer FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
+    CONSTRAINT fk_latencies_peer FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
 
     PRIMARY KEY (id)
 );
