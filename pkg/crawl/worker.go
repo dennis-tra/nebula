@@ -101,7 +101,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 
 		cr := w.crawlPeer(ctx, pi)
 
-		if cr.Error == nil {
+		if cr.Error == nil && w.config.MeasureLatencies {
 			cr.Latencies = w.measureLatency(ctx, pi)
 		}
 

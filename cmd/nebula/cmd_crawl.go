@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -38,6 +39,13 @@ var CrawlCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_CRAWL_PEER_LIMIT"},
 			DefaultText: strconv.Itoa(config.DefaultConfig.CrawlLimit),
 			Value:       config.DefaultConfig.CrawlLimit,
+		},
+		&cli.BoolFlag{
+			Name:        "latencies",
+			Usage:       "Measure latencies to peers by exchanging ICM ping packets",
+			EnvVars:     []string{"NEBULA_CRAWL_LATENCIES"},
+			DefaultText: fmt.Sprintf("%v", config.DefaultConfig.MeasureLatencies),
+			Value:       config.DefaultConfig.MeasureLatencies,
 		},
 		&cli.BoolFlag{
 			Name:    "dry-run",

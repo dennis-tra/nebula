@@ -40,6 +40,7 @@ var DefaultConfig = Config{
 	CrawlWorkerCount:   1000,
 	CrawlLimit:         0,
 	MonitorWorkerCount: 1000,
+	MeasureLatencies:   false,
 	MinPingInterval:    time.Second * 30,
 	PingIntervalFactor: 1.2,
 	PrometheusHost:     "0.0.0.0",
@@ -74,6 +75,9 @@ type Config struct {
 
 	// Only crawl the specified amount of peers
 	CrawlLimit int
+
+	// Whether the crawl task should measure and record latencies to peers
+	MeasureLatencies bool
 
 	// The minimum time interval between two consecutive visits of a peer
 	MinPingInterval time.Duration
@@ -152,6 +156,9 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("dial-timeout") {
 		c.DialTimeout = ctx.Duration("dial-timeout")
+	}
+	if ctx.IsSet("latencies") {
+		c.MeasureLatencies = ctx.Bool("latencies")
 	}
 	if ctx.IsSet("min-ping-interval") {
 		c.MinPingInterval = ctx.Duration("min-ping-interval")
