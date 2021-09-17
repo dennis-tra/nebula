@@ -162,95 +162,6 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	return cr
 }
 
-// measureLatency measures the ICM ping latency to the given peer
-func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
-	ppi := filterPrivateMaddrs(pi)
-	addrsMap := map[string]string{}
-	for _, maddr := range ppi.Addrs {
-		addr, err := maddr.ValueForProtocol(ma.P_IP4)
-		if err == nil {
-			addrsMap[addr] = addr
-			continue
-		}
-		addr, err = maddr.ValueForProtocol(ma.P_IP6)
-		if err == nil {
-			addrsMap[addr] = addr
-			continue
-		}
-	}
-	if len(addrsMap) == 0 {
-		log.Debugln("No good address")
-		return nil
-	}
-	var addrs []string
-	for addr := range addrsMap {
-		addrs = append(addrs, addr)
-	}
-
-	var wg sync.WaitGroup
-	results := make(chan interface{}, len(addrsMap))
-	for addr := range addrsMap {
-		wg.Add(1)
-
-		pinger, err := ping.NewPinger(addr)
-		if err != nil {
-			log.WithError(errors.Wrap(err, "new pinger")).Warnln("Error pinging peer")
-			continue
-		}
-
-		pinger.Timeout = time.Minute
-		pinger.Count = 10
-
-		done := make(chan struct{})
-		go func() {
-			select {
-			case <-done:
-			case <-ctx.Done():
-				pinger.Stop()
-			}
-		}()
-
-		go func() {
-			defer wg.Done()
-			defer close(done)
-			// Blocks until finished.
-			if err := pinger.Run(); err != nil {
-				results <- err
-			} else {
-				results <- pinger.Statistics()
-			}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	var latencies []*models.Latency
-	for result := range results {
-		switch res := result.(type) {
-		case error:
-			log.WithError(errors.Wrap(res, "pinger run")).Warnln("Error pinging peer")
-		case *ping.Statistics:
-			latencies = append(latencies, &models.Latency{
-				PeerID:          pi.ID.Pretty(),
-				Address:         res.Addr,
-				PingLatencySAvg: res.AvgRtt.Seconds(),
-				PingLatencySSTD: res.StdDevRtt.Seconds(),
-				PingLatencySMin: res.MinRtt.Seconds(),
-				PingLatencySMax: res.MaxRtt.Seconds(),
-				PingPacketsSent: res.PacketsSent,
-				PingPacketsRecv: res.PacketsRecv,
-				PingPacketsDupl: res.PacketsRecvDuplicates,
-				PingPacketLoss:  res.PacketLoss,
-			})
-		}
-	}
-
-	return latencies
-}
-
 // millisSince returns the number of milliseconds between now and the given time.
 func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
@@ -322,6 +233,103 @@ func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.A
 		metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))),
 	)
 	return allNeighbors, err
+}
+
+// measureLatency measures the ICM ping latency to the given peer.
+func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
+	// Only consider publicly reachable multi-addresses
+	pi = filterPrivateMaddrs(pi)
+
+	// The following loops extract addresses from the AddrInfo multi-addresses.
+	// TODO: To which address should the ping messages be sent? Currently it's to all available IPv4 IPv6 addresses found.
+	addrs := map[string]string{}
+	for _, maddr := range pi.Addrs {
+		for _, pr := range []int{ma.P_IP4, ma.P_IP6} {
+			if addr, err := maddr.ValueForProtocol(pr); err == nil {
+				addrs[addr] = addr
+				break
+			}
+		}
+	}
+
+	// Exit early if there is no address
+	if len(addrs) == 0 {
+		log.Debugln("No good address")
+		return nil
+	}
+
+	// Start sending ping messages to all IP addresses in parallel.
+	var wg sync.WaitGroup
+	results := make(chan interface{})
+	for addr := range addrs {
+		wg.Add(1)
+
+		// Configure the new pinger instance
+		pinger, err := ping.NewPinger(addr)
+		if err != nil {
+			log.WithError(errors.Wrap(err, "new pinger")).Warnln("Error instantiating new pinger")
+			continue
+		}
+
+		pinger.Timeout = time.Minute
+		pinger.Count = 10
+
+		// This Go routine allows reacting to context cancellations (e.g., user presses ^C)
+		// The done channel is necessary to not leak this go routine after the pinger has finished.
+		done := make(chan struct{})
+		go func() {
+			select {
+			case <-done:
+			case <-ctx.Done():
+				pinger.Stop()
+			}
+		}()
+
+		// This Go routine starts sending ICM pings to the address configured above.
+		// After it has terminated (successfully or erroneously) it sends the result
+		go func() {
+			defer wg.Done()
+			defer close(done)
+			// Blocks until finished.
+			if err := pinger.Run(); err != nil {
+				results <- err
+			} else {
+				results <- pinger.Statistics()
+			}
+		}()
+	}
+
+	// Since we're ranging over the results channel below we need to
+	// know when the pinger Go routines are done. This the case
+	// after the wg.Wait() call returns. We close the channel and
+	// break out of the for loop below.
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var latencies []*models.Latency
+	for result := range results {
+		switch res := result.(type) {
+		case error:
+			log.WithError(errors.Wrap(res, "pinger run")).Warnln("Error pinging peer")
+		case *ping.Statistics:
+			latencies = append(latencies, &models.Latency{
+				PeerID:          pi.ID.Pretty(),
+				Address:         res.Addr,
+				PingLatencySAvg: res.AvgRtt.Seconds(),
+				PingLatencySSTD: res.StdDevRtt.Seconds(),
+				PingLatencySMin: res.MinRtt.Seconds(),
+				PingLatencySMax: res.MaxRtt.Seconds(),
+				PingPacketsSent: res.PacketsSent,
+				PingPacketsRecv: res.PacketsRecv,
+				PingPacketsDupl: res.PacketsRecvDuplicates,
+				PingPacketLoss:  res.PacketLoss,
+			})
+		}
+	}
+
+	return latencies
 }
 
 // filterPrivateMaddrs strips private multiaddrs from the given peer address information.
