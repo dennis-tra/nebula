@@ -7,7 +7,7 @@ import helper
 # It takes an sql connection, the peer ids as arguments, and
 # returns the geolocation info of these peer ids.
 def get_geolocation(conn, peer_ids):
-    with geoip2.database.Reader("../../geoip/GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
+    with geoip2.database.Reader("../geoip/GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
         cur = conn.cursor()
         res = dict()
         cur.execute(
