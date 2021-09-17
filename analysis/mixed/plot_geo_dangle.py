@@ -32,6 +32,7 @@ for key, val in counts.items():
     else:
         countsTrim[key] = val
 {k: v for k, v in sorted(countsTrim.items(), key=lambda item: item[1])}
+
 # Plot
 plt.rc('font', size=8)
 plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%")
