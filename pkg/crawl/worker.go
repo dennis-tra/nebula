@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	madns "github.com/multiformats/go-multiaddr-dns"
-
 	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -15,6 +13,7 @@ import (
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	ma "github.com/multiformats/go-multiaddr"
+	madns "github.com/multiformats/go-multiaddr-dns"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
