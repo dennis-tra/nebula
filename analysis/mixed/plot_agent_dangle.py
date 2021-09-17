@@ -66,14 +66,14 @@ conn = psycopg2.connect(
 )
 
 start, end = node_time.get_time_range(conn)
-all = node_classification.get_all_nodes(conn, start, end)
-agents = node_agent.get_agent_version(conn, all)
+dangle = node_classification.get_dangling_nodes(conn, start, end)
+agents = node_agent.get_agent_version(conn, dangle)
 
 # Plot
 plt.rc('font', size=8)
 fig, axs = plt.subplots(2, 2)
 fig.delaxes(axs[1, 1])
-fig.suptitle("All nodes agents from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
+fig.suptitle("Dangling nodes agents from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 
 counts = dict()
 for _, agent in agents.items():
