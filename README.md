@@ -128,6 +128,22 @@ uptime = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0] # 1 means it is up at that t
 daytime = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0] # 1 means it is daytime at that timestamp, 0 means night time and every element in array represents the same slot as above.
 corr = numpy.correlate(uptime, daytime) # Result is 2.
 ```
+### Plots from large dataset
+Thanks to the original author of nebula crawler Dennis ([@dennis-tra](https://github.com/dennis-tra/)) to provide a large dataset from a 2 months data collection. We are not able to generate all of the plots above because we build some of the plots on extended schema. Here is what we generated from the large dataset.  
+(1) Network churn  
+![Graph](./analysis/mixed/figs/network_churn_d.png)  
+(2) Cloud information of *all seen nodes*  
+![Graph](./analysis/mixed/figs/cloud_info_for_all_nodes_d.png)  
+(3) Geolocation of *all seen nodes*  
+![Graph](./analysis/mixed/figs/geolocation_for_all_nodes_d.png)  
+One interesting thing is that among all seen nodes, there are 52.3% nodes running from Digital Ocean. However, this does not mean that 50% of the nodes are running in the cloud, it is likely that IPFS running in Digital Ocean can restart with a different peer ID and thus contributed to one count in the pie chart.
+
+### Conclusion
+- We have made some extensions to the original so it is able to collect some additional data to analyse the churn.
+- We created a list of python functions that interact directly with the database to collect useful data.
+- We created a list of python scripts (built on top of the functions) to automatically generate graphs we are interested.
+- We collected some sample data and generated some sample graphs.
+- If there is anything you are interested in, feel free to try it out or reach to us. We will try to keep it updated as long as possible. Meanwhile we will shift our focus to objective 4.
 
 ### Below are original README
 ---
