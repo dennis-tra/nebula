@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	madns "github.com/multiformats/go-multiaddr-dns"
+
 	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -99,11 +101,40 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16]).WithField("crawlCount", w.crawledPeers)
 		logEntry.Debugln("Crawling peer")
 
-		cr := w.crawlPeer(ctx, pi)
+		// Start crawling peers and measuring the latency in parallel. If we cannot connect to
+		// the peer (in crawlPeer) we discard the measurement. This is done by cancelling the
+		// latencyCtx. Crawling the peer will likely resolve earlier. Then we wait until
+		// the measurement is done.
+		var cr Result
+		var wg sync.WaitGroup
+		wg.Add(2)
+		latencyCtx, cancel := context.WithCancel(ctx)
 
-		if cr.Error == nil && w.config.MeasureLatencies {
-			cr.Latencies = w.measureLatency(ctx, pi)
-		}
+		// Start crawling the peer.
+		go func() {
+			defer wg.Done()
+			cr = w.crawlPeer(ctx, pi)
+			if cr.Error != nil {
+				cancel()
+			}
+		}()
+
+		// Start measuring the peer.
+		var latencies []*models.Latency
+		go func() {
+			defer wg.Done()
+			if w.config.MeasureLatencies {
+				latencies = w.measureLatency(latencyCtx, pi)
+			}
+		}()
+
+		// Wait until the crawl and measurement are done.
+		wg.Wait()
+
+		// In case there is no error in crawling the peer we still need to cancel the context to not leak it.
+		cancel()
+
+		cr.Latencies = latencies
 
 		select {
 		case resultsQueue <- cr:
@@ -237,32 +268,38 @@ func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.A
 
 // measureLatency measures the ICM ping latency to the given peer.
 func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
+	// TODO: The following three steps can probably be consolidated. In the current state it's quite messy.
+
 	// Only consider publicly reachable multi-addresses
 	pi = filterPrivateMaddrs(pi)
 
+	// Resolve DNS multi addresses to IP addresses (especially maddrs with the dnsaddr protocol)
+	pi.Addrs = resolveAddrs(ctx, pi)
+
 	// The following loops extract addresses from the AddrInfo multi-addresses.
-	// TODO: To which address should the ping messages be sent? Currently it's to all available IPv4 IPv6 addresses found.
-	addrs := map[string]string{}
+	// The set of multi addresses could contain multiple maddrs with the
+	// same IPv4/IPv6 addresses. This loop de-duplicates that.
+	// TODO: To which address should the ping messages be sent? Currently it's to all found addresses.
+	// TODO: The deduplication can probably be implemented a little bit prettier
+	addrsMap := map[string]string{}
 	for _, maddr := range pi.Addrs {
-		for _, pr := range []int{ma.P_IP4, ma.P_IP6} {
+		for _, pr := range []int{ma.P_IP4, ma.P_IP6} { // DNS protocols are stripped via resolveAddrs above
 			if addr, err := maddr.ValueForProtocol(pr); err == nil {
-				addrs[addr] = addr
+				addrsMap[addr] = addr
 				break
 			}
 		}
 	}
 
 	// Exit early if there is no address
-	if len(addrs) == 0 {
-		log.Debugln("No good address")
+	if len(addrsMap) == 0 {
 		return nil
 	}
 
 	// Start sending ping messages to all IP addresses in parallel.
 	var wg sync.WaitGroup
 	results := make(chan interface{})
-	for addr := range addrs {
-		wg.Add(1)
+	for addr := range addrsMap {
 
 		// Configure the new pinger instance
 		pinger, err := ping.NewPinger(addr)
@@ -287,6 +324,7 @@ func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models
 
 		// This Go routine starts sending ICM pings to the address configured above.
 		// After it has terminated (successfully or erroneously) it sends the result
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			defer close(done)
@@ -348,4 +386,58 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	}
 
 	return filtered
+}
+
+// resolveAddrs loops through the multi addresses of the given peer and recursively resolves
+// the various DNS protocols (especially the dnsaddr protocol). This implementation is
+// taken from:
+// https://github.com/libp2p/go-libp2p/blob/9d3fd8bc4675b9cebf3102bdf62e56204c67ce5b/p2p/host/basic/basic_host.go#L676
+func resolveAddrs(ctx context.Context, pi peer.AddrInfo) []ma.Multiaddr {
+	proto := ma.ProtocolWithCode(ma.P_P2P).Name
+	p2paddr, err := ma.NewMultiaddr("/" + proto + "/" + pi.ID.Pretty())
+	if err != nil {
+		return []ma.Multiaddr{}
+	}
+
+	resolveSteps := 0
+
+	// Recursively resolve all addrs.
+	//
+	// While the toResolve list is non-empty:
+	// * Pop an address off.
+	// * If the address is fully resolved, add it to the resolved list.
+	// * Otherwise, resolve it and add the results to the "to resolve" list.
+	toResolve := append(([]ma.Multiaddr)(nil), pi.Addrs...)
+	resolved := make([]ma.Multiaddr, 0, len(pi.Addrs))
+	for len(toResolve) > 0 {
+		// pop the last addr off.
+		addr := toResolve[len(toResolve)-1]
+		toResolve = toResolve[:len(toResolve)-1]
+
+		// if it's resolved, add it to the resolved list.
+		if !madns.Matches(addr) {
+			resolved = append(resolved, addr)
+			continue
+		}
+
+		resolveSteps++
+
+		// otherwise, resolve it
+		reqaddr := addr.Encapsulate(p2paddr)
+		resaddrs, err := madns.DefaultResolver.Resolve(ctx, reqaddr)
+		if err != nil {
+			log.Infof("error resolving %s: %s", reqaddr, err)
+		}
+
+		// add the results to the toResolve list.
+		for _, res := range resaddrs {
+			pi, err := peer.AddrInfoFromP2pAddr(res)
+			if err != nil {
+				log.Infof("error parsing %s: %s", res, err)
+			}
+			toResolve = append(toResolve, pi.Addrs...)
+		}
+	}
+
+	return resolved
 }
