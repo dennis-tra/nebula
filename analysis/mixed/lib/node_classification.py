@@ -30,13 +30,13 @@ def get_on_nodes(conn, start, end):
         """
         SELECT DISTINCT peer_id
         FROM sessions
-        WHERE created_at < %s AND updated_at > %s AND first_successful_dial != last_successful_dial AND peer_id NOT IN (
+        WHERE (created_at < %s AND updated_at > %s AND first_successful_dial != last_successful_dial) OR (created_at < %s AND finished = false) AND peer_id NOT IN (
             SELECT peer_id
             FROM sessions
-            WHERE updated_at > %s AND updated_At < %s
+            WHERE updated_at > %s AND updated_At < %s AND finished = true
         )
         """,
-        [end, end, start, end]
+        [end, end, end, start, end]
     )
     return [i for sub in cur.fetchall() for i in sub]
 
@@ -55,7 +55,7 @@ def get_off_nodes(conn, start, end):
         WHERE created_at < %s AND updated_at > %s AND first_successful_dial = last_successful_dial AND finished = true AND peer_id NOT IN (
             SELECT peer_id
             FROM sessions
-            WHERE updated_at > %s AND updated_At < %s AND first_successful_dial != last_successful_dial
+            WHERE updated_at > %s AND updated_At < %s AND first_successful_dial != last_successful_dial AND finished = true
         )
         """,
         [end, start, start, end]
@@ -74,7 +74,7 @@ def get_dangling_nodes(conn, start, end):
         """
         SELECT DISTINCT peer_id
         FROM sessions
-        WHERE updated_at > %s AND updated_at < %s AND first_successful_dial != last_successful_dial
+        WHERE updated_at > %s AND updated_at < %s AND first_successful_dial != last_successful_dial AND finished = true
         """,
         [start, end]
     )
@@ -92,7 +92,7 @@ def get_highly_dangling_nodes(conn, start, end, num):
         """
         SELECT peer_id
         FROM sessions
-        WHERE updated_at > %s AND updated_at < %s AND first_successful_dial != last_successful_dial
+        WHERE updated_at > %s AND updated_at < %s AND first_successful_dial != last_successful_dial AND finished = true
         GROUP BY peer_id
         HAVING COUNT(*) > %s
         """,
