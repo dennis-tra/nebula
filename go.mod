@@ -28,6 +28,7 @@ require (
 	github.com/libp2p/go-msgio v0.0.6
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/multiformats/go-multiaddr v0.3.3
+	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect
 	github.com/pkg/errors v0.9.1
