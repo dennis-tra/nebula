@@ -75,6 +75,14 @@ type Scheduler struct {
 
 	// The list of worker node references.
 	workers sync.Map
+
+	saveNeighbour bool
+
+	notTruncateNeighbour bool
+
+	saveConnection bool
+
+	notTruncateConnection bool
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -101,7 +109,7 @@ func determineDialError(err error) string {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
+func NewScheduler(ctx context.Context, dbh *sql.DB, saveNeighbour bool, notTruncateNeighbour bool, saveConnection bool, notTruncateConnection bool) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -127,18 +135,22 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	}
 
 	p := &Scheduler{
-		Service:      service.New("scheduler"),
-		host:         h,
-		dbh:          dbh,
-		config:       conf,
-		inCrawlQueue: map[peer.ID]peer.AddrInfo{},
-		crawled:      map[peer.ID]peer.AddrInfo{},
-		crawlQueue:   make(chan peer.AddrInfo),
-		resultsQueue: make(chan Result),
-		AgentVersion: map[string]int{},
-		Protocols:    map[string]int{},
-		Errors:       map[string]int{},
-		workers:      sync.Map{},
+		Service:               service.New("scheduler"),
+		host:                  h,
+		dbh:                   dbh,
+		config:                conf,
+		inCrawlQueue:          map[peer.ID]peer.AddrInfo{},
+		crawled:               map[peer.ID]peer.AddrInfo{},
+		crawlQueue:            make(chan peer.AddrInfo),
+		resultsQueue:          make(chan Result),
+		AgentVersion:          map[string]int{},
+		Protocols:             map[string]int{},
+		Errors:                map[string]int{},
+		workers:               sync.Map{},
+		saveNeighbour:         saveNeighbour,
+		notTruncateNeighbour:  notTruncateNeighbour,
+		saveConnection:        saveConnection,
+		notTruncateConnection: notTruncateConnection,
 	}
 
 	return p, nil
@@ -151,6 +163,17 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	defer s.ServiceStopped()
 
 	s.StartTime = time.Now()
+
+	if s.dbh != nil {
+		if !s.notTruncateNeighbour {
+			log.Infoln("Truncate table neightbours...")
+			db.TruncateNeightbours(s.dbh)
+		}
+		if !s.notTruncateConnection {
+			log.Infoln("Truncate table connections...")
+			db.TruncateConnections(s.dbh)
+		}
+	}
 
 	// Start all workers
 	for i := 0; i < s.config.CrawlWorkerCount; i++ {
@@ -230,6 +253,16 @@ func (s *Scheduler) readResultsQueue() {
 // handleResult takes a crawl result and persist the information in the database and schedules
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
+	// Insert into our DB
+	if s.dbh != nil {
+		if s.saveConnection {
+			go InsertConnection(context.Background(), s.dbh, cr)
+		}
+		if s.saveNeighbour {
+			go InsertNeighbour(context.Background(), s.dbh, cr, s.StartTime)
+		}
+	}
+
 	logEntry := log.WithFields(log.Fields{
 		"workerID":   cr.WorkerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
@@ -297,7 +330,11 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 	startUpsert := time.Now()
 	if cr.Error == nil {
 		// No error, update peer record in DB
-		oldMaddrStrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
+		protocols := []string{"unknown"}
+		if len(cr.Protocols) > 0 {
+			protocols = cr.Protocols
+		}
+		oldMaddrStrs, err := db.UpsertPeerWithAgent(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs, cr.Agent, protocols)
 		if err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}

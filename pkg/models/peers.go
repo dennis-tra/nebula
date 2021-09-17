@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -29,6 +30,8 @@ type Peer struct {
 	UpdatedAt         time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt         time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	OldMultiAddresses types.StringArray `boil:"old_multi_addresses" json:"old_multi_addresses,omitempty" toml:"old_multi_addresses" yaml:"old_multi_addresses,omitempty"`
+	AgentVersion      null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
+	Protocol          types.StringArray `boil:"protocol" json:"protocol,omitempty" toml:"protocol" yaml:"protocol,omitempty"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -40,12 +43,16 @@ var PeerColumns = struct {
 	UpdatedAt         string
 	CreatedAt         string
 	OldMultiAddresses string
+	AgentVersion      string
+	Protocol          string
 }{
 	ID:                "id",
 	MultiAddresses:    "multi_addresses",
 	UpdatedAt:         "updated_at",
 	CreatedAt:         "created_at",
 	OldMultiAddresses: "old_multi_addresses",
+	AgentVersion:      "agent_version",
+	Protocol:          "protocol",
 }
 
 var PeerTableColumns = struct {
@@ -54,12 +61,16 @@ var PeerTableColumns = struct {
 	UpdatedAt         string
 	CreatedAt         string
 	OldMultiAddresses string
+	AgentVersion      string
+	Protocol          string
 }{
 	ID:                "peers.id",
 	MultiAddresses:    "peers.multi_addresses",
 	UpdatedAt:         "peers.updated_at",
 	CreatedAt:         "peers.created_at",
 	OldMultiAddresses: "peers.old_multi_addresses",
+	AgentVersion:      "peers.agent_version",
+	Protocol:          "peers.protocol",
 }
 
 // Generated where
@@ -95,12 +106,16 @@ var PeerWhere = struct {
 	UpdatedAt         whereHelpertime_Time
 	CreatedAt         whereHelpertime_Time
 	OldMultiAddresses whereHelpertypes_StringArray
+	AgentVersion      whereHelpernull_String
+	Protocol          whereHelpertypes_StringArray
 }{
 	ID:                whereHelperstring{field: "\"peers\".\"id\""},
 	MultiAddresses:    whereHelpertypes_StringArray{field: "\"peers\".\"multi_addresses\""},
 	UpdatedAt:         whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
 	CreatedAt:         whereHelpertime_Time{field: "\"peers\".\"created_at\""},
 	OldMultiAddresses: whereHelpertypes_StringArray{field: "\"peers\".\"old_multi_addresses\""},
+	AgentVersion:      whereHelpernull_String{field: "\"peers\".\"agent_version\""},
+	Protocol:          whereHelpertypes_StringArray{field: "\"peers\".\"protocol\""},
 }
 
 // PeerRels is where relationship names are stored.
@@ -124,8 +139,8 @@ func (*peerR) NewStruct() *peerR {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses"}
-	peerColumnsWithoutDefault = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses"}
+	peerAllColumns            = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses", "agent_version", "protocol"}
+	peerColumnsWithoutDefault = []string{"id", "multi_addresses", "updated_at", "created_at", "old_multi_addresses", "agent_version", "protocol"}
 	peerColumnsWithDefault    = []string{}
 	peerPrimaryKeyColumns     = []string{"id"}
 )

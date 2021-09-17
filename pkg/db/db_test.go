@@ -50,6 +50,12 @@ func upsertSuccessFetchSession(t *testing.T, ctx context.Context, db *sql.DB, pe
 	return s
 }
 
+func TestTruncateNeightbours(t *testing.T) {
+	_, db, _, teardown := setup(t)
+	defer teardown(t)
+	TruncateNeightbours(db)
+}
+
 func TestUpsertSessionSuccess_insertsRowIfNotExists(t *testing.T) {
 	ctx, db, peerID, teardown := setup(t)
 	defer teardown(t)

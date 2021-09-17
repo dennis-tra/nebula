@@ -151,6 +151,68 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
+func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocols []string) (types.StringArray, error) {
+	maddrStrs := make(types.StringArray, len(maddrs))
+	for i, maddr := range maddrs {
+		maddrStrs[i] = maddr.String()
+	}
+	protocolStrs := make(types.StringArray, len(protocols))
+	for i, protocol := range protocols {
+		protocolStrs[i] = protocol
+	}
+
+	query := `
+INSERT INTO peers (
+  id,
+  multi_addresses,
+  created_at,
+  updated_at,
+  agent_version,
+  protocol
+) VALUES ($1, $2, NOW(), NOW(), $3, $4)
+ON CONFLICT (id) DO UPDATE SET
+  multi_addresses     = EXCLUDED.multi_addresses,
+  old_multi_addresses = peers.multi_addresses,
+  updated_at          = EXCLUDED.updated_at,
+  agent_version 	  = EXCLUDED.agent_version,
+  protocol		 	  = EXCLUDED.protocol
+RETURNING old_multi_addresses;
+`
+	rows, err := queries.Raw(query, peerID, maddrStrs, agentVersion, protocolStrs).Query(dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	if ok := rows.Next(); !ok {
+		return nil, rows.Err()
+	}
+
+	var oldMaddrs types.StringArray
+	if err = rows.Scan(&oldMaddrs); err != nil {
+		return nil, err
+	}
+
+	return oldMaddrs, rows.Close()
+}
+
+func TruncateNeightbours(dbh *sql.DB) error {
+	query := `TRUNCATE table neightbours;`
+	rows, err := queries.Raw(query).Query(dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
+func TruncateConnections(dbh *sql.DB) error {
+	query := `TRUNCATE table connections;`
+	rows, err := queries.Raw(query).Query(dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
 	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '10s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
 }

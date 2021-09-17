@@ -226,3 +226,5 @@ node_modules/
 plot.png
 sessions.csv
 sessions_filecoin.csv
+
+*__pycache__*

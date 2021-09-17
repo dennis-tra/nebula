@@ -36,6 +36,12 @@ type Result struct {
 	// Due to retries this could deviate significantly from the time when this
 	// result is published.
 	ErrorTime time.Time
+
+	Agent string
+
+	Latency time.Duration
+
+	DialTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -82,6 +88,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 		dr := Result{
 			WorkerID: w.Identifier(),
 			Peer:     pi,
+			Agent:    "n.a.",
 		}
 
 		// Try to dial the peer 3 times
@@ -96,6 +103,7 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 			// Actually dial the peer
+			dr.DialTime = time.Now()
 			if err := w.dial(ctx, pi.ID); err != nil {
 				dr.ErrorTime = time.Now()
 				dr.Error = err
@@ -143,6 +151,11 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 			// Dial was successful - reset error
 			dr.Error = nil
 			dr.ErrorTime = time.Time{}
+			dr.Latency = time.Now().Sub(dr.DialTime)
+			// Extract agent
+			if agent, err := w.host.Peerstore().Get(pi.ID, "AgentVersion"); err == nil {
+				dr.Agent = agent.(string)
+			}
 
 			// Close established connection to prevent running out of FDs?
 			if err := w.host.Network().ClosePeer(pi.ID); err != nil {

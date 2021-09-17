@@ -2,7 +2,9 @@ package crawl
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,12 +17,15 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -47,6 +52,10 @@ type Result struct {
 
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ErrorTime time.Time
+
+	Latency time.Duration
+
+	DialTime time.Time
 }
 
 // Worker encapsulates a libp2p host that crawls the network.
@@ -118,8 +127,10 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 		Agent:    "n.a.",
 	}
 
+	cr.DialTime = time.Now()
 	cr.Error = w.connect(ctx, pi)
 	if cr.Error == nil {
+		cr.Latency = time.Now().Sub(cr.DialTime)
 
 		ps := w.host.Peerstore()
 
@@ -242,4 +253,70 @@ func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	}
 
 	return filtered
+}
+
+func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
+	var latency string
+	if res.Latency.Microseconds() < 1000 {
+		latency = fmt.Sprintf("%.3fms", (float64(res.Latency.Microseconds()) / 1000.0))
+	} else {
+		latency = res.Latency.String()
+	}
+
+	o := &models.Connection{
+		PeerID:      res.Peer.ID.String(),
+		DialAttempt: null.TimeFrom(res.DialTime),
+		IsSucceed:   null.BoolFrom(res.Error == nil),
+	}
+	if res.Error == nil {
+		o.Latency = null.StringFrom(latency)
+	} else {
+		o.Error = null.StringFrom(determineDialError(res.Error))
+	}
+
+	tx, err := dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	err = o.Insert(ctx, tx, boil.Infer())
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func InsertNeighbour(ctx context.Context, dbh *sql.DB, res Result, startTime time.Time) error {
+	if res.Error == nil {
+		neighbours := make([]*models.Neightbour, 0)
+		for _, neighbour := range res.Neighbors {
+			o := &models.Neightbour{
+				PeerID:           res.Peer.ID.String(),
+				NeightbourPeerID: neighbour.ID.String(),
+				CreatedAt:        null.TimeFrom(res.DialTime),
+				CrawlStartAt:     null.TimeFrom(startTime),
+			}
+			neighbours = append(neighbours, o)
+		}
+		return BulkInsert(dbh, neighbours)
+	}
+	return nil
+}
+
+func BulkInsert(dbh *sql.DB, unsavedRows []*models.Neightbour) error {
+	valueStrings := make([]string, 0, len(unsavedRows))
+	valueArgs := make([]interface{}, 0, len(unsavedRows)*4)
+	i := 0
+	for _, post := range unsavedRows {
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d)", i*4+1, i*4+2, i*4+3, i*4+4))
+		valueArgs = append(valueArgs, post.PeerID)
+		valueArgs = append(valueArgs, post.NeightbourPeerID)
+		valueArgs = append(valueArgs, post.CreatedAt)
+		valueArgs = append(valueArgs, post.CrawlStartAt)
+		i++
+	}
+	stmt := fmt.Sprintf("INSERT INTO \"neightbours\" (peer_id, neightbour_peer_id, created_at, crawl_start_at) VALUES %s", strings.Join(valueStrings, ","))
+	_, err := dbh.Exec(stmt, valueArgs...)
+	return err
 }

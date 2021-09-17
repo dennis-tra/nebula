@@ -44,6 +44,26 @@ var CrawlCommand = &cli.Command{
 			Usage:   "Don't persist anything to a database (you don't need a running DB)",
 			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
 		},
+		&cli.BoolFlag{
+			Name:    "save-neighbours",
+			Usage:   "Save the neighbours raletions in this crawl",
+			EnvVars: []string{"NEBULA_SAVE_NEIGHBOURS"},
+		},
+		&cli.BoolFlag{
+			Name:    "not-truncate-neighbours",
+			Usage:   "Do not truncate the neighbours raletions in this crawl",
+			EnvVars: []string{"NEBULA_NOT_TRUNCATE_NEIGHBOURS"},
+		},
+		&cli.BoolFlag{
+			Name:    "save-connections",
+			Usage:   "Save the connections raletions in this crawl",
+			EnvVars: []string{"NEBULA_SAVE_CONNECTIONS"},
+		},
+		&cli.BoolFlag{
+			Name:    "not-truncate-connections",
+			Usage:   "Do not truncate the connections raletions in this crawl",
+			EnvVars: []string{"NEBULA_NOT_TRUNCATE_CONNECTIONS"},
+		},
 	},
 }
 
@@ -65,6 +85,22 @@ func CrawlAction(c *cli.Context) error {
 			return err
 		}
 	}
+	saveNeighbour := false
+	if c.Bool("save-neighbours") {
+		saveNeighbour = true
+	}
+	notTruncateNeighbour := false
+	if c.Bool("not-truncate-neighbours") {
+		notTruncateNeighbour = true
+	}
+	saveConnection := false
+	if c.Bool("save-connections") {
+		saveConnection = true
+	}
+	notTruncateConnection := false
+	if c.Bool("not-truncate-connections") {
+		notTruncateConnection = true
+	}
 
 	// Start prometheus metrics endpoint
 	if err = metrics.RegisterCrawlMetrics(); err != nil {
@@ -81,7 +117,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(c.Context, dbh)
+	s, err := crawl.NewScheduler(c.Context, dbh, saveNeighbour, notTruncateNeighbour, saveConnection, notTruncateConnection)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}
