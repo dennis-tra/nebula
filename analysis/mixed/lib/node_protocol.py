@@ -12,6 +12,6 @@ def get_agent_protocol(conn, peer_ids):
         """ % ','.join(['%s'] * len(peer_ids)),
         tuple(peer_ids)
     )
-    for id, protocol in cur.fetchall():
-        res[id] = protocol.split(";")
+    for id, protocols in cur.fetchall():
+        res[id] = protocols
     return res
