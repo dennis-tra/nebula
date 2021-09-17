@@ -1,3 +1,137 @@
+# ⏱ IPFS Uptime Measurement Summary
+### _Objective 3 as described in [here](https://docs.google.com/document/d/1ap6TVdI2AHAllt0cj_Zv7r_25bTA7k2zY873Dg-7r7Q/edit#)_
+
+## Summary
+- We have made some extensions to the original [nebula crawler](https://github.com/dennis-tra/nebula-crawler) so it is able to collect some additional data to analyse the churn. The fork of the repository lives [here](https://github.com/wcgcyx/nebula-crawler).
+- We created a list of python functions that interact directly with the database to collect useful data.
+- We created a list of python scripts (built on top of the functions) to automatically generate graphs we are interested.
+- We collected some sample data and generated some sample graphs.
+
+## Quick Deployment
+To quickly deploy the crawler & monitor, follow the procedures below (If you don't have docker installed, checkout [here](https://www.docker.com/)).
+```
+git clone https://github.com/wcgcyx/nebula-crawler.git
+cd nebula-crawler
+make docker
+cd deploy
+docker-compose up
+```
+This will start a docker compose that contains one container for collecting data and one container for postgres DB. Our scripts are built to request directly to the DB.
+You can configure how the crawl works and the DB. The [docker compose file](https://github.com/wcgcyx/nebula-crawler/blob/main/deploy/docker-compose.yml) contains a list of configurations among which that are related to the data collection is as below.
+| Env name | Description |
+| ------------- |:-------------|
+| NEBULA_DATABASE_HOST | Database host |
+| NEBULA_DATABASE_PORT | Database port |
+| NEBULA_DATABASE_NAME | Database name |
+| NEBULA_DATABASE_USER | Database user |
+| NEBULA_DATABASE_PASSWORD | Database password |
+| NEBULA_CRAWL_PERIOD | The gap between two crawls in seconds. If set to 1800 then the crawler will run every 30 minutes |
+| NEBULA_SAVE_NEIGHBOURS | Flag indicates whether this cralwer should persist neighbours data. If set to 1, it will save neighbours. |
+| NEBULA_NOT_TRUNCATE_NEIGHBOURS | Flag indicates whether this cralwer should truncate previous neighbours. If set to 0, every time it runs it will truncate pervious neighbours. |
+| NEBULA_SAVE_CONNECTIONS | Flag indicates whether this cralwer should persist libp2p connect latency data. If set to 1, it will save latency. |
+| NEBULA_NOT_TRUNCATE_CONNECTIONS | Flag indicates whether this cralwer should truncate previous connections. If set to 0, every time it runs it will truncate pervious connections. |
+Note that every crawl will produce roughly 350MB neighbours data and 15MB connections data so it is recommended to truncate both data to limit DB growth.
+
+## Quick Data Analysis
+To quickly generate some graphs, you will need Python 3, if you don't have Python 3 installed, checkout [here](https://www.python.org/).
+```
+cd nebula-crawler/analysis/mixed
+python3 ./plot_churn.py             # This will plot the network churn.
+python3 ./plot_nodes.py             # This will plot a pie chart of on node, off node and dangling node.
+python3 ./plot_agent_all.py         # This will plot the agent versions across all the nodes.
+python3 ./plot_protocol_all.py      # This will plot the protocols across all the nodes.
+python3 ./plot_geo_all.py           # This will plot the geolocations across all the nodes.
+python3 ./plot_cloud_all.py         # This will plot the cloud information across all the nodes.
+```
+We have generated some graphs using the scripts above to `analysis/mixed/figs` and there are some more scripts that generate different plots. One thing to notice is that you will need root access to run icmp ping related scripts. What is most important is that you can easily extend these plotting scripts by piping between the libraires so that it will plot information that you are interested in. We have included a few libraries, under the `analysis/mixed/lib/` and are described below.
+| Library file | Description |
+| ------------- |:-------------|
+| `node_agent.py` | This library returns the agent version of given peer IDs. |
+| `node_classification.py` | This library returns the node classification of given peer IDs. |
+| `node_cloud.py` | This library returns the cloud information of given peer IDs. |
+| `node_correlation.py` | This library returns the correlation between the up time and the local day time of given peer IDs. |
+| `node_geolocation.py` | This library returns the geolocation of given peer IDs.  |
+| `node_latency.py` | This library returns the libp2p connection latency of given peer IDs. |
+| `node_ping.py` | This library returns if ICMP Ping works to given peer IDs. |
+| `node_protocol.py` | This library returns the protocol of given peer IDs. |
+| `node_reliability.py` | This library returns the reliability of given peer IDs. |
+| `node_time.py` | This library returns the min DB timestamp and the max DB timestamp for use when calling other libraries. |
+| `node_uptime.py` | This library returns the uptime of given peer IDs. |
+If you are unsure about how to use these libraries, please have a look at the plotting scripts, which are examples of using the libraries. In addition, it is entirely possible to come up with new libraries, please have a look at the database schemas [here](https://github.com/wcgcyx/nebula-crawler/tree/main/migrations).
+
+## Terminology
+| Term | Description |
+| ------------- |:-------------|
+| On node | On node refers to a type of IPFS nodes that are always on since the first time we discovered it. |
+| Off node | Off node refers to a type of IPFS nodes that we never got a successful connection to since the first time we discovered it. |
+| Dangling node | Dangling node refers to a type of IPFS nodes that are only sometimes reachable since the first time we discovered it. |
+| Node reliability | The percentage of uptime over the total time. |
+
+## Results
+In this section, we will present some graphs we collected using the crawler and the scripts.
+### Whole network
+First we generated some graph on the whole network.
+
+(1) Network churn  
+![Graph](./analysis/mixed/figs/network_churn.png)  
+Around 50% of peers sray in the network for 1.5 hour or less and around 70% of peers stay in the network for 3 hours or less.
+(2) Node classification  
+![Graph](./analysis/mixed/figs/node_classification.png)  
+Majority of the nodes are dangling nodes (>85%), with 14% being the on nodes.
+(3) Agent version of **all the nodes**  
+![Graph](./analysis/mixed/figs/agent_version_for_all_nodes.png)  
+We did an analysis of the agent version of all the nodes and discovered that majority of the nodes are running go-ipfs, with go-ipfs 0.8.x being the most popular. If we break down the 0.8.x further, the most popular tag is `48f94e2`.
+(4) Protocol of **all the nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_all_nodes.png)  
+(5) Geolocation of **all the nodes**  
+![Graph](./analysis/mixed/figs/geolocation_for_all_nodes.png)  
+(6) Cloud information of **all the nodes**  
+![Graph](./analysis/mixed/figs/cloud_info_for_all_nodes.png)  
+As shown in the graph, 15% of all the IPFS nodes are running in cloud. Digital Ocean is the most popular cloud provider, used by 10.5% of the nodes.
+### On nodes
+We then pick the on nodes (nodes that are always on) and analyse them further.
+
+(1) Agent version of **on nodes**  
+![Graph](./analysis/mixed/figs/agent_version_for_on_nodes.png)  
+Over 90% of the on nodes are running go-ipfs, higher than network (77%).
+(2) Protocol of **on nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_on_nodes.png)  
+(3) Geolocation of **on nodes**  
+![Graph](./analysis/mixed/figs/geolocation_for_on_nodes.png)  
+It is interesting to see that when comes to reliable nodes, 18% of them are running in Germany.
+(4) Cloud information of **on nodes**  
+![Graph](./analysis/mixed/figs/cloud_info_for_on_nodes.png)  
+When it comes to cloud information, unsuprisingly that over 25% of the on nodes are running in a cloud environment, higher than network average (15%). Digital Ocean and AWS are widely used (each taking around 11%).
+### Dangling nodes
+We finally analyse the dangling nodes (nodes that are sometimes on/restarted during monitoring).
+
+(1) Agent version of **dangling nodes**  
+![Graph](./analysis/mixed/figs/agent_version_for_dangling_nodes.png)  
+The agent of dangling nodes are similar to the whole network.
+(2) Protocol of **dangling nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_dangling_nodes.png)  
+(3) Geolocation of **dangling nodes**  
+![Graph](./analysis/mixed/figs/geolocation_for_dangling_nodes.png)  
+The geolocation of dangling nodes are also similar to the whole network.
+(4) Cloud information of **dangling nodes**  
+![Graph](./analysis/mixed/figs/cloud_info_for_dangling_nodes.png)  
+12% of the dangling nodes are running in a cloud environment, a little bit lower than network average.
+(5) Reliability  
+![Graph](./analysis/mixed/figs/dangling_nodes_reliability.png)  
+This reliability graph also indirectly shows the network churn, majority of the nodes are only accessible <5% of the time.
+(6) Correlation between uptime and geolocation  
+![Graph](./analysis/mixed/figs/dangling_nodes_hk_uptime_daytime_correlation.png)  
+We analysed dangling nodes that are in Hong Kong as an example. We calculated the correlation between the uptime of a node and the local day time and we also calculated the correlation between the uptime of a node and the local night time to compare. Unfortunately, there is no clear signal showing that the uptime is correlated with the local day time. If there is strong correlation between the uptime and the local day time, we would have seen more counts of high correlation and the two graphs will have different distribution. However, what we see here is that most correlations are close to 0 and the two graphs are of similar distribution (meaning that the day time or night time does not matter too much).
+Below is an example on how we calculate the correlation:
+```
+uptime = [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0] # 1 means it is up at that timestamp, 0 means down and every element in array represents a few minutes slot.
+daytime = [0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0] # 1 means it is daytime at that timestamp, 0 means night time and every element in array represents the same slot as above.
+corr = numpy.correlate(uptime, daytime) # Result is 2.
+```
+
+### Below are original README
+---
+
 ![Nebula Crawler Logo](./docs/nebula-logo.svg)
 
 # Nebula Crawler
