@@ -2,9 +2,7 @@ import requests
 from netaddr import IPNetwork
 from multiaddr import Multiaddr
 from lxml import html
-from threading import Thread
 import csv
-import helper
 
 
 # get_cloud gets the cloud info of given peers.
@@ -71,7 +69,7 @@ def get_cloud(conn, peer_ids):
         for maddr_str in maddr_strs:
             maddr = Multiaddr(maddr_str)
             try:
-                address = helper.node_address(maddr)
+                address = node_address(maddr)
                 ip = IPNetwork(address)
                 val = ip.first
                 shift = 0
@@ -105,3 +103,23 @@ def get_cloud(conn, peer_ids):
         if not found:
             res[id] = "unknown"
     return res
+
+
+# Helper function, copied from nebula crawler analysis.
+def node_address(maddr):
+    try:
+        return maddr.value_for_protocol(0x04)
+    except:
+        pass
+    return maddr.value_for_protocol(0x29)
+
+
+# Helper function, copied from nebula crawler analysis.
+def parse_maddr_str(maddr_str):
+    """
+    The following line parses a row like:
+      {/ip6/::/tcp/37374,/ip4/151.252.13.181/tcp/37374}
+    into
+      ['/ip6/::/tcp/37374', '/ip4/151.252.13.181/tcp/37374']
+    """
+    return maddr_str.replace("{", "").replace("}", "").split(",")
