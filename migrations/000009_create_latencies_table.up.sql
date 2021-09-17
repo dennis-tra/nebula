@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS latencies
     id                 SERIAL,
     -- The peer that we measured the latency to.
     peer_id            VARCHAR(100) NOT NULL,
-    -- The peer that we measured the latency to.
+    -- The IP address that we measured the latency to.
     address            VARCHAR(100) NOT NULL,
     -- The average round trip time (RTT) latency in seconds
     ping_latency_s_avg FLOAT        NOT NULL,
@@ -24,9 +24,9 @@ CREATE TABLE IF NOT EXISTS latencies
     -- The percentage of packets lost
     ping_packet_loss   FLOAT        NOT NULL,
 
-    -- When was this crawl updated the last time
+    -- When was this latency measurement result (unnecessary?)
     updated_at         TIMESTAMPTZ  NOT NULL,
-    -- When was this crawl instance created (different from started_at)
+    -- When was this latency measurement result created
     created_at         TIMESTAMPTZ  NOT NULL,
 
     -- The peer ID should always point to an existing peer in the DB
