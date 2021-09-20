@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testNeightbours(t *testing.T) {
+func testNeighbours(t *testing.T) {
 	t.Parallel()
 
-	query := Neightbours()
+	query := Neighbours()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testNeightboursDelete(t *testing.T) {
+func testNeighboursDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testNeightboursDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testNeightboursDelete(t *testing.T) {
 	}
 }
 
-func testNeightboursQueryDeleteAll(t *testing.T) {
+func testNeighboursQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testNeightboursQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := Neightbours().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Neighbours().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testNeightboursQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testNeightboursSliceDeleteAll(t *testing.T) {
+func testNeighboursSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testNeightboursSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := NeightbourSlice{o}
+	slice := NeighbourSlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testNeightboursSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testNeightboursSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testNeightboursExists(t *testing.T) {
+func testNeighboursExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testNeightboursExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := NeightbourExists(ctx, tx, o.ID)
+	e, err := NeighbourExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if Neightbour exists: %s", err)
+		t.Errorf("Unable to check if Neighbour exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected NeightbourExists to return true, but got false.")
+		t.Errorf("Expected NeighbourExists to return true, but got false.")
 	}
 }
 
-func testNeightboursFind(t *testing.T) {
+func testNeighboursFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testNeightboursFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	neightbourFound, err := FindNeightbour(ctx, tx, o.ID)
+	neighbourFound, err := FindNeighbour(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if neightbourFound == nil {
+	if neighbourFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testNeightboursBind(t *testing.T) {
+func testNeighboursBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testNeightboursBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = Neightbours().Bind(ctx, tx, o); err != nil {
+	if err = Neighbours().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testNeightboursOne(t *testing.T) {
+func testNeighboursOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testNeightboursOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := Neightbours().One(ctx, tx); err != nil {
+	if x, err := Neighbours().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testNeightboursAll(t *testing.T) {
+func testNeighboursAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	neightbourOne := &Neightbour{}
-	neightbourTwo := &Neightbour{}
-	if err = randomize.Struct(seed, neightbourOne, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	neighbourOne := &Neighbour{}
+	neighbourTwo := &Neighbour{}
+	if err = randomize.Struct(seed, neighbourOne, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
-	if err = randomize.Struct(seed, neightbourTwo, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	if err = randomize.Struct(seed, neighbourTwo, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = neightbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neighbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = neightbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neighbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := Neightbours().All(ctx, tx)
+	slice, err := Neighbours().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testNeightboursAll(t *testing.T) {
 	}
 }
 
-func testNeightboursCount(t *testing.T) {
+func testNeighboursCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	neightbourOne := &Neightbour{}
-	neightbourTwo := &Neightbour{}
-	if err = randomize.Struct(seed, neightbourOne, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	neighbourOne := &Neighbour{}
+	neighbourTwo := &Neighbour{}
+	if err = randomize.Struct(seed, neighbourOne, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
-	if err = randomize.Struct(seed, neightbourTwo, neightbourDBTypes, false, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	if err = randomize.Struct(seed, neighbourTwo, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = neightbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neighbourOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = neightbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = neighbourTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testNeightboursCount(t *testing.T) {
 	}
 }
 
-func neightbourBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func neightbourAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neightbour) error {
-	*o = Neightbour{}
+func neighbourAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Neighbour) error {
+	*o = Neighbour{}
 	return nil
 }
 
-func testNeightboursHooks(t *testing.T) {
+func testNeighboursHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &Neightbour{}
-	o := &Neightbour{}
+	empty := &Neighbour{}
+	o := &Neighbour{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, neightbourDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize Neightbour object: %s", err)
+	if err = randomize.Struct(seed, o, neighbourDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Neighbour object: %s", err)
 	}
 
-	AddNeightbourHook(boil.BeforeInsertHook, neightbourBeforeInsertHook)
+	AddNeighbourHook(boil.BeforeInsertHook, neighbourBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	neightbourBeforeInsertHooks = []NeightbourHook{}
+	neighbourBeforeInsertHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.AfterInsertHook, neightbourAfterInsertHook)
+	AddNeighbourHook(boil.AfterInsertHook, neighbourAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	neightbourAfterInsertHooks = []NeightbourHook{}
+	neighbourAfterInsertHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.AfterSelectHook, neightbourAfterSelectHook)
+	AddNeighbourHook(boil.AfterSelectHook, neighbourAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	neightbourAfterSelectHooks = []NeightbourHook{}
+	neighbourAfterSelectHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.BeforeUpdateHook, neightbourBeforeUpdateHook)
+	AddNeighbourHook(boil.BeforeUpdateHook, neighbourBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	neightbourBeforeUpdateHooks = []NeightbourHook{}
+	neighbourBeforeUpdateHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.AfterUpdateHook, neightbourAfterUpdateHook)
+	AddNeighbourHook(boil.AfterUpdateHook, neighbourAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	neightbourAfterUpdateHooks = []NeightbourHook{}
+	neighbourAfterUpdateHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.BeforeDeleteHook, neightbourBeforeDeleteHook)
+	AddNeighbourHook(boil.BeforeDeleteHook, neighbourBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	neightbourBeforeDeleteHooks = []NeightbourHook{}
+	neighbourBeforeDeleteHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.AfterDeleteHook, neightbourAfterDeleteHook)
+	AddNeighbourHook(boil.AfterDeleteHook, neighbourAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	neightbourAfterDeleteHooks = []NeightbourHook{}
+	neighbourAfterDeleteHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.BeforeUpsertHook, neightbourBeforeUpsertHook)
+	AddNeighbourHook(boil.BeforeUpsertHook, neighbourBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	neightbourBeforeUpsertHooks = []NeightbourHook{}
+	neighbourBeforeUpsertHooks = []NeighbourHook{}
 
-	AddNeightbourHook(boil.AfterUpsertHook, neightbourAfterUpsertHook)
+	AddNeighbourHook(boil.AfterUpsertHook, neighbourAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	neightbourAfterUpsertHooks = []NeightbourHook{}
+	neighbourAfterUpsertHooks = []NeighbourHook{}
 }
 
-func testNeightboursInsert(t *testing.T) {
+func testNeighboursInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testNeightboursInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testNeightboursInsert(t *testing.T) {
 	}
 }
 
-func testNeightboursInsertWhitelist(t *testing.T) {
+func testNeighboursInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(neightbourColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(neighbourColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,14 +494,14 @@ func testNeightboursInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testNeightboursReload(t *testing.T) {
+func testNeighboursReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -516,14 +516,14 @@ func testNeightboursReload(t *testing.T) {
 	}
 }
 
-func testNeightboursReloadAll(t *testing.T) {
+func testNeighboursReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -533,21 +533,21 @@ func testNeightboursReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := NeightbourSlice{o}
+	slice := NeighbourSlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testNeightboursSelect(t *testing.T) {
+func testNeighboursSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -557,7 +557,7 @@ func testNeightboursSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := Neightbours().All(ctx, tx)
+	slice, err := Neighbours().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,25 +568,25 @@ func testNeightboursSelect(t *testing.T) {
 }
 
 var (
-	neightbourDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `NeightbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`}
-	_                 = bytes.MinRead
+	neighbourDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `NeighbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`}
+	_                = bytes.MinRead
 )
 
-func testNeightboursUpdate(t *testing.T) {
+func testNeighboursUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(neightbourPrimaryKeyColumns) {
+	if 0 == len(neighbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
+	if len(neighbourAllColumns) == len(neighbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -596,7 +596,7 @@ func testNeightboursUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -605,8 +605,8 @@ func testNeightboursUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -616,18 +616,18 @@ func testNeightboursUpdate(t *testing.T) {
 	}
 }
 
-func testNeightboursSliceUpdateAll(t *testing.T) {
+func testNeighboursSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
+	if len(neighbourAllColumns) == len(neighbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Neightbour{}
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := &Neighbour{}
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -637,7 +637,7 @@ func testNeightboursSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -646,18 +646,18 @@ func testNeightboursSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, neightbourDBTypes, true, neightbourPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	if err = randomize.Struct(seed, o, neighbourDBTypes, true, neighbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(neightbourAllColumns, neightbourPrimaryKeyColumns) {
-		fields = neightbourAllColumns
+	if strmangle.StringSliceMatch(neighbourAllColumns, neighbourPrimaryKeyColumns) {
+		fields = neighbourAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			neightbourAllColumns,
-			neightbourPrimaryKeyColumns,
+			neighbourAllColumns,
+			neighbourPrimaryKeyColumns,
 		)
 	}
 
@@ -675,7 +675,7 @@ func testNeightboursSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := NeightbourSlice{o}
+	slice := NeighbourSlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -683,29 +683,29 @@ func testNeightboursSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testNeightboursUpsert(t *testing.T) {
+func testNeighboursUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(neightbourAllColumns) == len(neightbourPrimaryKeyColumns) {
+	if len(neighbourAllColumns) == len(neighbourPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := Neightbour{}
-	if err = randomize.Struct(seed, &o, neightbourDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	o := Neighbour{}
+	if err = randomize.Struct(seed, &o, neighbourDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Neightbour: %s", err)
+		t.Errorf("Unable to upsert Neighbour: %s", err)
 	}
 
-	count, err := Neightbours().Count(ctx, tx)
+	count, err := Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -714,15 +714,15 @@ func testNeightboursUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, neightbourDBTypes, false, neightbourPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Neightbour struct: %s", err)
+	if err = randomize.Struct(seed, &o, neighbourDBTypes, false, neighbourPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Neightbour: %s", err)
+		t.Errorf("Unable to upsert Neighbour: %s", err)
 	}
 
-	count, err = Neightbours().Count(ctx, tx)
+	count, err = Neighbours().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}

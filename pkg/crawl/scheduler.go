@@ -166,8 +166,8 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	if s.dbh != nil {
 		if !s.notTruncateNeighbour {
-			log.Infoln("Truncate table neightbours...")
-			db.TruncateNeightbours(s.dbh)
+			log.Infoln("Truncate table neighbours...")
+			db.TruncateNeighbours(s.dbh)
 		}
 		if !s.notTruncateConnection {
 			log.Infoln("Truncate table connections...")

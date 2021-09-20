@@ -195,8 +195,8 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
-func TruncateNeightbours(dbh *sql.DB) error {
-	query := `TRUNCATE table neightbours;`
+func TruncateNeighbours(dbh *sql.DB) error {
+	query := `TRUNCATE table neighbours;`
 	rows, err := queries.Raw(query).Query(dbh)
 	if err != nil {
 		return err
