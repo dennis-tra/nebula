@@ -94,7 +94,7 @@ with open("sessions.csv") as csvfile:
     plt.gca().xaxis.set_major_formatter(format_interval)
     # plt.xticks(rotation=45, ha="right")
     plt.xlabel("Hours")
-    plt.ylabel("Percentage of online peers")
+    plt.ylabel("Fraction of online peers")
     plt.tight_layout()
     plt.xticks(np.arange(0, max(bin_edges[1:]), 3 * 60 * 60))
     plt.xlim(-60 * 60, 24 * 60 * 60)
