@@ -72,54 +72,67 @@ In this section, we will present some graphs we collected using the crawler and 
 ### Whole network
 First we generated some graph on the whole network.
 
-(1) Network churn  
+#### 1 Network churn  
 ![Graph](./analysis/mixed/figs/network_churn.png)  
 Around 50% of peers sray in the network for 1.5 hour or less and around 70% of peers stay in the network for 3 hours or less.
-(2) Node classification  
+
+#### 2 Node classification  
 ![Graph](./analysis/mixed/figs/node_classification.png)  
 Majority of the nodes are dangling nodes (>85%), with 14% being the on nodes.
-(3) Agent version of **all the nodes**  
+
+#### 3 Agent version of **all the nodes**  
 ![Graph](./analysis/mixed/figs/agent_version_for_all_nodes.png)  
 We did an analysis of the agent version of all the nodes and discovered that majority of the nodes are running go-ipfs, with go-ipfs 0.8.x being the most popular. If we break down the 0.8.x further, the most popular tag is `48f94e2`.
-(4) Protocol of **all the nodes**  
-![Graph](./analysis/mixed/figs/protocols_for_all_nodes.png)  
-(5) Geolocation of **all the nodes**  
-![Graph](./analysis/mixed/figs/geolocation_for_all_nodes.png)  
-(6) Cloud information of **all the nodes**  
+
+#### 4 Protocol of **all the nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_all_nodes.png)
+
+#### 5 Geolocation of **all the nodes**  
+![Graph](./analysis/mixed/figs/geolocation_for_all_nodes.png)
+
+#### 6 Cloud information of **all the nodes**  
 ![Graph](./analysis/mixed/figs/cloud_info_for_all_nodes.png)  
 As shown in the graph, 15% of all the IPFS nodes are running in cloud. Digital Ocean is the most popular cloud provider, used by 10.5% of the nodes.
 ### On nodes
 We then pick the on nodes (nodes that are always on) and analyse them further.
 
-(1) Agent version of **on nodes**  
+#### 1 Agent version of **on nodes**  
 ![Graph](./analysis/mixed/figs/agent_version_for_on_nodes.png)  
 Over 90% of the on nodes are running go-ipfs, higher than network (77%).
-(2) Protocol of **on nodes**  
-![Graph](./analysis/mixed/figs/protocols_for_on_nodes.png)  
-(3) Geolocation of **on nodes**  
+
+#### 2 Protocol of **on nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_on_nodes.png)
+
+#### 3 Geolocation of **on nodes**  
 ![Graph](./analysis/mixed/figs/geolocation_for_on_nodes.png)  
 It is interesting to see that when comes to reliable nodes, 18% of them are running in Germany.
-(4) Cloud information of **on nodes**  
+
+#### 4 Cloud information of **on nodes**  
 ![Graph](./analysis/mixed/figs/cloud_info_for_on_nodes.png)  
 When it comes to cloud information, unsuprisingly that over 25% of the on nodes are running in a cloud environment, higher than network average (15%). Digital Ocean and AWS are widely used (each taking around 11%).
 ### Dangling nodes
 We finally analyse the dangling nodes (nodes that are sometimes on/restarted during monitoring).
 
-(1) Agent version of **dangling nodes**  
+#### 1 Agent version of **dangling nodes**  
 ![Graph](./analysis/mixed/figs/agent_version_for_dangling_nodes.png)  
 The agent of dangling nodes are similar to the whole network.
-(2) Protocol of **dangling nodes**  
-![Graph](./analysis/mixed/figs/protocols_for_dangling_nodes.png)  
-(3) Geolocation of **dangling nodes**  
+
+#### 2 Protocol of **dangling nodes**  
+![Graph](./analysis/mixed/figs/protocols_for_dangling_nodes.png)
+
+#### 3 Geolocation of **dangling nodes**  
 ![Graph](./analysis/mixed/figs/geolocation_for_dangling_nodes.png)  
 The geolocation of dangling nodes are also similar to the whole network.
-(4) Cloud information of **dangling nodes**  
+
+#### 4 Cloud information of **dangling nodes**  
 ![Graph](./analysis/mixed/figs/cloud_info_for_dangling_nodes.png)  
 12% of the dangling nodes are running in a cloud environment, a little bit lower than network average.
-(5) Reliability  
+
+#### 5 Reliability  
 ![Graph](./analysis/mixed/figs/dangling_nodes_reliability.png)  
 This reliability graph also indirectly shows the network churn, majority of the nodes are only accessible <5% of the time.
-(6) Correlation between uptime and geolocation  
+
+#### 6 Correlation between uptime and geolocation  
 ![Graph](./analysis/mixed/figs/dangling_nodes_hk_uptime_daytime_correlation.png)  
 We analysed dangling nodes that are in Hong Kong as an example. We calculated the correlation between the uptime of a node and the local day time and we also calculated the correlation between the uptime of a node and the local night time to compare. Unfortunately, there is no clear signal showing that the uptime is correlated with the local day time. If there is strong correlation between the uptime and the local day time, we would have seen more counts of high correlation and the two graphs will have different distribution. However, what we see here is that most correlations are close to 0 and the two graphs are of similar distribution (meaning that the day time or night time does not matter too much).
 Below is an example on how we calculate the correlation:
@@ -130,11 +143,13 @@ corr = numpy.correlate(uptime, daytime) # Result is 2.
 ```
 ### Plots from large dataset
 Thanks to the original author of nebula crawler Dennis ([@dennis-tra](https://github.com/dennis-tra/)) to provide a large dataset from a 2 months data collection. We are not able to generate all of the plots above because we build some of the plots on extended schema. Here is what we generated from the large dataset.  
-(1) Network churn  
-![Graph](./analysis/mixed/figs/network_churn_d.png)  
-(2) Cloud information of *all seen nodes*  
-![Graph](./analysis/mixed/figs/cloud_info_for_all_nodes_d.png)  
-(3) Geolocation of *all seen nodes*  
+#### 1 Network churn  
+![Graph](./analysis/mixed/figs/network_churn_d.png)
+
+#### 2 Cloud information of *all seen nodes*  
+![Graph](./analysis/mixed/figs/cloud_info_for_all_nodes_d.png)
+
+#### 3 Geolocation of *all seen nodes*  
 ![Graph](./analysis/mixed/figs/geolocation_for_all_nodes_d.png)  
 One interesting thing is that among all seen nodes, there are 52.3% nodes running from Digital Ocean. However, this does not mean that 50% of the nodes are running in the cloud, it is likely that IPFS running in Digital Ocean can restart with a different peer ID and thus contributed to one count in the pie chart.
 
