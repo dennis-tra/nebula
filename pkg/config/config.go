@@ -51,6 +51,8 @@ var DefaultConfig = Config{
 	DatabasePassword:   "password",
 	DatabaseUser:       "nebula",
 	Protocols:          []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
+	PersistNeighbors:   false,
+	ClearNeighbors:     true,
 }
 
 // Config contains general user configuration.
@@ -108,6 +110,12 @@ type Config struct {
 
 	// The list of protocols that this crawler should look for.
 	Protocols []string
+
+	// Whether found neighbors should be persisted.
+	PersistNeighbors bool
+
+	// Whether already existing neighbors should be cleared before saving new ones.
+	ClearNeighbors bool
 }
 
 func init() {
@@ -186,6 +194,12 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("protocols") {
 		c.Protocols = ctx.StringSlice("protocols")
+	}
+	if ctx.IsSet("neighbors") {
+		c.PersistNeighbors = ctx.Bool("neighbors")
+	}
+	if ctx.IsSet("clear-neighbors") {
+		c.ClearNeighbors = ctx.Bool("clear-neighbors")
 	}
 }
 
