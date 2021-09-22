@@ -1,1 +1,2 @@
-ALTER TABLE peers DROP COLUMN old_multi_addresses;
+ALTER TABLE peers
+    DROP COLUMN old_multi_addresses;

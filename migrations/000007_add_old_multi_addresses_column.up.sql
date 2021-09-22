@@ -4,4 +4,5 @@
 -- that in for the session handling. With the additional column we can atomically upsert
 -- the peer ID and return the old multi addresses to determine at the application level
 -- if this was actually a new session or still the old one.
-ALTER TABLE peers ADD COLUMN old_multi_addresses VARCHAR(255) ARRAY;
+ALTER TABLE peers
+    ADD COLUMN old_multi_addresses VARCHAR(255) ARRAY;
