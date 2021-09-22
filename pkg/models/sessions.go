@@ -25,18 +25,18 @@ import (
 // Session is an object representing the database table.
 type Session struct {
 	ID                  int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	PeerID              int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	FirstSuccessfulDial time.Time   `boil:"first_successful_dial" json:"first_successful_dial" toml:"first_successful_dial" yaml:"first_successful_dial"`
 	LastSuccessfulDial  time.Time   `boil:"last_successful_dial" json:"last_successful_dial" toml:"last_successful_dial" yaml:"last_successful_dial"`
 	NextDialAttempt     null.Time   `boil:"next_dial_attempt" json:"next_dial_attempt,omitempty" toml:"next_dial_attempt" yaml:"next_dial_attempt,omitempty"`
 	FirstFailedDial     time.Time   `boil:"first_failed_dial" json:"first_failed_dial" toml:"first_failed_dial" yaml:"first_failed_dial"`
 	MinDuration         null.String `boil:"min_duration" json:"min_duration,omitempty" toml:"min_duration" yaml:"min_duration,omitempty"`
 	MaxDuration         null.String `boil:"max_duration" json:"max_duration,omitempty" toml:"max_duration" yaml:"max_duration,omitempty"`
-	Finished            bool        `boil:"finished" json:"finished" toml:"finished" yaml:"finished"`
 	SuccessfulDials     int         `boil:"successful_dials" json:"successful_dials" toml:"successful_dials" yaml:"successful_dials"`
+	FinishReason        null.String `boil:"finish_reason" json:"finish_reason,omitempty" toml:"finish_reason" yaml:"finish_reason,omitempty"`
 	UpdatedAt           time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt           time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	FinishReason        null.String `boil:"finish_reason" json:"finish_reason,omitempty" toml:"finish_reason" yaml:"finish_reason,omitempty"`
-	PeerID              int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
+	Finished            bool        `boil:"finished" json:"finished" toml:"finished" yaml:"finished"`
 
 	R *sessionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L sessionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -44,62 +44,62 @@ type Session struct {
 
 var SessionColumns = struct {
 	ID                  string
+	PeerID              string
 	FirstSuccessfulDial string
 	LastSuccessfulDial  string
 	NextDialAttempt     string
 	FirstFailedDial     string
 	MinDuration         string
 	MaxDuration         string
-	Finished            string
 	SuccessfulDials     string
+	FinishReason        string
 	UpdatedAt           string
 	CreatedAt           string
-	FinishReason        string
-	PeerID              string
+	Finished            string
 }{
 	ID:                  "id",
+	PeerID:              "peer_id",
 	FirstSuccessfulDial: "first_successful_dial",
 	LastSuccessfulDial:  "last_successful_dial",
 	NextDialAttempt:     "next_dial_attempt",
 	FirstFailedDial:     "first_failed_dial",
 	MinDuration:         "min_duration",
 	MaxDuration:         "max_duration",
-	Finished:            "finished",
 	SuccessfulDials:     "successful_dials",
+	FinishReason:        "finish_reason",
 	UpdatedAt:           "updated_at",
 	CreatedAt:           "created_at",
-	FinishReason:        "finish_reason",
-	PeerID:              "peer_id",
+	Finished:            "finished",
 }
 
 var SessionTableColumns = struct {
 	ID                  string
+	PeerID              string
 	FirstSuccessfulDial string
 	LastSuccessfulDial  string
 	NextDialAttempt     string
 	FirstFailedDial     string
 	MinDuration         string
 	MaxDuration         string
-	Finished            string
 	SuccessfulDials     string
+	FinishReason        string
 	UpdatedAt           string
 	CreatedAt           string
-	FinishReason        string
-	PeerID              string
+	Finished            string
 }{
 	ID:                  "sessions.id",
+	PeerID:              "sessions.peer_id",
 	FirstSuccessfulDial: "sessions.first_successful_dial",
 	LastSuccessfulDial:  "sessions.last_successful_dial",
 	NextDialAttempt:     "sessions.next_dial_attempt",
 	FirstFailedDial:     "sessions.first_failed_dial",
 	MinDuration:         "sessions.min_duration",
 	MaxDuration:         "sessions.max_duration",
-	Finished:            "sessions.finished",
 	SuccessfulDials:     "sessions.successful_dials",
+	FinishReason:        "sessions.finish_reason",
 	UpdatedAt:           "sessions.updated_at",
 	CreatedAt:           "sessions.created_at",
-	FinishReason:        "sessions.finish_reason",
-	PeerID:              "sessions.peer_id",
+	Finished:            "sessions.finished",
 }
 
 // Generated where
@@ -115,32 +115,32 @@ func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field
 
 var SessionWhere = struct {
 	ID                  whereHelperint
+	PeerID              whereHelperint
 	FirstSuccessfulDial whereHelpertime_Time
 	LastSuccessfulDial  whereHelpertime_Time
 	NextDialAttempt     whereHelpernull_Time
 	FirstFailedDial     whereHelpertime_Time
 	MinDuration         whereHelpernull_String
 	MaxDuration         whereHelpernull_String
-	Finished            whereHelperbool
 	SuccessfulDials     whereHelperint
+	FinishReason        whereHelpernull_String
 	UpdatedAt           whereHelpertime_Time
 	CreatedAt           whereHelpertime_Time
-	FinishReason        whereHelpernull_String
-	PeerID              whereHelperint
+	Finished            whereHelperbool
 }{
 	ID:                  whereHelperint{field: "\"sessions\".\"id\""},
+	PeerID:              whereHelperint{field: "\"sessions\".\"peer_id\""},
 	FirstSuccessfulDial: whereHelpertime_Time{field: "\"sessions\".\"first_successful_dial\""},
 	LastSuccessfulDial:  whereHelpertime_Time{field: "\"sessions\".\"last_successful_dial\""},
 	NextDialAttempt:     whereHelpernull_Time{field: "\"sessions\".\"next_dial_attempt\""},
 	FirstFailedDial:     whereHelpertime_Time{field: "\"sessions\".\"first_failed_dial\""},
 	MinDuration:         whereHelpernull_String{field: "\"sessions\".\"min_duration\""},
 	MaxDuration:         whereHelpernull_String{field: "\"sessions\".\"max_duration\""},
-	Finished:            whereHelperbool{field: "\"sessions\".\"finished\""},
 	SuccessfulDials:     whereHelperint{field: "\"sessions\".\"successful_dials\""},
+	FinishReason:        whereHelpernull_String{field: "\"sessions\".\"finish_reason\""},
 	UpdatedAt:           whereHelpertime_Time{field: "\"sessions\".\"updated_at\""},
 	CreatedAt:           whereHelpertime_Time{field: "\"sessions\".\"created_at\""},
-	FinishReason:        whereHelpernull_String{field: "\"sessions\".\"finish_reason\""},
-	PeerID:              whereHelperint{field: "\"sessions\".\"peer_id\""},
+	Finished:            whereHelperbool{field: "\"sessions\".\"finished\""},
 }
 
 // SessionRels is where relationship names are stored.
@@ -164,8 +164,8 @@ func (*sessionR) NewStruct() *sessionR {
 type sessionL struct{}
 
 var (
-	sessionAllColumns            = []string{"id", "first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason", "peer_id"}
-	sessionColumnsWithoutDefault = []string{"first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason"}
+	sessionAllColumns            = []string{"id", "peer_id", "first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "successful_dials", "finish_reason", "updated_at", "created_at", "finished"}
+	sessionColumnsWithoutDefault = []string{"first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "successful_dials", "finish_reason", "updated_at", "created_at", "finished"}
 	sessionColumnsWithDefault    = []string{"id", "peer_id"}
 	sessionPrimaryKeyColumns     = []string{"id"}
 )

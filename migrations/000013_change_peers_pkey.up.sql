@@ -4,182 +4,114 @@
 -- of the form QmbLHAnMo... multiple times. Thus saving
 -- disk space.
 
--- Create new peer_id column holding the actual QmbLHAnMo... string
+-- Begin the transaction
+BEGIN;
+
+-- Create new peer ID column holding the actual QmbLHAnMo... multi hash string
 ALTER TABLE peers
-    RENAME COLUMN id TO peer_id;
+    RENAME COLUMN id TO multi_hash;
 
 -- Create new id column holding the internal serial ID of that peer
 ALTER TABLE peers
     ADD COLUMN id SERIAL NOT NULL;
 
-------------------------------
----- SESSIONS ----
-------------------------------
+-- Put all relevant tables aside
+ALTER TABLE sessions
+    RENAME TO sessions_old;
 
--- Move peer id string to temporary column
-ALTER TABLE sessions
-    RENAME COLUMN peer_id TO old_peer_id;
--- Drop foreign key constraints
-ALTER TABLE sessions
+-- drop all relevant constraints
+ALTER TABLE sessions_old
     DROP CONSTRAINT fk_session_peer;
-ALTER TABLE sessions
+
+ALTER TABLE sessions_old
     DROP CONSTRAINT uq_peer_id_first_failed_dial;
--- Add new peer_id foreign key column pointing to the
--- new id column on the peers table.
-ALTER TABLE sessions
-    ADD COLUMN peer_id SERIAL NOT NULL;
 
--- Fill the peer_id column on the sessions table with the new serial ID.
-UPDATE sessions
-SET peer_id=subquery.id
-FROM (SELECT id, peer_id FROM peers) AS subquery
-WHERE sessions.old_peer_id = subquery.peer_id;
-
-------------------------------
----- LATENCIES ----
-------------------------------
-
--- Move peer id string to temporary column
-ALTER TABLE latencies
-    RENAME COLUMN peer_id TO old_peer_id;
--- Drop foreign key constraint
-ALTER TABLE latencies
-    DROP CONSTRAINT fk_latencies_peer;
--- Add new peer_id foreign key column pointing to the
--- new id column on the peers table.
-ALTER TABLE latencies
-    ADD COLUMN peer_id SERIAL NOT NULL;
-
--- Fill the peer_id column on the latencies table with the new serial ID.
-UPDATE latencies
-SET peer_id=subquery.id
-FROM (SELECT id, peer_id FROM peers) AS subquery
-WHERE latencies.old_peer_id = subquery.peer_id;
-
-------------------------------
----- CONNECTIONS ----
-------------------------------
-
--- Move peer id string to temporary column
-ALTER TABLE connections
-    RENAME COLUMN peer_id TO old_peer_id;
--- Add new peer_id foreign key column pointing to the
--- new id column on the peers table.
-ALTER TABLE connections
-    ADD COLUMN peer_id SERIAL NOT NULL;
-
--- Fill the peer_id column on the connections table with the new serial ID.
-UPDATE connections
-SET peer_id=subquery.id
-FROM (SELECT id, peer_id FROM peers) AS subquery
-WHERE connections.old_peer_id = subquery.peer_id;
-
-------------------------------
----- NEIGHBOURS ----
-------------------------------
-
--- Move peer id string to temporary column
-ALTER TABLE neighbours
-    RENAME COLUMN peer_id TO old_peer_id;
-ALTER TABLE neighbours
-    RENAME COLUMN neighbour_peer_id TO old_neighbour_peer_id;
-
--- Add new peer_id foreign key columns pointing to the
--- new id column on the peers table.
-ALTER TABLE neighbours
-    ADD COLUMN peer_id      SERIAL NOT NULL,
-    ADD COLUMN neighbour_id SERIAL NOT NULL;
-
--- Fill the peer_id column on the neighbours table with the new serial ID.
-UPDATE neighbours
-SET peer_id=subquery.id
-FROM (SELECT id, peer_id FROM peers) AS subquery
-WHERE neighbours.old_peer_id = subquery.peer_id;
-
--- Fill the neighbour_id column on the neighbours table with the new serial ID.
-UPDATE neighbours
-SET neighbour_id=subquery.id
-FROM (SELECT id, peer_id FROM peers) AS subquery
-WHERE neighbours.old_neighbour_peer_id = subquery.peer_id;
-
-------------------------------------------------------------------------------------------------------------------------
 -- Make the new serial id column the new primary key on the peers table.
 ALTER TABLE peers
     DROP CONSTRAINT peers_pkey;
 ALTER TABLE peers
     ADD PRIMARY KEY (id);
 
-CREATE UNIQUE INDEX idx_peers_peer_id ON peers (peer_id);
-------------------------------------------------------------------------------------------------------------------------
+CREATE UNIQUE INDEX idx_peers_multi_hash ON peers (multi_hash);
 
-------------------------------
----- SESSIONS ----
-------------------------------
+-- Create new sessions table with improved column alignment that saves ~30% of storage
+-- The `sessions` table keeps track of online sessions of peers.
+CREATE TABLE sessions
+(
+    -- A unique id that identifies a particular session
+    id                    SERIAL,
+    -- The peer ID in the form of Qm... or 12D3...
+    peer_id               SERIAL      NOT NULL,
+    -- When was the peer successfully dialed the first time
+    first_successful_dial TIMESTAMPTZ NOT NULL,
+    -- When was the most recent successful dial to the peer above
+    last_successful_dial  TIMESTAMPTZ NOT NULL,
+    -- When should we try to dial the peer again
+    next_dial_attempt     TIMESTAMPTZ,
+    -- When did we notice that this peer is not reachable.
+    -- This cannot be null because otherwise the unique constraint
+    -- uq_peer_id_first_failed_dial would not work (nulls are distinct).
+    -- An unset value corresponds to the timestamp 1970-01-01
+    first_failed_dial     TIMESTAMPTZ NOT NULL,
+    -- The duration that this peer was online due to multiple subsequent successful dials
+    min_duration          INTERVAL,
+    -- The duration that from the first successful dial to the point were it was unreachable
+    max_duration          INTERVAL,
+    -- How many subsequent successful dials could we track
+    successful_dials      INTEGER     NOT NULL,
+    -- Why was this sessions marked as finished.
+    finish_reason         dial_error,
+    -- When was this session instance updated the last time
+    updated_at            TIMESTAMPTZ NOT NULL,
+    -- When was this session instance created
+    created_at            TIMESTAMPTZ NOT NULL,
+    -- indicates whether this session is finished or not. Equivalent to check for
+    -- 1970-01-01 in the first_failed_dial field.
+    finished              BOOLEAN     NOT NULL,
 
--- Add a foreign key constraint on the sessions table to only allow
--- valid IDs for the peer_id.
-ALTER TABLE sessions
-    ADD CONSTRAINT fk_sessions_peer
-        FOREIGN KEY (peer_id)
-            REFERENCES peers (id)
-            ON DELETE CASCADE;
-ALTER TABLE sessions
-    ADD CONSTRAINT uq_peer_id_first_failed_dial
-        UNIQUE (peer_id, first_failed_dial);
+    -- The peer ID should always point to an existing peer in the DB
+    CONSTRAINT fk_sessions_peer FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
+    -- There shouldn't be two active sessions for the same peer.
+    -- An active session is a session where first_failed_dial is unset (aka. 1970-01-01)
+    CONSTRAINT uq_peer_id_first_failed_dial UNIQUE (peer_id, first_failed_dial),
+    -- Add a constraint that if a session is finished the reason can't be null.
+    -- If the session is not finished the reason must be null.
+    CONSTRAINT con_finish_reason_not_null_for_finished CHECK (
+            (finished = TRUE AND finish_reason IS NOT NULL)
+            OR
+            (finished = FALSE AND finish_reason IS NULL)
+        ),
+    PRIMARY KEY (id)
+);
 
--- Remove old peer_id data from sessions table.
-ALTER TABLE sessions
-    DROP COLUMN old_peer_id;
+INSERT INTO sessions (peer_id,
+                      first_successful_dial,
+                      last_successful_dial,
+                      next_dial_attempt,
+                      first_failed_dial,
+                      min_duration,
+                      max_duration,
+                      successful_dials,
+                      finish_reason,
+                      updated_at,
+                      created_at,
+                      finished)
+SELECT p.id,
+       first_successful_dial,
+       last_successful_dial,
+       next_dial_attempt,
+       first_failed_dial,
+       min_duration,
+       max_duration,
+       successful_dials,
+       finish_reason,
+       s.updated_at,
+       s.created_at,
+       finished
+FROM sessions_old s
+         INNER JOIN peers p ON s.peer_id = p.multi_hash;
 
-------------------------------
----- LATENCIES ----
-------------------------------
+DROP TABLE sessions_old;
 
--- Add a foreign key constraint on the latencies table to only allow
--- valid IDs for the peer_id.
-ALTER TABLE latencies
-    ADD CONSTRAINT fk_latencies_peer
-        FOREIGN KEY (peer_id)
-            REFERENCES peers (id)
-            ON DELETE CASCADE;
-
--- Remove old peer_id data from sessions table.
-ALTER TABLE latencies
-    DROP COLUMN old_peer_id;
-
-------------------------------
----- CONNECTIONS ----
-------------------------------
-
--- Add a foreign key constraint on the connections table to only allow
--- valid IDs for the peer_id.
-ALTER TABLE connections
-    ADD CONSTRAINT fk_connections_peer
-        FOREIGN KEY (peer_id)
-            REFERENCES peers (id)
-            ON DELETE CASCADE;
-
--- Remove old peer_id data from sessions table.
-ALTER TABLE connections
-    DROP COLUMN old_peer_id;
-
-------------------------------
----- NEIGHBOURS ----
-------------------------------
--- Add a foreign key constraint on the neighbours table to only allow
--- valid IDs for the peer_id.
-ALTER TABLE neighbours
-    ADD CONSTRAINT fk_neighbours_peer
-        FOREIGN KEY (peer_id)
-            REFERENCES peers (id)
-            ON DELETE CASCADE;
-ALTER TABLE neighbours
-    ADD CONSTRAINT fk_neighbours_neighbour
-        FOREIGN KEY (neighbour_id)
-            REFERENCES peers (id)
-            ON DELETE CASCADE;
-
--- Remove old peer_id data from neighbours table.
-ALTER TABLE neighbours
-    DROP COLUMN old_peer_id,
-    DROP COLUMN old_neighbour_peer_id;
+-- End the transaction
+COMMIT;

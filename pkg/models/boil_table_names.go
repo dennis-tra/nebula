@@ -4,19 +4,19 @@
 package models
 
 var TableNames = struct {
-	Connections    string
-	Crawls         string
-	Latencies      string
-	Neighbours     string
-	PeerProperties string
-	Peers          string
-	Sessions       string
+	Crawls             string
+	Latencies          string
+	PeerProperties     string
+	Peers              string
+	PegasysConnections string
+	PegasysNeighbours  string
+	Sessions           string
 }{
-	Connections:    "connections",
-	Crawls:         "crawls",
-	Latencies:      "latencies",
-	Neighbours:     "neighbours",
-	PeerProperties: "peer_properties",
-	Peers:          "peers",
-	Sessions:       "sessions",
+	Crawls:             "crawls",
+	Latencies:          "latencies",
+	PeerProperties:     "peer_properties",
+	Peers:              "peers",
+	PegasysConnections: "pegasys_connections",
+	PegasysNeighbours:  "pegasys_neighbours",
+	Sessions:           "sessions",
 }

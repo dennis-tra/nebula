@@ -123,12 +123,12 @@ func UpsertPeer(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) (int, types.S
 
 	query := `
 INSERT INTO peers (
-  peer_id,
+  multi_hash,
   multi_addresses,
   created_at,
   updated_at
 ) VALUES ($1, $2, NOW(), NOW())
-ON CONFLICT (peer_id) DO UPDATE SET
+ON CONFLICT (multi_hash) DO UPDATE SET
   multi_addresses     = EXCLUDED.multi_addresses,
   old_multi_addresses = peers.multi_addresses,
   updated_at          = EXCLUDED.updated_at
