@@ -352,7 +352,6 @@ func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models
 			log.WithError(errors.Wrap(res, "pinger run")).Warnln("Error pinging peer")
 		case *ping.Statistics:
 			latencies = append(latencies, &models.Latency{
-				PeerID:          pi.ID.Pretty(),
 				Address:         res.Addr,
 				PingLatencySAvg: res.AvgRtt.Seconds(),
 				PingLatencySSTD: res.StdDevRtt.Seconds(),

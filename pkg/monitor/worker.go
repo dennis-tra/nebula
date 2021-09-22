@@ -25,6 +25,9 @@ var workerID = atomic.NewInt32(0)
 type Result struct {
 	WorkerID string
 
+	// Internal peer ID
+	InternalPeerID int
+
 	// The pinged peer
 	Peer peer.AddrInfo
 
@@ -63,13 +66,14 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
-func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<- Result) {
+func (w *Worker) StartDialing(dialQueue <-chan Job, resultsQueue chan<- Result) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
-	for pi := range dialQueue {
+	for job := range dialQueue {
 		start := time.Now()
+		pi := job.pi
 
 		// Creating log entry
 		logEntry := log.WithFields(log.Fields{
@@ -80,8 +84,9 @@ func (w *Worker) StartDialing(dialQueue <-chan peer.AddrInfo, resultsQueue chan<
 
 		// Initialize dial result
 		dr := Result{
-			WorkerID: w.Identifier(),
-			Peer:     pi,
+			WorkerID:       w.Identifier(),
+			Peer:           pi,
+			InternalPeerID: job.InternalPeerID,
 		}
 
 		// Try to dial the peer 3 times

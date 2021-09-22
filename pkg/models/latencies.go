@@ -24,7 +24,6 @@ import (
 // Latency is an object representing the database table.
 type Latency struct {
 	ID              int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID          string    `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	Address         string    `boil:"address" json:"address" toml:"address" yaml:"address"`
 	PingLatencySAvg float64   `boil:"ping_latency_s_avg" json:"ping_latency_s_avg" toml:"ping_latency_s_avg" yaml:"ping_latency_s_avg"`
 	PingLatencySSTD float64   `boil:"ping_latency_s_std" json:"ping_latency_s_std" toml:"ping_latency_s_std" yaml:"ping_latency_s_std"`
@@ -36,6 +35,7 @@ type Latency struct {
 	PingPacketLoss  float64   `boil:"ping_packet_loss" json:"ping_packet_loss" toml:"ping_packet_loss" yaml:"ping_packet_loss"`
 	UpdatedAt       time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt       time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	PeerID          int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 
 	R *latencyR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L latencyL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -43,7 +43,6 @@ type Latency struct {
 
 var LatencyColumns = struct {
 	ID              string
-	PeerID          string
 	Address         string
 	PingLatencySAvg string
 	PingLatencySSTD string
@@ -55,9 +54,9 @@ var LatencyColumns = struct {
 	PingPacketLoss  string
 	UpdatedAt       string
 	CreatedAt       string
+	PeerID          string
 }{
 	ID:              "id",
-	PeerID:          "peer_id",
 	Address:         "address",
 	PingLatencySAvg: "ping_latency_s_avg",
 	PingLatencySSTD: "ping_latency_s_std",
@@ -69,11 +68,11 @@ var LatencyColumns = struct {
 	PingPacketLoss:  "ping_packet_loss",
 	UpdatedAt:       "updated_at",
 	CreatedAt:       "created_at",
+	PeerID:          "peer_id",
 }
 
 var LatencyTableColumns = struct {
 	ID              string
-	PeerID          string
 	Address         string
 	PingLatencySAvg string
 	PingLatencySSTD string
@@ -85,9 +84,9 @@ var LatencyTableColumns = struct {
 	PingPacketLoss  string
 	UpdatedAt       string
 	CreatedAt       string
+	PeerID          string
 }{
 	ID:              "latencies.id",
-	PeerID:          "latencies.peer_id",
 	Address:         "latencies.address",
 	PingLatencySAvg: "latencies.ping_latency_s_avg",
 	PingLatencySSTD: "latencies.ping_latency_s_std",
@@ -99,9 +98,33 @@ var LatencyTableColumns = struct {
 	PingPacketLoss:  "latencies.ping_packet_loss",
 	UpdatedAt:       "latencies.updated_at",
 	CreatedAt:       "latencies.created_at",
+	PeerID:          "latencies.peer_id",
 }
 
 // Generated where
+
+type whereHelperstring struct{ field string }
+
+func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperstring) IN(slice []string) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
 
 type whereHelperfloat64 struct{ field string }
 
@@ -134,7 +157,6 @@ func (w whereHelperfloat64) NIN(slice []float64) qm.QueryMod {
 
 var LatencyWhere = struct {
 	ID              whereHelperint
-	PeerID          whereHelperstring
 	Address         whereHelperstring
 	PingLatencySAvg whereHelperfloat64
 	PingLatencySSTD whereHelperfloat64
@@ -146,9 +168,9 @@ var LatencyWhere = struct {
 	PingPacketLoss  whereHelperfloat64
 	UpdatedAt       whereHelpertime_Time
 	CreatedAt       whereHelpertime_Time
+	PeerID          whereHelperint
 }{
 	ID:              whereHelperint{field: "\"latencies\".\"id\""},
-	PeerID:          whereHelperstring{field: "\"latencies\".\"peer_id\""},
 	Address:         whereHelperstring{field: "\"latencies\".\"address\""},
 	PingLatencySAvg: whereHelperfloat64{field: "\"latencies\".\"ping_latency_s_avg\""},
 	PingLatencySSTD: whereHelperfloat64{field: "\"latencies\".\"ping_latency_s_std\""},
@@ -160,6 +182,7 @@ var LatencyWhere = struct {
 	PingPacketLoss:  whereHelperfloat64{field: "\"latencies\".\"ping_packet_loss\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"latencies\".\"updated_at\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"latencies\".\"created_at\""},
+	PeerID:          whereHelperint{field: "\"latencies\".\"peer_id\""},
 }
 
 // LatencyRels is where relationship names are stored.
@@ -183,9 +206,9 @@ func (*latencyR) NewStruct() *latencyR {
 type latencyL struct{}
 
 var (
-	latencyAllColumns            = []string{"id", "peer_id", "address", "ping_latency_s_avg", "ping_latency_s_std", "ping_latency_s_min", "ping_latency_s_max", "ping_packets_sent", "ping_packets_recv", "ping_packets_dupl", "ping_packet_loss", "updated_at", "created_at"}
-	latencyColumnsWithoutDefault = []string{"peer_id", "address", "ping_latency_s_avg", "ping_latency_s_std", "ping_latency_s_min", "ping_latency_s_max", "ping_packets_sent", "ping_packets_recv", "ping_packets_dupl", "ping_packet_loss", "updated_at", "created_at"}
-	latencyColumnsWithDefault    = []string{"id"}
+	latencyAllColumns            = []string{"id", "address", "ping_latency_s_avg", "ping_latency_s_std", "ping_latency_s_min", "ping_latency_s_max", "ping_packets_sent", "ping_packets_recv", "ping_packets_dupl", "ping_packet_loss", "updated_at", "created_at", "peer_id"}
+	latencyColumnsWithoutDefault = []string{"address", "ping_latency_s_avg", "ping_latency_s_std", "ping_latency_s_min", "ping_latency_s_max", "ping_packets_sent", "ping_packets_recv", "ping_packets_dupl", "ping_packet_loss", "updated_at", "created_at"}
+	latencyColumnsWithDefault    = []string{"id", "peer_id"}
 	latencyPrimaryKeyColumns     = []string{"id"}
 )
 

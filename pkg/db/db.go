@@ -60,7 +60,7 @@ func FetchSession(ctx context.Context, db *sql.DB, peerID string) (*models.Sessi
 	return models.Sessions(qm.Where("peer_id = ?", peerID)).One(ctx, db)
 }
 
-func UpsertSessionSuccess(dbh *sql.DB, peerID string) error {
+func UpsertSessionSuccess(dbh *sql.DB, peerID int) error {
 	// TODO: use config for min interval and factor
 	query := `
 INSERT INTO sessions (
@@ -96,7 +96,7 @@ ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
 	return rows.Close()
 }
 
-func UpsertSessionError(dbh *sql.DB, peerID string, failedAt time.Time, reason string) error {
+func UpsertSessionError(dbh *sql.DB, peerID int, failedAt time.Time, reason string) error {
 	query := `
 UPDATE sessions SET
   first_failed_dial = $2,
@@ -115,7 +115,7 @@ WHERE peer_id = $1 AND finished = false;
 	return rows.Close()
 }
 
-func UpsertPeer(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) (types.StringArray, error) {
+func UpsertPeer(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) (int, types.StringArray, error) {
 	maddrStrs := make(types.StringArray, len(maddrs))
 	for i, maddr := range maddrs {
 		maddrStrs[i] = maddr.String()
@@ -123,32 +123,33 @@ func UpsertPeer(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr) (types.String
 
 	query := `
 INSERT INTO peers (
-  id,
+  peer_id,
   multi_addresses,
   created_at,
   updated_at
 ) VALUES ($1, $2, NOW(), NOW())
-ON CONFLICT (id) DO UPDATE SET
+ON CONFLICT (peer_id) DO UPDATE SET
   multi_addresses     = EXCLUDED.multi_addresses,
   old_multi_addresses = peers.multi_addresses,
   updated_at          = EXCLUDED.updated_at
-RETURNING old_multi_addresses;
+RETURNING id, old_multi_addresses;
 `
 	rows, err := queries.Raw(query, peerID, maddrStrs).Query(dbh)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
 	if ok := rows.Next(); !ok {
-		return nil, rows.Err()
+		return 0, nil, rows.Err()
 	}
 
+	var id int
 	var oldMaddrs types.StringArray
-	if err = rows.Scan(&oldMaddrs); err != nil {
-		return nil, err
+	if err = rows.Scan(&id, &oldMaddrs); err != nil {
+		return 0, nil, err
 	}
 
-	return oldMaddrs, rows.Close()
+	return id, oldMaddrs, rows.Close()
 }
 
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {

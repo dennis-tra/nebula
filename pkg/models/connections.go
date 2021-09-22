@@ -25,11 +25,11 @@ import (
 // Connection is an object representing the database table.
 type Connection struct {
 	ID          int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID      string      `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	DialAttempt null.Time   `boil:"dial_attempt" json:"dial_attempt,omitempty" toml:"dial_attempt" yaml:"dial_attempt,omitempty"`
 	Latency     null.String `boil:"latency" json:"latency,omitempty" toml:"latency" yaml:"latency,omitempty"`
 	IsSucceed   null.Bool   `boil:"is_succeed" json:"is_succeed,omitempty" toml:"is_succeed" yaml:"is_succeed,omitempty"`
 	Error       null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	PeerID      int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 
 	R *connectionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L connectionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -37,34 +37,34 @@ type Connection struct {
 
 var ConnectionColumns = struct {
 	ID          string
-	PeerID      string
 	DialAttempt string
 	Latency     string
 	IsSucceed   string
 	Error       string
+	PeerID      string
 }{
 	ID:          "id",
-	PeerID:      "peer_id",
 	DialAttempt: "dial_attempt",
 	Latency:     "latency",
 	IsSucceed:   "is_succeed",
 	Error:       "error",
+	PeerID:      "peer_id",
 }
 
 var ConnectionTableColumns = struct {
 	ID          string
-	PeerID      string
 	DialAttempt string
 	Latency     string
 	IsSucceed   string
 	Error       string
+	PeerID      string
 }{
 	ID:          "connections.id",
-	PeerID:      "connections.peer_id",
 	DialAttempt: "connections.dial_attempt",
 	Latency:     "connections.latency",
 	IsSucceed:   "connections.is_succeed",
 	Error:       "connections.error",
+	PeerID:      "connections.peer_id",
 }
 
 // Generated where
@@ -85,29 +85,6 @@ func (w whereHelperint) IN(slice []int) qm.QueryMod {
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
 func (w whereHelperint) NIN(slice []int) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
-}
-
-type whereHelperstring struct{ field string }
-
-func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperstring) IN(slice []string) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
-}
-func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
@@ -186,26 +163,30 @@ func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
 
 var ConnectionWhere = struct {
 	ID          whereHelperint
-	PeerID      whereHelperstring
 	DialAttempt whereHelpernull_Time
 	Latency     whereHelpernull_String
 	IsSucceed   whereHelpernull_Bool
 	Error       whereHelpernull_String
+	PeerID      whereHelperint
 }{
 	ID:          whereHelperint{field: "\"connections\".\"id\""},
-	PeerID:      whereHelperstring{field: "\"connections\".\"peer_id\""},
 	DialAttempt: whereHelpernull_Time{field: "\"connections\".\"dial_attempt\""},
 	Latency:     whereHelpernull_String{field: "\"connections\".\"latency\""},
 	IsSucceed:   whereHelpernull_Bool{field: "\"connections\".\"is_succeed\""},
 	Error:       whereHelpernull_String{field: "\"connections\".\"error\""},
+	PeerID:      whereHelperint{field: "\"connections\".\"peer_id\""},
 }
 
 // ConnectionRels is where relationship names are stored.
 var ConnectionRels = struct {
-}{}
+	Peer string
+}{
+	Peer: "Peer",
+}
 
 // connectionR is where relationships are stored.
 type connectionR struct {
+	Peer *Peer `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
 }
 
 // NewStruct creates a new relationship struct
@@ -217,9 +198,9 @@ func (*connectionR) NewStruct() *connectionR {
 type connectionL struct{}
 
 var (
-	connectionAllColumns            = []string{"id", "peer_id", "dial_attempt", "latency", "is_succeed", "error"}
-	connectionColumnsWithoutDefault = []string{"peer_id", "dial_attempt", "latency", "is_succeed", "error"}
-	connectionColumnsWithDefault    = []string{"id"}
+	connectionAllColumns            = []string{"id", "dial_attempt", "latency", "is_succeed", "error", "peer_id"}
+	connectionColumnsWithoutDefault = []string{"dial_attempt", "latency", "is_succeed", "error"}
+	connectionColumnsWithDefault    = []string{"id", "peer_id"}
 	connectionPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -496,6 +477,171 @@ func (q connectionQuery) Exists(ctx context.Context, exec boil.ContextExecutor) 
 	}
 
 	return count > 0, nil
+}
+
+// Peer pointed to by the foreign key.
+func (o *Connection) Peer(mods ...qm.QueryMod) peerQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.PeerID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	query := Peers(queryMods...)
+	queries.SetFrom(query.Query, "\"peers\"")
+
+	return query
+}
+
+// LoadPeer allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (connectionL) LoadPeer(ctx context.Context, e boil.ContextExecutor, singular bool, maybeConnection interface{}, mods queries.Applicator) error {
+	var slice []*Connection
+	var object *Connection
+
+	if singular {
+		object = maybeConnection.(*Connection)
+	} else {
+		slice = *maybeConnection.(*[]*Connection)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &connectionR{}
+		}
+		args = append(args, object.PeerID)
+
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &connectionR{}
+			}
+
+			for _, a := range args {
+				if a == obj.PeerID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.PeerID)
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`peers`),
+		qm.WhereIn(`peers.id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Peer")
+	}
+
+	var resultSlice []*Peer
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for peers")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
+	}
+
+	if len(connectionAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Peer = foreign
+		if foreign.R == nil {
+			foreign.R = &peerR{}
+		}
+		foreign.R.Connections = append(foreign.R.Connections, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.PeerID == foreign.ID {
+				local.R.Peer = foreign
+				if foreign.R == nil {
+					foreign.R = &peerR{}
+				}
+				foreign.R.Connections = append(foreign.R.Connections, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// SetPeer of the connection to the related item.
+// Sets o.R.Peer to related.
+// Adds o to related.R.Connections.
+func (o *Connection) SetPeer(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"connections\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+		strmangle.WhereClause("\"", "\"", 2, connectionPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.PeerID = related.ID
+	if o.R == nil {
+		o.R = &connectionR{
+			Peer: related,
+		}
+	} else {
+		o.R.Peer = related
+	}
+
+	if related.R == nil {
+		related.R = &peerR{
+			Connections: ConnectionSlice{o},
+		}
+	} else {
+		related.R.Connections = append(related.R.Connections, o)
+	}
+
+	return nil
 }
 
 // Connections retrieves all the records using an executor.

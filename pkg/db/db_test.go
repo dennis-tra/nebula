@@ -30,7 +30,7 @@ func setup(t *testing.T) (context.Context, *sql.DB, string, func(*testing.T)) {
 	_, err = models.Peers().DeleteAll(ctx, db)
 	require.NoError(t, err)
 
-	_, err = UpsertPeer(db, peerID, []ma.Multiaddr{})
+	_, _, err = UpsertPeer(db, peerID, []ma.Multiaddr{})
 	require.NoError(t, err)
 
 	return ctx, db, peerID, func(t *testing.T) {
@@ -212,7 +212,7 @@ func TestUpsertPeer(t *testing.T) {
 	}
 
 	require.NoError(t, err)
-	oldMaddrs, err := UpsertPeer(db, peerID, newMaddrs)
+	_, oldMaddrs, err := UpsertPeer(db, peerID, newMaddrs)
 	require.NoError(t, err)
 	assert.Len(t, oldMaddrs, 0)
 
@@ -232,7 +232,7 @@ func TestUpsertPeer(t *testing.T) {
 	}
 
 	require.NoError(t, err)
-	oldMaddrs, err = UpsertPeer(db, peerID, newMaddrs)
+	_, oldMaddrs, err = UpsertPeer(db, peerID, newMaddrs)
 	require.NoError(t, err)
 	require.Len(t, oldMaddrs, 2)
 	assert.Equal(t, newAddrs, []string(oldMaddrs))

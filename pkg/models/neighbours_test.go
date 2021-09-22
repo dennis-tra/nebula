@@ -494,6 +494,223 @@ func testNeighboursInsertWhitelist(t *testing.T) {
 	}
 }
 
+func testNeighbourToOnePeerUsingNeighbour(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Neighbour
+	var foreign Peer
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	local.NeighbourID = foreign.ID
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.Neighbour().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if check.ID != foreign.ID {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := NeighbourSlice{&local}
+	if err = local.L.LoadNeighbour(ctx, tx, false, (*[]*Neighbour)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Neighbour == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.Neighbour = nil
+	if err = local.L.LoadNeighbour(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Neighbour == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testNeighbourToOnePeerUsingPeer(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Neighbour
+	var foreign Peer
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, neighbourDBTypes, false, neighbourColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Neighbour struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	local.PeerID = foreign.ID
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.Peer().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if check.ID != foreign.ID {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := NeighbourSlice{&local}
+	if err = local.L.LoadPeer(ctx, tx, false, (*[]*Neighbour)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Peer == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.Peer = nil
+	if err = local.L.LoadPeer(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Peer == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testNeighbourToOneSetOpPeerUsingNeighbour(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Neighbour
+	var b, c Peer
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, neighbourDBTypes, false, strmangle.SetComplement(neighbourPrimaryKeyColumns, neighbourColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*Peer{&b, &c} {
+		err = a.SetNeighbour(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.Neighbour != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.NeighbourNeighbours[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if a.NeighbourID != x.ID {
+			t.Error("foreign key was wrong value", a.NeighbourID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.NeighbourID))
+		reflect.Indirect(reflect.ValueOf(&a.NeighbourID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if a.NeighbourID != x.ID {
+			t.Error("foreign key was wrong value", a.NeighbourID, x.ID)
+		}
+	}
+}
+func testNeighbourToOneSetOpPeerUsingPeer(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Neighbour
+	var b, c Peer
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, neighbourDBTypes, false, strmangle.SetComplement(neighbourPrimaryKeyColumns, neighbourColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*Peer{&b, &c} {
+		err = a.SetPeer(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.Peer != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Neighbours[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if a.PeerID != x.ID {
+			t.Error("foreign key was wrong value", a.PeerID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.PeerID))
+		reflect.Indirect(reflect.ValueOf(&a.PeerID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if a.PeerID != x.ID {
+			t.Error("foreign key was wrong value", a.PeerID, x.ID)
+		}
+	}
+}
+
 func testNeighboursReload(t *testing.T) {
 	t.Parallel()
 
@@ -568,7 +785,7 @@ func testNeighboursSelect(t *testing.T) {
 }
 
 var (
-	neighbourDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `character varying`, `NeighbourPeerID`: `character varying`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`}
+	neighbourDBTypes = map[string]string{`ID`: `integer`, `CreatedAt`: `timestamp with time zone`, `CrawlStartAt`: `timestamp with time zone`, `PeerID`: `integer`, `NeighbourID`: `integer`}
 	_                = bytes.MinRead
 )
 

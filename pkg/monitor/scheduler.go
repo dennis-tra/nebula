@@ -41,7 +41,7 @@ type Scheduler struct { // Service represents an entity that runs in a
 	config *config.Config
 
 	// The queue of peer.AddrInfo's that need to be dialed to.
-	dialQueue chan peer.AddrInfo
+	dialQueue chan Job
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put it there again.
@@ -55,6 +55,14 @@ type Scheduler struct { // Service represents an entity that runs in a
 
 	// The list of worker node references.
 	workers sync.Map
+}
+
+type Job struct {
+	// The peer.AddrInfo that needs to be crawled
+	pi peer.AddrInfo
+
+	// Internal peer ID
+	InternalPeerID int
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -109,7 +117,7 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 		dbh:          dbh,
 		config:       conf,
 		inDialQueue:  sync.Map{},
-		dialQueue:    make(chan peer.AddrInfo),
+		dialQueue:    make(chan Job),
 		resultsQueue: make(chan Result),
 		workers:      sync.Map{},
 	}
@@ -168,13 +176,13 @@ func (s *Scheduler) handleResults() {
 
 		var err error
 		if dr.Error == nil {
-			err = db.UpsertSessionSuccess(s.dbh, dr.Peer.ID.Pretty())
+			err = db.UpsertSessionSuccess(s.dbh, dr.InternalPeerID)
 		} else {
 			dialErr := determineDialError(dr.Error)
 			if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
 				stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
 			}
-			err = db.UpsertSessionError(s.dbh, dr.Peer.ID.Pretty(), dr.ErrorTime, dialErr)
+			err = db.UpsertSessionError(s.dbh, dr.InternalPeerID, dr.ErrorTime, dialErr)
 		}
 
 		if err != nil {
@@ -222,7 +230,7 @@ func (s *Scheduler) fetchSessions() (models.SessionSlice, error) {
 
 func (s *Scheduler) scheduleDial(session *models.Session) error {
 	// Parse peer ID from database
-	peerID, err := peer.Decode(session.R.Peer.ID)
+	peerID, err := peer.Decode(session.R.Peer.PeerID)
 	if err != nil {
 		return errors.Wrap(err, "decode peer ID")
 	}
@@ -249,7 +257,10 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 	// Schedule dial for peer
 	go func() {
 		if s.IsStarted() {
-			s.dialQueue <- pi
+			s.dialQueue <- Job{
+				pi:             pi,
+				InternalPeerID: session.PeerID,
+			}
 		}
 	}()
 
@@ -267,8 +278,8 @@ func (s *Scheduler) cleanup() {
 func (s *Scheduler) drainDialQueue() {
 	for {
 		select {
-		case pi := <-s.dialQueue:
-			log.WithField("targetID", pi.ID.Pretty()[:16]).Traceln("Drained peer")
+		case job := <-s.dialQueue:
+			log.WithField("targetID", job.pi.ID.Pretty()[:16]).Traceln("Drained peer")
 		default:
 			return
 		}

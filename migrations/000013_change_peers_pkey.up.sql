@@ -108,6 +108,8 @@ ALTER TABLE peers
     DROP CONSTRAINT peers_pkey;
 ALTER TABLE peers
     ADD PRIMARY KEY (id);
+
+CREATE UNIQUE INDEX idx_peers_peer_id ON peers (peer_id);
 ------------------------------------------------------------------------------------------------------------------------
 
 ------------------------------
