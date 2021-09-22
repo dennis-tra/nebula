@@ -76,7 +76,7 @@ var (
 	MonitorDialCount            = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
 	CrawlConnectErrorsCount     = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
 	MonitorDialErrorsCount      = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
-	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbours in its buckets", stats.UnitMilliseconds)
+	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbors in its buckets", stats.UnitMilliseconds)
 	FetchedNeighborsCount       = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
 	CrawledPeersCount           = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
 	CrawledUpsertDuration       = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
