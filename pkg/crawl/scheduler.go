@@ -358,6 +358,17 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 			return errors.Wrap(err, "upsert session success")
 		}
 	} else if cr.Error != s.ServiceContext().Err() {
+		// upsert peer record in DB
+		protocols := []string{"unknown"}
+		if len(cr.Protocols) > 0 {
+			protocols = cr.Protocols
+		}
+		_, err := db.UpsertPeerWithAgent(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs, cr.Agent, protocols)
+		if err != nil {
+			return errors.Wrap(err, "upsert peer")
+		}
+
+		// Upsert peer session
 		dialErr := determineDialError(cr.Error)
 		if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), cr.ErrorTime, dialErr); err != nil {
 			return errors.Wrap(err, "upsert session error")

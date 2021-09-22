@@ -98,15 +98,26 @@ ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
 
 func UpsertSessionError(dbh *sql.DB, peerID string, failedAt time.Time, reason string) error {
 	query := `
-UPDATE sessions SET
+INSERT INTO sessions (
+  peer_id,
+  first_successful_dial,
+  last_successful_dial,
+  first_failed_dial,
+  next_dial_attempt,
+  successful_dials,
+  finished,
+  created_at,
+  updated_at,
+  finish_reason
+) VALUES ($1, '1970-01-01', '1970-01-01', $2, null, 0, true, NOW(), NOW(), $3)
+ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
   first_failed_dial = $2,
-  min_duration = last_successful_dial - first_successful_dial,
-  max_duration = NOW() - first_successful_dial,
+  min_duration = sessions.last_successful_dial - sessions.first_successful_dial,
+  max_duration = NOW() - sessions.first_successful_dial,
   finished = true,
   updated_at = NOW(),
   next_dial_attempt = null,
   finish_reason = $3
-WHERE peer_id = $1 AND finished = false;
 `
 	rows, err := queries.Raw(query, peerID, failedAt.Format(time.RFC3339Nano), reason).Query(dbh)
 	if err != nil {
