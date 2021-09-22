@@ -230,7 +230,7 @@ func (s *Scheduler) fetchSessions() (models.SessionSlice, error) {
 
 func (s *Scheduler) scheduleDial(session *models.Session) error {
 	// Parse peer ID from database
-	peerID, err := peer.Decode(session.R.Peer.PeerID)
+	peerID, err := peer.Decode(session.R.Peer.MultiHash)
 	if err != nil {
 		return errors.Wrap(err, "decode peer ID")
 	}

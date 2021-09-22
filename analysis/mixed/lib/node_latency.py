@@ -7,7 +7,7 @@ def get_latency(conn, peer_ids):
     cur.execute(
         """
         SELECT peer_id, MAX(latency), MIN(latency), AVG(latency)
-        FROM connections
+        FROM pegasys_connections
         WHERE is_succeed = true AND peer_id IN (%s)
         GROUP BY peer_id
         """ % ','.join(['%s'] * len(peer_ids)),

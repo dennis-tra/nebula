@@ -65,13 +65,13 @@ type Scheduler struct {
 	resultsQueue chan Result
 
 	// A map of agent versions and their occurrences that happened during the crawl.
-	AgentVersion map[string]int
+	agentVersion map[string]int
 
 	// A map of protocols and their occurrences that happened during the crawl.
-	Protocols map[string]int
+	protocols map[string]int
 
 	// A map of errors that happened during the crawl.
-	Errors map[string]int
+	errors map[string]int
 
 	// The list of worker node references.
 	workers sync.Map
@@ -135,9 +135,9 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 		crawled:      map[peer.ID]peer.AddrInfo{},
 		crawlQueue:   make(chan peer.AddrInfo),
 		resultsQueue: make(chan Result),
-		AgentVersion: map[string]int{},
-		Protocols:    map[string]int{},
-		Errors:       map[string]int{},
+		agentVersion: map[string]int{},
+		protocols:    map[string]int{},
+		errors:       map[string]int{},
 		workers:      sync.Map{},
 	}
 
@@ -173,43 +173,49 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// release all resources
 	s.cleanup()
 
-	defer func() {
-		log.Infoln("Logging crawl results...")
+	// Finally, log the crawl summary
+	defer s.logSummary()
 
-		log.Infoln("")
-		for err, count := range s.Errors {
-			log.WithField("count", count).WithField("value", err).Infoln("Dial Error")
-		}
-		log.Infoln("")
-		for agent, count := range s.AgentVersion {
-			log.WithField("count", count).WithField("value", agent).Infoln("Agent")
-		}
-		log.Infoln("")
-		for protocol, count := range s.Protocols {
-			log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
-		}
-		log.Infoln("")
-
-		log.WithFields(log.Fields{
-			"crawledPeers":    len(s.crawled),
-			"crawlDuration":   time.Now().Sub(s.StartTime).String(),
-			"dialablePeers":   len(s.crawled) - s.TotalErrors(),
-			"undialablePeers": s.TotalErrors(),
-		}).Infoln("Finished crawl")
-	}()
-
-	if s.dbh != nil {
-		crawl, err := s.persistCrawl(context.Background())
-		if err != nil {
-			return errors.Wrap(err, "persist crawl")
-		}
-
-		if err := s.persistPeerProperties(context.Background(), crawl.ID); err != nil {
-			return errors.Wrap(err, "persist peer properties")
-		}
+	if s.dbh == nil {
+		return nil
 	}
 
+	// Persist the crawl results
+	crawl, err := s.persistCrawl(context.Background())
+	if err != nil {
+		return errors.Wrap(err, "persist crawl")
+	}
+
+	if err := s.persistPeerProperties(context.Background(), crawl.ID); err != nil {
+		return errors.Wrap(err, "persist peer properties")
+	}
 	return nil
+}
+
+// logSummary logs the final results of the crawl.
+func (s *Scheduler) logSummary() {
+	log.Infoln("Logging crawl results...")
+
+	log.Infoln("")
+	for err, count := range s.errors {
+		log.WithField("count", count).WithField("value", err).Infoln("Dial Error")
+	}
+	log.Infoln("")
+	for agent, count := range s.agentVersion {
+		log.WithField("count", count).WithField("value", agent).Infoln("Agent")
+	}
+	log.Infoln("")
+	for protocol, count := range s.protocols {
+		log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
+	}
+	log.Infoln("")
+
+	log.WithFields(log.Fields{
+		"crawledPeers":    len(s.crawled),
+		"crawlDuration":   time.Now().Sub(s.StartTime).String(),
+		"dialablePeers":   len(s.crawled) - s.TotalErrors(),
+		"undialablePeers": s.TotalErrors(),
+	}).Infoln("Finished crawl")
 }
 
 // readResultsQueue listens for crawl results on the resultsQueue channel and handles any
@@ -249,11 +255,11 @@ func (s *Scheduler) handleResult(cr Result) {
 	}
 
 	// track agent versions
-	s.AgentVersion[cr.Agent] += 1
+	s.agentVersion[cr.Agent] += 1
 
 	// track seen protocols
 	for _, p := range cr.Protocols {
-		s.Protocols[p] += 1
+		s.protocols[p] += 1
 	}
 
 	// track error or schedule new crawls
@@ -268,7 +274,7 @@ func (s *Scheduler) handleResult(cr Result) {
 	} else {
 		// Count errors
 		dialErr := determineDialError(cr.Error)
-		s.Errors[dialErr] += 1
+		s.errors[dialErr] += 1
 		if dialErr == models.DialErrorUnknown {
 			logEntry = logEntry.WithError(cr.Error)
 		} else {
@@ -464,7 +470,7 @@ func (s *Scheduler) persistPeerProperties(ctx context.Context, crawlID int) erro
 	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
 	avFull := map[string]int{}
 	avCore := map[string]int{}
-	for version, count := range s.AgentVersion {
+	for version, count := range s.agentVersion {
 		avFull[version] += count
 		matches := agentVersionRegex.FindStringSubmatch(version)
 		if matches != nil {
@@ -480,8 +486,8 @@ func (s *Scheduler) persistPeerProperties(ctx context.Context, crawlID int) erro
 	for property, valuesMap := range map[string]map[string]int{
 		"agent_version":      avFull,
 		"agent_version_core": avCore,
-		"protocol":           s.Protocols,
-		"error":              s.Errors,
+		"protocol":           s.protocols,
+		"error":              s.errors,
 	} {
 		for value, count := range valuesMap {
 			pp := &models.PeerProperty{
@@ -507,7 +513,7 @@ func (s *Scheduler) persistPeerProperties(ctx context.Context, crawlID int) erro
 // TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.
 func (s *Scheduler) TotalErrors() int {
 	sum := 0
-	for _, count := range s.Errors {
+	for _, count := range s.errors {
 		sum += count
 	}
 	return sum
