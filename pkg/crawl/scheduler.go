@@ -294,13 +294,14 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 		return nil
 	}
 
+	// No error, update peer record in DB
+	ipeerID, oldMaddrStrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
+	if err != nil {
+		return errors.Wrap(err, "upsert peer")
+	}
+
 	startUpsert := time.Now()
 	if cr.Error == nil {
-		// No error, update peer record in DB
-		oldMaddrStrs, err := db.UpsertPeer(s.dbh, cr.Peer.ID.Pretty(), cr.Peer.Addrs)
-		if err != nil {
-			return errors.Wrap(err, "upsert peer")
-		}
 
 		// Parse old multi-addresses
 		oldMaddrs, err := addrsToMaddrs(oldMaddrStrs)
@@ -311,13 +312,13 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 		// Check if the new multi-addresses constitute a new session
 		if isNewSession(oldMaddrs, cr.Peer.Addrs) {
 			// This is a new session as there is no overlap in multi-addresses - invalidate current session
-			if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), time.Now(), models.DialErrorMaddrReset); err != nil {
+			if err := db.UpsertSessionError(s.dbh, ipeerID, time.Now(), models.DialErrorMaddrReset); err != nil {
 				return errors.Wrap(err, "upsert session error maddr reset")
 			}
 		}
 
 		// Upsert peer session
-		if err := db.UpsertSessionSuccess(s.dbh, cr.Peer.ID.Pretty()); err != nil {
+		if err := db.UpsertSessionSuccess(s.dbh, ipeerID); err != nil {
 			return errors.Wrap(err, "upsert session success")
 		}
 
@@ -328,6 +329,7 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 				return errors.Wrap(err, "create latencies txn")
 			}
 			for _, latency := range cr.Latencies {
+				latency.PeerID = ipeerID
 				if err := latency.Insert(s.ServiceContext(), txn, boil.Infer()); err != nil {
 					return errors.Wrap(err, "insert latency measurement")
 				}
@@ -339,7 +341,7 @@ func (s *Scheduler) upsertCrawlResult(cr Result) error {
 
 	} else if cr.Error != s.ServiceContext().Err() {
 		dialErr := determineDialError(cr.Error)
-		if err := db.UpsertSessionError(s.dbh, cr.Peer.ID.Pretty(), cr.ErrorTime, dialErr); err != nil {
+		if err := db.UpsertSessionError(s.dbh, ipeerID, cr.ErrorTime, dialErr); err != nil {
 			return errors.Wrap(err, "upsert session error")
 		}
 	}

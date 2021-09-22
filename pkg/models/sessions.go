@@ -25,7 +25,6 @@ import (
 // Session is an object representing the database table.
 type Session struct {
 	ID                  int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID              string      `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	FirstSuccessfulDial time.Time   `boil:"first_successful_dial" json:"first_successful_dial" toml:"first_successful_dial" yaml:"first_successful_dial"`
 	LastSuccessfulDial  time.Time   `boil:"last_successful_dial" json:"last_successful_dial" toml:"last_successful_dial" yaml:"last_successful_dial"`
 	NextDialAttempt     null.Time   `boil:"next_dial_attempt" json:"next_dial_attempt,omitempty" toml:"next_dial_attempt" yaml:"next_dial_attempt,omitempty"`
@@ -37,6 +36,7 @@ type Session struct {
 	UpdatedAt           time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt           time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	FinishReason        null.String `boil:"finish_reason" json:"finish_reason,omitempty" toml:"finish_reason" yaml:"finish_reason,omitempty"`
+	PeerID              int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 
 	R *sessionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L sessionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -44,7 +44,6 @@ type Session struct {
 
 var SessionColumns = struct {
 	ID                  string
-	PeerID              string
 	FirstSuccessfulDial string
 	LastSuccessfulDial  string
 	NextDialAttempt     string
@@ -56,9 +55,9 @@ var SessionColumns = struct {
 	UpdatedAt           string
 	CreatedAt           string
 	FinishReason        string
+	PeerID              string
 }{
 	ID:                  "id",
-	PeerID:              "peer_id",
 	FirstSuccessfulDial: "first_successful_dial",
 	LastSuccessfulDial:  "last_successful_dial",
 	NextDialAttempt:     "next_dial_attempt",
@@ -70,11 +69,11 @@ var SessionColumns = struct {
 	UpdatedAt:           "updated_at",
 	CreatedAt:           "created_at",
 	FinishReason:        "finish_reason",
+	PeerID:              "peer_id",
 }
 
 var SessionTableColumns = struct {
 	ID                  string
-	PeerID              string
 	FirstSuccessfulDial string
 	LastSuccessfulDial  string
 	NextDialAttempt     string
@@ -86,9 +85,9 @@ var SessionTableColumns = struct {
 	UpdatedAt           string
 	CreatedAt           string
 	FinishReason        string
+	PeerID              string
 }{
 	ID:                  "sessions.id",
-	PeerID:              "sessions.peer_id",
 	FirstSuccessfulDial: "sessions.first_successful_dial",
 	LastSuccessfulDial:  "sessions.last_successful_dial",
 	NextDialAttempt:     "sessions.next_dial_attempt",
@@ -100,6 +99,7 @@ var SessionTableColumns = struct {
 	UpdatedAt:           "sessions.updated_at",
 	CreatedAt:           "sessions.created_at",
 	FinishReason:        "sessions.finish_reason",
+	PeerID:              "sessions.peer_id",
 }
 
 // Generated where
@@ -115,7 +115,6 @@ func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field
 
 var SessionWhere = struct {
 	ID                  whereHelperint
-	PeerID              whereHelperstring
 	FirstSuccessfulDial whereHelpertime_Time
 	LastSuccessfulDial  whereHelpertime_Time
 	NextDialAttempt     whereHelpernull_Time
@@ -127,9 +126,9 @@ var SessionWhere = struct {
 	UpdatedAt           whereHelpertime_Time
 	CreatedAt           whereHelpertime_Time
 	FinishReason        whereHelpernull_String
+	PeerID              whereHelperint
 }{
 	ID:                  whereHelperint{field: "\"sessions\".\"id\""},
-	PeerID:              whereHelperstring{field: "\"sessions\".\"peer_id\""},
 	FirstSuccessfulDial: whereHelpertime_Time{field: "\"sessions\".\"first_successful_dial\""},
 	LastSuccessfulDial:  whereHelpertime_Time{field: "\"sessions\".\"last_successful_dial\""},
 	NextDialAttempt:     whereHelpernull_Time{field: "\"sessions\".\"next_dial_attempt\""},
@@ -141,6 +140,7 @@ var SessionWhere = struct {
 	UpdatedAt:           whereHelpertime_Time{field: "\"sessions\".\"updated_at\""},
 	CreatedAt:           whereHelpertime_Time{field: "\"sessions\".\"created_at\""},
 	FinishReason:        whereHelpernull_String{field: "\"sessions\".\"finish_reason\""},
+	PeerID:              whereHelperint{field: "\"sessions\".\"peer_id\""},
 }
 
 // SessionRels is where relationship names are stored.
@@ -164,9 +164,9 @@ func (*sessionR) NewStruct() *sessionR {
 type sessionL struct{}
 
 var (
-	sessionAllColumns            = []string{"id", "peer_id", "first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason"}
-	sessionColumnsWithoutDefault = []string{"peer_id", "first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason"}
-	sessionColumnsWithDefault    = []string{"id"}
+	sessionAllColumns            = []string{"id", "first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason", "peer_id"}
+	sessionColumnsWithoutDefault = []string{"first_successful_dial", "last_successful_dial", "next_dial_attempt", "first_failed_dial", "min_duration", "max_duration", "finished", "successful_dials", "updated_at", "created_at", "finish_reason"}
+	sessionColumnsWithDefault    = []string{"id", "peer_id"}
 	sessionPrimaryKeyColumns     = []string{"id"}
 )
 

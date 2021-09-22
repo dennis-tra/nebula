@@ -82,6 +82,7 @@ ALTER TABLE peers
     DROP CONSTRAINT peers_pkey;
 ALTER TABLE peers
     ADD PRIMARY KEY (id);
+DROP INDEX idx_peers_peer_id;
 ------------------------------------------------------------------------------------------------------------------------
 
 ------------------------------

@@ -24,66 +24,73 @@ import (
 
 // Neighbour is an object representing the database table.
 type Neighbour struct {
-	ID              int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID          string    `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
-	NeighbourPeerID string    `boil:"neighbour_peer_id" json:"neighbour_peer_id" toml:"neighbour_peer_id" yaml:"neighbour_peer_id"`
-	CreatedAt       null.Time `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
-	CrawlStartAt    null.Time `boil:"crawl_start_at" json:"crawl_start_at,omitempty" toml:"crawl_start_at" yaml:"crawl_start_at,omitempty"`
+	ID           int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	CreatedAt    null.Time `boil:"created_at" json:"created_at,omitempty" toml:"created_at" yaml:"created_at,omitempty"`
+	CrawlStartAt null.Time `boil:"crawl_start_at" json:"crawl_start_at,omitempty" toml:"crawl_start_at" yaml:"crawl_start_at,omitempty"`
+	PeerID       int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
+	NeighbourID  int       `boil:"neighbour_id" json:"neighbour_id" toml:"neighbour_id" yaml:"neighbour_id"`
 
 	R *neighbourR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L neighbourL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var NeighbourColumns = struct {
-	ID              string
-	PeerID          string
-	NeighbourPeerID string
-	CreatedAt       string
-	CrawlStartAt    string
+	ID           string
+	CreatedAt    string
+	CrawlStartAt string
+	PeerID       string
+	NeighbourID  string
 }{
-	ID:              "id",
-	PeerID:          "peer_id",
-	NeighbourPeerID: "neighbour_peer_id",
-	CreatedAt:       "created_at",
-	CrawlStartAt:    "crawl_start_at",
+	ID:           "id",
+	CreatedAt:    "created_at",
+	CrawlStartAt: "crawl_start_at",
+	PeerID:       "peer_id",
+	NeighbourID:  "neighbour_id",
 }
 
 var NeighbourTableColumns = struct {
-	ID              string
-	PeerID          string
-	NeighbourPeerID string
-	CreatedAt       string
-	CrawlStartAt    string
+	ID           string
+	CreatedAt    string
+	CrawlStartAt string
+	PeerID       string
+	NeighbourID  string
 }{
-	ID:              "neighbours.id",
-	PeerID:          "neighbours.peer_id",
-	NeighbourPeerID: "neighbours.neighbour_peer_id",
-	CreatedAt:       "neighbours.created_at",
-	CrawlStartAt:    "neighbours.crawl_start_at",
+	ID:           "neighbours.id",
+	CreatedAt:    "neighbours.created_at",
+	CrawlStartAt: "neighbours.crawl_start_at",
+	PeerID:       "neighbours.peer_id",
+	NeighbourID:  "neighbours.neighbour_id",
 }
 
 // Generated where
 
 var NeighbourWhere = struct {
-	ID              whereHelperint
-	PeerID          whereHelperstring
-	NeighbourPeerID whereHelperstring
-	CreatedAt       whereHelpernull_Time
-	CrawlStartAt    whereHelpernull_Time
+	ID           whereHelperint
+	CreatedAt    whereHelpernull_Time
+	CrawlStartAt whereHelpernull_Time
+	PeerID       whereHelperint
+	NeighbourID  whereHelperint
 }{
-	ID:              whereHelperint{field: "\"neighbours\".\"id\""},
-	PeerID:          whereHelperstring{field: "\"neighbours\".\"peer_id\""},
-	NeighbourPeerID: whereHelperstring{field: "\"neighbours\".\"neighbour_peer_id\""},
-	CreatedAt:       whereHelpernull_Time{field: "\"neighbours\".\"created_at\""},
-	CrawlStartAt:    whereHelpernull_Time{field: "\"neighbours\".\"crawl_start_at\""},
+	ID:           whereHelperint{field: "\"neighbours\".\"id\""},
+	CreatedAt:    whereHelpernull_Time{field: "\"neighbours\".\"created_at\""},
+	CrawlStartAt: whereHelpernull_Time{field: "\"neighbours\".\"crawl_start_at\""},
+	PeerID:       whereHelperint{field: "\"neighbours\".\"peer_id\""},
+	NeighbourID:  whereHelperint{field: "\"neighbours\".\"neighbour_id\""},
 }
 
 // NeighbourRels is where relationship names are stored.
 var NeighbourRels = struct {
-}{}
+	Neighbour string
+	Peer      string
+}{
+	Neighbour: "Neighbour",
+	Peer:      "Peer",
+}
 
 // neighbourR is where relationships are stored.
 type neighbourR struct {
+	Neighbour *Peer `boil:"Neighbour" json:"Neighbour" toml:"Neighbour" yaml:"Neighbour"`
+	Peer      *Peer `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
 }
 
 // NewStruct creates a new relationship struct
@@ -95,9 +102,9 @@ func (*neighbourR) NewStruct() *neighbourR {
 type neighbourL struct{}
 
 var (
-	neighbourAllColumns            = []string{"id", "peer_id", "neighbour_peer_id", "created_at", "crawl_start_at"}
-	neighbourColumnsWithoutDefault = []string{"peer_id", "neighbour_peer_id", "created_at", "crawl_start_at"}
-	neighbourColumnsWithDefault    = []string{"id"}
+	neighbourAllColumns            = []string{"id", "created_at", "crawl_start_at", "peer_id", "neighbour_id"}
+	neighbourColumnsWithoutDefault = []string{"created_at", "crawl_start_at"}
+	neighbourColumnsWithDefault    = []string{"id", "peer_id", "neighbour_id"}
 	neighbourPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -374,6 +381,336 @@ func (q neighbourQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (
 	}
 
 	return count > 0, nil
+}
+
+// Neighbour pointed to by the foreign key.
+func (o *Neighbour) Neighbour(mods ...qm.QueryMod) peerQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.NeighbourID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	query := Peers(queryMods...)
+	queries.SetFrom(query.Query, "\"peers\"")
+
+	return query
+}
+
+// Peer pointed to by the foreign key.
+func (o *Neighbour) Peer(mods ...qm.QueryMod) peerQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.PeerID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	query := Peers(queryMods...)
+	queries.SetFrom(query.Query, "\"peers\"")
+
+	return query
+}
+
+// LoadNeighbour allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (neighbourL) LoadNeighbour(ctx context.Context, e boil.ContextExecutor, singular bool, maybeNeighbour interface{}, mods queries.Applicator) error {
+	var slice []*Neighbour
+	var object *Neighbour
+
+	if singular {
+		object = maybeNeighbour.(*Neighbour)
+	} else {
+		slice = *maybeNeighbour.(*[]*Neighbour)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &neighbourR{}
+		}
+		args = append(args, object.NeighbourID)
+
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &neighbourR{}
+			}
+
+			for _, a := range args {
+				if a == obj.NeighbourID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.NeighbourID)
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`peers`),
+		qm.WhereIn(`peers.id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Peer")
+	}
+
+	var resultSlice []*Peer
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for peers")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
+	}
+
+	if len(neighbourAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Neighbour = foreign
+		if foreign.R == nil {
+			foreign.R = &peerR{}
+		}
+		foreign.R.NeighbourNeighbours = append(foreign.R.NeighbourNeighbours, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.NeighbourID == foreign.ID {
+				local.R.Neighbour = foreign
+				if foreign.R == nil {
+					foreign.R = &peerR{}
+				}
+				foreign.R.NeighbourNeighbours = append(foreign.R.NeighbourNeighbours, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPeer allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (neighbourL) LoadPeer(ctx context.Context, e boil.ContextExecutor, singular bool, maybeNeighbour interface{}, mods queries.Applicator) error {
+	var slice []*Neighbour
+	var object *Neighbour
+
+	if singular {
+		object = maybeNeighbour.(*Neighbour)
+	} else {
+		slice = *maybeNeighbour.(*[]*Neighbour)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &neighbourR{}
+		}
+		args = append(args, object.PeerID)
+
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &neighbourR{}
+			}
+
+			for _, a := range args {
+				if a == obj.PeerID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.PeerID)
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`peers`),
+		qm.WhereIn(`peers.id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Peer")
+	}
+
+	var resultSlice []*Peer
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for peers")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
+	}
+
+	if len(neighbourAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Peer = foreign
+		if foreign.R == nil {
+			foreign.R = &peerR{}
+		}
+		foreign.R.Neighbours = append(foreign.R.Neighbours, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if local.PeerID == foreign.ID {
+				local.R.Peer = foreign
+				if foreign.R == nil {
+					foreign.R = &peerR{}
+				}
+				foreign.R.Neighbours = append(foreign.R.Neighbours, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// SetNeighbour of the neighbour to the related item.
+// Sets o.R.Neighbour to related.
+// Adds o to related.R.NeighbourNeighbours.
+func (o *Neighbour) SetNeighbour(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"neighbours\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"neighbour_id"}),
+		strmangle.WhereClause("\"", "\"", 2, neighbourPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.NeighbourID = related.ID
+	if o.R == nil {
+		o.R = &neighbourR{
+			Neighbour: related,
+		}
+	} else {
+		o.R.Neighbour = related
+	}
+
+	if related.R == nil {
+		related.R = &peerR{
+			NeighbourNeighbours: NeighbourSlice{o},
+		}
+	} else {
+		related.R.NeighbourNeighbours = append(related.R.NeighbourNeighbours, o)
+	}
+
+	return nil
+}
+
+// SetPeer of the neighbour to the related item.
+// Sets o.R.Peer to related.
+// Adds o to related.R.Neighbours.
+func (o *Neighbour) SetPeer(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"neighbours\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+		strmangle.WhereClause("\"", "\"", 2, neighbourPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	o.PeerID = related.ID
+	if o.R == nil {
+		o.R = &neighbourR{
+			Peer: related,
+		}
+	} else {
+		o.R.Peer = related
+	}
+
+	if related.R == nil {
+		related.R = &peerR{
+			Neighbours: NeighbourSlice{o},
+		}
+	} else {
+		related.R.Neighbours = append(related.R.Neighbours, o)
+	}
+
+	return nil
 }
 
 // Neighbours retrieves all the records using an executor.

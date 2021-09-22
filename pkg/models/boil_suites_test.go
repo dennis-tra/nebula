@@ -141,7 +141,10 @@ func TestInsert(t *testing.T) {
 // TestToOne tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOne(t *testing.T) {
+	t.Run("ConnectionToPeerUsingPeer", testConnectionToOnePeerUsingPeer)
 	t.Run("LatencyToPeerUsingPeer", testLatencyToOnePeerUsingPeer)
+	t.Run("NeighbourToPeerUsingNeighbour", testNeighbourToOnePeerUsingNeighbour)
+	t.Run("NeighbourToPeerUsingPeer", testNeighbourToOnePeerUsingPeer)
 	t.Run("PeerPropertyToCrawlUsingCrawl", testPeerPropertyToOneCrawlUsingCrawl)
 	t.Run("SessionToPeerUsingPeer", testSessionToOnePeerUsingPeer)
 }
@@ -154,14 +157,20 @@ func TestOneToOne(t *testing.T) {}
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyPeerProperties)
+	t.Run("PeerToConnections", testPeerToManyConnections)
 	t.Run("PeerToLatencies", testPeerToManyLatencies)
+	t.Run("PeerToNeighbourNeighbours", testPeerToManyNeighbourNeighbours)
+	t.Run("PeerToNeighbours", testPeerToManyNeighbours)
 	t.Run("PeerToSessions", testPeerToManySessions)
 }
 
 // TestToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToOneSet(t *testing.T) {
+	t.Run("ConnectionToPeerUsingConnections", testConnectionToOneSetOpPeerUsingPeer)
 	t.Run("LatencyToPeerUsingLatencies", testLatencyToOneSetOpPeerUsingPeer)
+	t.Run("NeighbourToPeerUsingNeighbourNeighbours", testNeighbourToOneSetOpPeerUsingNeighbour)
+	t.Run("NeighbourToPeerUsingNeighbours", testNeighbourToOneSetOpPeerUsingPeer)
 	t.Run("PeerPropertyToCrawlUsingPeerProperties", testPeerPropertyToOneSetOpCrawlUsingCrawl)
 	t.Run("SessionToPeerUsingSessions", testSessionToOneSetOpPeerUsingPeer)
 }
@@ -182,7 +191,10 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyAddOpPeerProperties)
+	t.Run("PeerToConnections", testPeerToManyAddOpConnections)
 	t.Run("PeerToLatencies", testPeerToManyAddOpLatencies)
+	t.Run("PeerToNeighbourNeighbours", testPeerToManyAddOpNeighbourNeighbours)
+	t.Run("PeerToNeighbours", testPeerToManyAddOpNeighbours)
 	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
 }
 
