@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -24,13 +25,14 @@ import (
 // Crawl is an object representing the database table.
 type Crawl struct {
 	ID              int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	State           string    `boil:"state" json:"state" toml:"state" yaml:"state"`
 	StartedAt       time.Time `boil:"started_at" json:"started_at" toml:"started_at" yaml:"started_at"`
-	FinishedAt      time.Time `boil:"finished_at" json:"finished_at" toml:"finished_at" yaml:"finished_at"`
-	CrawledPeers    int       `boil:"crawled_peers" json:"crawled_peers" toml:"crawled_peers" yaml:"crawled_peers"`
-	DialablePeers   int       `boil:"dialable_peers" json:"dialable_peers" toml:"dialable_peers" yaml:"dialable_peers"`
-	UndialablePeers int       `boil:"undialable_peers" json:"undialable_peers" toml:"undialable_peers" yaml:"undialable_peers"`
+	FinishedAt      null.Time `boil:"finished_at" json:"finished_at,omitempty" toml:"finished_at" yaml:"finished_at,omitempty"`
 	UpdatedAt       time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt       time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	CrawledPeers    null.Int  `boil:"crawled_peers" json:"crawled_peers,omitempty" toml:"crawled_peers" yaml:"crawled_peers,omitempty"`
+	DialablePeers   null.Int  `boil:"dialable_peers" json:"dialable_peers,omitempty" toml:"dialable_peers" yaml:"dialable_peers,omitempty"`
+	UndialablePeers null.Int  `boil:"undialable_peers" json:"undialable_peers,omitempty" toml:"undialable_peers" yaml:"undialable_peers,omitempty"`
 
 	R *crawlR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L crawlL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -38,42 +40,46 @@ type Crawl struct {
 
 var CrawlColumns = struct {
 	ID              string
+	State           string
 	StartedAt       string
 	FinishedAt      string
+	UpdatedAt       string
+	CreatedAt       string
 	CrawledPeers    string
 	DialablePeers   string
 	UndialablePeers string
-	UpdatedAt       string
-	CreatedAt       string
 }{
 	ID:              "id",
+	State:           "state",
 	StartedAt:       "started_at",
 	FinishedAt:      "finished_at",
+	UpdatedAt:       "updated_at",
+	CreatedAt:       "created_at",
 	CrawledPeers:    "crawled_peers",
 	DialablePeers:   "dialable_peers",
 	UndialablePeers: "undialable_peers",
-	UpdatedAt:       "updated_at",
-	CreatedAt:       "created_at",
 }
 
 var CrawlTableColumns = struct {
 	ID              string
+	State           string
 	StartedAt       string
 	FinishedAt      string
+	UpdatedAt       string
+	CreatedAt       string
 	CrawledPeers    string
 	DialablePeers   string
 	UndialablePeers string
-	UpdatedAt       string
-	CreatedAt       string
 }{
 	ID:              "crawls.id",
+	State:           "crawls.state",
 	StartedAt:       "crawls.started_at",
 	FinishedAt:      "crawls.finished_at",
+	UpdatedAt:       "crawls.updated_at",
+	CreatedAt:       "crawls.created_at",
 	CrawledPeers:    "crawls.crawled_peers",
 	DialablePeers:   "crawls.dialable_peers",
 	UndialablePeers: "crawls.undialable_peers",
-	UpdatedAt:       "crawls.updated_at",
-	CreatedAt:       "crawls.created_at",
 }
 
 // Generated where
@@ -94,6 +100,29 @@ func (w whereHelperint) IN(slice []int) qm.QueryMod {
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
 func (w whereHelperint) NIN(slice []int) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
+
+type whereHelperstring struct{ field string }
+
+func (w whereHelperstring) EQ(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperstring) NEQ(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperstring) LT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperstring) LTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperstring) GT(x string) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperstring) GTE(x string) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperstring) IN(slice []string) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
 		values = append(values, value)
@@ -122,24 +151,72 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
+type whereHelpernull_Time struct{ field string }
+
+func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_Time) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Time) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
+type whereHelpernull_Int struct{ field string }
+
+func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
 var CrawlWhere = struct {
 	ID              whereHelperint
+	State           whereHelperstring
 	StartedAt       whereHelpertime_Time
-	FinishedAt      whereHelpertime_Time
-	CrawledPeers    whereHelperint
-	DialablePeers   whereHelperint
-	UndialablePeers whereHelperint
+	FinishedAt      whereHelpernull_Time
 	UpdatedAt       whereHelpertime_Time
 	CreatedAt       whereHelpertime_Time
+	CrawledPeers    whereHelpernull_Int
+	DialablePeers   whereHelpernull_Int
+	UndialablePeers whereHelpernull_Int
 }{
 	ID:              whereHelperint{field: "\"crawls\".\"id\""},
+	State:           whereHelperstring{field: "\"crawls\".\"state\""},
 	StartedAt:       whereHelpertime_Time{field: "\"crawls\".\"started_at\""},
-	FinishedAt:      whereHelpertime_Time{field: "\"crawls\".\"finished_at\""},
-	CrawledPeers:    whereHelperint{field: "\"crawls\".\"crawled_peers\""},
-	DialablePeers:   whereHelperint{field: "\"crawls\".\"dialable_peers\""},
-	UndialablePeers: whereHelperint{field: "\"crawls\".\"undialable_peers\""},
+	FinishedAt:      whereHelpernull_Time{field: "\"crawls\".\"finished_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"crawls\".\"updated_at\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"crawls\".\"created_at\""},
+	CrawledPeers:    whereHelpernull_Int{field: "\"crawls\".\"crawled_peers\""},
+	DialablePeers:   whereHelpernull_Int{field: "\"crawls\".\"dialable_peers\""},
+	UndialablePeers: whereHelpernull_Int{field: "\"crawls\".\"undialable_peers\""},
 }
 
 // CrawlRels is where relationship names are stored.
@@ -163,8 +240,8 @@ func (*crawlR) NewStruct() *crawlR {
 type crawlL struct{}
 
 var (
-	crawlAllColumns            = []string{"id", "started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "updated_at", "created_at"}
-	crawlColumnsWithoutDefault = []string{"started_at", "finished_at", "crawled_peers", "dialable_peers", "undialable_peers", "updated_at", "created_at"}
+	crawlAllColumns            = []string{"id", "state", "started_at", "finished_at", "updated_at", "created_at", "crawled_peers", "dialable_peers", "undialable_peers"}
+	crawlColumnsWithoutDefault = []string{"state", "started_at", "finished_at", "updated_at", "created_at", "crawled_peers", "dialable_peers", "undialable_peers"}
 	crawlColumnsWithDefault    = []string{"id"}
 	crawlPrimaryKeyColumns     = []string{"id"}
 )
