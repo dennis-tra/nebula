@@ -17,7 +17,7 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
-  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`daemon`](#daemon)
+  - [`crawl`](#crawl) | [`monitor`](#monitor)
 - [Install](#install)
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
@@ -37,7 +37,7 @@ The crawler is successfully visiting and following all reachable nodes in the IP
 
 ## Usage
 
-Nebula is a command line tool and provides the three sub-commands `crawl`, `monitor` and `daemon`. To simply crawl the IPFS network run:
+Nebula is a command line tool and provides the two sub-commands `crawl` and `monitor`. To simply crawl the IPFS network run:
 
 ```shell
 nebula crawl --dry-run
@@ -63,7 +63,6 @@ AUTHOR:
 COMMANDS:
    crawl    Crawls the entire network based on a set of bootstrap nodes.
    monitor  Monitors the network by periodically dialing and pinging previously crawled peers.
-   daemon   Start a long running process that crawls and monitors the DHT network
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -145,11 +144,6 @@ saved multi-addresses and updates their `session` instances accordingly if they'
 The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` has observed for that given peer.
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
-
-### `daemon`
-
-**Work in progress:** The `daemon` sub-command combines the `crawl` and `monitor` tasks in a single process. It uses application level
-scheduling of the crawls rather than e.g. OS-level cron configurations.
 
 ## Install
 
