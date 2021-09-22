@@ -722,7 +722,7 @@ func testCrawlsSelect(t *testing.T) {
 }
 
 var (
-	crawlDBTypes = map[string]string{`ID`: `integer`, `StartedAt`: `timestamp with time zone`, `FinishedAt`: `timestamp with time zone`, `CrawledPeers`: `integer`, `DialablePeers`: `integer`, `UndialablePeers`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	crawlDBTypes = map[string]string{`ID`: `integer`, `State`: `enum.crawl_state('started','cancelled','failed','succeeded')`, `StartedAt`: `timestamp with time zone`, `FinishedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `CrawledPeers`: `integer`, `DialablePeers`: `integer`, `UndialablePeers`: `integer`}
 	_            = bytes.MinRead
 )
 

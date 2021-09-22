@@ -51,6 +51,14 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	return str
 }
 
+// Enum values for crawl_state
+const (
+	CrawlStateStarted   = "started"
+	CrawlStateCancelled = "cancelled"
+	CrawlStateFailed    = "failed"
+	CrawlStateSucceeded = "succeeded"
+)
+
 // Enum values for dial_error
 const (
 	DialErrorIoTimeout               = "io_timeout"
