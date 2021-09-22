@@ -2,14 +2,11 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
 	"time"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -17,6 +14,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
@@ -80,9 +78,9 @@ func CrawlAction(c *cli.Context) error {
 	c.Context = ctx
 
 	// Acquire database handle
-	var dbh *sql.DB
+	var dbc *db.Client
 	if !c.Bool("dry-run") {
-		if dbh, err = db.Open(c.Context); err != nil {
+		if dbc, err = db.InitClient(c.Context); err != nil {
 			return err
 		}
 	}
@@ -102,7 +100,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(c.Context, dbh)
+	s, err := crawl.NewScheduler(c.Context, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}
