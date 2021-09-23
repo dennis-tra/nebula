@@ -53,8 +53,8 @@ func (s *Scheduler) persistCrawlResult(cr Result) error {
 	var err error
 	ctx := s.ServiceContext()
 	dbPeer, found := s.dbPeers[cr.Peer.ID]
-	if !found {
-		if dbPeer, err = s.dbc.UpsertPeer(ctx, cr.Peer); err != nil {
+	if !found || dbPeer.AgentVersion.String != cr.Agent {
+		if dbPeer, err = s.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent); err != nil {
 			return errors.Wrap(err, "upsert peer")
 		}
 	}
