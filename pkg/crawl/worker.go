@@ -98,8 +98,14 @@ func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO)
 
 	ctx := w.ServiceContext()
 	logEntry := log.WithField("workerID", w.Identifier())
-	for elem := range crawlQueue.Consume() {
-		pi := elem.(peer.AddrInfo)
+	for {
+		var pi peer.AddrInfo
+		select {
+		case elem := <-crawlQueue.Consume():
+			pi = elem.(peer.AddrInfo)
+		case <-w.SigShutdown():
+			return
+		}
 
 		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16]).WithField("crawlCount", w.crawledPeers)
 		logEntry.Debugln("Crawling peer")
@@ -141,8 +147,6 @@ func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO)
 		resultsQueue.Produce() <- cr
 		logEntry.Debugln("Crawled peer")
 	}
-
-	logEntry.Debugf("Crawled %d peers\n", w.crawledPeers)
 }
 
 func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
