@@ -563,7 +563,7 @@ func (propertyL) LoadPeers(ctx context.Context, e boil.ContextExecutor, singular
 	}
 
 	query := NewQuery(
-		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".id, \"peers\".agent_version, \"peers\".protocol, \"a\".\"property_id\""),
+		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".id, \"a\".\"property_id\""),
 		qm.From("\"peers\""),
 		qm.InnerJoin("\"peers_properties\" as \"a\" on \"peers\".\"id\" = \"a\".\"peer_id\""),
 		qm.WhereIn("\"a\".\"property_id\" in ?", args...),
@@ -584,7 +584,7 @@ func (propertyL) LoadPeers(ctx context.Context, e boil.ContextExecutor, singular
 		one := new(Peer)
 		var localJoinCol int
 
-		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.ID, &one.AgentVersion, &one.Protocol, &localJoinCol)
+		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.ID, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for peers")
 		}

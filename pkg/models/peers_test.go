@@ -1499,7 +1499,7 @@ func testPeersSelect(t *testing.T) {
 }
 
 var (
-	peerDBTypes = map[string]string{`MultiHash`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ID`: `integer`, `AgentVersion`: `character varying`, `Protocol`: `ARRAYcharacter varying`}
+	peerDBTypes = map[string]string{`MultiHash`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ID`: `integer`}
 	_           = bytes.MinRead
 )
 

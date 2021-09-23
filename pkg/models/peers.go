@@ -14,101 +14,60 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/queries/qmhelper"
-	"github.com/volatiletech/sqlboiler/v4/types"
 	"github.com/volatiletech/strmangle"
 )
 
 // Peer is an object representing the database table.
 type Peer struct {
-	MultiHash    string            `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
-	UpdatedAt    time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt    time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	ID           int               `boil:"id" json:"id" toml:"id" yaml:"id"`
-	AgentVersion null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
-	Protocol     types.StringArray `boil:"protocol" json:"protocol,omitempty" toml:"protocol" yaml:"protocol,omitempty"`
+	MultiHash string    `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
+	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID        int       `boil:"id" json:"id" toml:"id" yaml:"id"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var PeerColumns = struct {
-	MultiHash    string
-	UpdatedAt    string
-	CreatedAt    string
-	ID           string
-	AgentVersion string
-	Protocol     string
+	MultiHash string
+	UpdatedAt string
+	CreatedAt string
+	ID        string
 }{
-	MultiHash:    "multi_hash",
-	UpdatedAt:    "updated_at",
-	CreatedAt:    "created_at",
-	ID:           "id",
-	AgentVersion: "agent_version",
-	Protocol:     "protocol",
+	MultiHash: "multi_hash",
+	UpdatedAt: "updated_at",
+	CreatedAt: "created_at",
+	ID:        "id",
 }
 
 var PeerTableColumns = struct {
-	MultiHash    string
-	UpdatedAt    string
-	CreatedAt    string
-	ID           string
-	AgentVersion string
-	Protocol     string
+	MultiHash string
+	UpdatedAt string
+	CreatedAt string
+	ID        string
 }{
-	MultiHash:    "peers.multi_hash",
-	UpdatedAt:    "peers.updated_at",
-	CreatedAt:    "peers.created_at",
-	ID:           "peers.id",
-	AgentVersion: "peers.agent_version",
-	Protocol:     "peers.protocol",
+	MultiHash: "peers.multi_hash",
+	UpdatedAt: "peers.updated_at",
+	CreatedAt: "peers.created_at",
+	ID:        "peers.id",
 }
 
 // Generated where
 
-type whereHelpertypes_StringArray struct{ field string }
-
-func (w whereHelpertypes_StringArray) EQ(x types.StringArray) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpertypes_StringArray) NEQ(x types.StringArray) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpertypes_StringArray) IsNull() qm.QueryMod { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpertypes_StringArray) IsNotNull() qm.QueryMod {
-	return qmhelper.WhereIsNotNull(w.field)
-}
-func (w whereHelpertypes_StringArray) LT(x types.StringArray) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpertypes_StringArray) LTE(x types.StringArray) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpertypes_StringArray) GT(x types.StringArray) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var PeerWhere = struct {
-	MultiHash    whereHelperstring
-	UpdatedAt    whereHelpertime_Time
-	CreatedAt    whereHelpertime_Time
-	ID           whereHelperint
-	AgentVersion whereHelpernull_String
-	Protocol     whereHelpertypes_StringArray
+	MultiHash whereHelperstring
+	UpdatedAt whereHelpertime_Time
+	CreatedAt whereHelpertime_Time
+	ID        whereHelperint
 }{
-	MultiHash:    whereHelperstring{field: "\"peers\".\"multi_hash\""},
-	UpdatedAt:    whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
-	CreatedAt:    whereHelpertime_Time{field: "\"peers\".\"created_at\""},
-	ID:           whereHelperint{field: "\"peers\".\"id\""},
-	AgentVersion: whereHelpernull_String{field: "\"peers\".\"agent_version\""},
-	Protocol:     whereHelpertypes_StringArray{field: "\"peers\".\"protocol\""},
+	MultiHash: whereHelperstring{field: "\"peers\".\"multi_hash\""},
+	UpdatedAt: whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
+	CreatedAt: whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	ID:        whereHelperint{field: "\"peers\".\"id\""},
 }
 
 // PeerRels is where relationship names are stored.
@@ -141,8 +100,8 @@ func (*peerR) NewStruct() *peerR {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"multi_hash", "updated_at", "created_at", "id", "agent_version", "protocol"}
-	peerColumnsWithoutDefault = []string{"multi_hash", "updated_at", "created_at", "agent_version", "protocol"}
+	peerAllColumns            = []string{"multi_hash", "updated_at", "created_at", "id"}
+	peerColumnsWithoutDefault = []string{"multi_hash", "updated_at", "created_at"}
 	peerColumnsWithDefault    = []string{"id"}
 	peerPrimaryKeyColumns     = []string{"id"}
 )

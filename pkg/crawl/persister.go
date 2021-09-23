@@ -60,6 +60,7 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 		case <-p.SigShutdown():
 			return
 		}
+		start := time.Now()
 
 		logEntry = logEntry.WithField("targetID", cr.Peer.ID.Pretty()[:16])
 		logEntry.Debugln("Persisting peer")
@@ -70,7 +71,11 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 		} else {
 			logEntry.Debugln("Persisted peer")
 		}
-		logEntry.WithField("persisted", p.persistedPeers).WithField("success", err == nil).Infoln("Persisted crawl result from worker", cr.WorkerID)
+		logEntry.
+			WithField("persisted", p.persistedPeers).
+			WithField("success", err == nil).
+			WithField("duration", time.Since(start)).
+			Infoln("Persisted result from worker", cr.WorkerID)
 	}
 }
 
@@ -79,7 +84,7 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 func (p *Persister) persistCrawlResult(ctx context.Context, cr Result) error {
 	var err error
 
-	dbPeer, err := p.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent)
+	dbPeer, err := p.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent, cr.Protocols)
 	if err != nil {
 		return errors.Wrap(err, "upsert peer")
 	}

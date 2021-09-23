@@ -89,7 +89,7 @@ func (c *Client) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
 	return err
 }
 
-func (c *Client) GetPropertyOrCreate(ctx context.Context, exec boil.ContextExecutor, property string, value string) (*models.Property, error) {
+func (c *Client) GetOrCreateProperty(ctx context.Context, exec boil.ContextExecutor, property string, value string) (*models.Property, error) {
 	c.propLk.Lock()
 	defer c.propLk.Unlock()
 
@@ -117,7 +117,7 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 	for property, valuesMap := range properties {
 		for value, count := range valuesMap {
 
-			p, err := c.GetPropertyOrCreate(ctx, txn, property, value)
+			p, err := c.GetOrCreateProperty(ctx, txn, property, value)
 			if err != nil {
 				continue
 			}
@@ -189,22 +189,38 @@ func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.Pe
 	return models.Peers(qm.WhereIn(models.PeerColumns.MultiHash+" in ?", mhs...)).All(ctx, c.dbh)
 }
 
-func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string) (*models.Peer, error) {
+func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string, protocols []string) (*models.Peer, error) {
+	boil.DebugMode = true
 	txn, err := c.dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "begin txn")
 	}
 
-	p := &models.Peer{
-		MultiHash:    pi.ID.Pretty(),
-		AgentVersion: null.StringFrom(agent),
-	}
+	p := &models.Peer{MultiHash: pi.ID.Pretty()}
 	if err = p.Upsert(ctx, txn, true,
 		[]string{models.PeerColumns.MultiHash},
 		boil.Whitelist(models.PeerColumns.UpdatedAt),
 		boil.Infer(),
 	); err != nil {
 		return nil, errors.Wrap(err, "upsert peer")
+	}
+
+	var props []*models.Property
+	for _, protocol := range protocols {
+		prop, err := c.GetOrCreateProperty(ctx, c.dbh, "protocol", protocol)
+		if err != nil {
+			return nil, errors.Wrap(err, "get or create protocol property")
+		}
+		props = append(props, prop)
+	}
+
+	agentProp, err := c.GetOrCreateProperty(ctx, c.dbh, "agent_version", agent)
+	if err != nil {
+		return nil, errors.Wrap(err, "get or create agent version property")
+	}
+	props = append(props, agentProp)
+	if err = p.SetProperties(ctx, txn, false, props...); err != nil {
+		return nil, errors.Wrap(err, "set peer properties")
 	}
 
 	// TODO: we need to sort the multi addresses for insertion. See:
