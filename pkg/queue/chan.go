@@ -26,6 +26,10 @@ func (fifo *FIFO) Produce() chan<- interface{} {
 	return fifo.in
 }
 
+func (fifo *FIFO) Push(elem interface{}) {
+	fifo.in <- elem
+}
+
 func (fifo *FIFO) Consume() <-chan interface{} {
 	return fifo.out
 }
