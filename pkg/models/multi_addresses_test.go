@@ -526,11 +526,11 @@ func testMultiAddressToManyPeers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"maddr_id\", \"peer_id\") values ($1, $2)", a.ID, b.ID)
+	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"multi_address_id\", \"peer_id\") values ($1, $2)", a.ID, b.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"maddr_id\", \"peer_id\") values ($1, $2)", a.ID, c.ID)
+	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"multi_address_id\", \"peer_id\") values ($1, $2)", a.ID, c.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,10 +623,10 @@ func testMultiAddressToManyAddOpPeers(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if first.R.MaddrMultiAddresses[0] != &a {
+		if first.R.MultiAddresses[0] != &a {
 			t.Error("relationship was not added properly to the slice")
 		}
-		if second.R.MaddrMultiAddresses[0] != &a {
+		if second.R.MultiAddresses[0] != &a {
 			t.Error("relationship was not added properly to the slice")
 		}
 
@@ -708,16 +708,16 @@ func testMultiAddressToManySetOpPeers(t *testing.T) {
 	// to these when we call Set(). Leaving them here as wishful thinking
 	// and to let people know there's dragons.
 	//
-	// if len(b.R.MaddrMultiAddresses) != 0 {
+	// if len(b.R.MultiAddresses) != 0 {
 	// 	t.Error("relationship was not removed properly from the slice")
 	// }
-	// if len(c.R.MaddrMultiAddresses) != 0 {
+	// if len(c.R.MultiAddresses) != 0 {
 	// 	t.Error("relationship was not removed properly from the slice")
 	// }
-	if d.R.MaddrMultiAddresses[0] != &a {
+	if d.R.MultiAddresses[0] != &a {
 		t.Error("relationship was not added properly to the slice")
 	}
-	if e.R.MaddrMultiAddresses[0] != &a {
+	if e.R.MultiAddresses[0] != &a {
 		t.Error("relationship was not added properly to the slice")
 	}
 
@@ -780,16 +780,16 @@ func testMultiAddressToManyRemoveOpPeers(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	if len(b.R.MaddrMultiAddresses) != 0 {
+	if len(b.R.MultiAddresses) != 0 {
 		t.Error("relationship was not removed properly from the slice")
 	}
-	if len(c.R.MaddrMultiAddresses) != 0 {
+	if len(c.R.MultiAddresses) != 0 {
 		t.Error("relationship was not removed properly from the slice")
 	}
-	if d.R.MaddrMultiAddresses[0] != &a {
+	if d.R.MultiAddresses[0] != &a {
 		t.Error("relationship was not added properly to the foreign struct")
 	}
-	if e.R.MaddrMultiAddresses[0] != &a {
+	if e.R.MultiAddresses[0] != &a {
 		t.Error("relationship was not added properly to the foreign struct")
 	}
 

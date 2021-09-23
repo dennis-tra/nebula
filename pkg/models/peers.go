@@ -113,20 +113,20 @@ var PeerWhere = struct {
 
 // PeerRels is where relationship names are stored.
 var PeerRels = struct {
-	Latencies           string
-	MaddrMultiAddresses string
-	Sessions            string
+	Latencies      string
+	MultiAddresses string
+	Sessions       string
 }{
-	Latencies:           "Latencies",
-	MaddrMultiAddresses: "MaddrMultiAddresses",
-	Sessions:            "Sessions",
+	Latencies:      "Latencies",
+	MultiAddresses: "MultiAddresses",
+	Sessions:       "Sessions",
 }
 
 // peerR is where relationships are stored.
 type peerR struct {
-	Latencies           LatencySlice      `boil:"Latencies" json:"Latencies" toml:"Latencies" yaml:"Latencies"`
-	MaddrMultiAddresses MultiAddressSlice `boil:"MaddrMultiAddresses" json:"MaddrMultiAddresses" toml:"MaddrMultiAddresses" yaml:"MaddrMultiAddresses"`
-	Sessions            SessionSlice      `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
+	Latencies      LatencySlice      `boil:"Latencies" json:"Latencies" toml:"Latencies" yaml:"Latencies"`
+	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
+	Sessions       SessionSlice      `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
 }
 
 // NewStruct creates a new relationship struct
@@ -440,15 +440,15 @@ func (o *Peer) Latencies(mods ...qm.QueryMod) latencyQuery {
 	return query
 }
 
-// MaddrMultiAddresses retrieves all the multi_address's MultiAddresses with an executor via id column.
-func (o *Peer) MaddrMultiAddresses(mods ...qm.QueryMod) multiAddressQuery {
+// MultiAddresses retrieves all the multi_address's MultiAddresses with an executor.
+func (o *Peer) MultiAddresses(mods ...qm.QueryMod) multiAddressQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"peers_multi_addresses\" on \"multi_addresses\".\"id\" = \"peers_multi_addresses\".\"maddr_id\""),
+		qm.InnerJoin("\"peers_multi_addresses\" on \"multi_addresses\".\"id\" = \"peers_multi_addresses\".\"multi_address_id\""),
 		qm.Where("\"peers_multi_addresses\".\"peer_id\"=?", o.ID),
 	)
 
@@ -581,9 +581,9 @@ func (peerL) LoadLatencies(ctx context.Context, e boil.ContextExecutor, singular
 	return nil
 }
 
-// LoadMaddrMultiAddresses allows an eager lookup of values, cached into the
+// LoadMultiAddresses allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (peerL) LoadMaddrMultiAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+func (peerL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
 	var slice []*Peer
 	var object *Peer
 
@@ -623,7 +623,7 @@ func (peerL) LoadMaddrMultiAddresses(ctx context.Context, e boil.ContextExecutor
 	query := NewQuery(
 		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".addr, \"multi_addresses\".country, \"multi_addresses\".cloud_provider, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"peer_id\""),
 		qm.From("\"multi_addresses\""),
-		qm.InnerJoin("\"peers_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"maddr_id\""),
+		qm.InnerJoin("\"peers_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
 		qm.WhereIn("\"a\".\"peer_id\" in ?", args...),
 	)
 	if mods != nil {
@@ -669,7 +669,7 @@ func (peerL) LoadMaddrMultiAddresses(ctx context.Context, e boil.ContextExecutor
 		}
 	}
 	if singular {
-		object.R.MaddrMultiAddresses = resultSlice
+		object.R.MultiAddresses = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
 				foreign.R = &multiAddressR{}
@@ -683,7 +683,7 @@ func (peerL) LoadMaddrMultiAddresses(ctx context.Context, e boil.ContextExecutor
 		localJoinCol := localJoinCols[i]
 		for _, local := range slice {
 			if local.ID == localJoinCol {
-				local.R.MaddrMultiAddresses = append(local.R.MaddrMultiAddresses, foreign)
+				local.R.MultiAddresses = append(local.R.MultiAddresses, foreign)
 				if foreign.R == nil {
 					foreign.R = &multiAddressR{}
 				}
@@ -847,11 +847,11 @@ func (o *Peer) AddLatencies(ctx context.Context, exec boil.ContextExecutor, inse
 	return nil
 }
 
-// AddMaddrMultiAddresses adds the given related objects to the existing relationships
+// AddMultiAddresses adds the given related objects to the existing relationships
 // of the peer, optionally inserting them as new records.
-// Appends related to o.R.MaddrMultiAddresses.
+// Appends related to o.R.MultiAddresses.
 // Sets related.R.Peers appropriately.
-func (o *Peer) AddMaddrMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
+func (o *Peer) AddMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
 	var err error
 	for _, rel := range related {
 		if insert {
@@ -862,7 +862,7 @@ func (o *Peer) AddMaddrMultiAddresses(ctx context.Context, exec boil.ContextExec
 	}
 
 	for _, rel := range related {
-		query := "insert into \"peers_multi_addresses\" (\"peer_id\", \"maddr_id\") values ($1, $2)"
+		query := "insert into \"peers_multi_addresses\" (\"peer_id\", \"multi_address_id\") values ($1, $2)"
 		values := []interface{}{o.ID, rel.ID}
 
 		if boil.IsDebug(ctx) {
@@ -877,10 +877,10 @@ func (o *Peer) AddMaddrMultiAddresses(ctx context.Context, exec boil.ContextExec
 	}
 	if o.R == nil {
 		o.R = &peerR{
-			MaddrMultiAddresses: related,
+			MultiAddresses: related,
 		}
 	} else {
-		o.R.MaddrMultiAddresses = append(o.R.MaddrMultiAddresses, related...)
+		o.R.MultiAddresses = append(o.R.MultiAddresses, related...)
 	}
 
 	for _, rel := range related {
@@ -895,13 +895,13 @@ func (o *Peer) AddMaddrMultiAddresses(ctx context.Context, exec boil.ContextExec
 	return nil
 }
 
-// SetMaddrMultiAddresses removes all previously related items of the
+// SetMultiAddresses removes all previously related items of the
 // peer replacing them completely with the passed
 // in related items, optionally inserting them as new records.
-// Sets o.R.Peers's MaddrMultiAddresses accordingly.
-// Replaces o.R.MaddrMultiAddresses with related.
-// Sets related.R.Peers's MaddrMultiAddresses accordingly.
-func (o *Peer) SetMaddrMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
+// Sets o.R.Peers's MultiAddresses accordingly.
+// Replaces o.R.MultiAddresses with related.
+// Sets related.R.Peers's MultiAddresses accordingly.
+func (o *Peer) SetMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
 	query := "delete from \"peers_multi_addresses\" where \"peer_id\" = $1"
 	values := []interface{}{o.ID}
 	if boil.IsDebug(ctx) {
@@ -914,24 +914,24 @@ func (o *Peer) SetMaddrMultiAddresses(ctx context.Context, exec boil.ContextExec
 		return errors.Wrap(err, "failed to remove relationships before set")
 	}
 
-	removeMaddrMultiAddressesFromPeersSlice(o, related)
+	removeMultiAddressesFromPeersSlice(o, related)
 	if o.R != nil {
-		o.R.MaddrMultiAddresses = nil
+		o.R.MultiAddresses = nil
 	}
-	return o.AddMaddrMultiAddresses(ctx, exec, insert, related...)
+	return o.AddMultiAddresses(ctx, exec, insert, related...)
 }
 
-// RemoveMaddrMultiAddresses relationships from objects passed in.
-// Removes related items from R.MaddrMultiAddresses (uses pointer comparison, removal does not keep order)
+// RemoveMultiAddresses relationships from objects passed in.
+// Removes related items from R.MultiAddresses (uses pointer comparison, removal does not keep order)
 // Sets related.R.Peers.
-func (o *Peer) RemoveMaddrMultiAddresses(ctx context.Context, exec boil.ContextExecutor, related ...*MultiAddress) error {
+func (o *Peer) RemoveMultiAddresses(ctx context.Context, exec boil.ContextExecutor, related ...*MultiAddress) error {
 	if len(related) == 0 {
 		return nil
 	}
 
 	var err error
 	query := fmt.Sprintf(
-		"delete from \"peers_multi_addresses\" where \"peer_id\" = $1 and \"maddr_id\" in (%s)",
+		"delete from \"peers_multi_addresses\" where \"peer_id\" = $1 and \"multi_address_id\" in (%s)",
 		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
 	)
 	values := []interface{}{o.ID}
@@ -948,22 +948,22 @@ func (o *Peer) RemoveMaddrMultiAddresses(ctx context.Context, exec boil.ContextE
 	if err != nil {
 		return errors.Wrap(err, "failed to remove relationships before set")
 	}
-	removeMaddrMultiAddressesFromPeersSlice(o, related)
+	removeMultiAddressesFromPeersSlice(o, related)
 	if o.R == nil {
 		return nil
 	}
 
 	for _, rel := range related {
-		for i, ri := range o.R.MaddrMultiAddresses {
+		for i, ri := range o.R.MultiAddresses {
 			if rel != ri {
 				continue
 			}
 
-			ln := len(o.R.MaddrMultiAddresses)
+			ln := len(o.R.MultiAddresses)
 			if ln > 1 && i < ln-1 {
-				o.R.MaddrMultiAddresses[i] = o.R.MaddrMultiAddresses[ln-1]
+				o.R.MultiAddresses[i] = o.R.MultiAddresses[ln-1]
 			}
-			o.R.MaddrMultiAddresses = o.R.MaddrMultiAddresses[:ln-1]
+			o.R.MultiAddresses = o.R.MultiAddresses[:ln-1]
 			break
 		}
 	}
@@ -971,7 +971,7 @@ func (o *Peer) RemoveMaddrMultiAddresses(ctx context.Context, exec boil.ContextE
 	return nil
 }
 
-func removeMaddrMultiAddressesFromPeersSlice(o *Peer, related []*MultiAddress) {
+func removeMultiAddressesFromPeersSlice(o *Peer, related []*MultiAddress) {
 	for _, rel := range related {
 		if rel.R == nil {
 			continue

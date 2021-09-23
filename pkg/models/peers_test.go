@@ -572,7 +572,7 @@ func testPeerToManyLatencies(t *testing.T) {
 	}
 }
 
-func testPeerToManyMaddrMultiAddresses(t *testing.T) {
+func testPeerToManyMultiAddresses(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -604,16 +604,16 @@ func testPeerToManyMaddrMultiAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"peer_id\", \"maddr_id\") values ($1, $2)", a.ID, b.ID)
+	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"peer_id\", \"multi_address_id\") values ($1, $2)", a.ID, b.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"peer_id\", \"maddr_id\") values ($1, $2)", a.ID, c.ID)
+	_, err = tx.Exec("insert into \"peers_multi_addresses\" (\"peer_id\", \"multi_address_id\") values ($1, $2)", a.ID, c.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := a.MaddrMultiAddresses().All(ctx, tx)
+	check, err := a.MultiAddresses().All(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -636,18 +636,18 @@ func testPeerToManyMaddrMultiAddresses(t *testing.T) {
 	}
 
 	slice := PeerSlice{&a}
-	if err = a.L.LoadMaddrMultiAddresses(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
+	if err = a.L.LoadMultiAddresses(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.MaddrMultiAddresses); got != 2 {
+	if got := len(a.R.MultiAddresses); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
-	a.R.MaddrMultiAddresses = nil
-	if err = a.L.LoadMaddrMultiAddresses(ctx, tx, true, &a, nil); err != nil {
+	a.R.MultiAddresses = nil
+	if err = a.L.LoadMultiAddresses(ctx, tx, true, &a, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.MaddrMultiAddresses); got != 2 {
+	if got := len(a.R.MultiAddresses); got != 2 {
 		t.Error("number of eager loaded records wrong, got:", got)
 	}
 
@@ -809,7 +809,7 @@ func testPeerToManyAddOpLatencies(t *testing.T) {
 		}
 	}
 }
-func testPeerToManyAddOpMaddrMultiAddresses(t *testing.T) {
+func testPeerToManyAddOpMultiAddresses(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -846,7 +846,7 @@ func testPeerToManyAddOpMaddrMultiAddresses(t *testing.T) {
 	}
 
 	for i, x := range foreignersSplitByInsertion {
-		err = a.AddMaddrMultiAddresses(ctx, tx, i != 0, x...)
+		err = a.AddMultiAddresses(ctx, tx, i != 0, x...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -861,14 +861,14 @@ func testPeerToManyAddOpMaddrMultiAddresses(t *testing.T) {
 			t.Error("relationship was not added properly to the slice")
 		}
 
-		if a.R.MaddrMultiAddresses[i*2] != first {
+		if a.R.MultiAddresses[i*2] != first {
 			t.Error("relationship struct slice not set to correct value")
 		}
-		if a.R.MaddrMultiAddresses[i*2+1] != second {
+		if a.R.MultiAddresses[i*2+1] != second {
 			t.Error("relationship struct slice not set to correct value")
 		}
 
-		count, err := a.MaddrMultiAddresses().Count(ctx, tx)
+		count, err := a.MultiAddresses().Count(ctx, tx)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -878,7 +878,7 @@ func testPeerToManyAddOpMaddrMultiAddresses(t *testing.T) {
 	}
 }
 
-func testPeerToManySetOpMaddrMultiAddresses(t *testing.T) {
+func testPeerToManySetOpMultiAddresses(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -909,12 +909,12 @@ func testPeerToManySetOpMaddrMultiAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = a.SetMaddrMultiAddresses(ctx, tx, false, &b, &c)
+	err = a.SetMultiAddresses(ctx, tx, false, &b, &c)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	count, err := a.MaddrMultiAddresses().Count(ctx, tx)
+	count, err := a.MultiAddresses().Count(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -922,12 +922,12 @@ func testPeerToManySetOpMaddrMultiAddresses(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	err = a.SetMaddrMultiAddresses(ctx, tx, true, &d, &e)
+	err = a.SetMultiAddresses(ctx, tx, true, &d, &e)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	count, err = a.MaddrMultiAddresses().Count(ctx, tx)
+	count, err = a.MultiAddresses().Count(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -952,15 +952,15 @@ func testPeerToManySetOpMaddrMultiAddresses(t *testing.T) {
 		t.Error("relationship was not added properly to the slice")
 	}
 
-	if a.R.MaddrMultiAddresses[0] != &d {
+	if a.R.MultiAddresses[0] != &d {
 		t.Error("relationship struct slice not set to correct value")
 	}
-	if a.R.MaddrMultiAddresses[1] != &e {
+	if a.R.MultiAddresses[1] != &e {
 		t.Error("relationship struct slice not set to correct value")
 	}
 }
 
-func testPeerToManyRemoveOpMaddrMultiAddresses(t *testing.T) {
+func testPeerToManyRemoveOpMultiAddresses(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -985,12 +985,12 @@ func testPeerToManyRemoveOpMaddrMultiAddresses(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = a.AddMaddrMultiAddresses(ctx, tx, true, foreigners...)
+	err = a.AddMultiAddresses(ctx, tx, true, foreigners...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	count, err := a.MaddrMultiAddresses().Count(ctx, tx)
+	count, err := a.MultiAddresses().Count(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -998,12 +998,12 @@ func testPeerToManyRemoveOpMaddrMultiAddresses(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	err = a.RemoveMaddrMultiAddresses(ctx, tx, foreigners[:2]...)
+	err = a.RemoveMultiAddresses(ctx, tx, foreigners[:2]...)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	count, err = a.MaddrMultiAddresses().Count(ctx, tx)
+	count, err = a.MultiAddresses().Count(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1024,15 +1024,15 @@ func testPeerToManyRemoveOpMaddrMultiAddresses(t *testing.T) {
 		t.Error("relationship was not added properly to the foreign struct")
 	}
 
-	if len(a.R.MaddrMultiAddresses) != 2 {
+	if len(a.R.MultiAddresses) != 2 {
 		t.Error("should have preserved two relationships")
 	}
 
 	// Removal doesn't do a stable deletion for performance so we have to flip the order
-	if a.R.MaddrMultiAddresses[1] != &d {
+	if a.R.MultiAddresses[1] != &d {
 		t.Error("relationship to d should have been preserved")
 	}
-	if a.R.MaddrMultiAddresses[0] != &e {
+	if a.R.MultiAddresses[0] != &e {
 		t.Error("relationship to e should have been preserved")
 	}
 }
