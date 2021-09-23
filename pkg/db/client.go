@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"contrib.go.opencensus.io/integrations/ocsql"
@@ -23,6 +24,10 @@ import (
 type Client struct {
 	// Database handler
 	dbh *sql.DB
+
+	// Holds database properties entities for caching
+	propLk  sync.RWMutex
+	propMap map[string]*models.Property
 }
 
 func InitClient(ctx context.Context) (*Client, error) {
@@ -55,8 +60,19 @@ func InitClient(ctx context.Context) (*Client, error) {
 		return nil, errors.Wrap(err, "pinging database")
 	}
 
+	properties, err := models.Properties().All(ctx, dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	propMap := map[string]*models.Property{}
+	for _, p := range properties {
+		propMap[p.Property+p.Value] = p
+	}
+
 	return &Client{
-		dbh: dbh,
+		dbh:     dbh,
+		propMap: propMap,
 	}, nil
 }
 
@@ -73,7 +89,26 @@ func (c *Client) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
 	return err
 }
 
-func (c *Client) PersistPeerProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
+func (c *Client) GetPropertyOrCreate(ctx context.Context, exec boil.ContextExecutor, property string, value string) (*models.Property, error) {
+	c.propLk.Lock()
+	defer c.propLk.Unlock()
+
+	if prop, ok := c.propMap[property+value]; ok {
+		return prop, nil
+	}
+
+	p := &models.Property{
+		Property: property,
+		Value:    value,
+	}
+	return p, p.Upsert(ctx, exec, true,
+		[]string{models.PropertyColumns.Property, models.PropertyColumns.Value},
+		boil.Whitelist(models.PropertyColumns.UpdatedAt),
+		boil.Infer(),
+	)
+}
+
+func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
 	txn, err := c.dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.New("start peer property txn")
@@ -81,17 +116,24 @@ func (c *Client) PersistPeerProperties(ctx context.Context, crawl *models.Crawl,
 
 	for property, valuesMap := range properties {
 		for value, count := range valuesMap {
-			pp := &models.PeerProperty{
-				CrawlID:  crawl.ID,
-				Property: property,
-				Value:    value,
-				Count:    count,
+
+			p, err := c.GetPropertyOrCreate(ctx, txn, property, value)
+			if err != nil {
+				continue
 			}
 
-			if err := pp.Insert(ctx, txn, boil.Infer()); err != nil {
+			cp := &models.CrawlProperty{
+				CrawlID:    crawl.ID,
+				PropertyID: p.ID,
+				Count:      count,
+			}
+
+			if err := cp.Insert(ctx, txn, boil.Infer()); err != nil {
 				log.WithError(err).WithFields(log.Fields{
-					"property": property,
-					"value":    value,
+					"crawlId":    crawl.ID,
+					"propertyId": p.ID,
+					"property":   property,
+					"value":      value,
 				}).Warnln("Could not insert peer property txn")
 				continue
 			}

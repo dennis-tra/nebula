@@ -231,8 +231,8 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		return errors.Wrap(err, "persist crawl")
 	}
 
-	if err := s.persistPeerProperties(context.Background()); err != nil {
-		return errors.Wrap(err, "persist peer properties")
+	if err := s.persistCrawlProperties(context.Background()); err != nil {
+		return errors.Wrap(err, "persist crawl properties")
 	}
 
 	return nil
