@@ -479,7 +479,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 	}
 
 	query := NewQuery(
-		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".agent_version, \"peers\".protocol, \"peers\".id, \"a\".\"multi_address_id\""),
+		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".id, \"peers\".agent_version, \"peers\".protocol, \"a\".\"multi_address_id\""),
 		qm.From("\"peers\""),
 		qm.InnerJoin("\"peers_multi_addresses\" as \"a\" on \"peers\".\"id\" = \"a\".\"peer_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -500,7 +500,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 		one := new(Peer)
 		var localJoinCol int
 
-		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.AgentVersion, &one.Protocol, &one.ID, &localJoinCol)
+		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.ID, &one.AgentVersion, &one.Protocol, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for peers")
 		}

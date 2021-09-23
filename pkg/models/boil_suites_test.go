@@ -184,8 +184,10 @@ func TestToMany(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManyPeers)
 	t.Run("PeerToLatencies", testPeerToManyLatencies)
 	t.Run("PeerToMultiAddresses", testPeerToManyMultiAddresses)
+	t.Run("PeerToProperties", testPeerToManyProperties)
 	t.Run("PeerToSessions", testPeerToManySessions)
 	t.Run("PropertyToCrawlProperties", testPropertyToManyCrawlProperties)
+	t.Run("PropertyToPeers", testPropertyToManyPeers)
 }
 
 // TestToOneSet tests cannot be run in parallel
@@ -216,8 +218,10 @@ func TestToManyAdd(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManyAddOpPeers)
 	t.Run("PeerToLatencies", testPeerToManyAddOpLatencies)
 	t.Run("PeerToMultiAddresses", testPeerToManyAddOpMultiAddresses)
+	t.Run("PeerToProperties", testPeerToManyAddOpProperties)
 	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
 	t.Run("PropertyToCrawlProperties", testPropertyToManyAddOpCrawlProperties)
+	t.Run("PropertyToPeers", testPropertyToManyAddOpPeers)
 }
 
 // TestToManySet tests cannot be run in parallel
@@ -225,6 +229,8 @@ func TestToManyAdd(t *testing.T) {
 func TestToManySet(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManySetOpPeers)
 	t.Run("PeerToMultiAddresses", testPeerToManySetOpMultiAddresses)
+	t.Run("PeerToProperties", testPeerToManySetOpProperties)
+	t.Run("PropertyToPeers", testPropertyToManySetOpPeers)
 }
 
 // TestToManyRemove tests cannot be run in parallel
@@ -232,6 +238,8 @@ func TestToManySet(t *testing.T) {
 func TestToManyRemove(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManyRemoveOpPeers)
 	t.Run("PeerToMultiAddresses", testPeerToManyRemoveOpMultiAddresses)
+	t.Run("PeerToProperties", testPeerToManyRemoveOpProperties)
+	t.Run("PropertyToPeers", testPropertyToManyRemoveOpPeers)
 }
 
 func TestReload(t *testing.T) {

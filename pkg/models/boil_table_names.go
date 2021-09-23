@@ -10,6 +10,7 @@ var TableNames = struct {
 	MultiAddresses      string
 	Peers               string
 	PeersMultiAddresses string
+	PeersProperties     string
 	PegasysConnections  string
 	PegasysNeighbours   string
 	Properties          string
@@ -21,6 +22,7 @@ var TableNames = struct {
 	MultiAddresses:      "multi_addresses",
 	Peers:               "peers",
 	PeersMultiAddresses: "peers_multi_addresses",
+	PeersProperties:     "peers_properties",
 	PegasysConnections:  "pegasys_connections",
 	PegasysNeighbours:   "pegasys_neighbours",
 	Properties:          "properties",
