@@ -16,6 +16,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -66,12 +67,20 @@ func millisSince(start time.Time) float64 {
 	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
-func (w *Worker) StartDialing(dialQueue <-chan Job, resultsQueue chan<- Result) {
+func (w *Worker) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
-	for job := range dialQueue {
+	for {
+		var job Job
+		select {
+		case elem := <-dialQueue.Consume():
+			job = elem.(Job)
+		case <-w.SigShutdown():
+			return
+		}
+
 		start := time.Now()
 		pi := job.pi
 
@@ -158,11 +167,7 @@ func (w *Worker) StartDialing(dialQueue <-chan Job, resultsQueue chan<- Result) 
 			break
 		}
 
-		select {
-		case resultsQueue <- dr:
-		case <-w.SigShutdown():
-			return
-		}
+		resultsQueue.Push(dr)
 
 		logEntry.WithFields(log.Fields{
 			"duration": time.Since(start),
