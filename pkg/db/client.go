@@ -11,6 +11,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -147,7 +148,7 @@ func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.Pe
 	return models.Peers(qm.WhereIn(models.PeerColumns.MultiHash+" in ?", mhs...)).All(ctx, c.dbh)
 }
 
-func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo) (*models.Peer, error) {
+func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string) (*models.Peer, error) {
 	maddrs := make(types.StringArray, len(pi.Addrs))
 	for i, maddr := range pi.Addrs {
 		maddrs[i] = maddr.String()
@@ -155,6 +156,7 @@ func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo) (*models.Peer
 	p := &models.Peer{
 		MultiHash:      pi.ID.Pretty(),
 		MultiAddresses: maddrs,
+		AgentVersion:   null.StringFrom(agent),
 	}
 	return p, p.Upsert(ctx, c.dbh, true, []string{models.PeerColumns.MultiHash}, boil.Whitelist(models.PeerColumns.UpdatedAt), boil.Infer())
 }
