@@ -250,8 +250,8 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 
 	// Parse multi addresses from database
 	pi := peer.AddrInfo{ID: peerID}
-	for _, maddrStr := range session.R.Peer.MultiAddresses {
-		maddr, err := ma.NewMultiaddr(maddrStr)
+	for _, maddrStr := range session.R.Peer.R.MultiAddresses {
+		maddr, err := ma.NewMultiaddr(maddrStr.Maddr)
 		if err != nil {
 			logEntry.WithError(err).Warnln("Could not parse multi address")
 			continue

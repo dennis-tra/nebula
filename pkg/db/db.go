@@ -153,5 +153,9 @@ RETURNING id, old_multi_addresses;
 }
 
 func FetchDueSessions(ctx context.Context, dbh *sql.DB) (models.SessionSlice, error) {
-	return models.Sessions(qm.Where("next_dial_attempt - NOW() < '10s'::interval"), qm.Load(models.SessionRels.Peer)).All(ctx, dbh)
+	return models.Sessions(
+		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
+		qm.Load(models.SessionRels.Peer),
+		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
+	).All(ctx, dbh)
 }

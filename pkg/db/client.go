@@ -4,9 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"time"
 
 	"contrib.go.opencensus.io/integrations/ocsql"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -15,10 +18,6 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-	"github.com/volatiletech/sqlboiler/v4/types"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 type Client struct {
@@ -104,7 +103,7 @@ func (c *Client) PersistPeerProperties(ctx context.Context, crawl *models.Crawl,
 
 func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
 	peers, err := models.Peers(
-		qm.Select(models.PeerColumns.MultiHash, models.PeerColumns.MultiAddresses),
+		qm.Load(models.PeerRels.MultiAddresses),
 		qm.InnerJoin("sessions s on s.peer_id = peers.id"),
 		qm.Where("s.finished = false"),
 		qm.OrderBy("s.updated_at"),
@@ -122,8 +121,8 @@ func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.Add
 			continue
 		}
 		var maddrs []ma.Multiaddr
-		for _, maddrStr := range p.MultiAddresses {
-			maddr, err := ma.NewMultiaddr(maddrStr)
+		for _, maddrStr := range p.R.MultiAddresses {
+			maddr, err := ma.NewMultiaddr(maddrStr.Maddr)
 			if err != nil {
 				log.Warnln("Could not decode multi addr ", maddrStr)
 				continue
@@ -149,16 +148,56 @@ func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.Pe
 }
 
 func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string) (*models.Peer, error) {
-	maddrs := make(types.StringArray, len(pi.Addrs))
-	for i, maddr := range pi.Addrs {
-		maddrs[i] = maddr.String()
+	txn, err := c.dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "begin txn")
 	}
+
 	p := &models.Peer{
-		MultiHash:      pi.ID.Pretty(),
-		MultiAddresses: maddrs,
-		AgentVersion:   null.StringFrom(agent),
+		MultiHash:    pi.ID.Pretty(),
+		AgentVersion: null.StringFrom(agent),
 	}
-	return p, p.Upsert(ctx, c.dbh, true, []string{models.PeerColumns.MultiHash}, boil.Whitelist(models.PeerColumns.UpdatedAt), boil.Infer())
+	if err = p.Upsert(ctx, txn, true,
+		[]string{models.PeerColumns.MultiHash},
+		boil.Whitelist(models.PeerColumns.UpdatedAt),
+		boil.Infer(),
+	); err != nil {
+		return nil, errors.Wrap(err, "upsert peer")
+	}
+
+	// TODO: we need to sort the multi addresses for insertion. See:
+	// https://stackoverflow.com/questions/59017059/postgres-sharelock-deadlock-on-transaction
+	// I received the same error if the addresses were not sorted.
+	maddrStrs := make([]string, len(pi.Addrs))
+	for i, maddr := range pi.Addrs {
+		maddrStrs[i] = maddr.String()
+	}
+	sort.Strings(maddrStrs)
+
+	var maddrs []*models.MultiAddress
+	for _, maddrStr := range maddrStrs {
+		ma := &models.MultiAddress{
+			Maddr: maddrStr,
+			Addr:  null.String{},
+		}
+		if err = ma.Upsert(ctx, txn, true,
+			[]string{models.MultiAddressColumns.Maddr},
+			boil.Whitelist(models.MultiAddressColumns.UpdatedAt), boil.Infer(),
+		); err != nil {
+			return nil, errors.Wrap(err, "upsert multi address")
+		}
+		maddrs = append(maddrs, ma)
+	}
+
+	if err = p.SetMultiAddresses(ctx, txn, false, maddrs...); err != nil {
+		return nil, errors.Wrap(err, "set multi addresses for peer")
+	}
+	if err = txn.Commit(); err != nil {
+		_ = txn.Rollback()
+		return nil, err
+	}
+
+	return p, nil
 }
 
 func (c *Client) InsertLatencies(ctx context.Context, peer *models.Peer, latencies []*models.Latency) error {

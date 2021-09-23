@@ -65,6 +65,9 @@ type Scheduler struct {
 	// scheduler can handle them, e.g. update the maps above etc.
 	resultsQueue *queue.FIFO
 
+	// A queue that take crawl results and gets consumed by a worker that saves the data into the DB.
+	persistQueue *queue.FIFO
+
 	// A map of agent versions and their occurrences that happened during the crawl.
 	agentVersion map[string]int
 
@@ -76,6 +79,9 @@ type Scheduler struct {
 
 	// The list of worker node references.
 	workers sync.Map
+
+	// The list of persister references.
+	persisters sync.Map
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -128,6 +134,7 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		dbPeers:      map[peer.ID]*models.Peer{},
 		crawlQueue:   queue.NewFIFO(),
 		resultsQueue: queue.NewFIFO(),
+		persistQueue: queue.NewFIFO(),
 		agentVersion: map[string]int{},
 		protocols:    map[string]int{},
 		errors:       map[string]int{},
@@ -164,6 +171,18 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		go w.StartCrawling(s.crawlQueue, s.resultsQueue)
 	}
 
+	// Start all persisters
+	var persisters []*Persister
+	for i := 0; i < 4; i++ {
+		p, err := NewPersister(s.dbc, s.config)
+		if err != nil {
+			return errors.Wrap(err, "new persister")
+		}
+		persisters = append(persisters, p)
+		s.persisters.Store(i, p)
+		go p.StartPersisting(s.persistQueue)
+	}
+
 	// Query known peers for bootstrapping
 	if s.dbc != nil {
 		bps, err := s.dbc.QueryBootstrapPeers(s.ServiceContext(), s.config.CrawlWorkerCount)
@@ -189,6 +208,13 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	// Stop workers
 	s.shutdownWorkers()
+
+	s.persistQueue.DoneProducing()
+
+	for _, p := range persisters {
+		log.Infoln("Waiting for persister to finish ", p.Identifier())
+		<-p.SigDone()
+	}
 
 	// Stop Go routine of results queue
 	s.resultsQueue.DoneProducing()
@@ -217,7 +243,10 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 func (s *Scheduler) readResultsQueue() {
 	for {
 		select {
-		case elem := <-s.resultsQueue.Consume():
+		case elem, ok := <-s.resultsQueue.Consume():
+			if !ok {
+				return
+			}
 			s.handleResult(elem.(Result))
 		case <-s.SigShutdown():
 			return
@@ -244,15 +273,17 @@ func (s *Scheduler) handleResult(cr Result) {
 	delete(s.inCrawlQueue, cr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 
-	// Check if we're in a dry-run
-	if s.dbc != nil {
-		// persist session information
-		if err := s.persistCrawlResult(cr); err != nil {
-			if !errors.Is(err, context.Canceled) {
-				log.WithError(err).Warnln("Could not persist crawl result")
-			}
-		}
-	}
+	//// Check if we're in a dry-run
+	//if s.dbc != nil {
+	//	// persist session information
+	//	if err := s.persistCrawlResult(cr); err != nil {
+	//		if !errors.Is(err, context.Canceled) {
+	//			log.WithError(err).Warnln("Could not persist crawl result")
+	//		}
+	//	}
+	//}
+
+	s.persistQueue.Push(cr)
 
 	// track agent versions
 	s.agentVersion[cr.Agent] += 1
@@ -265,11 +296,15 @@ func (s *Scheduler) handleResult(cr Result) {
 	// log error or schedule new crawls
 	if cr.Error == nil {
 		for _, pi := range cr.Neighbors {
-			_, inCrawlQueue := s.inCrawlQueue[pi.ID]
-			_, crawled := s.crawled[pi.ID]
-			if !inCrawlQueue && !crawled {
-				s.scheduleCrawl(pi)
+			if _, inCrawlQueue := s.inCrawlQueue[pi.ID]; inCrawlQueue {
+				continue
 			}
+
+			if _, crawled := s.crawled[pi.ID]; crawled {
+				continue
+			}
+
+			s.scheduleCrawl(pi)
 		}
 	} else {
 		// Count errors
@@ -317,6 +352,21 @@ func (s *Scheduler) shutdownWorkers() {
 	})
 	wg.Wait()
 }
+
+//// shutdownPersisters
+//func (s *Scheduler) shutdownPersisters() {
+//	var wg sync.WaitGroup
+//	s.persisters.Range(func(_, persister interface{}) bool {
+//		p := persister.(*Persister)
+//		wg.Add(1)
+//		go func(p *Persister) {
+//			p.Shutdown()
+//			wg.Done()
+//		}(p)
+//		return true
+//	})
+//	wg.Wait()
+//}
 
 // logSummary logs the final results of the crawl.
 func (s *Scheduler) logSummary() {

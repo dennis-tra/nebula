@@ -4,14 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
-	"go.opencensus.io/stats"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 func (s *Scheduler) queryPeers(pis []peer.AddrInfo) error {
@@ -42,40 +39,6 @@ func (s *Scheduler) queryPeers(pis []peer.AddrInfo) error {
 			continue
 		}
 		s.dbPeers[mh] = p
-	}
-
-	return nil
-}
-
-// persistCrawlResult inserts the given peer with its multi addresses in the database and
-// upserts its currently active session
-func (s *Scheduler) persistCrawlResult(cr Result) error {
-	var err error
-	ctx := s.ServiceContext()
-	dbPeer, found := s.dbPeers[cr.Peer.ID]
-	if !found || dbPeer.AgentVersion.String != cr.Agent {
-		if dbPeer, err = s.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent); err != nil {
-			return errors.Wrap(err, "upsert peer")
-		}
-	}
-
-	startUpsert := time.Now()
-	if cr.Error == nil {
-		if err := s.dbc.UpsertSessionSuccess(dbPeer); err != nil {
-			return errors.Wrap(err, "upsert session success")
-		}
-	} else if cr.Error != s.ServiceContext().Err() {
-		if err := s.dbc.UpsertSessionError(dbPeer, cr.ErrorTime, determineDialError(cr.Error)); err != nil {
-			return errors.Wrap(err, "upsert session error")
-		}
-	}
-	stats.Record(s.ServiceContext(), metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
-
-	// Persist latency measurements
-	if cr.Latencies != nil {
-		if err := s.dbc.InsertLatencies(ctx, dbPeer, cr.Latencies); err != nil {
-			return errors.Wrap(err, "insert latencies")
-		}
 	}
 
 	return nil

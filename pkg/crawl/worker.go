@@ -101,7 +101,10 @@ func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO)
 	for {
 		var pi peer.AddrInfo
 		select {
-		case elem := <-crawlQueue.Consume():
+		case elem, ok := <-crawlQueue.Consume():
+			if !ok {
+				return
+			}
 			pi = elem.(peer.AddrInfo)
 		case <-w.SigShutdown():
 			return

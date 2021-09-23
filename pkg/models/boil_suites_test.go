@@ -169,7 +169,7 @@ func TestToMany(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyPeerProperties)
 	t.Run("MultiAddressToPeers", testMultiAddressToManyPeers)
 	t.Run("PeerToLatencies", testPeerToManyLatencies)
-	t.Run("PeerToMaddrMultiAddresses", testPeerToManyMaddrMultiAddresses)
+	t.Run("PeerToMultiAddresses", testPeerToManyMultiAddresses)
 	t.Run("PeerToSessions", testPeerToManySessions)
 }
 
@@ -199,7 +199,7 @@ func TestToManyAdd(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyAddOpPeerProperties)
 	t.Run("MultiAddressToPeers", testMultiAddressToManyAddOpPeers)
 	t.Run("PeerToLatencies", testPeerToManyAddOpLatencies)
-	t.Run("PeerToMaddrMultiAddresses", testPeerToManyAddOpMaddrMultiAddresses)
+	t.Run("PeerToMultiAddresses", testPeerToManyAddOpMultiAddresses)
 	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
 }
 
@@ -207,14 +207,14 @@ func TestToManyAdd(t *testing.T) {
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManySetOpPeers)
-	t.Run("PeerToMaddrMultiAddresses", testPeerToManySetOpMaddrMultiAddresses)
+	t.Run("PeerToMultiAddresses", testPeerToManySetOpMultiAddresses)
 }
 
 // TestToManyRemove tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManyRemoveOpPeers)
-	t.Run("PeerToMaddrMultiAddresses", testPeerToManyRemoveOpMaddrMultiAddresses)
+	t.Run("PeerToMultiAddresses", testPeerToManyRemoveOpMultiAddresses)
 }
 
 func TestReload(t *testing.T) {
