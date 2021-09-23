@@ -57,7 +57,7 @@ func TestFIFO_Async(t *testing.T) {
 	}()
 
 	i := 0
-	for range fifo.Listen() {
+	for range fifo.Consume() {
 		i += 1
 	}
 	fifo.Close()

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+
 	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -90,13 +92,15 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 }
 
 // StartCrawling reads from the given crawl queue and publishes the results on the results queue until interrupted.
-func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue chan<- Result) {
+func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
 	logEntry := log.WithField("workerID", w.Identifier())
-	for pi := range crawlQueue {
+	for elem := range crawlQueue.Consume() {
+		pi := elem.(peer.AddrInfo)
+
 		logEntry = logEntry.WithField("targetID", pi.ID.Pretty()[:16]).WithField("crawlCount", w.crawledPeers)
 		logEntry.Debugln("Crawling peer")
 
@@ -134,13 +138,7 @@ func (w *Worker) StartCrawling(crawlQueue <-chan peer.AddrInfo, resultsQueue cha
 		cancel()
 
 		cr.Latencies = latencies
-
-		select {
-		case resultsQueue <- cr:
-		case <-w.SigShutdown():
-			return
-		}
-
+		resultsQueue.Produce() <- cr
 		logEntry.Debugln("Crawled peer")
 	}
 

@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -58,11 +60,11 @@ type Scheduler struct {
 	dbPeers map[peer.ID]*models.Peer
 
 	// The queue of peer.AddrInfo's that still need to be crawled.
-	crawlQueue chan peer.AddrInfo
+	crawlQueue *queue.FIFO
 
 	// The queue that the workers publish their crawl results on, so that the
 	// scheduler can handle them, e.g. update the maps above etc.
-	resultsQueue chan Result
+	resultsQueue *queue.FIFO
 
 	// A map of agent versions and their occurrences that happened during the crawl.
 	agentVersion map[string]int
@@ -122,7 +124,7 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
 
-	p := &Scheduler{
+	s := &Scheduler{
 		Service:      service.New("scheduler"),
 		host:         h,
 		dbc:          dbc,
@@ -130,15 +132,27 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		inCrawlQueue: map[peer.ID]peer.AddrInfo{},
 		crawled:      map[peer.ID]peer.AddrInfo{},
 		dbPeers:      map[peer.ID]*models.Peer{},
-		crawlQueue:   make(chan peer.AddrInfo),
-		resultsQueue: make(chan Result),
+		crawlQueue:   queue.NewFIFO(),
+		resultsQueue: queue.NewFIFO(),
 		agentVersion: map[string]int{},
 		protocols:    map[string]int{},
 		errors:       map[string]int{},
 		workers:      sync.Map{},
 	}
 
-	return p, nil
+	go func() {
+		select {
+		case <-s.SigDone():
+		case <-s.SigShutdown():
+			s.crawlQueue.Close()
+			s.resultsQueue.Close()
+			s.shutdownWorkers()
+			s.crawlQueue.Done()
+			s.resultsQueue.Done()
+		}
+	}()
+
+	return s, nil
 }
 
 // CrawlNetwork starts the configured amount of workers and fills
@@ -176,9 +190,6 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// Read from the results queue blocking
 	s.readResultsQueue()
 
-	// release all resources
-	s.cleanup()
-
 	// Finally, log the crawl summary
 	defer s.logSummary()
 
@@ -194,21 +205,18 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	if err := s.persistPeerProperties(context.Background()); err != nil {
 		return errors.Wrap(err, "persist peer properties")
 	}
+
 	return nil
 }
 
 // readResultsQueue listens for crawl results on the resultsQueue channel and handles any
 // entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
 func (s *Scheduler) readResultsQueue() {
-	for {
-		select {
-		case result := <-s.resultsQueue:
-			start := time.Now()
-			s.handleResult(result)
-			stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
-		case <-s.SigShutdown():
-			return
-		}
+	for elem := range s.resultsQueue.Consume() {
+		result := elem.(Result)
+		start := time.Now()
+		s.handleResult(result)
+		stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
 	}
 }
 
@@ -253,9 +261,6 @@ func (s *Scheduler) handleResult(cr Result) {
 				s.scheduleCrawl(pi)
 			}
 		}
-		if err := s.queryPeers(cr.Neighbors); err != nil {
-			// TODO log
-		}
 	} else {
 		// Count errors
 		dialErr := determineDialError(cr.Error)
@@ -284,38 +289,8 @@ func (s *Scheduler) handleResult(cr Result) {
 // This could be an approach: https://github.com/AsynkronIT/goring though it's without channels and only single consumer
 func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	s.inCrawlQueue[pi.ID] = pi
+	s.crawlQueue.Push(pi)
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
-	go func() {
-		if s.IsStarted() {
-			s.crawlQueue <- pi
-		}
-	}()
-}
-
-// cleanup handles the release of all resources allocated by the scheduler.
-// Make sure to not access any maps here as this is run in a separate
-// go routine from the handleResult method.
-//
-// remove all peers from the crawl queue. There could be pending writes on the crawl
-// queue in scheduleCrawl() that would lead to `panic: send on closed channel` if we
-// didn't drain the queue prior closing the channel.
-func (s *Scheduler) cleanup() {
-	s.drainCrawlQueue()
-	close(s.crawlQueue)
-	s.shutdownWorkers()
-	close(s.resultsQueue)
-}
-
-// drainCrawlQueue reads all entries from crawlQueue and discards them.
-func (s *Scheduler) drainCrawlQueue() {
-	for {
-		select {
-		case pi := <-s.crawlQueue:
-			log.WithField("targetID", pi.ID.Pretty()[:16]).Traceln("Drained peer")
-		default:
-			return
-		}
-	}
 }
 
 // shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.

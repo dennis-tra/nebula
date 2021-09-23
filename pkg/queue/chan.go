@@ -41,7 +41,11 @@ func (fifo *FIFO) Pop() interface{} {
 	return <-fifo.out
 }
 
-func (fifo *FIFO) Listen() <-chan interface{} {
+func (fifo *FIFO) Produce() chan<- interface{} {
+	return fifo.in
+}
+
+func (fifo *FIFO) Consume() <-chan interface{} {
 	return fifo.out
 }
 
@@ -90,7 +94,12 @@ LOOP:
 			}
 		}
 	}
+LOOP2:
 	for _, elem := range fifo.buf {
-		fifo.out <- elem
+		select {
+		case <-fifo.shutdown:
+			break LOOP2
+		case fifo.out <- elem:
+		}
 	}
 }
