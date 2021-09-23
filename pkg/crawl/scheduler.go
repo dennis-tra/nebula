@@ -79,9 +79,6 @@ type Scheduler struct {
 
 	// The list of worker node references.
 	workers sync.Map
-
-	// The list of persister references.
-	persisters sync.Map
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -173,14 +170,15 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 
 	// Start all persisters
 	var persisters []*Persister
-	for i := 0; i < 4; i++ {
-		p, err := NewPersister(s.dbc, s.config)
-		if err != nil {
-			return errors.Wrap(err, "new persister")
+	if s.dbc != nil {
+		for i := 0; i < 4; i++ {
+			p, err := NewPersister(s.dbc, s.config)
+			if err != nil {
+				return errors.Wrap(err, "new persister")
+			}
+			persisters = append(persisters, p)
+			go p.StartPersisting(s.persistQueue)
 		}
-		persisters = append(persisters, p)
-		s.persisters.Store(i, p)
-		go p.StartPersisting(s.persistQueue)
 	}
 
 	// Query known peers for bootstrapping
@@ -200,7 +198,7 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		}
 	}
 
-	// Read from the results queue blocking
+	// Read from the results queue blocking - this is the main loop
 	s.readResultsQueue()
 
 	// Stop Go routine of crawl queue
@@ -209,15 +207,17 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// Stop workers
 	s.shutdownWorkers()
 
+	// Stop Go routine of results queue
+	s.resultsQueue.DoneProducing()
+
+	// Stop Go routine of persist queue
 	s.persistQueue.DoneProducing()
 
+	// Wait for all persisters to finish
 	for _, p := range persisters {
 		log.Infoln("Waiting for persister to finish ", p.Identifier())
 		<-p.SigDone()
 	}
-
-	// Stop Go routine of results queue
-	s.resultsQueue.DoneProducing()
 
 	// Finally, log the crawl summary
 	defer s.logSummary()

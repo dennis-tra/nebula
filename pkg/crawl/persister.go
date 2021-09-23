@@ -19,7 +19,9 @@ import (
 
 var persisterID = atomic.NewInt32(0)
 
-// Persister . TODO
+// Persister handles the insert/upsert/update operations for a particular crawl result.
+// We're doing it asynchronously as each insert can take multiple tens of milliseconds.
+// This would take too long to do synchronously during a crawl.
 type Persister struct {
 	*service.Service
 
@@ -28,7 +30,7 @@ type Persister struct {
 	persistedPeers int
 }
 
-// NewPersister TODO
+// NewPersister initializes a new persister based on the given configuration.
 func NewPersister(dbc *db.Client, conf *config.Config) (*Persister, error) {
 	p := &Persister{
 		Service: service.New(fmt.Sprintf("persister-%02d", persisterID.Load())),
@@ -51,6 +53,7 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 		select {
 		case elem, ok := <-persistQueue.Consume():
 			if !ok {
+				// The persist queue was closed
 				return
 			}
 			cr = elem.(Result)
@@ -67,7 +70,7 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 		} else {
 			logEntry.Debugln("Persisted peer")
 		}
-		logEntry.WithField("persisted", p.persistedPeers).WithField("success", err == nil).Infoln("Persisted peer")
+		logEntry.WithField("persisted", p.persistedPeers).WithField("success", err == nil).Infoln("Persisted crawl result from worker", cr.WorkerID)
 	}
 }
 
