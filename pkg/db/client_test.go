@@ -151,3 +151,11 @@ func TestClient_UpsertPeer(t *testing.T) {
 	assert.Equal(t, id.String(), p.MultiHash)
 	assert.Len(t, p.MultiAddresses, 1)
 }
+
+func TestClient_QueryBootstrapPeers(t *testing.T) {
+	ctx, client, teardown := setupTest(t)
+	defer teardown()
+	peers, err := client.QueryBootstrapPeers(ctx)
+	require.NoError(t, err)
+	assert.Len(t, peers, 0)
+}

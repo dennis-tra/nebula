@@ -164,9 +164,21 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		go w.StartCrawling(s.crawlQueue, s.resultsQueue)
 	}
 
+	// Query known peers for bootstrapping
+	if s.dbc != nil {
+		bps, err := s.dbc.QueryBootstrapPeers(s.ServiceContext(), s.config.CrawlWorkerCount)
+		if err != nil {
+			log.WithError(err).Warnln("Could not query bootstrap peers")
+		}
+		bootstrap = append(bootstrap, bps...)
+	}
+
 	// Fill the queue with bootstrap nodes
 	for _, b := range bootstrap {
-		s.scheduleCrawl(b)
+		// This check is necessary as the query above could have returned a canonical bootstrap peer as well
+		if _, inCrawlQueue := s.inCrawlQueue[b.ID]; !inCrawlQueue {
+			s.scheduleCrawl(b)
+		}
 	}
 
 	// Read from the results queue blocking
@@ -236,7 +248,9 @@ func (s *Scheduler) handleResult(cr Result) {
 	if s.dbc != nil {
 		// persist session information
 		if err := s.persistCrawlResult(cr); err != nil {
-			log.WithError(err).Warnln("Could not update peer")
+			if !errors.Is(err, context.Canceled) {
+				log.WithError(err).Warnln("Could not persist crawl result")
+			}
 		}
 	}
 
