@@ -14,6 +14,7 @@ import "testing"
 func TestParent(t *testing.T) {
 	t.Run("Crawls", testCrawls)
 	t.Run("Latencies", testLatencies)
+	t.Run("MultiAddresses", testMultiAddresses)
 	t.Run("PeerProperties", testPeerProperties)
 	t.Run("Peers", testPeers)
 	t.Run("PegasysConnections", testPegasysConnections)
@@ -24,6 +25,7 @@ func TestParent(t *testing.T) {
 func TestDelete(t *testing.T) {
 	t.Run("Crawls", testCrawlsDelete)
 	t.Run("Latencies", testLatenciesDelete)
+	t.Run("MultiAddresses", testMultiAddressesDelete)
 	t.Run("PeerProperties", testPeerPropertiesDelete)
 	t.Run("Peers", testPeersDelete)
 	t.Run("PegasysConnections", testPegasysConnectionsDelete)
@@ -34,6 +36,7 @@ func TestDelete(t *testing.T) {
 func TestQueryDeleteAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsQueryDeleteAll)
 	t.Run("Latencies", testLatenciesQueryDeleteAll)
+	t.Run("MultiAddresses", testMultiAddressesQueryDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesQueryDeleteAll)
 	t.Run("Peers", testPeersQueryDeleteAll)
 	t.Run("PegasysConnections", testPegasysConnectionsQueryDeleteAll)
@@ -44,6 +47,7 @@ func TestQueryDeleteAll(t *testing.T) {
 func TestSliceDeleteAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsSliceDeleteAll)
 	t.Run("Latencies", testLatenciesSliceDeleteAll)
+	t.Run("MultiAddresses", testMultiAddressesSliceDeleteAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceDeleteAll)
 	t.Run("Peers", testPeersSliceDeleteAll)
 	t.Run("PegasysConnections", testPegasysConnectionsSliceDeleteAll)
@@ -54,6 +58,7 @@ func TestSliceDeleteAll(t *testing.T) {
 func TestExists(t *testing.T) {
 	t.Run("Crawls", testCrawlsExists)
 	t.Run("Latencies", testLatenciesExists)
+	t.Run("MultiAddresses", testMultiAddressesExists)
 	t.Run("PeerProperties", testPeerPropertiesExists)
 	t.Run("Peers", testPeersExists)
 	t.Run("PegasysConnections", testPegasysConnectionsExists)
@@ -64,6 +69,7 @@ func TestExists(t *testing.T) {
 func TestFind(t *testing.T) {
 	t.Run("Crawls", testCrawlsFind)
 	t.Run("Latencies", testLatenciesFind)
+	t.Run("MultiAddresses", testMultiAddressesFind)
 	t.Run("PeerProperties", testPeerPropertiesFind)
 	t.Run("Peers", testPeersFind)
 	t.Run("PegasysConnections", testPegasysConnectionsFind)
@@ -74,6 +80,7 @@ func TestFind(t *testing.T) {
 func TestBind(t *testing.T) {
 	t.Run("Crawls", testCrawlsBind)
 	t.Run("Latencies", testLatenciesBind)
+	t.Run("MultiAddresses", testMultiAddressesBind)
 	t.Run("PeerProperties", testPeerPropertiesBind)
 	t.Run("Peers", testPeersBind)
 	t.Run("PegasysConnections", testPegasysConnectionsBind)
@@ -84,6 +91,7 @@ func TestBind(t *testing.T) {
 func TestOne(t *testing.T) {
 	t.Run("Crawls", testCrawlsOne)
 	t.Run("Latencies", testLatenciesOne)
+	t.Run("MultiAddresses", testMultiAddressesOne)
 	t.Run("PeerProperties", testPeerPropertiesOne)
 	t.Run("Peers", testPeersOne)
 	t.Run("PegasysConnections", testPegasysConnectionsOne)
@@ -94,6 +102,7 @@ func TestOne(t *testing.T) {
 func TestAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsAll)
 	t.Run("Latencies", testLatenciesAll)
+	t.Run("MultiAddresses", testMultiAddressesAll)
 	t.Run("PeerProperties", testPeerPropertiesAll)
 	t.Run("Peers", testPeersAll)
 	t.Run("PegasysConnections", testPegasysConnectionsAll)
@@ -104,6 +113,7 @@ func TestAll(t *testing.T) {
 func TestCount(t *testing.T) {
 	t.Run("Crawls", testCrawlsCount)
 	t.Run("Latencies", testLatenciesCount)
+	t.Run("MultiAddresses", testMultiAddressesCount)
 	t.Run("PeerProperties", testPeerPropertiesCount)
 	t.Run("Peers", testPeersCount)
 	t.Run("PegasysConnections", testPegasysConnectionsCount)
@@ -114,6 +124,7 @@ func TestCount(t *testing.T) {
 func TestHooks(t *testing.T) {
 	t.Run("Crawls", testCrawlsHooks)
 	t.Run("Latencies", testLatenciesHooks)
+	t.Run("MultiAddresses", testMultiAddressesHooks)
 	t.Run("PeerProperties", testPeerPropertiesHooks)
 	t.Run("Peers", testPeersHooks)
 	t.Run("PegasysConnections", testPegasysConnectionsHooks)
@@ -126,6 +137,8 @@ func TestInsert(t *testing.T) {
 	t.Run("Crawls", testCrawlsInsertWhitelist)
 	t.Run("Latencies", testLatenciesInsert)
 	t.Run("Latencies", testLatenciesInsertWhitelist)
+	t.Run("MultiAddresses", testMultiAddressesInsert)
+	t.Run("MultiAddresses", testMultiAddressesInsertWhitelist)
 	t.Run("PeerProperties", testPeerPropertiesInsert)
 	t.Run("PeerProperties", testPeerPropertiesInsertWhitelist)
 	t.Run("Peers", testPeersInsert)
@@ -154,7 +167,9 @@ func TestOneToOne(t *testing.T) {}
 // or deadlocks can occur.
 func TestToMany(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyPeerProperties)
+	t.Run("MultiAddressToPeers", testMultiAddressToManyPeers)
 	t.Run("PeerToLatencies", testPeerToManyLatencies)
+	t.Run("PeerToMaddrMultiAddresses", testPeerToManyMaddrMultiAddresses)
 	t.Run("PeerToSessions", testPeerToManySessions)
 }
 
@@ -182,21 +197,30 @@ func TestOneToOneRemove(t *testing.T) {}
 // or deadlocks can occur.
 func TestToManyAdd(t *testing.T) {
 	t.Run("CrawlToPeerProperties", testCrawlToManyAddOpPeerProperties)
+	t.Run("MultiAddressToPeers", testMultiAddressToManyAddOpPeers)
 	t.Run("PeerToLatencies", testPeerToManyAddOpLatencies)
+	t.Run("PeerToMaddrMultiAddresses", testPeerToManyAddOpMaddrMultiAddresses)
 	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
 }
 
 // TestToManySet tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToManySet(t *testing.T) {}
+func TestToManySet(t *testing.T) {
+	t.Run("MultiAddressToPeers", testMultiAddressToManySetOpPeers)
+	t.Run("PeerToMaddrMultiAddresses", testPeerToManySetOpMaddrMultiAddresses)
+}
 
 // TestToManyRemove tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToManyRemove(t *testing.T) {}
+func TestToManyRemove(t *testing.T) {
+	t.Run("MultiAddressToPeers", testMultiAddressToManyRemoveOpPeers)
+	t.Run("PeerToMaddrMultiAddresses", testPeerToManyRemoveOpMaddrMultiAddresses)
+}
 
 func TestReload(t *testing.T) {
 	t.Run("Crawls", testCrawlsReload)
 	t.Run("Latencies", testLatenciesReload)
+	t.Run("MultiAddresses", testMultiAddressesReload)
 	t.Run("PeerProperties", testPeerPropertiesReload)
 	t.Run("Peers", testPeersReload)
 	t.Run("PegasysConnections", testPegasysConnectionsReload)
@@ -207,6 +231,7 @@ func TestReload(t *testing.T) {
 func TestReloadAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsReloadAll)
 	t.Run("Latencies", testLatenciesReloadAll)
+	t.Run("MultiAddresses", testMultiAddressesReloadAll)
 	t.Run("PeerProperties", testPeerPropertiesReloadAll)
 	t.Run("Peers", testPeersReloadAll)
 	t.Run("PegasysConnections", testPegasysConnectionsReloadAll)
@@ -217,6 +242,7 @@ func TestReloadAll(t *testing.T) {
 func TestSelect(t *testing.T) {
 	t.Run("Crawls", testCrawlsSelect)
 	t.Run("Latencies", testLatenciesSelect)
+	t.Run("MultiAddresses", testMultiAddressesSelect)
 	t.Run("PeerProperties", testPeerPropertiesSelect)
 	t.Run("Peers", testPeersSelect)
 	t.Run("PegasysConnections", testPegasysConnectionsSelect)
@@ -227,6 +253,7 @@ func TestSelect(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	t.Run("Crawls", testCrawlsUpdate)
 	t.Run("Latencies", testLatenciesUpdate)
+	t.Run("MultiAddresses", testMultiAddressesUpdate)
 	t.Run("PeerProperties", testPeerPropertiesUpdate)
 	t.Run("Peers", testPeersUpdate)
 	t.Run("PegasysConnections", testPegasysConnectionsUpdate)
@@ -237,6 +264,7 @@ func TestUpdate(t *testing.T) {
 func TestSliceUpdateAll(t *testing.T) {
 	t.Run("Crawls", testCrawlsSliceUpdateAll)
 	t.Run("Latencies", testLatenciesSliceUpdateAll)
+	t.Run("MultiAddresses", testMultiAddressesSliceUpdateAll)
 	t.Run("PeerProperties", testPeerPropertiesSliceUpdateAll)
 	t.Run("Peers", testPeersSliceUpdateAll)
 	t.Run("PegasysConnections", testPegasysConnectionsSliceUpdateAll)
