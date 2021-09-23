@@ -203,6 +203,10 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 }
 
+func (c *Config) ReachedCrawlLimit(crawled int) bool {
+	return c.CrawlLimit > 0 && crawled >= c.CrawlLimit
+}
+
 // String prints the configuration as a json string
 func (c *Config) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")

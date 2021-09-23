@@ -1,20 +1,16 @@
 package queue
 
 type FIFO struct {
-	buf      []interface{}
-	in       chan interface{}
-	out      chan interface{}
-	shutdown chan struct{}
-	done     chan struct{}
+	buf []interface{}
+	in  chan interface{}
+	out chan interface{}
 }
 
 func NewFIFO() *FIFO {
 	fifo := &FIFO{
-		buf:      []interface{}{}, // TODO: use a ring buffer?
-		in:       make(chan interface{}),
-		out:      make(chan interface{}),
-		shutdown: make(chan struct{}),
-		done:     make(chan struct{}),
+		buf: []interface{}{}, // TODO: use a ring buffer?
+		in:  make(chan interface{}),
+		out: make(chan interface{}),
 	}
 
 	go fifo.listen()
@@ -22,23 +18,8 @@ func NewFIFO() *FIFO {
 	return fifo
 }
 
-// Done can be called by the user so that no more items can be pushed into this queue
-func (fifo *FIFO) Done() {
+func (fifo *FIFO) DoneProducing() {
 	close(fifo.in)
-}
-
-// Close should be called by the user if he/she is done receiving elements
-func (fifo *FIFO) Close() {
-	close(fifo.shutdown)
-	<-fifo.done
-}
-
-func (fifo *FIFO) Push(elem interface{}) {
-	fifo.in <- elem
-}
-
-func (fifo *FIFO) Pop() interface{} {
-	return <-fifo.out
 }
 
 func (fifo *FIFO) Produce() chan<- interface{} {
@@ -50,14 +31,12 @@ func (fifo *FIFO) Consume() <-chan interface{} {
 }
 
 func (fifo *FIFO) listen() {
-	defer close(fifo.done)
 	defer close(fifo.out)
 
 	var ok bool
 	var elem interface{}
 LOOP:
 	for {
-
 		// At the start the in channel is empty, so we're waiting for elements
 		select {
 		case elem, ok = <-fifo.in:
@@ -65,8 +44,6 @@ LOOP:
 				// The sender has closed the channel
 				break LOOP
 			}
-		case <-fifo.shutdown:
-			break LOOP
 		}
 
 		// Try to send new element immediately
@@ -81,8 +58,6 @@ LOOP:
 
 		for len(fifo.buf) > 0 {
 			select {
-			case <-fifo.shutdown:
-				break LOOP
 			case elem, ok := <-fifo.in:
 				if !ok {
 					// The sender has closed the channel
@@ -94,12 +69,8 @@ LOOP:
 			}
 		}
 	}
-LOOP2:
+
 	for _, elem := range fifo.buf {
-		select {
-		case <-fifo.shutdown:
-			break LOOP2
-		case fifo.out <- elem:
-		}
+		fifo.out <- elem
 	}
 }

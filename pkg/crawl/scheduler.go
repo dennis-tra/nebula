@@ -79,11 +79,6 @@ type Scheduler struct {
 	workers sync.Map
 }
 
-type AddrInfo struct {
-	*peer.AddrInfo
-	model *models.Peer
-}
-
 // knownErrors contains a list of known errors. Property key + string to match for
 var knownErrors = map[string]string{
 	models.DialErrorIoTimeout:               "i/o timeout",
@@ -144,11 +139,8 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		select {
 		case <-s.SigDone():
 		case <-s.SigShutdown():
-			s.crawlQueue.Close()
-			s.resultsQueue.Close()
 			s.shutdownWorkers()
-			s.crawlQueue.Done()
-			s.resultsQueue.Done()
+			s.resultsQueue.DoneProducing()
 		}
 	}()
 
@@ -212,17 +204,23 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 // readResultsQueue listens for crawl results on the resultsQueue channel and handles any
 // entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
 func (s *Scheduler) readResultsQueue() {
-	for elem := range s.resultsQueue.Consume() {
-		result := elem.(Result)
-		start := time.Now()
-		s.handleResult(result)
-		stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
+	defer s.crawlQueue.DoneProducing()
+	for {
+		select {
+		case elem := <-s.resultsQueue.Consume():
+			s.handleResult(elem.(Result))
+		case <-s.SigShutdown():
+			return
+		}
 	}
 }
 
 // handleResult takes a crawl result and persist the information in the database and schedules
 // new crawls.
 func (s *Scheduler) handleResult(cr Result) {
+	start := time.Now()
+	defer stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
+
 	logEntry := log.WithFields(log.Fields{
 		"workerID":   cr.WorkerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
@@ -277,7 +275,7 @@ func (s *Scheduler) handleResult(cr Result) {
 		"crawled":      len(s.crawled),
 	}).Infoln("Handled crawl result from worker", cr.WorkerID)
 
-	if len(s.inCrawlQueue) == 0 || (s.config.CrawlLimit > 0 && len(s.crawled) >= s.config.CrawlLimit) {
+	if len(s.inCrawlQueue) == 0 || s.config.ReachedCrawlLimit(len(s.crawled)) {
 		go s.Shutdown()
 	}
 }
@@ -289,7 +287,7 @@ func (s *Scheduler) handleResult(cr Result) {
 // This could be an approach: https://github.com/AsynkronIT/goring though it's without channels and only single consumer
 func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	s.inCrawlQueue[pi.ID] = pi
-	s.crawlQueue.Push(pi)
+	s.crawlQueue.Produce() <- pi
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 }
 
