@@ -23,6 +23,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -41,7 +42,7 @@ type Scheduler struct { // Service represents an entity that runs in a
 	config *config.Config
 
 	// The queue of peer.AddrInfo's that need to be dialed to.
-	dialQueue chan Job
+	dialQueue *queue.FIFO
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put it there again.
@@ -51,7 +52,7 @@ type Scheduler struct { // Service represents an entity that runs in a
 	inDialQueueCount atomic.Uint32
 
 	// The queue that the workers publish their dial results on
-	resultsQueue chan Result
+	resultsQueue *queue.FIFO
 
 	// The list of worker node references.
 	workers sync.Map
@@ -117,8 +118,8 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 		dbh:          dbh,
 		config:       conf,
 		inDialQueue:  sync.Map{},
-		dialQueue:    make(chan Job),
-		resultsQueue: make(chan Result),
+		dialQueue:    queue.NewFIFO(),
+		resultsQueue: queue.NewFIFO(),
 		workers:      sync.Map{},
 	}
 
@@ -142,13 +143,13 @@ func (s *Scheduler) StartMonitoring() error {
 	}
 
 	// Async handle the results from workers
-	go s.handleResults()
+	go s.readResultsQueue()
 
 	// Monitor the database and schedule dial jobs
 	s.monitorDatabase()
 
 	// release all resources
-	s.cleanup()
+	s.shutdownWorkers()
 
 	log.WithFields(log.Fields{
 		"inDialQueue":     s.inDialQueueCount.Load(),
@@ -158,36 +159,47 @@ func (s *Scheduler) StartMonitoring() error {
 	return nil
 }
 
-func (s *Scheduler) handleResults() {
-	for dr := range s.resultsQueue {
-		logEntry := log.WithFields(log.Fields{
-			"workerID": dr.WorkerID,
-			"targetID": dr.Peer.ID.Pretty()[:16],
-			"alive":    dr.Error == nil,
-		})
-		if dr.Error != nil {
-			logEntry = logEntry.WithError(dr.Error)
+// readResultsQueue listens for crawl results on the resultsQueue channel and handles any
+// entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
+func (s *Scheduler) readResultsQueue() {
+	for {
+		select {
+		case elem := <-s.resultsQueue.Consume():
+			s.handleResult(elem.(Result))
+		case <-s.SigShutdown():
+			return
 		}
-		logEntry.Infoln("Handling dial result from worker", dr.WorkerID)
+	}
+}
 
-		// Update maps
-		s.inDialQueue.Delete(dr.Peer.ID)
-		stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
+func (s *Scheduler) handleResult(dr Result) {
+	logEntry := log.WithFields(log.Fields{
+		"workerID": dr.WorkerID,
+		"targetID": dr.Peer.ID.Pretty()[:16],
+		"alive":    dr.Error == nil,
+	})
+	if dr.Error != nil {
+		logEntry = logEntry.WithError(dr.Error)
+	}
+	logEntry.Infoln("Handling dial result from worker", dr.WorkerID)
 
-		var err error
-		if dr.Error == nil {
-			err = db.UpsertSessionSuccess(s.dbh, dr.InternalPeerID)
-		} else {
-			dialErr := determineDialError(dr.Error)
-			if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
-				stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
-			}
-			err = db.UpsertSessionError(s.dbh, dr.InternalPeerID, dr.ErrorTime, dialErr)
+	// Update maps
+	s.inDialQueue.Delete(dr.Peer.ID)
+	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
+
+	var err error
+	if dr.Error == nil {
+		err = db.UpsertSessionSuccess(s.dbh, dr.InternalPeerID)
+	} else {
+		dialErr := determineDialError(dr.Error)
+		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
+			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
 		}
+		err = db.UpsertSessionError(s.dbh, dr.InternalPeerID, dr.ErrorTime, dialErr)
+	}
 
-		if err != nil {
-			logEntry.WithError(err).Warn("Could not update session record")
-		}
+	if err != nil {
+		logEntry.WithError(err).Warn("Could not update session record")
 	}
 }
 
@@ -255,35 +267,12 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
 	// Schedule dial for peer
-	go func() {
-		if s.IsStarted() {
-			s.dialQueue <- Job{
-				pi:             pi,
-				InternalPeerID: session.PeerID,
-			}
-		}
-	}()
+	s.dialQueue.Push(Job{
+		pi:             pi,
+		InternalPeerID: session.PeerID,
+	})
 
 	return nil
-}
-
-func (s *Scheduler) cleanup() {
-	s.drainDialQueue()
-	close(s.dialQueue)
-	s.shutdownWorkers()
-	close(s.resultsQueue)
-}
-
-// drainDialQueue reads all entries from crawlQueue and discards them.
-func (s *Scheduler) drainDialQueue() {
-	for {
-		select {
-		case job := <-s.dialQueue:
-			log.WithField("targetID", job.pi.ID.Pretty()[:16]).Traceln("Drained peer")
-		default:
-			return
-		}
-	}
 }
 
 // shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
