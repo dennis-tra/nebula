@@ -65,9 +65,9 @@ func (s *Scheduler) updateCrawl(ctx context.Context) error {
 	return s.dbc.UpdateCrawl(ctx, s.crawl)
 }
 
-// persistPeerProperties writes peer property statistics to the database.
-func (s *Scheduler) persistPeerProperties(ctx context.Context) error {
-	log.Infoln("Persisting peer properties...")
+// persistCrawlProperties writes crawl property statistics to the database.
+func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
+	log.Infoln("Persisting crawl properties...")
 
 	// Extract full and core agent versions. Core agent versions are just strings like 0.8.0 or 0.5.0
 	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
@@ -87,5 +87,5 @@ func (s *Scheduler) persistPeerProperties(ctx context.Context) error {
 		"error":              s.errors,
 	}
 
-	return s.dbc.PersistPeerProperties(ctx, s.crawl, pps)
+	return s.dbc.PersistCrawlProperties(ctx, s.crawl, pps)
 }
