@@ -144,7 +144,9 @@ func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO)
 		cancel()
 
 		cr.Latencies = latencies
-		resultsQueue.Produce() <- cr
+
+		resultsQueue.Push(cr)
+
 		logEntry.Debugln("Crawled peer")
 	}
 }

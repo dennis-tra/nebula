@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -21,6 +19,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -135,15 +134,6 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		workers:      sync.Map{},
 	}
 
-	go func() {
-		select {
-		case <-s.SigDone():
-		case <-s.SigShutdown():
-			s.shutdownWorkers()
-			s.resultsQueue.DoneProducing()
-		}
-	}()
-
 	return s, nil
 }
 
@@ -182,6 +172,15 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// Read from the results queue blocking
 	s.readResultsQueue()
 
+	// Stop Go routine of crawl queue
+	s.crawlQueue.DoneProducing()
+
+	// Stop workers
+	s.shutdownWorkers()
+
+	// Stop Go routine of results queue
+	s.resultsQueue.DoneProducing()
+
 	// Finally, log the crawl summary
 	defer s.logSummary()
 
@@ -204,7 +203,6 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 // readResultsQueue listens for crawl results on the resultsQueue channel and handles any
 // entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
 func (s *Scheduler) readResultsQueue() {
-	defer s.crawlQueue.DoneProducing()
 	for {
 		select {
 		case elem := <-s.resultsQueue.Consume():
@@ -287,7 +285,7 @@ func (s *Scheduler) handleResult(cr Result) {
 // This could be an approach: https://github.com/AsynkronIT/goring though it's without channels and only single consumer
 func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	s.inCrawlQueue[pi.ID] = pi
-	s.crawlQueue.Produce() <- pi
+	s.crawlQueue.Push(pi)
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 }
 
