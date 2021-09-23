@@ -8,6 +8,7 @@ import (
 
 	"contrib.go.opencensus.io/integrations/ocsql"
 	"github.com/libp2p/go-libp2p-core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -98,6 +99,44 @@ func (c *Client) PersistPeerProperties(ctx context.Context, crawl *models.Crawl,
 	}
 
 	return txn.Commit()
+}
+
+func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
+	peers, err := models.Peers(
+		qm.Select(models.PeerColumns.MultiHash, models.PeerColumns.MultiAddresses),
+		qm.InnerJoin("sessions s on s.peer_id = peers.id"),
+		qm.Where("s.finished = false"),
+		qm.OrderBy("s.updated_at"),
+		qm.Limit(limit),
+	).All(ctx, c.dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	var pis []peer.AddrInfo
+	for _, p := range peers {
+		id, err := peer.Decode(p.MultiHash)
+		if err != nil {
+			log.Warnln("Could not decode multi hash ", p.MultiHash)
+			continue
+		}
+		var maddrs []ma.Multiaddr
+		for _, maddrStr := range p.MultiAddresses {
+			maddr, err := ma.NewMultiaddr(maddrStr)
+			if err != nil {
+				log.Warnln("Could not decode multi addr ", maddrStr)
+				continue
+			}
+
+			maddrs = append(maddrs, maddr)
+		}
+		pi := peer.AddrInfo{
+			ID:    id,
+			Addrs: maddrs,
+		}
+		pis = append(pis, pi)
+	}
+	return pis, nil
 }
 
 func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.PeerSlice, error) {
