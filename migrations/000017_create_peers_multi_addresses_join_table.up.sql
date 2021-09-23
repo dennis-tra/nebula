@@ -18,5 +18,7 @@ CREATE TABLE peers_multi_addresses
     PRIMARY KEY (peer_id, maddr_id)
 );
 
+CREATE INDEX idx_multi_addresses_pkey_reversed ON peers_multi_addresses (maddr_id, peer_id);
+
 -- End the transaction
 COMMIT;
