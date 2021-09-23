@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testCrawls(t *testing.T) {
+func testProperties(t *testing.T) {
 	t.Parallel()
 
-	query := Crawls()
+	query := Properties()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testCrawlsDelete(t *testing.T) {
+func testPropertiesDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testCrawlsDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testCrawlsDelete(t *testing.T) {
 	}
 }
 
-func testCrawlsQueryDeleteAll(t *testing.T) {
+func testPropertiesQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testCrawlsQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := Crawls().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Properties().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testCrawlsQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testCrawlsSliceDeleteAll(t *testing.T) {
+func testPropertiesSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testCrawlsSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := CrawlSlice{o}
+	slice := PropertySlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testCrawlsSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testCrawlsSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testCrawlsExists(t *testing.T) {
+func testPropertiesExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testCrawlsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := CrawlExists(ctx, tx, o.ID)
+	e, err := PropertyExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if Crawl exists: %s", err)
+		t.Errorf("Unable to check if Property exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected CrawlExists to return true, but got false.")
+		t.Errorf("Expected PropertyExists to return true, but got false.")
 	}
 }
 
-func testCrawlsFind(t *testing.T) {
+func testPropertiesFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testCrawlsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	crawlFound, err := FindCrawl(ctx, tx, o.ID)
+	propertyFound, err := FindProperty(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if crawlFound == nil {
+	if propertyFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testCrawlsBind(t *testing.T) {
+func testPropertiesBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testCrawlsBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = Crawls().Bind(ctx, tx, o); err != nil {
+	if err = Properties().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testCrawlsOne(t *testing.T) {
+func testPropertiesOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testCrawlsOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := Crawls().One(ctx, tx); err != nil {
+	if x, err := Properties().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testCrawlsAll(t *testing.T) {
+func testPropertiesAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	crawlOne := &Crawl{}
-	crawlTwo := &Crawl{}
-	if err = randomize.Struct(seed, crawlOne, crawlDBTypes, false, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	propertyOne := &Property{}
+	propertyTwo := &Property{}
+	if err = randomize.Struct(seed, propertyOne, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
-	if err = randomize.Struct(seed, crawlTwo, crawlDBTypes, false, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, propertyTwo, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = crawlOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = propertyOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = crawlTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = propertyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := Crawls().All(ctx, tx)
+	slice, err := Properties().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testCrawlsAll(t *testing.T) {
 	}
 }
 
-func testCrawlsCount(t *testing.T) {
+func testPropertiesCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	crawlOne := &Crawl{}
-	crawlTwo := &Crawl{}
-	if err = randomize.Struct(seed, crawlOne, crawlDBTypes, false, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	propertyOne := &Property{}
+	propertyTwo := &Property{}
+	if err = randomize.Struct(seed, propertyOne, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
-	if err = randomize.Struct(seed, crawlTwo, crawlDBTypes, false, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, propertyTwo, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = crawlOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = propertyOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = crawlTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = propertyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testCrawlsCount(t *testing.T) {
 	}
 }
 
-func crawlBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func crawlAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Crawl) error {
-	*o = Crawl{}
+func propertyAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
+	*o = Property{}
 	return nil
 }
 
-func testCrawlsHooks(t *testing.T) {
+func testPropertiesHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &Crawl{}
-	o := &Crawl{}
+	empty := &Property{}
+	o := &Property{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, crawlDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize Crawl object: %s", err)
+	if err = randomize.Struct(seed, o, propertyDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Property object: %s", err)
 	}
 
-	AddCrawlHook(boil.BeforeInsertHook, crawlBeforeInsertHook)
+	AddPropertyHook(boil.BeforeInsertHook, propertyBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	crawlBeforeInsertHooks = []CrawlHook{}
+	propertyBeforeInsertHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.AfterInsertHook, crawlAfterInsertHook)
+	AddPropertyHook(boil.AfterInsertHook, propertyAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	crawlAfterInsertHooks = []CrawlHook{}
+	propertyAfterInsertHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.AfterSelectHook, crawlAfterSelectHook)
+	AddPropertyHook(boil.AfterSelectHook, propertyAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	crawlAfterSelectHooks = []CrawlHook{}
+	propertyAfterSelectHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.BeforeUpdateHook, crawlBeforeUpdateHook)
+	AddPropertyHook(boil.BeforeUpdateHook, propertyBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	crawlBeforeUpdateHooks = []CrawlHook{}
+	propertyBeforeUpdateHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.AfterUpdateHook, crawlAfterUpdateHook)
+	AddPropertyHook(boil.AfterUpdateHook, propertyAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	crawlAfterUpdateHooks = []CrawlHook{}
+	propertyAfterUpdateHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.BeforeDeleteHook, crawlBeforeDeleteHook)
+	AddPropertyHook(boil.BeforeDeleteHook, propertyBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	crawlBeforeDeleteHooks = []CrawlHook{}
+	propertyBeforeDeleteHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.AfterDeleteHook, crawlAfterDeleteHook)
+	AddPropertyHook(boil.AfterDeleteHook, propertyAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	crawlAfterDeleteHooks = []CrawlHook{}
+	propertyAfterDeleteHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.BeforeUpsertHook, crawlBeforeUpsertHook)
+	AddPropertyHook(boil.BeforeUpsertHook, propertyBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	crawlBeforeUpsertHooks = []CrawlHook{}
+	propertyBeforeUpsertHooks = []PropertyHook{}
 
-	AddCrawlHook(boil.AfterUpsertHook, crawlAfterUpsertHook)
+	AddPropertyHook(boil.AfterUpsertHook, propertyAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	crawlAfterUpsertHooks = []CrawlHook{}
+	propertyAfterUpsertHooks = []PropertyHook{}
 }
 
-func testCrawlsInsert(t *testing.T) {
+func testPropertiesInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testCrawlsInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testCrawlsInsert(t *testing.T) {
 	}
 }
 
-func testCrawlsInsertWhitelist(t *testing.T) {
+func testPropertiesInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(crawlColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(propertyColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,18 +494,18 @@ func testCrawlsInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testCrawlToManyCrawlProperties(t *testing.T) {
+func testPropertyToManyCrawlProperties(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Crawl
+	var a Property
 	var b, c CrawlProperty
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, &a, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
@@ -519,8 +519,8 @@ func testCrawlToManyCrawlProperties(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CrawlID = a.ID
-	c.CrawlID = a.ID
+	b.PropertyID = a.ID
+	c.PropertyID = a.ID
 
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
@@ -536,10 +536,10 @@ func testCrawlToManyCrawlProperties(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.CrawlID == b.CrawlID {
+		if v.PropertyID == b.PropertyID {
 			bFound = true
 		}
-		if v.CrawlID == c.CrawlID {
+		if v.PropertyID == c.PropertyID {
 			cFound = true
 		}
 	}
@@ -551,8 +551,8 @@ func testCrawlToManyCrawlProperties(t *testing.T) {
 		t.Error("expected to find c")
 	}
 
-	slice := CrawlSlice{&a}
-	if err = a.L.LoadCrawlProperties(ctx, tx, false, (*[]*Crawl)(&slice), nil); err != nil {
+	slice := PropertySlice{&a}
+	if err = a.L.LoadCrawlProperties(ctx, tx, false, (*[]*Property)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := len(a.R.CrawlProperties); got != 2 {
@@ -572,18 +572,18 @@ func testCrawlToManyCrawlProperties(t *testing.T) {
 	}
 }
 
-func testCrawlToManyAddOpCrawlProperties(t *testing.T) {
+func testPropertyToManyAddOpCrawlProperties(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Crawl
+	var a Property
 	var b, c, d, e CrawlProperty
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, crawlDBTypes, false, strmangle.SetComplement(crawlPrimaryKeyColumns, crawlColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*CrawlProperty{&b, &c, &d, &e}
@@ -617,17 +617,17 @@ func testCrawlToManyAddOpCrawlProperties(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.CrawlID {
-			t.Error("foreign key was wrong value", a.ID, first.CrawlID)
+		if a.ID != first.PropertyID {
+			t.Error("foreign key was wrong value", a.ID, first.PropertyID)
 		}
-		if a.ID != second.CrawlID {
-			t.Error("foreign key was wrong value", a.ID, second.CrawlID)
+		if a.ID != second.PropertyID {
+			t.Error("foreign key was wrong value", a.ID, second.PropertyID)
 		}
 
-		if first.R.Crawl != &a {
+		if first.R.Property != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
-		if second.R.Crawl != &a {
+		if second.R.Property != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
 
@@ -648,14 +648,14 @@ func testCrawlToManyAddOpCrawlProperties(t *testing.T) {
 	}
 }
 
-func testCrawlsReload(t *testing.T) {
+func testPropertiesReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -670,14 +670,14 @@ func testCrawlsReload(t *testing.T) {
 	}
 }
 
-func testCrawlsReloadAll(t *testing.T) {
+func testPropertiesReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -687,21 +687,21 @@ func testCrawlsReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := CrawlSlice{o}
+	slice := PropertySlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testCrawlsSelect(t *testing.T) {
+func testPropertiesSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -711,7 +711,7 @@ func testCrawlsSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := Crawls().All(ctx, tx)
+	slice, err := Properties().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -722,25 +722,25 @@ func testCrawlsSelect(t *testing.T) {
 }
 
 var (
-	crawlDBTypes = map[string]string{`ID`: `integer`, `State`: `enum.crawl_state('started','cancelled','failed','succeeded')`, `StartedAt`: `timestamp with time zone`, `FinishedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `CrawledPeers`: `integer`, `DialablePeers`: `integer`, `UndialablePeers`: `integer`}
-	_            = bytes.MinRead
+	propertyDBTypes = map[string]string{`ID`: `integer`, `Property`: `character varying`, `Value`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	_               = bytes.MinRead
 )
 
-func testCrawlsUpdate(t *testing.T) {
+func testPropertiesUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(crawlPrimaryKeyColumns) {
+	if 0 == len(propertyPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(crawlAllColumns) == len(crawlPrimaryKeyColumns) {
+	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -750,7 +750,7 @@ func testCrawlsUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -759,8 +759,8 @@ func testCrawlsUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -770,18 +770,18 @@ func testCrawlsUpdate(t *testing.T) {
 	}
 }
 
-func testCrawlsSliceUpdateAll(t *testing.T) {
+func testPropertiesSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(crawlAllColumns) == len(crawlPrimaryKeyColumns) {
+	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Crawl{}
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := &Property{}
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -791,7 +791,7 @@ func testCrawlsSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -800,18 +800,18 @@ func testCrawlsSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, crawlDBTypes, true, crawlPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(crawlAllColumns, crawlPrimaryKeyColumns) {
-		fields = crawlAllColumns
+	if strmangle.StringSliceMatch(propertyAllColumns, propertyPrimaryKeyColumns) {
+		fields = propertyAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			crawlAllColumns,
-			crawlPrimaryKeyColumns,
+			propertyAllColumns,
+			propertyPrimaryKeyColumns,
 		)
 	}
 
@@ -829,7 +829,7 @@ func testCrawlsSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := CrawlSlice{o}
+	slice := PropertySlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -837,29 +837,29 @@ func testCrawlsSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testCrawlsUpsert(t *testing.T) {
+func testPropertiesUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(crawlAllColumns) == len(crawlPrimaryKeyColumns) {
+	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := Crawl{}
-	if err = randomize.Struct(seed, &o, crawlDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	o := Property{}
+	if err = randomize.Struct(seed, &o, propertyDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Crawl: %s", err)
+		t.Errorf("Unable to upsert Property: %s", err)
 	}
 
-	count, err := Crawls().Count(ctx, tx)
+	count, err := Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -868,15 +868,15 @@ func testCrawlsUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, crawlDBTypes, false, crawlPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Crawl struct: %s", err)
+	if err = randomize.Struct(seed, &o, propertyDBTypes, false, propertyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Property struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Crawl: %s", err)
+		t.Errorf("Unable to upsert Property: %s", err)
 	}
 
-	count, err = Crawls().Count(ctx, tx)
+	count, err = Properties().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
