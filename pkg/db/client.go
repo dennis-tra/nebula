@@ -190,7 +190,6 @@ func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.Pe
 }
 
 func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string, protocols []string) (*models.Peer, error) {
-	boil.DebugMode = true
 	txn, err := c.dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "begin txn")
@@ -214,11 +213,14 @@ func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string,
 		props = append(props, prop)
 	}
 
-	agentProp, err := c.GetOrCreateProperty(ctx, c.dbh, "agent_version", agent)
-	if err != nil {
-		return nil, errors.Wrap(err, "get or create agent version property")
+	if agent != "" {
+		agentProp, err := c.GetOrCreateProperty(ctx, c.dbh, "agent_version", agent)
+		if err != nil {
+			return nil, errors.Wrap(err, "get or create agent version property")
+		}
+		props = append(props, agentProp)
 	}
-	props = append(props, agentProp)
+
 	if err = p.SetProperties(ctx, txn, false, props...); err != nil {
 		return nil, errors.Wrap(err, "set peer properties")
 	}
@@ -333,4 +335,57 @@ WHERE peer_id = $1 AND finished = false;
 	}
 
 	return rows.Close()
+}
+
+func (c *Client) InsertNeighbors(ctx context.Context, crawl *models.Crawl, dbPeer *models.Peer, neighbors []peer.AddrInfo) error {
+	txn, err := c.dbh.BeginTx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "begin neighbors txn")
+	}
+
+	var mhashes []interface{}
+	for _, neighbor := range neighbors {
+		mhashes = append(mhashes, neighbor.ID.Pretty())
+	}
+
+	neighborPeers, err := models.Peers(qm.WhereIn("multi_hash in ?", mhashes...)).All(ctx, txn)
+	if err != nil {
+		return errors.Wrap(err, "getting neighbors")
+	}
+
+OUTER:
+	for _, n := range neighbors {
+		for _, n2 := range neighborPeers {
+			if n.ID.Pretty() == n2.MultiHash {
+				neighbor := &models.Neighbor{
+					CrawlID:    crawl.ID,
+					PeerID:     dbPeer.ID,
+					NeighborID: n2.ID,
+				}
+				if err = neighbor.Insert(ctx, txn, boil.Infer()); err != nil {
+					return errors.Wrap(err, "inserting neighbor")
+				}
+				continue OUTER
+			}
+		}
+		pp, err := c.UpsertPeer(ctx, peer.AddrInfo{ID: n.ID}, "", []string{})
+		if err != nil {
+			return errors.Wrap(err, "upserting peer")
+		}
+		neighbor := &models.Neighbor{
+			CrawlID:    crawl.ID,
+			PeerID:     dbPeer.ID,
+			NeighborID: pp.ID,
+		}
+		if err = neighbor.Insert(ctx, txn, boil.Infer()); err != nil {
+			return errors.Wrap(err, "inserting neighbor")
+		}
+	}
+
+	if err = txn.Commit(); err != nil {
+		_ = txn.Rollback()
+		return err
+	}
+
+	return nil
 }

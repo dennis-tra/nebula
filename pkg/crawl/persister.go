@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
@@ -27,15 +29,17 @@ type Persister struct {
 
 	config         *config.Config
 	dbc            *db.Client
+	crawl          *models.Crawl
 	persistedPeers int
 }
 
 // NewPersister initializes a new persister based on the given configuration.
-func NewPersister(dbc *db.Client, conf *config.Config) (*Persister, error) {
+func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Persister, error) {
 	p := &Persister{
 		Service: service.New(fmt.Sprintf("persister-%02d", persisterID.Load())),
 		config:  conf,
 		dbc:     dbc,
+		crawl:   crawl,
 	}
 	persisterID.Inc()
 	return p, nil
@@ -83,13 +87,19 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 // upserts its currently active session
 func (p *Persister) persistCrawlResult(ctx context.Context, cr Result) error {
 	var err error
+	startUpsert := time.Now()
 
 	dbPeer, err := p.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent, cr.Protocols)
 	if err != nil {
 		return errors.Wrap(err, "upsert peer")
 	}
 
-	startUpsert := time.Now()
+	if p.config.PersistNeighbors {
+		if err = p.dbc.InsertNeighbors(ctx, p.crawl, dbPeer, cr.Neighbors); err != nil {
+			return errors.Wrap(err, "insert neighbors")
+		}
+	}
+
 	if cr.Error == nil {
 		if err := p.dbc.UpsertSessionSuccess(dbPeer); err != nil {
 			return errors.Wrap(err, "upsert session success")
