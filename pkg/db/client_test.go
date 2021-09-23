@@ -136,7 +136,7 @@ func TestClient_UpsertPeer(t *testing.T) {
 	require.NoError(t, err)
 
 	pi := peer.AddrInfo{ID: id}
-	p, err := client.UpsertPeer(ctx, pi, "")
+	p, err := client.UpsertPeer(ctx, pi, "", nil)
 	require.NoError(t, err)
 	assert.NotZero(t, p.ID)
 	assert.Equal(t, id.String(), p.MultiHash)
@@ -145,7 +145,7 @@ func TestClient_UpsertPeer(t *testing.T) {
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/5000")
 	require.NoError(t, err)
 	pi = peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{maddr}}
-	p, err = client.UpsertPeer(ctx, pi, "")
+	p, err = client.UpsertPeer(ctx, pi, "", nil)
 	require.NoError(t, err)
 	assert.NotZero(t, p.ID)
 	assert.Equal(t, id.String(), p.MultiHash)
