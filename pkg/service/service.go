@@ -102,7 +102,7 @@ func (s *Service) ServiceStarted() {
 
 // SigShutdown exposes the shutdown channel to listen for
 // shutdown instructions.
-func (s *Service) SigShutdown() chan struct{} {
+func (s *Service) SigShutdown() <-chan struct{} {
 	return s.shutdown
 }
 
@@ -113,7 +113,7 @@ func (s *Service) Identifier() string {
 
 // SigDone exposes the done channel to listen for
 // service termination.
-func (s *Service) SigDone() chan struct{} {
+func (s *Service) SigDone() <-chan struct{} {
 	return s.done
 }
 
