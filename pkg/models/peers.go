@@ -28,9 +28,9 @@ type Peer struct {
 	MultiHash    string            `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
 	UpdatedAt    time.Time         `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt    time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID           int               `boil:"id" json:"id" toml:"id" yaml:"id"`
 	AgentVersion null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
 	Protocol     types.StringArray `boil:"protocol" json:"protocol,omitempty" toml:"protocol" yaml:"protocol,omitempty"`
-	ID           int               `boil:"id" json:"id" toml:"id" yaml:"id"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -40,32 +40,32 @@ var PeerColumns = struct {
 	MultiHash    string
 	UpdatedAt    string
 	CreatedAt    string
+	ID           string
 	AgentVersion string
 	Protocol     string
-	ID           string
 }{
 	MultiHash:    "multi_hash",
 	UpdatedAt:    "updated_at",
 	CreatedAt:    "created_at",
+	ID:           "id",
 	AgentVersion: "agent_version",
 	Protocol:     "protocol",
-	ID:           "id",
 }
 
 var PeerTableColumns = struct {
 	MultiHash    string
 	UpdatedAt    string
 	CreatedAt    string
+	ID           string
 	AgentVersion string
 	Protocol     string
-	ID           string
 }{
 	MultiHash:    "peers.multi_hash",
 	UpdatedAt:    "peers.updated_at",
 	CreatedAt:    "peers.created_at",
+	ID:           "peers.id",
 	AgentVersion: "peers.agent_version",
 	Protocol:     "peers.protocol",
-	ID:           "peers.id",
 }
 
 // Generated where
@@ -99,26 +99,28 @@ var PeerWhere = struct {
 	MultiHash    whereHelperstring
 	UpdatedAt    whereHelpertime_Time
 	CreatedAt    whereHelpertime_Time
+	ID           whereHelperint
 	AgentVersion whereHelpernull_String
 	Protocol     whereHelpertypes_StringArray
-	ID           whereHelperint
 }{
 	MultiHash:    whereHelperstring{field: "\"peers\".\"multi_hash\""},
 	UpdatedAt:    whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
 	CreatedAt:    whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	ID:           whereHelperint{field: "\"peers\".\"id\""},
 	AgentVersion: whereHelpernull_String{field: "\"peers\".\"agent_version\""},
 	Protocol:     whereHelpertypes_StringArray{field: "\"peers\".\"protocol\""},
-	ID:           whereHelperint{field: "\"peers\".\"id\""},
 }
 
 // PeerRels is where relationship names are stored.
 var PeerRels = struct {
 	Latencies      string
 	MultiAddresses string
+	Properties     string
 	Sessions       string
 }{
 	Latencies:      "Latencies",
 	MultiAddresses: "MultiAddresses",
+	Properties:     "Properties",
 	Sessions:       "Sessions",
 }
 
@@ -126,6 +128,7 @@ var PeerRels = struct {
 type peerR struct {
 	Latencies      LatencySlice      `boil:"Latencies" json:"Latencies" toml:"Latencies" yaml:"Latencies"`
 	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
+	Properties     PropertySlice     `boil:"Properties" json:"Properties" toml:"Properties" yaml:"Properties"`
 	Sessions       SessionSlice      `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
 }
 
@@ -138,7 +141,7 @@ func (*peerR) NewStruct() *peerR {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"multi_hash", "updated_at", "created_at", "agent_version", "protocol", "id"}
+	peerAllColumns            = []string{"multi_hash", "updated_at", "created_at", "id", "agent_version", "protocol"}
 	peerColumnsWithoutDefault = []string{"multi_hash", "updated_at", "created_at", "agent_version", "protocol"}
 	peerColumnsWithDefault    = []string{"id"}
 	peerPrimaryKeyColumns     = []string{"id"}
@@ -462,6 +465,28 @@ func (o *Peer) MultiAddresses(mods ...qm.QueryMod) multiAddressQuery {
 	return query
 }
 
+// Properties retrieves all the property's Properties with an executor.
+func (o *Peer) Properties(mods ...qm.QueryMod) propertyQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.InnerJoin("\"peers_properties\" on \"properties\".\"id\" = \"peers_properties\".\"property_id\""),
+		qm.Where("\"peers_properties\".\"peer_id\"=?", o.ID),
+	)
+
+	query := Properties(queryMods...)
+	queries.SetFrom(query.Query, "\"properties\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"properties\".*"})
+	}
+
+	return query
+}
+
 // Sessions retrieves all the session's Sessions with an executor.
 func (o *Peer) Sessions(mods ...qm.QueryMod) sessionQuery {
 	var queryMods []qm.QueryMod
@@ -686,6 +711,121 @@ func (peerL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, sin
 				local.R.MultiAddresses = append(local.R.MultiAddresses, foreign)
 				if foreign.R == nil {
 					foreign.R = &multiAddressR{}
+				}
+				foreign.R.Peers = append(foreign.R.Peers, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadProperties allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (peerL) LoadProperties(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+	var slice []*Peer
+	var object *Peer
+
+	if singular {
+		object = maybePeer.(*Peer)
+	} else {
+		slice = *maybePeer.(*[]*Peer)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &peerR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &peerR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.Select("\"properties\".id, \"properties\".property, \"properties\".value, \"properties\".updated_at, \"properties\".created_at, \"a\".\"peer_id\""),
+		qm.From("\"properties\""),
+		qm.InnerJoin("\"peers_properties\" as \"a\" on \"properties\".\"id\" = \"a\".\"property_id\""),
+		qm.WhereIn("\"a\".\"peer_id\" in ?", args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load properties")
+	}
+
+	var resultSlice []*Property
+
+	var localJoinCols []int
+	for results.Next() {
+		one := new(Property)
+		var localJoinCol int
+
+		err = results.Scan(&one.ID, &one.Property, &one.Value, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		if err != nil {
+			return errors.Wrap(err, "failed to scan eager loaded results for properties")
+		}
+		if err = results.Err(); err != nil {
+			return errors.Wrap(err, "failed to plebian-bind eager loaded slice properties")
+		}
+
+		resultSlice = append(resultSlice, one)
+		localJoinCols = append(localJoinCols, localJoinCol)
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on properties")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for properties")
+	}
+
+	if len(propertyAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.Properties = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &propertyR{}
+			}
+			foreign.R.Peers = append(foreign.R.Peers, object)
+		}
+		return nil
+	}
+
+	for i, foreign := range resultSlice {
+		localJoinCol := localJoinCols[i]
+		for _, local := range slice {
+			if local.ID == localJoinCol {
+				local.R.Properties = append(local.R.Properties, foreign)
+				if foreign.R == nil {
+					foreign.R = &propertyR{}
 				}
 				foreign.R.Peers = append(foreign.R.Peers, local)
 				break
@@ -972,6 +1112,150 @@ func (o *Peer) RemoveMultiAddresses(ctx context.Context, exec boil.ContextExecut
 }
 
 func removeMultiAddressesFromPeersSlice(o *Peer, related []*MultiAddress) {
+	for _, rel := range related {
+		if rel.R == nil {
+			continue
+		}
+		for i, ri := range rel.R.Peers {
+			if o.ID != ri.ID {
+				continue
+			}
+
+			ln := len(rel.R.Peers)
+			if ln > 1 && i < ln-1 {
+				rel.R.Peers[i] = rel.R.Peers[ln-1]
+			}
+			rel.R.Peers = rel.R.Peers[:ln-1]
+			break
+		}
+	}
+}
+
+// AddProperties adds the given related objects to the existing relationships
+// of the peer, optionally inserting them as new records.
+// Appends related to o.R.Properties.
+// Sets related.R.Peers appropriately.
+func (o *Peer) AddProperties(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Property) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		}
+	}
+
+	for _, rel := range related {
+		query := "insert into \"peers_properties\" (\"peer_id\", \"property_id\") values ($1, $2)"
+		values := []interface{}{o.ID, rel.ID}
+
+		if boil.IsDebug(ctx) {
+			writer := boil.DebugWriterFrom(ctx)
+			fmt.Fprintln(writer, query)
+			fmt.Fprintln(writer, values)
+		}
+		_, err = exec.ExecContext(ctx, query, values...)
+		if err != nil {
+			return errors.Wrap(err, "failed to insert into join table")
+		}
+	}
+	if o.R == nil {
+		o.R = &peerR{
+			Properties: related,
+		}
+	} else {
+		o.R.Properties = append(o.R.Properties, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &propertyR{
+				Peers: PeerSlice{o},
+			}
+		} else {
+			rel.R.Peers = append(rel.R.Peers, o)
+		}
+	}
+	return nil
+}
+
+// SetProperties removes all previously related items of the
+// peer replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Peers's Properties accordingly.
+// Replaces o.R.Properties with related.
+// Sets related.R.Peers's Properties accordingly.
+func (o *Peer) SetProperties(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Property) error {
+	query := "delete from \"peers_properties\" where \"peer_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	removePropertiesFromPeersSlice(o, related)
+	if o.R != nil {
+		o.R.Properties = nil
+	}
+	return o.AddProperties(ctx, exec, insert, related...)
+}
+
+// RemoveProperties relationships from objects passed in.
+// Removes related items from R.Properties (uses pointer comparison, removal does not keep order)
+// Sets related.R.Peers.
+func (o *Peer) RemoveProperties(ctx context.Context, exec boil.ContextExecutor, related ...*Property) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	query := fmt.Sprintf(
+		"delete from \"peers_properties\" where \"peer_id\" = $1 and \"property_id\" in (%s)",
+		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
+	)
+	values := []interface{}{o.ID}
+	for _, rel := range related {
+		values = append(values, rel.ID)
+	}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err = exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+	removePropertiesFromPeersSlice(o, related)
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Properties {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Properties)
+			if ln > 1 && i < ln-1 {
+				o.R.Properties[i] = o.R.Properties[ln-1]
+			}
+			o.R.Properties = o.R.Properties[:ln-1]
+			break
+		}
+	}
+
+	return nil
+}
+
+func removePropertiesFromPeersSlice(o *Peer, related []*Property) {
 	for _, rel := range related {
 		if rel.R == nil {
 			continue
