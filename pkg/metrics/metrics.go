@@ -70,7 +70,6 @@ var (
 
 // Measures
 var (
-	MonitorDialDuration     = stats.Float64("monitor_dial_duration", "Duration of dialing peers during monitoring", stats.UnitMilliseconds)
 	CrawlConnectsCount      = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
 	MonitorDialCount        = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
 	CrawlConnectErrorsCount = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
@@ -86,10 +85,6 @@ var (
 
 // Views
 var (
-	MonitorDialDurationView = &view.View{
-		Measure:     MonitorDialDuration,
-		Aggregation: defaultMillisecondsDistribution,
-	}
 	CrawlConnectsCountView = &view.View{
 		Measure:     CrawlConnectsCount,
 		Aggregation: view.Count(),
@@ -152,7 +147,6 @@ var DefaultCrawlViews = []*view.View{
 
 // DefaultMonitorViews with all views in it.
 var DefaultMonitorViews = []*view.View{
-	MonitorDialDurationView,
 	PeersToDialCountView,
 	MonitorDialsCountView,
 	MonitorDialErrorsCountView,

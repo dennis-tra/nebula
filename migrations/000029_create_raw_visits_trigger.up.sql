@@ -1,7 +1,7 @@
 CREATE FUNCTION normalize_raw_visit() RETURNS TRIGGER AS
 $normalize_raw_visit$
 DECLARE
-    inserted_peer_id    int;
+    upserted_peer_id    int;
     inserted_visit_id   int;
     upserted_session_id int;
 BEGIN
@@ -10,7 +10,7 @@ BEGIN
     INSERT INTO peers (multi_hash, updated_at, created_at)
     VALUES (NEW.peer_multi_hash, NEW.created_at, NEW.created_at)
     ON CONFLICT (multi_hash) DO UPDATE SET updated_at=excluded.updated_at
-    RETURNING id INTO inserted_peer_id;
+    RETURNING id INTO upserted_peer_id;
 
     -- update the currently active session
     IF NEW.error IS NULL THEN
@@ -23,7 +23,7 @@ BEGIN
                               finished,
                               created_at,
                               updated_at)
-        VALUES (inserted_peer_id, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
+        VALUES (upserted_peer_id, NOW(), NOW(), '1970-01-01', NOW() + '30s'::interval, 1, false, NOW(), NOW())
         ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE
             SET last_successful_dial = EXCLUDED.last_successful_dial,
                 successful_dials     = sessions.successful_dials + 1,
@@ -53,47 +53,16 @@ BEGIN
             updated_at        = NOW(),
             next_dial_attempt = null,
             finish_reason     = 'unknown'
-        WHERE peer_id = inserted_peer_id
+        WHERE peer_id = upserted_peer_id
           AND finished = false
         RETURNING id INTO upserted_session_id;
     END IF;
 
-
     -- Now we're able to create the normalized visit instance
     INSERT
-    INTO visits (peer_id, crawl_id, session_id, updated_at, created_at)
-    VALUES (inserted_peer_id, NEW.crawl_id, upserted_session_id, NEW.created_at, NEW.created_at)
+    INTO visits (peer_id, crawl_id, session_id, type, updated_at, created_at)
+    VALUES (upserted_peer_id, NEW.crawl_id, upserted_session_id, NEW.type, NEW.created_at, NEW.created_at)
     RETURNING id INTO inserted_visit_id;
-
-    -- First attempt to insert all properties into the properties table and retrieve the IDs
-    -- of freshly created and already existing entries. Use these IDs to fill the visits_x_properties
-    -- table and associate the properties with this visit.
-    WITH all_visit_properties as (
-        WITH visit_properties as (
-            SELECT 'agent_version'   as protocol,
-                   NEW.agent_version as val,
-                   NEW.created_at    as updated_at,
-                   NEW.created_at    as created_at
-            UNION
-            SELECT 'error'                 as protocol,
-                   NEW.dial_error::varchar as val,
-                   NEW.created_at          as updated_at,
-                   NEW.created_at          as created_at
-            WHERE NEW.dial_error IS NOT NULL
-            UNION
-            SELECT 'protocol'            as protocol,
-                   unnest(NEW.protocols) as val,
-                   NEW.created_at        as updated_at,
-                   NEW.created_at        as created_at
-            )
-            INSERT INTO properties (property, value, updated_at, created_at)
-                SELECT vp.protocol, vp.val, vp.updated_at, vp.created_at FROM visit_properties vp ORDER BY protocol, val
-                ON CONFLICT (property, value) DO UPDATE SET updated_at = excluded.updated_at
-                RETURNING id)
-    INSERT
-    INTO visits_x_properties (visit_id, property_id)
-    SELECT inserted_visit_id, p2.id
-    FROM all_visit_properties AS p2;
 
     -- Take the multi addresses of the peer and insert them into the association table
     WITH multi_addresses_id_table AS (INSERT INTO multi_addresses (maddr, updated_at, created_at)
@@ -104,7 +73,74 @@ BEGIN
     INTO visits_x_multi_addresses (visit_id, multi_address_id)
     SELECT inserted_visit_id, p.id
     FROM multi_addresses_id_table AS p
-    ORDER BY maddr; -- Order to prevent dead lock
+    ORDER BY maddr;
+    -- Order to prevent dead lock
+
+    -- If this visit instance is a dial then we didn't gather any new
+    -- multi address, protocol, agent information, so exit early
+    IF NEW.type = 'dial' THEN
+        RETURN NEW;
+    END IF;
+
+    -- First attempt to insert all properties into the properties table and retrieve the IDs
+    -- of freshly created and already existing entries. Use these IDs to fill the visits_x_properties
+    -- table and associate the properties with this visit.
+    WITH visit_properties as (
+        WITH peer_properties as (
+            SELECT 'agent_version'   as property,
+                   NEW.agent_version as val,
+                   NEW.created_at    as updated_at,
+                   NEW.created_at    as created_at
+            UNION
+            SELECT 'error'                 as property,
+                   NEW.dial_error::varchar as val,
+                   NEW.created_at          as updated_at,
+                   NEW.created_at          as created_at
+            WHERE NEW.dial_error IS NOT NULL
+            UNION
+            SELECT 'protocol'            as property,
+                   unnest(NEW.protocols) as val,
+                   NEW.created_at        as updated_at,
+                   NEW.created_at        as created_at
+            )
+            INSERT INTO properties (property, value, updated_at, created_at)
+                SELECT vp.property, vp.val, vp.updated_at, vp.created_at FROM peer_properties vp ORDER BY property, val
+                ON CONFLICT (property, value) DO UPDATE SET updated_at = excluded.updated_at
+                RETURNING id)
+    INSERT
+    INTO visits_x_properties (visit_id, property_id)
+    SELECT inserted_visit_id, p2.id
+    FROM visit_properties AS p2;
+
+    -- remove current association multi addresses and properties to peers
+    DELETE FROM peers_x_multi_addresses WHERE peer_id = upserted_peer_id;
+    DELETE FROM peers_x_properties WHERE peer_id = upserted_peer_id;
+
+    -- Add multi address association
+    INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
+    SELECT upserted_peer_id, ma.id
+    FROM multi_addresses ma
+    WHERE maddr = ANY (NEW.multi_addresses);
+
+    -- Add properties association
+    WITH peer_properties as (
+        SELECT 'agent_version'   as property,
+               NEW.agent_version as val
+        UNION
+        SELECT 'error'                 as property,
+               NEW.dial_error::varchar as val
+        WHERE NEW.dial_error IS NOT NULL
+        UNION
+        SELECT 'protocol'            as property,
+               unnest(NEW.protocols) as val
+    )
+    INSERT
+    INTO peers_x_properties (peer_id, property_id)
+    SELECT upserted_peer_id, p.id
+    FROM peer_properties pp
+             INNER JOIN properties p ON p.property = pp.property AND p.value = pp.val
+    ORDER BY p.property, p.value;
+
 
     RETURN NEW;
 END;

@@ -59,6 +59,12 @@ const (
 	CrawlStateSucceeded = "succeeded"
 )
 
+// Enum values for visit_type
+const (
+	VisitTypeCrawl = "crawl"
+	VisitTypeDial  = "dial"
+)
+
 // Enum values for dial_error
 const (
 	DialErrorIoTimeout                                  = "io_timeout"

@@ -17,7 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
@@ -76,33 +75,7 @@ func InitClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) InsertRawEncounter(ctx context.Context, re *models.RawVisit) error {
-	//	p := models.Property{
-	//		Property: "agent_version",
-	//		Value:    re.AgentVersion.String,
-	//	}
-	//	err = p.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
-	//	if err != nil {
-	//		return err
-	//	}
-	//	for _, p := range re.Protocols {
-	//		pp := models.Property{
-	//			Property: "protocol",
-	//			Value:    p,
-	//		}
-	//		err = pp.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-	//p := models.Peer{
-	//	MultiHash: re.PeerIDMultiHash,
-	//}
-	//err = p.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
-	//if err != nil {
-	//	return err
-	//}
+func (c *Client) InsertRawVisit(ctx context.Context, re *models.RawVisit) error {
 	return re.Insert(ctx, c.dbh, boil.Infer())
 }
 
@@ -312,61 +285,6 @@ func (c *Client) InsertLatencies(ctx context.Context, peer *models.Peer, latenci
 	return nil
 }
 
-func (c *Client) UpsertSessionSuccess(peer *models.Peer) error {
-	query := `
-INSERT INTO sessions (
-  peer_id,
-  first_successful_dial,
-  last_successful_dial,
-  first_failed_dial,
-  next_dial_attempt,
-  successful_dials,
-  finished,
-  created_at,
-  updated_at
-) VALUES ($1, NOW(), NOW(), '1970-01-01', NOW() + $2::interval, 1, false, NOW(), NOW())
-ON CONFLICT ON CONSTRAINT uq_peer_id_first_failed_dial DO UPDATE SET
-  last_successful_dial = EXCLUDED.last_successful_dial,
-  successful_dials     = sessions.successful_dials + 1,
-  updated_at           = EXCLUDED.updated_at,
-  next_dial_attempt    = 
-   CASE
-     WHEN $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) < $2::interval THEN
-       EXCLUDED.last_successful_dial + $2::interval
-     WHEN $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial) > $3::interval THEN
-       EXCLUDED.last_successful_dial + $3::interval
-     ELSE
-       EXCLUDED.last_successful_dial + $4 * (EXCLUDED.last_successful_dial - sessions.first_successful_dial)
-   END;
-`
-	rows, err := queries.Raw(query, peer.ID, MinInterval.String(), MaxInterval.String(), IntervalMultiplier).Query(c.dbh)
-	if err != nil {
-		return err
-	}
-
-	return rows.Close()
-}
-
-func (c *Client) UpsertSessionError(peer *models.Peer, failedAt time.Time, reason string) error {
-	query := `
-UPDATE sessions SET
-  first_failed_dial = $2,
-  min_duration = last_successful_dial - first_successful_dial,
-  max_duration = NOW() - first_successful_dial,
-  finished = true,
-  updated_at = NOW(),
-  next_dial_attempt = null,
-  finish_reason = $3
-WHERE peer_id = $1 AND finished = false;
-`
-	rows, err := queries.Raw(query, peer.ID, failedAt.Format(time.RFC3339Nano), reason).Query(c.dbh)
-	if err != nil {
-		return err
-	}
-
-	return rows.Close()
-}
-
 func (c *Client) InsertNeighbors(ctx context.Context, crawl *models.Crawl, dbPeer *models.Peer, neighbors []peer.AddrInfo) error {
 	txn, err := c.dbh.BeginTx(ctx, nil)
 	if err != nil {
@@ -418,4 +336,12 @@ OUTER:
 	}
 
 	return nil
+}
+
+func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, error) {
+	return models.Sessions(
+		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
+		qm.Load(models.SessionRels.Peer),
+		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
+	).All(ctx, c.dbh)
 }

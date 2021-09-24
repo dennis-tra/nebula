@@ -28,6 +28,7 @@ type Visit struct {
 	PeerID    int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	CrawlID   null.Int  `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
 	SessionID null.Int  `boil:"session_id" json:"session_id,omitempty" toml:"session_id" yaml:"session_id,omitempty"`
+	Type      string    `boil:"type" json:"type" toml:"type" yaml:"type"`
 	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
@@ -40,6 +41,7 @@ var VisitColumns = struct {
 	PeerID    string
 	CrawlID   string
 	SessionID string
+	Type      string
 	UpdatedAt string
 	CreatedAt string
 }{
@@ -47,6 +49,7 @@ var VisitColumns = struct {
 	PeerID:    "peer_id",
 	CrawlID:   "crawl_id",
 	SessionID: "session_id",
+	Type:      "type",
 	UpdatedAt: "updated_at",
 	CreatedAt: "created_at",
 }
@@ -56,6 +59,7 @@ var VisitTableColumns = struct {
 	PeerID    string
 	CrawlID   string
 	SessionID string
+	Type      string
 	UpdatedAt string
 	CreatedAt string
 }{
@@ -63,6 +67,7 @@ var VisitTableColumns = struct {
 	PeerID:    "visits.peer_id",
 	CrawlID:   "visits.crawl_id",
 	SessionID: "visits.session_id",
+	Type:      "visits.type",
 	UpdatedAt: "visits.updated_at",
 	CreatedAt: "visits.created_at",
 }
@@ -74,6 +79,7 @@ var VisitWhere = struct {
 	PeerID    whereHelperint
 	CrawlID   whereHelpernull_Int
 	SessionID whereHelpernull_Int
+	Type      whereHelperstring
 	UpdatedAt whereHelpertime_Time
 	CreatedAt whereHelpertime_Time
 }{
@@ -81,6 +87,7 @@ var VisitWhere = struct {
 	PeerID:    whereHelperint{field: "\"visits\".\"peer_id\""},
 	CrawlID:   whereHelpernull_Int{field: "\"visits\".\"crawl_id\""},
 	SessionID: whereHelpernull_Int{field: "\"visits\".\"session_id\""},
+	Type:      whereHelperstring{field: "\"visits\".\"type\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"visits\".\"updated_at\""},
 	CreatedAt: whereHelpertime_Time{field: "\"visits\".\"created_at\""},
 }
@@ -118,8 +125,8 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "updated_at", "created_at"}
-	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "updated_at", "created_at"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "type", "updated_at", "created_at"}
+	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "type", "updated_at", "created_at"}
 	visitColumnsWithDefault    = []string{"id", "peer_id"}
 	visitPrimaryKeyColumns     = []string{"id"}
 )

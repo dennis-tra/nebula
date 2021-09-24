@@ -1,6 +1,11 @@
 -- Begin the transaction
 BEGIN;
 
+CREATE TYPE visit_type AS ENUM (
+    'crawl',
+    'dial'
+    );
+
 -- The `raw_visits` table captures information about
 -- a 'visit' of the crawler with another peer. The data
 -- in this table is purposely very denormalized. There
@@ -22,6 +27,8 @@ CREATE TABLE raw_visits
     connect_duration INTERVAL,
     -- The time it took to crawl the peer also if an error occurred
     crawl_duration   INTERVAL,
+    -- The type of this visit
+    type             visit_type NOT NULL,
     -- Which agent version did this peer have at this visit
     agent_version    VARCHAR(255),
     -- The peer ID multi hash of which we want to track the multi address

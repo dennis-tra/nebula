@@ -42,7 +42,7 @@ func MonitorAction(c *cli.Context) error {
 	c.Context = ctx
 
 	// Acquire database handle
-	dbh, err := db.Open(c.Context)
+	dbc, err := db.InitClient(c.Context)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Initialize the monitoring task
-	s, err := monitor.NewScheduler(c.Context, dbh)
+	s, err := monitor.NewScheduler(c.Context, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}
