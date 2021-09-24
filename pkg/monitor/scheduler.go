@@ -166,15 +166,15 @@ func (s *Scheduler) handleResult(dr Result) {
 			logEntry = logEntry.WithField("error", dr.DialError)
 		}
 	}
+	start := time.Now()
+	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
+		logEntry.WithError(err).Warnln("Could not persist dial result")
+	}
 
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
-	start := time.Now()
-	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
-		logEntry.WithError(err).Warnln("Could not persist dial result")
-	}
 	logEntry.
 		WithField("dialDur", dr.DialDuration()).
 		WithField("persistDur", time.Since(start)).
