@@ -167,10 +167,14 @@ func (s *Scheduler) handleResult(dr Result) {
 	s.inDialQueue.Delete(dr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
+	start := time.Now()
 	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
 		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
-	logEntry.WithField("duration", dr.DialDuration()).Infoln("Handled dial result from worker", dr.WorkerID)
+	logEntry.
+		WithField("dialDur", dr.DialDuration()).
+		WithField("persistDur", time.Since(start)).
+		Infoln("Handled dial result from worker", dr.WorkerID)
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
