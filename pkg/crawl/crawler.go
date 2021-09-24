@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-
 	"github.com/go-ping/ping"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -24,8 +22,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
@@ -225,7 +225,7 @@ func (c *Crawler) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	}
 
 	if cr.Error != nil {
-		cr.DialError = determineDialError(cr.Error)
+		cr.DialError = db.DialError(cr.Error)
 	}
 
 	// Free connection resources
