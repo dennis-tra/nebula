@@ -145,14 +145,17 @@ var SessionWhere = struct {
 
 // SessionRels is where relationship names are stored.
 var SessionRels = struct {
-	Peer string
+	Peer   string
+	Visits string
 }{
-	Peer: "Peer",
+	Peer:   "Peer",
+	Visits: "Visits",
 }
 
 // sessionR is where relationships are stored.
 type sessionR struct {
-	Peer *Peer `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
+	Peer   *Peer      `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
+	Visits VisitSlice `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
 }
 
 // NewStruct creates a new relationship struct
@@ -459,6 +462,27 @@ func (o *Session) Peer(mods ...qm.QueryMod) peerQuery {
 	return query
 }
 
+// Visits retrieves all the visit's Visits with an executor.
+func (o *Session) Visits(mods ...qm.QueryMod) visitQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"visits\".\"session_id\"=?", o.ID),
+	)
+
+	query := Visits(queryMods...)
+	queries.SetFrom(query.Query, "\"visits\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"visits\".*"})
+	}
+
+	return query
+}
+
 // LoadPeer allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
 func (sessionL) LoadPeer(ctx context.Context, e boil.ContextExecutor, singular bool, maybeSession interface{}, mods queries.Applicator) error {
@@ -563,6 +587,104 @@ func (sessionL) LoadPeer(ctx context.Context, e boil.ContextExecutor, singular b
 	return nil
 }
 
+// LoadVisits allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (sessionL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular bool, maybeSession interface{}, mods queries.Applicator) error {
+	var slice []*Session
+	var object *Session
+
+	if singular {
+		object = maybeSession.(*Session)
+	} else {
+		slice = *maybeSession.(*[]*Session)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &sessionR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &sessionR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`visits`),
+		qm.WhereIn(`visits.session_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load visits")
+	}
+
+	var resultSlice []*Visit
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice visits")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on visits")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for visits")
+	}
+
+	if len(visitAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.Visits = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &visitR{}
+			}
+			foreign.R.Session = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.SessionID {
+				local.R.Visits = append(local.R.Visits, foreign)
+				if foreign.R == nil {
+					foreign.R = &visitR{}
+				}
+				foreign.R.Session = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // SetPeer of the session to the related item.
 // Sets o.R.Peer to related.
 // Adds o to related.R.Sessions.
@@ -607,6 +729,59 @@ func (o *Session) SetPeer(ctx context.Context, exec boil.ContextExecutor, insert
 		related.R.Sessions = append(related.R.Sessions, o)
 	}
 
+	return nil
+}
+
+// AddVisits adds the given related objects to the existing relationships
+// of the session, optionally inserting them as new records.
+// Appends related to o.R.Visits.
+// Sets related.R.Session appropriately.
+func (o *Session) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.SessionID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"visits\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"session_id"}),
+				strmangle.WhereClause("\"", "\"", 2, visitPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.SessionID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &sessionR{
+			Visits: related,
+		}
+	} else {
+		o.R.Visits = append(o.R.Visits, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &visitR{
+				Session: o,
+			}
+		} else {
+			rel.R.Session = o
+		}
+	}
 	return nil
 }
 

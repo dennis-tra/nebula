@@ -78,6 +78,7 @@ var PeerRels = struct {
 	MultiAddresses    string
 	Properties        string
 	Sessions          string
+	Visits            string
 }{
 	Latencies:         "Latencies",
 	NeighborNeighbors: "NeighborNeighbors",
@@ -85,6 +86,7 @@ var PeerRels = struct {
 	MultiAddresses:    "MultiAddresses",
 	Properties:        "Properties",
 	Sessions:          "Sessions",
+	Visits:            "Visits",
 }
 
 // peerR is where relationships are stored.
@@ -95,6 +97,7 @@ type peerR struct {
 	MultiAddresses    MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
 	Properties        PropertySlice     `boil:"Properties" json:"Properties" toml:"Properties" yaml:"Properties"`
 	Sessions          SessionSlice      `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
+	Visits            VisitSlice        `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
 }
 
 // NewStruct creates a new relationship struct
@@ -458,8 +461,8 @@ func (o *Peer) MultiAddresses(mods ...qm.QueryMod) multiAddressQuery {
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"peers_multi_addresses\" on \"multi_addresses\".\"id\" = \"peers_multi_addresses\".\"multi_address_id\""),
-		qm.Where("\"peers_multi_addresses\".\"peer_id\"=?", o.ID),
+		qm.InnerJoin("\"peers_x_multi_addresses\" on \"multi_addresses\".\"id\" = \"peers_x_multi_addresses\".\"multi_address_id\""),
+		qm.Where("\"peers_x_multi_addresses\".\"peer_id\"=?", o.ID),
 	)
 
 	query := MultiAddresses(queryMods...)
@@ -480,8 +483,8 @@ func (o *Peer) Properties(mods ...qm.QueryMod) propertyQuery {
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"peers_properties\" on \"properties\".\"id\" = \"peers_properties\".\"property_id\""),
-		qm.Where("\"peers_properties\".\"peer_id\"=?", o.ID),
+		qm.InnerJoin("\"peers_x_properties\" on \"properties\".\"id\" = \"peers_x_properties\".\"property_id\""),
+		qm.Where("\"peers_x_properties\".\"peer_id\"=?", o.ID),
 	)
 
 	query := Properties(queryMods...)
@@ -510,6 +513,27 @@ func (o *Peer) Sessions(mods ...qm.QueryMod) sessionQuery {
 
 	if len(queries.GetSelect(query.Query)) == 0 {
 		queries.SetSelect(query.Query, []string{"\"sessions\".*"})
+	}
+
+	return query
+}
+
+// Visits retrieves all the visit's Visits with an executor.
+func (o *Peer) Visits(mods ...qm.QueryMod) visitQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"visits\".\"peer_id\"=?", o.ID),
+	)
+
+	query := Visits(queryMods...)
+	queries.SetFrom(query.Query, "\"visits\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"visits\".*"})
 	}
 
 	return query
@@ -851,7 +875,7 @@ func (peerL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, sin
 	query := NewQuery(
 		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".addr, \"multi_addresses\".country, \"multi_addresses\".cloud_provider, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"peer_id\""),
 		qm.From("\"multi_addresses\""),
-		qm.InnerJoin("\"peers_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
+		qm.InnerJoin("\"peers_x_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
 		qm.WhereIn("\"a\".\"peer_id\" in ?", args...),
 	)
 	if mods != nil {
@@ -966,7 +990,7 @@ func (peerL) LoadProperties(ctx context.Context, e boil.ContextExecutor, singula
 	query := NewQuery(
 		qm.Select("\"properties\".id, \"properties\".property, \"properties\".value, \"properties\".updated_at, \"properties\".created_at, \"a\".\"peer_id\""),
 		qm.From("\"properties\""),
-		qm.InnerJoin("\"peers_properties\" as \"a\" on \"properties\".\"id\" = \"a\".\"property_id\""),
+		qm.InnerJoin("\"peers_x_properties\" as \"a\" on \"properties\".\"id\" = \"a\".\"property_id\""),
 		qm.WhereIn("\"a\".\"peer_id\" in ?", args...),
 	)
 	if mods != nil {
@@ -1127,6 +1151,104 @@ func (peerL) LoadSessions(ctx context.Context, e boil.ContextExecutor, singular 
 				local.R.Sessions = append(local.R.Sessions, foreign)
 				if foreign.R == nil {
 					foreign.R = &sessionR{}
+				}
+				foreign.R.Peer = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadVisits allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (peerL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+	var slice []*Peer
+	var object *Peer
+
+	if singular {
+		object = maybePeer.(*Peer)
+	} else {
+		slice = *maybePeer.(*[]*Peer)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &peerR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &peerR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`visits`),
+		qm.WhereIn(`visits.peer_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load visits")
+	}
+
+	var resultSlice []*Visit
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice visits")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on visits")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for visits")
+	}
+
+	if len(visitAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.Visits = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &visitR{}
+			}
+			foreign.R.Peer = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PeerID {
+				local.R.Visits = append(local.R.Visits, foreign)
+				if foreign.R == nil {
+					foreign.R = &visitR{}
 				}
 				foreign.R.Peer = local
 				break
@@ -1311,7 +1433,7 @@ func (o *Peer) AddMultiAddresses(ctx context.Context, exec boil.ContextExecutor,
 	}
 
 	for _, rel := range related {
-		query := "insert into \"peers_multi_addresses\" (\"peer_id\", \"multi_address_id\") values ($1, $2)"
+		query := "insert into \"peers_x_multi_addresses\" (\"peer_id\", \"multi_address_id\") values ($1, $2)"
 		values := []interface{}{o.ID, rel.ID}
 
 		if boil.IsDebug(ctx) {
@@ -1351,7 +1473,7 @@ func (o *Peer) AddMultiAddresses(ctx context.Context, exec boil.ContextExecutor,
 // Replaces o.R.MultiAddresses with related.
 // Sets related.R.Peers's MultiAddresses accordingly.
 func (o *Peer) SetMultiAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddress) error {
-	query := "delete from \"peers_multi_addresses\" where \"peer_id\" = $1"
+	query := "delete from \"peers_x_multi_addresses\" where \"peer_id\" = $1"
 	values := []interface{}{o.ID}
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1380,7 +1502,7 @@ func (o *Peer) RemoveMultiAddresses(ctx context.Context, exec boil.ContextExecut
 
 	var err error
 	query := fmt.Sprintf(
-		"delete from \"peers_multi_addresses\" where \"peer_id\" = $1 and \"multi_address_id\" in (%s)",
+		"delete from \"peers_x_multi_addresses\" where \"peer_id\" = $1 and \"multi_address_id\" in (%s)",
 		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
 	)
 	values := []interface{}{o.ID}
@@ -1455,7 +1577,7 @@ func (o *Peer) AddProperties(ctx context.Context, exec boil.ContextExecutor, ins
 	}
 
 	for _, rel := range related {
-		query := "insert into \"peers_properties\" (\"peer_id\", \"property_id\") values ($1, $2)"
+		query := "insert into \"peers_x_properties\" (\"peer_id\", \"property_id\") values ($1, $2)"
 		values := []interface{}{o.ID, rel.ID}
 
 		if boil.IsDebug(ctx) {
@@ -1495,7 +1617,7 @@ func (o *Peer) AddProperties(ctx context.Context, exec boil.ContextExecutor, ins
 // Replaces o.R.Properties with related.
 // Sets related.R.Peers's Properties accordingly.
 func (o *Peer) SetProperties(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Property) error {
-	query := "delete from \"peers_properties\" where \"peer_id\" = $1"
+	query := "delete from \"peers_x_properties\" where \"peer_id\" = $1"
 	values := []interface{}{o.ID}
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1524,7 +1646,7 @@ func (o *Peer) RemoveProperties(ctx context.Context, exec boil.ContextExecutor, 
 
 	var err error
 	query := fmt.Sprintf(
-		"delete from \"peers_properties\" where \"peer_id\" = $1 and \"property_id\" in (%s)",
+		"delete from \"peers_x_properties\" where \"peer_id\" = $1 and \"property_id\" in (%s)",
 		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
 	)
 	values := []interface{}{o.ID}
@@ -1628,6 +1750,59 @@ func (o *Peer) AddSessions(ctx context.Context, exec boil.ContextExecutor, inser
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &sessionR{
+				Peer: o,
+			}
+		} else {
+			rel.R.Peer = o
+		}
+	}
+	return nil
+}
+
+// AddVisits adds the given related objects to the existing relationships
+// of the peer, optionally inserting them as new records.
+// Appends related to o.R.Visits.
+// Sets related.R.Peer appropriately.
+func (o *Peer) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PeerID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"visits\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+				strmangle.WhereClause("\"", "\"", 2, visitPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PeerID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &peerR{
+			Visits: related,
+		}
+	} else {
+		o.R.Visits = append(o.R.Visits, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &visitR{
 				Peer: o,
 			}
 		} else {

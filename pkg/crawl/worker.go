@@ -53,6 +53,12 @@ type Result struct {
 	// Any error that has occurred during the crawl
 	Error error
 
+	// When was the connection attempt made
+	ConnectStartTime time.Time
+
+	// The time it took to connect to the peer.
+	ConnectLatency time.Duration
+
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ErrorTime time.Time
 }
@@ -159,12 +165,13 @@ func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	defer stats.Record(ctx, metrics.PeerCrawlDuration.M(millisSince(start)))
 
 	cr := Result{
-		WorkerID: w.Identifier(),
-		Peer:     filterPrivateMaddrs(pi),
-		Agent:    "n.a.",
+		WorkerID:         w.Identifier(),
+		Peer:             filterPrivateMaddrs(pi),
+		Agent:            "n.a.",
+		ConnectStartTime: time.Now(),
 	}
 
-	cr.Error = w.connect(ctx, pi)
+	cr.ConnectLatency, cr.Error = w.connect(ctx, pi)
 	if cr.Error == nil {
 
 		ps := w.host.Peerstore()
@@ -206,26 +213,27 @@ func millisSince(start time.Time) float64 {
 
 // connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
 // It also handles metric capturing.
-func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) error {
-	start := time.Now()
+func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) (time.Duration, error) {
 	stats.Record(ctx, metrics.CrawlConnectsCount.M(1))
 
 	pi = filterPrivateMaddrs(pi)
 	if len(pi.Addrs) == 0 {
 		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
-		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
+		return 0, fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, w.config.DialTimeout)
 	defer cancel()
 
+	start := time.Now()
 	if err := w.host.Connect(ctx, pi); err != nil {
 		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
-		return err
+		return 0, err
 	}
+	connLatency := time.Since(start)
 
 	stats.Record(w.ServiceContext(), metrics.CrawlConnectDuration.M(millisSince(start)))
-	return nil
+	return connLatency, nil
 }
 
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set

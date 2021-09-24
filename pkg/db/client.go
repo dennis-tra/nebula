@@ -76,6 +76,36 @@ func InitClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) InsertRawEncounter(ctx context.Context, re *models.RawEncounter) error {
+	//	p := models.Property{
+	//		Property: "agent_version",
+	//		Value:    re.AgentVersion.String,
+	//	}
+	//	err = p.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
+	//	if err != nil {
+	//		return err
+	//	}
+	//	for _, p := range re.Protocols {
+	//		pp := models.Property{
+	//			Property: "protocol",
+	//			Value:    p,
+	//		}
+	//		err = pp.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
+	//		if err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
+	//p := models.Peer{
+	//	MultiHash: re.PeerIDMultiHash,
+	//}
+	//err = p.Upsert(ctx, txn, false, []string{}, boil.Infer(), boil.Infer())
+	//if err != nil {
+	//	return err
+	//}
+	return re.Insert(ctx, c.dbh, boil.Infer())
+}
+
 func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	crawl := &models.Crawl{
 		State:     models.CrawlStateStarted,

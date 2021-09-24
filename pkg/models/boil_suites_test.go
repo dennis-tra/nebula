@@ -21,7 +21,9 @@ func TestParent(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnections)
 	t.Run("PegasysNeighbours", testPegasysNeighbours)
 	t.Run("Properties", testProperties)
+	t.Run("RawVisits", testRawVisits)
 	t.Run("Sessions", testSessions)
+	t.Run("Visits", testVisits)
 }
 
 func TestDelete(t *testing.T) {
@@ -34,7 +36,9 @@ func TestDelete(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsDelete)
 	t.Run("PegasysNeighbours", testPegasysNeighboursDelete)
 	t.Run("Properties", testPropertiesDelete)
+	t.Run("RawVisits", testRawVisitsDelete)
 	t.Run("Sessions", testSessionsDelete)
+	t.Run("Visits", testVisitsDelete)
 }
 
 func TestQueryDeleteAll(t *testing.T) {
@@ -47,7 +51,9 @@ func TestQueryDeleteAll(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsQueryDeleteAll)
 	t.Run("PegasysNeighbours", testPegasysNeighboursQueryDeleteAll)
 	t.Run("Properties", testPropertiesQueryDeleteAll)
+	t.Run("RawVisits", testRawVisitsQueryDeleteAll)
 	t.Run("Sessions", testSessionsQueryDeleteAll)
+	t.Run("Visits", testVisitsQueryDeleteAll)
 }
 
 func TestSliceDeleteAll(t *testing.T) {
@@ -60,7 +66,9 @@ func TestSliceDeleteAll(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsSliceDeleteAll)
 	t.Run("PegasysNeighbours", testPegasysNeighboursSliceDeleteAll)
 	t.Run("Properties", testPropertiesSliceDeleteAll)
+	t.Run("RawVisits", testRawVisitsSliceDeleteAll)
 	t.Run("Sessions", testSessionsSliceDeleteAll)
+	t.Run("Visits", testVisitsSliceDeleteAll)
 }
 
 func TestExists(t *testing.T) {
@@ -73,7 +81,9 @@ func TestExists(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsExists)
 	t.Run("PegasysNeighbours", testPegasysNeighboursExists)
 	t.Run("Properties", testPropertiesExists)
+	t.Run("RawVisits", testRawVisitsExists)
 	t.Run("Sessions", testSessionsExists)
+	t.Run("Visits", testVisitsExists)
 }
 
 func TestFind(t *testing.T) {
@@ -86,7 +96,9 @@ func TestFind(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsFind)
 	t.Run("PegasysNeighbours", testPegasysNeighboursFind)
 	t.Run("Properties", testPropertiesFind)
+	t.Run("RawVisits", testRawVisitsFind)
 	t.Run("Sessions", testSessionsFind)
+	t.Run("Visits", testVisitsFind)
 }
 
 func TestBind(t *testing.T) {
@@ -99,7 +111,9 @@ func TestBind(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsBind)
 	t.Run("PegasysNeighbours", testPegasysNeighboursBind)
 	t.Run("Properties", testPropertiesBind)
+	t.Run("RawVisits", testRawVisitsBind)
 	t.Run("Sessions", testSessionsBind)
+	t.Run("Visits", testVisitsBind)
 }
 
 func TestOne(t *testing.T) {
@@ -112,7 +126,9 @@ func TestOne(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsOne)
 	t.Run("PegasysNeighbours", testPegasysNeighboursOne)
 	t.Run("Properties", testPropertiesOne)
+	t.Run("RawVisits", testRawVisitsOne)
 	t.Run("Sessions", testSessionsOne)
+	t.Run("Visits", testVisitsOne)
 }
 
 func TestAll(t *testing.T) {
@@ -125,7 +141,9 @@ func TestAll(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsAll)
 	t.Run("PegasysNeighbours", testPegasysNeighboursAll)
 	t.Run("Properties", testPropertiesAll)
+	t.Run("RawVisits", testRawVisitsAll)
 	t.Run("Sessions", testSessionsAll)
+	t.Run("Visits", testVisitsAll)
 }
 
 func TestCount(t *testing.T) {
@@ -138,7 +156,9 @@ func TestCount(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsCount)
 	t.Run("PegasysNeighbours", testPegasysNeighboursCount)
 	t.Run("Properties", testPropertiesCount)
+	t.Run("RawVisits", testRawVisitsCount)
 	t.Run("Sessions", testSessionsCount)
+	t.Run("Visits", testVisitsCount)
 }
 
 func TestHooks(t *testing.T) {
@@ -151,7 +171,9 @@ func TestHooks(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsHooks)
 	t.Run("PegasysNeighbours", testPegasysNeighboursHooks)
 	t.Run("Properties", testPropertiesHooks)
+	t.Run("RawVisits", testRawVisitsHooks)
 	t.Run("Sessions", testSessionsHooks)
+	t.Run("Visits", testVisitsHooks)
 }
 
 func TestInsert(t *testing.T) {
@@ -173,8 +195,12 @@ func TestInsert(t *testing.T) {
 	t.Run("PegasysNeighbours", testPegasysNeighboursInsertWhitelist)
 	t.Run("Properties", testPropertiesInsert)
 	t.Run("Properties", testPropertiesInsertWhitelist)
+	t.Run("RawVisits", testRawVisitsInsert)
+	t.Run("RawVisits", testRawVisitsInsertWhitelist)
 	t.Run("Sessions", testSessionsInsert)
 	t.Run("Sessions", testSessionsInsertWhitelist)
+	t.Run("Visits", testVisitsInsert)
+	t.Run("Visits", testVisitsInsertWhitelist)
 }
 
 // TestToOne tests cannot be run in parallel
@@ -187,6 +213,9 @@ func TestToOne(t *testing.T) {
 	t.Run("NeighborToPeerUsingNeighbor", testNeighborToOnePeerUsingNeighbor)
 	t.Run("NeighborToPeerUsingPeer", testNeighborToOnePeerUsingPeer)
 	t.Run("SessionToPeerUsingPeer", testSessionToOnePeerUsingPeer)
+	t.Run("VisitToCrawlUsingCrawl", testVisitToOneCrawlUsingCrawl)
+	t.Run("VisitToPeerUsingPeer", testVisitToOnePeerUsingPeer)
+	t.Run("VisitToSessionUsingSession", testVisitToOneSessionUsingSession)
 }
 
 // TestOneToOne tests cannot be run in parallel
@@ -198,15 +227,22 @@ func TestOneToOne(t *testing.T) {}
 func TestToMany(t *testing.T) {
 	t.Run("CrawlToCrawlProperties", testCrawlToManyCrawlProperties)
 	t.Run("CrawlToNeighbors", testCrawlToManyNeighbors)
+	t.Run("CrawlToVisits", testCrawlToManyVisits)
 	t.Run("MultiAddressToPeers", testMultiAddressToManyPeers)
+	t.Run("MultiAddressToVisits", testMultiAddressToManyVisits)
 	t.Run("PeerToLatencies", testPeerToManyLatencies)
 	t.Run("PeerToNeighborNeighbors", testPeerToManyNeighborNeighbors)
 	t.Run("PeerToNeighbors", testPeerToManyNeighbors)
 	t.Run("PeerToMultiAddresses", testPeerToManyMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManyProperties)
 	t.Run("PeerToSessions", testPeerToManySessions)
+	t.Run("PeerToVisits", testPeerToManyVisits)
 	t.Run("PropertyToCrawlProperties", testPropertyToManyCrawlProperties)
 	t.Run("PropertyToPeers", testPropertyToManyPeers)
+	t.Run("PropertyToVisits", testPropertyToManyVisits)
+	t.Run("SessionToVisits", testSessionToManyVisits)
+	t.Run("VisitToMultiAddresses", testVisitToManyMultiAddresses)
+	t.Run("VisitToProperties", testVisitToManyProperties)
 }
 
 // TestToOneSet tests cannot be run in parallel
@@ -219,6 +255,9 @@ func TestToOneSet(t *testing.T) {
 	t.Run("NeighborToPeerUsingNeighborNeighbors", testNeighborToOneSetOpPeerUsingNeighbor)
 	t.Run("NeighborToPeerUsingNeighbors", testNeighborToOneSetOpPeerUsingPeer)
 	t.Run("SessionToPeerUsingSessions", testSessionToOneSetOpPeerUsingPeer)
+	t.Run("VisitToCrawlUsingVisits", testVisitToOneSetOpCrawlUsingCrawl)
+	t.Run("VisitToPeerUsingVisits", testVisitToOneSetOpPeerUsingPeer)
+	t.Run("VisitToSessionUsingVisits", testVisitToOneSetOpSessionUsingSession)
 }
 
 // TestToOneRemove tests cannot be run in parallel
@@ -238,33 +277,48 @@ func TestOneToOneRemove(t *testing.T) {}
 func TestToManyAdd(t *testing.T) {
 	t.Run("CrawlToCrawlProperties", testCrawlToManyAddOpCrawlProperties)
 	t.Run("CrawlToNeighbors", testCrawlToManyAddOpNeighbors)
+	t.Run("CrawlToVisits", testCrawlToManyAddOpVisits)
 	t.Run("MultiAddressToPeers", testMultiAddressToManyAddOpPeers)
+	t.Run("MultiAddressToVisits", testMultiAddressToManyAddOpVisits)
 	t.Run("PeerToLatencies", testPeerToManyAddOpLatencies)
 	t.Run("PeerToNeighborNeighbors", testPeerToManyAddOpNeighborNeighbors)
 	t.Run("PeerToNeighbors", testPeerToManyAddOpNeighbors)
 	t.Run("PeerToMultiAddresses", testPeerToManyAddOpMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManyAddOpProperties)
 	t.Run("PeerToSessions", testPeerToManyAddOpSessions)
+	t.Run("PeerToVisits", testPeerToManyAddOpVisits)
 	t.Run("PropertyToCrawlProperties", testPropertyToManyAddOpCrawlProperties)
 	t.Run("PropertyToPeers", testPropertyToManyAddOpPeers)
+	t.Run("PropertyToVisits", testPropertyToManyAddOpVisits)
+	t.Run("SessionToVisits", testSessionToManyAddOpVisits)
+	t.Run("VisitToMultiAddresses", testVisitToManyAddOpMultiAddresses)
+	t.Run("VisitToProperties", testVisitToManyAddOpProperties)
 }
 
 // TestToManySet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManySetOpPeers)
+	t.Run("MultiAddressToVisits", testMultiAddressToManySetOpVisits)
 	t.Run("PeerToMultiAddresses", testPeerToManySetOpMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManySetOpProperties)
 	t.Run("PropertyToPeers", testPropertyToManySetOpPeers)
+	t.Run("PropertyToVisits", testPropertyToManySetOpVisits)
+	t.Run("VisitToMultiAddresses", testVisitToManySetOpMultiAddresses)
+	t.Run("VisitToProperties", testVisitToManySetOpProperties)
 }
 
 // TestToManyRemove tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
 	t.Run("MultiAddressToPeers", testMultiAddressToManyRemoveOpPeers)
+	t.Run("MultiAddressToVisits", testMultiAddressToManyRemoveOpVisits)
 	t.Run("PeerToMultiAddresses", testPeerToManyRemoveOpMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManyRemoveOpProperties)
 	t.Run("PropertyToPeers", testPropertyToManyRemoveOpPeers)
+	t.Run("PropertyToVisits", testPropertyToManyRemoveOpVisits)
+	t.Run("VisitToMultiAddresses", testVisitToManyRemoveOpMultiAddresses)
+	t.Run("VisitToProperties", testVisitToManyRemoveOpProperties)
 }
 
 func TestReload(t *testing.T) {
@@ -277,7 +331,9 @@ func TestReload(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsReload)
 	t.Run("PegasysNeighbours", testPegasysNeighboursReload)
 	t.Run("Properties", testPropertiesReload)
+	t.Run("RawVisits", testRawVisitsReload)
 	t.Run("Sessions", testSessionsReload)
+	t.Run("Visits", testVisitsReload)
 }
 
 func TestReloadAll(t *testing.T) {
@@ -290,7 +346,9 @@ func TestReloadAll(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsReloadAll)
 	t.Run("PegasysNeighbours", testPegasysNeighboursReloadAll)
 	t.Run("Properties", testPropertiesReloadAll)
+	t.Run("RawVisits", testRawVisitsReloadAll)
 	t.Run("Sessions", testSessionsReloadAll)
+	t.Run("Visits", testVisitsReloadAll)
 }
 
 func TestSelect(t *testing.T) {
@@ -303,7 +361,9 @@ func TestSelect(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsSelect)
 	t.Run("PegasysNeighbours", testPegasysNeighboursSelect)
 	t.Run("Properties", testPropertiesSelect)
+	t.Run("RawVisits", testRawVisitsSelect)
 	t.Run("Sessions", testSessionsSelect)
+	t.Run("Visits", testVisitsSelect)
 }
 
 func TestUpdate(t *testing.T) {
@@ -316,7 +376,9 @@ func TestUpdate(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsUpdate)
 	t.Run("PegasysNeighbours", testPegasysNeighboursUpdate)
 	t.Run("Properties", testPropertiesUpdate)
+	t.Run("RawVisits", testRawVisitsUpdate)
 	t.Run("Sessions", testSessionsUpdate)
+	t.Run("Visits", testVisitsUpdate)
 }
 
 func TestSliceUpdateAll(t *testing.T) {
@@ -329,5 +391,7 @@ func TestSliceUpdateAll(t *testing.T) {
 	t.Run("PegasysConnections", testPegasysConnectionsSliceUpdateAll)
 	t.Run("PegasysNeighbours", testPegasysNeighboursSliceUpdateAll)
 	t.Run("Properties", testPropertiesSliceUpdateAll)
+	t.Run("RawVisits", testRawVisitsSliceUpdateAll)
 	t.Run("Sessions", testSessionsSliceUpdateAll)
+	t.Run("Visits", testVisitsSliceUpdateAll)
 }

@@ -242,14 +242,21 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 // entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
 func (s *Scheduler) readResultsQueue() {
 	for {
+		// Give the shutdown signal precedence
 		select {
+		case <-s.SigShutdown():
+			return
+		default:
+		}
+
+		select {
+		case <-s.SigShutdown():
+			return
 		case elem, ok := <-s.resultsQueue.Consume():
 			if !ok {
 				return
 			}
 			s.handleResult(elem.(Result))
-		case <-s.SigShutdown():
-			return
 		}
 	}
 }

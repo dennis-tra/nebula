@@ -24,5 +24,9 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("Properties", testPropertiesUpsert)
 
+	t.Run("RawVisits", testRawVisitsUpsert)
+
 	t.Run("Sessions", testSessionsUpsert)
+
+	t.Run("Visits", testVisitsUpsert)
 }
