@@ -197,7 +197,6 @@ func (c *Crawler) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	cr := Result{
 		CrawlerID:      c.Identifier(),
 		Peer:           filterPrivateMaddrs(pi),
-		Agent:          "n.a.",
 		CrawlStartTime: time.Now(),
 	}
 

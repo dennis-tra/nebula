@@ -93,6 +93,7 @@ BEGIN
                    NEW.agent_version as val,
                    NEW.created_at    as updated_at,
                    NEW.created_at    as created_at
+            WHERE NEW.agent_version IS NOT NULL
             UNION
             SELECT 'error'            as property,
                    NEW.error::varchar as val,

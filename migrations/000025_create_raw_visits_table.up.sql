@@ -13,7 +13,7 @@ CREATE TYPE visit_type AS ENUM (
 -- Doing it this way allows quick inserts into the database.
 CREATE TABLE raw_visits
 (
-    -- This field identifies this encounter.
+    -- This field identifies this raw visit.
     id               SERIAL,
     -- During which crawl did we visit this peer
     crawl_id         INT,
