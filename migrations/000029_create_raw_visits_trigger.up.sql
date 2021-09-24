@@ -60,8 +60,10 @@ BEGIN
 
     -- Now we're able to create the normalized visit instance
     INSERT
-    INTO visits (peer_id, crawl_id, session_id, type, updated_at, created_at)
-    VALUES (upserted_peer_id, NEW.crawl_id, upserted_session_id, NEW.type, NEW.created_at, NEW.created_at)
+    INTO visits (peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration, updated_at, created_at,
+                 type, error)
+    VALUES (upserted_peer_id, NEW.crawl_id, upserted_session_id, NEW.dial_duration, NEW.connect_duration,
+            NEW.crawl_duration, NEW.created_at, NEW.created_at, NEW.type, NEW.error)
     RETURNING id INTO inserted_visit_id;
 
     -- Take the multi addresses of the peer and insert them into the association table
@@ -92,11 +94,11 @@ BEGIN
                    NEW.created_at    as updated_at,
                    NEW.created_at    as created_at
             UNION
-            SELECT 'error'                 as property,
-                   NEW.dial_error::varchar as val,
-                   NEW.created_at          as updated_at,
-                   NEW.created_at          as created_at
-            WHERE NEW.dial_error IS NOT NULL
+            SELECT 'error'            as property,
+                   NEW.error::varchar as val,
+                   NEW.created_at     as updated_at,
+                   NEW.created_at     as created_at
+            WHERE NEW.error IS NOT NULL
             UNION
             SELECT 'protocol'            as property,
                    unnest(NEW.protocols) as val,
@@ -127,9 +129,9 @@ BEGIN
         SELECT 'agent_version'   as property,
                NEW.agent_version as val
         UNION
-        SELECT 'error'                 as property,
-               NEW.dial_error::varchar as val
-        WHERE NEW.dial_error IS NOT NULL
+        SELECT 'error'            as property,
+               NEW.error::varchar as val
+        WHERE NEW.error IS NOT NULL
         UNION
         SELECT 'protocol'            as property,
                unnest(NEW.protocols) as val

@@ -20,11 +20,11 @@ func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
 		MultiAddresses: maddrsToAddrs(cr.Peer.Addrs),
 	}
 	if cr.Error != nil {
-		rv.DialError = null.StringFrom(cr.DialError)
+		rv.Error = null.StringFrom(cr.DialError)
 		if len(cr.Error.Error()) > 255 {
-			rv.Error = null.StringFrom(cr.Error.Error()[:255])
+			rv.ErrorMessage = null.StringFrom(cr.Error.Error()[:255])
 		} else {
-			rv.Error = null.StringFrom(cr.Error.Error())
+			rv.ErrorMessage = null.StringFrom(cr.Error.Error())
 		}
 	}
 

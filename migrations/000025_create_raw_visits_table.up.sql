@@ -28,7 +28,7 @@ CREATE TABLE raw_visits
     -- The time it took to crawl the peer also if an error occurred
     crawl_duration   INTERVAL,
     -- The type of this visit
-    type             visit_type NOT NULL,
+    type             visit_type   NOT NULL,
     -- Which agent version did this peer have at this visit
     agent_version    VARCHAR(255),
     -- The peer ID multi hash of which we want to track the multi address
@@ -38,9 +38,9 @@ CREATE TABLE raw_visits
     -- All multi addresses for this peer
     multi_addresses  VARCHAR(255) ARRAY,
     -- Associated dial error
-    dial_error       dial_error,
+    error            dial_error,
     -- The error if one occurred
-    error            TEXT,
+    error_message    TEXT,
 
     -- When was this peer visited
     created_at       TIMESTAMPTZ  NOT NULL,

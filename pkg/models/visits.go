@@ -24,72 +24,100 @@ import (
 
 // Visit is an object representing the database table.
 type Visit struct {
-	ID        int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	PeerID    int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
-	CrawlID   null.Int  `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
-	SessionID null.Int  `boil:"session_id" json:"session_id,omitempty" toml:"session_id" yaml:"session_id,omitempty"`
-	Type      string    `boil:"type" json:"type" toml:"type" yaml:"type"`
-	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID              int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	PeerID          int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
+	CrawlID         null.Int    `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
+	SessionID       null.Int    `boil:"session_id" json:"session_id,omitempty" toml:"session_id" yaml:"session_id,omitempty"`
+	DialDuration    null.String `boil:"dial_duration" json:"dial_duration,omitempty" toml:"dial_duration" yaml:"dial_duration,omitempty"`
+	ConnectDuration null.String `boil:"connect_duration" json:"connect_duration,omitempty" toml:"connect_duration" yaml:"connect_duration,omitempty"`
+	CrawlDuration   null.String `boil:"crawl_duration" json:"crawl_duration,omitempty" toml:"crawl_duration" yaml:"crawl_duration,omitempty"`
+	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt       time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	Type            string      `boil:"type" json:"type" toml:"type" yaml:"type"`
+	Error           null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
 
 	R *visitR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L visitL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var VisitColumns = struct {
-	ID        string
-	PeerID    string
-	CrawlID   string
-	SessionID string
-	Type      string
-	UpdatedAt string
-	CreatedAt string
+	ID              string
+	PeerID          string
+	CrawlID         string
+	SessionID       string
+	DialDuration    string
+	ConnectDuration string
+	CrawlDuration   string
+	UpdatedAt       string
+	CreatedAt       string
+	Type            string
+	Error           string
 }{
-	ID:        "id",
-	PeerID:    "peer_id",
-	CrawlID:   "crawl_id",
-	SessionID: "session_id",
-	Type:      "type",
-	UpdatedAt: "updated_at",
-	CreatedAt: "created_at",
+	ID:              "id",
+	PeerID:          "peer_id",
+	CrawlID:         "crawl_id",
+	SessionID:       "session_id",
+	DialDuration:    "dial_duration",
+	ConnectDuration: "connect_duration",
+	CrawlDuration:   "crawl_duration",
+	UpdatedAt:       "updated_at",
+	CreatedAt:       "created_at",
+	Type:            "type",
+	Error:           "error",
 }
 
 var VisitTableColumns = struct {
-	ID        string
-	PeerID    string
-	CrawlID   string
-	SessionID string
-	Type      string
-	UpdatedAt string
-	CreatedAt string
+	ID              string
+	PeerID          string
+	CrawlID         string
+	SessionID       string
+	DialDuration    string
+	ConnectDuration string
+	CrawlDuration   string
+	UpdatedAt       string
+	CreatedAt       string
+	Type            string
+	Error           string
 }{
-	ID:        "visits.id",
-	PeerID:    "visits.peer_id",
-	CrawlID:   "visits.crawl_id",
-	SessionID: "visits.session_id",
-	Type:      "visits.type",
-	UpdatedAt: "visits.updated_at",
-	CreatedAt: "visits.created_at",
+	ID:              "visits.id",
+	PeerID:          "visits.peer_id",
+	CrawlID:         "visits.crawl_id",
+	SessionID:       "visits.session_id",
+	DialDuration:    "visits.dial_duration",
+	ConnectDuration: "visits.connect_duration",
+	CrawlDuration:   "visits.crawl_duration",
+	UpdatedAt:       "visits.updated_at",
+	CreatedAt:       "visits.created_at",
+	Type:            "visits.type",
+	Error:           "visits.error",
 }
 
 // Generated where
 
 var VisitWhere = struct {
-	ID        whereHelperint
-	PeerID    whereHelperint
-	CrawlID   whereHelpernull_Int
-	SessionID whereHelpernull_Int
-	Type      whereHelperstring
-	UpdatedAt whereHelpertime_Time
-	CreatedAt whereHelpertime_Time
+	ID              whereHelperint
+	PeerID          whereHelperint
+	CrawlID         whereHelpernull_Int
+	SessionID       whereHelpernull_Int
+	DialDuration    whereHelpernull_String
+	ConnectDuration whereHelpernull_String
+	CrawlDuration   whereHelpernull_String
+	UpdatedAt       whereHelpertime_Time
+	CreatedAt       whereHelpertime_Time
+	Type            whereHelperstring
+	Error           whereHelpernull_String
 }{
-	ID:        whereHelperint{field: "\"visits\".\"id\""},
-	PeerID:    whereHelperint{field: "\"visits\".\"peer_id\""},
-	CrawlID:   whereHelpernull_Int{field: "\"visits\".\"crawl_id\""},
-	SessionID: whereHelpernull_Int{field: "\"visits\".\"session_id\""},
-	Type:      whereHelperstring{field: "\"visits\".\"type\""},
-	UpdatedAt: whereHelpertime_Time{field: "\"visits\".\"updated_at\""},
-	CreatedAt: whereHelpertime_Time{field: "\"visits\".\"created_at\""},
+	ID:              whereHelperint{field: "\"visits\".\"id\""},
+	PeerID:          whereHelperint{field: "\"visits\".\"peer_id\""},
+	CrawlID:         whereHelpernull_Int{field: "\"visits\".\"crawl_id\""},
+	SessionID:       whereHelpernull_Int{field: "\"visits\".\"session_id\""},
+	DialDuration:    whereHelpernull_String{field: "\"visits\".\"dial_duration\""},
+	ConnectDuration: whereHelpernull_String{field: "\"visits\".\"connect_duration\""},
+	CrawlDuration:   whereHelpernull_String{field: "\"visits\".\"crawl_duration\""},
+	UpdatedAt:       whereHelpertime_Time{field: "\"visits\".\"updated_at\""},
+	CreatedAt:       whereHelpertime_Time{field: "\"visits\".\"created_at\""},
+	Type:            whereHelperstring{field: "\"visits\".\"type\""},
+	Error:           whereHelpernull_String{field: "\"visits\".\"error\""},
 }
 
 // VisitRels is where relationship names are stored.
@@ -125,8 +153,8 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "type", "updated_at", "created_at"}
-	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "type", "updated_at", "created_at"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "updated_at", "created_at", "type", "error"}
+	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "updated_at", "created_at", "type", "error"}
 	visitColumnsWithDefault    = []string{"id", "peer_id"}
 	visitPrimaryKeyColumns     = []string{"id"}
 )
