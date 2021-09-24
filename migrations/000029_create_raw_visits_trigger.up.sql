@@ -46,13 +46,13 @@ BEGIN
         RETURNING id INTO upserted_session_id;
     ELSE
         UPDATE sessions
-        SET first_failed_dial = NEW.created_at,
+        SET first_failed_dial = NEW.visit_started_at,
             min_duration      = last_successful_dial - first_successful_dial,
             max_duration      = NOW() - first_successful_dial,
             finished          = true,
             updated_at        = NOW(),
             next_dial_attempt = null,
-            finish_reason     = 'unknown'
+            finish_reason     = NEW.error
         WHERE peer_id = upserted_peer_id
           AND finished = false
         RETURNING id INTO upserted_session_id;
