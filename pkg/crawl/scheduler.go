@@ -27,7 +27,7 @@ const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prere
 
 var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 
-// The Scheduler handles the scheduling and managing of workers that crawl the network
+// The Scheduler handles the scheduling and managing of crawlers that crawl the network
 // as well as handling the crawl the results by persisting them in the database.
 type Scheduler struct {
 	// Service represents an entity that runs in a
@@ -35,7 +35,7 @@ type Scheduler struct {
 	// needs to be handled externally.
 	*service.Service
 
-	// The libp2p node that's used to crawl the network. This one is also passed to all workers.
+	// The libp2p node that's used to crawl the network. This one is also passed to all crawlers.
 	host host.Host
 
 	// The database client
@@ -61,11 +61,11 @@ type Scheduler struct {
 	// The queue of peer.AddrInfo's that still need to be crawled.
 	crawlQueue *queue.FIFO
 
-	// The queue that the workers publish their crawl results on, so that the
+	// The queue that the crawlers publish their results on, so that the
 	// scheduler can handle them, e.g. update the maps above etc.
 	resultsQueue *queue.FIFO
 
-	// A queue that take crawl results and gets consumed by a worker that saves the data into the DB.
+	// A queue that takes crawl results and gets consumed by persisters that save the data into the DB.
 	persistQueue *queue.FIFO
 
 	// A map of agent versions and their occurrences that happened during the crawl.
@@ -78,7 +78,7 @@ type Scheduler struct {
 	errors map[string]int
 
 	// The list of worker node references.
-	workers sync.Map
+	crawlers sync.Map
 }
 
 // knownErrors contains a list of known errors. Property key + string to match for
@@ -108,7 +108,7 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
-	// Initialize a single libp2p node that's shared between all workers.
+	// Initialize a single libp2p node that's shared between all crawlers.
 	// TODO: experiment with multiple nodes.
 	// TODO: is the key pair really necessary? see "weak keys" handling in weizenbaum crawler.
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
@@ -135,14 +135,14 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		agentVersion: map[string]int{},
 		protocols:    map[string]int{},
 		errors:       map[string]int{},
-		workers:      sync.Map{},
+		crawlers:     sync.Map{},
 	}
 
 	return s, nil
 }
 
-// CrawlNetwork starts the configured amount of workers and fills
-// the worker queue with bootstrap nodes to start with.
+// CrawlNetwork starts the configured amount of crawlers and fills
+// the crawl queue with bootstrap nodes to start with.
 func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.ServiceStarted()
 	defer s.ServiceStopped()
@@ -158,13 +158,13 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 		s.crawl = crawl
 	}
 
-	// Start all workers
+	// Start all crawlers
 	for i := 0; i < s.config.CrawlWorkerCount; i++ {
-		w, err := NewWorker(s.host, s.config)
+		w, err := NewCrawler(s.host, s.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
 		}
-		s.workers.Store(i, w)
+		s.crawlers.Store(i, w)
 		go w.StartCrawling(s.crawlQueue, s.resultsQueue)
 	}
 
@@ -204,7 +204,7 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// Stop Go routine of crawl queue
 	s.crawlQueue.DoneProducing()
 
-	// Stop workers
+	// Stop crawlers
 	s.shutdownWorkers()
 
 	// Stop Go routine of results queue
@@ -268,7 +268,7 @@ func (s *Scheduler) handleResult(cr Result) {
 	defer stats.Record(s.ServiceContext(), metrics.CrawlResultHandlingDuration.M(millisSince(start)))
 
 	logEntry := log.WithFields(log.Fields{
-		"workerID":   cr.WorkerID,
+		"crawlerID":   cr.WorkerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
 		"isDialable": cr.Error == nil,
 	})
@@ -279,16 +279,6 @@ func (s *Scheduler) handleResult(cr Result) {
 	stats.Record(s.ServiceContext(), metrics.CrawledPeersCount.M(1))
 	delete(s.inCrawlQueue, cr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
-
-	//// Check if we're in a dry-run
-	//if s.dbc != nil {
-	//	// persist session information
-	//	if err := s.persistCrawlResult(cr); err != nil {
-	//		if !errors.Is(err, context.Canceled) {
-	//			log.WithError(err).Warnln("Could not persist crawl result")
-	//		}
-	//	}
-	//}
 
 	s.persistQueue.Push(cr)
 
@@ -303,10 +293,12 @@ func (s *Scheduler) handleResult(cr Result) {
 	// log error or schedule new crawls
 	if cr.Error == nil {
 		for _, pi := range cr.Neighbors {
+			// Don't add this peer to the queue if its already in it
 			if _, inCrawlQueue := s.inCrawlQueue[pi.ID]; inCrawlQueue {
 				continue
 			}
 
+			// Don't add the peer to the queue if we have already visited it
 			if _, crawled := s.crawled[pi.ID]; crawled {
 				continue
 			}
@@ -345,13 +337,13 @@ func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
 	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 }
 
-// shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
+// shutdownWorkers sends shutdown signals to all crawlers and blocks until all have shut down.
 func (s *Scheduler) shutdownWorkers() {
 	var wg sync.WaitGroup
-	s.workers.Range(func(_, worker interface{}) bool {
-		w := worker.(*Worker)
+	s.crawlers.Range(func(_, worker interface{}) bool {
+		w := worker.(*Crawler)
 		wg.Add(1)
-		go func(w *Worker) {
+		go func(w *Crawler) {
 			w.Shutdown()
 			wg.Done()
 		}(w)
@@ -359,21 +351,6 @@ func (s *Scheduler) shutdownWorkers() {
 	})
 	wg.Wait()
 }
-
-//// shutdownPersisters
-//func (s *Scheduler) shutdownPersisters() {
-//	var wg sync.WaitGroup
-//	s.persisters.Range(func(_, persister interface{}) bool {
-//		p := persister.(*Persister)
-//		wg.Add(1)
-//		go func(p *Persister) {
-//			p.Shutdown()
-//			wg.Done()
-//		}(p)
-//		return true
-//	})
-//	wg.Wait()
-//}
 
 // logSummary logs the final results of the crawl.
 func (s *Scheduler) logSummary() {
