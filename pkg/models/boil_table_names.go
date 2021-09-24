@@ -4,29 +4,37 @@
 package models
 
 var TableNames = struct {
-	CrawlProperties     string
-	Crawls              string
-	Latencies           string
-	MultiAddresses      string
-	Neighbors           string
-	Peers               string
-	PeersMultiAddresses string
-	PeersProperties     string
-	PegasysConnections  string
-	PegasysNeighbours   string
-	Properties          string
-	Sessions            string
+	CrawlProperties       string
+	Crawls                string
+	Latencies             string
+	MultiAddresses        string
+	Neighbors             string
+	Peers                 string
+	PeersXMultiAddresses  string
+	PeersXProperties      string
+	PegasysConnections    string
+	PegasysNeighbours     string
+	Properties            string
+	RawVisits             string
+	Sessions              string
+	Visits                string
+	VisitsXMultiAddresses string
+	VisitsXProperties     string
 }{
-	CrawlProperties:     "crawl_properties",
-	Crawls:              "crawls",
-	Latencies:           "latencies",
-	MultiAddresses:      "multi_addresses",
-	Neighbors:           "neighbors",
-	Peers:               "peers",
-	PeersMultiAddresses: "peers_multi_addresses",
-	PeersProperties:     "peers_properties",
-	PegasysConnections:  "pegasys_connections",
-	PegasysNeighbours:   "pegasys_neighbours",
-	Properties:          "properties",
-	Sessions:            "sessions",
+	CrawlProperties:       "crawl_properties",
+	Crawls:                "crawls",
+	Latencies:             "latencies",
+	MultiAddresses:        "multi_addresses",
+	Neighbors:             "neighbors",
+	Peers:                 "peers",
+	PeersXMultiAddresses:  "peers_x_multi_addresses",
+	PeersXProperties:      "peers_x_properties",
+	PegasysConnections:    "pegasys_connections",
+	PegasysNeighbours:     "pegasys_neighbours",
+	Properties:            "properties",
+	RawVisits:             "raw_visits",
+	Sessions:              "sessions",
+	Visits:                "visits",
+	VisitsXMultiAddresses: "visits_x_multi_addresses",
+	VisitsXProperties:     "visits_x_properties",
 }

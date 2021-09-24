@@ -1,13 +1,10 @@
--- Begin the transaction
-BEGIN;
-
 -- The `properties` table holds information like agent versions, protocols or encountered errors.
 CREATE TABLE properties
 (
     -- An unique ID for this property
     id         SERIAL,
     -- The property name
-    property        VARCHAR(255) NOT NULL,
+    property   VARCHAR(255) NOT NULL,
     -- The property value
     value      VARCHAR(255) NOT NULL,
 
@@ -21,6 +18,3 @@ CREATE TABLE properties
 
     PRIMARY KEY (id)
 );
-
--- End the transaction
-COMMIT;
