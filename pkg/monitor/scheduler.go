@@ -160,7 +160,11 @@ func (s *Scheduler) handleResult(dr Result) {
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {
-		logEntry = logEntry.WithError(dr.Error)
+		if dr.DialError == models.DialErrorUnknown {
+			logEntry = logEntry.WithError(dr.Error)
+		} else {
+			logEntry = logEntry.WithField("error", dr.DialError)
+		}
 	}
 
 	// Update maps
