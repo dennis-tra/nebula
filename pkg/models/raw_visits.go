@@ -26,11 +26,12 @@ import (
 // RawVisit is an object representing the database table.
 type RawVisit struct {
 	ID              int               `boil:"id" json:"id" toml:"id" yaml:"id"`
-	CrawlID         int               `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
-	CrawlStartedAt  time.Time         `boil:"crawl_started_at" json:"crawl_started_at" toml:"crawl_started_at" yaml:"crawl_started_at"`
-	CrawlEndedAt    time.Time         `boil:"crawl_ended_at" json:"crawl_ended_at" toml:"crawl_ended_at" yaml:"crawl_ended_at"`
-	ConnectDuration string            `boil:"connect_duration" json:"connect_duration" toml:"connect_duration" yaml:"connect_duration"`
-	CrawlDuration   string            `boil:"crawl_duration" json:"crawl_duration" toml:"crawl_duration" yaml:"crawl_duration"`
+	CrawlID         null.Int          `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
+	VisitStartedAt  time.Time         `boil:"visit_started_at" json:"visit_started_at" toml:"visit_started_at" yaml:"visit_started_at"`
+	VisitEndedAt    time.Time         `boil:"visit_ended_at" json:"visit_ended_at" toml:"visit_ended_at" yaml:"visit_ended_at"`
+	DialDuration    null.String       `boil:"dial_duration" json:"dial_duration,omitempty" toml:"dial_duration" yaml:"dial_duration,omitempty"`
+	ConnectDuration null.String       `boil:"connect_duration" json:"connect_duration,omitempty" toml:"connect_duration" yaml:"connect_duration,omitempty"`
+	CrawlDuration   null.String       `boil:"crawl_duration" json:"crawl_duration,omitempty" toml:"crawl_duration" yaml:"crawl_duration,omitempty"`
 	AgentVersion    null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
 	PeerMultiHash   string            `boil:"peer_multi_hash" json:"peer_multi_hash" toml:"peer_multi_hash" yaml:"peer_multi_hash"`
 	Protocols       types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
@@ -46,8 +47,9 @@ type RawVisit struct {
 var RawVisitColumns = struct {
 	ID              string
 	CrawlID         string
-	CrawlStartedAt  string
-	CrawlEndedAt    string
+	VisitStartedAt  string
+	VisitEndedAt    string
+	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
 	AgentVersion    string
@@ -60,8 +62,9 @@ var RawVisitColumns = struct {
 }{
 	ID:              "id",
 	CrawlID:         "crawl_id",
-	CrawlStartedAt:  "crawl_started_at",
-	CrawlEndedAt:    "crawl_ended_at",
+	VisitStartedAt:  "visit_started_at",
+	VisitEndedAt:    "visit_ended_at",
+	DialDuration:    "dial_duration",
 	ConnectDuration: "connect_duration",
 	CrawlDuration:   "crawl_duration",
 	AgentVersion:    "agent_version",
@@ -76,8 +79,9 @@ var RawVisitColumns = struct {
 var RawVisitTableColumns = struct {
 	ID              string
 	CrawlID         string
-	CrawlStartedAt  string
-	CrawlEndedAt    string
+	VisitStartedAt  string
+	VisitEndedAt    string
+	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
 	AgentVersion    string
@@ -90,8 +94,9 @@ var RawVisitTableColumns = struct {
 }{
 	ID:              "raw_visits.id",
 	CrawlID:         "raw_visits.crawl_id",
-	CrawlStartedAt:  "raw_visits.crawl_started_at",
-	CrawlEndedAt:    "raw_visits.crawl_ended_at",
+	VisitStartedAt:  "raw_visits.visit_started_at",
+	VisitEndedAt:    "raw_visits.visit_ended_at",
+	DialDuration:    "raw_visits.dial_duration",
 	ConnectDuration: "raw_visits.connect_duration",
 	CrawlDuration:   "raw_visits.crawl_duration",
 	AgentVersion:    "raw_visits.agent_version",
@@ -132,11 +137,12 @@ func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
 
 var RawVisitWhere = struct {
 	ID              whereHelperint
-	CrawlID         whereHelperint
-	CrawlStartedAt  whereHelpertime_Time
-	CrawlEndedAt    whereHelpertime_Time
-	ConnectDuration whereHelperstring
-	CrawlDuration   whereHelperstring
+	CrawlID         whereHelpernull_Int
+	VisitStartedAt  whereHelpertime_Time
+	VisitEndedAt    whereHelpertime_Time
+	DialDuration    whereHelpernull_String
+	ConnectDuration whereHelpernull_String
+	CrawlDuration   whereHelpernull_String
 	AgentVersion    whereHelpernull_String
 	PeerMultiHash   whereHelperstring
 	Protocols       whereHelpertypes_StringArray
@@ -146,11 +152,12 @@ var RawVisitWhere = struct {
 	CreatedAt       whereHelpertime_Time
 }{
 	ID:              whereHelperint{field: "\"raw_visits\".\"id\""},
-	CrawlID:         whereHelperint{field: "\"raw_visits\".\"crawl_id\""},
-	CrawlStartedAt:  whereHelpertime_Time{field: "\"raw_visits\".\"crawl_started_at\""},
-	CrawlEndedAt:    whereHelpertime_Time{field: "\"raw_visits\".\"crawl_ended_at\""},
-	ConnectDuration: whereHelperstring{field: "\"raw_visits\".\"connect_duration\""},
-	CrawlDuration:   whereHelperstring{field: "\"raw_visits\".\"crawl_duration\""},
+	CrawlID:         whereHelpernull_Int{field: "\"raw_visits\".\"crawl_id\""},
+	VisitStartedAt:  whereHelpertime_Time{field: "\"raw_visits\".\"visit_started_at\""},
+	VisitEndedAt:    whereHelpertime_Time{field: "\"raw_visits\".\"visit_ended_at\""},
+	DialDuration:    whereHelpernull_String{field: "\"raw_visits\".\"dial_duration\""},
+	ConnectDuration: whereHelpernull_String{field: "\"raw_visits\".\"connect_duration\""},
+	CrawlDuration:   whereHelpernull_String{field: "\"raw_visits\".\"crawl_duration\""},
 	AgentVersion:    whereHelpernull_String{field: "\"raw_visits\".\"agent_version\""},
 	PeerMultiHash:   whereHelperstring{field: "\"raw_visits\".\"peer_multi_hash\""},
 	Protocols:       whereHelpertypes_StringArray{field: "\"raw_visits\".\"protocols\""},
@@ -177,9 +184,9 @@ func (*rawVisitR) NewStruct() *rawVisitR {
 type rawVisitL struct{}
 
 var (
-	rawVisitAllColumns            = []string{"id", "crawl_id", "crawl_started_at", "crawl_ended_at", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
-	rawVisitColumnsWithoutDefault = []string{"crawl_started_at", "crawl_ended_at", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
-	rawVisitColumnsWithDefault    = []string{"id", "crawl_id"}
+	rawVisitAllColumns            = []string{"id", "crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
+	rawVisitColumnsWithoutDefault = []string{"crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
+	rawVisitColumnsWithDefault    = []string{"id"}
 	rawVisitPrimaryKeyColumns     = []string{"id"}
 )
 

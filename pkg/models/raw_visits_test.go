@@ -568,7 +568,7 @@ func testRawVisitsSelect(t *testing.T) {
 }
 
 var (
-	rawVisitDBTypes = map[string]string{`ID`: `integer`, `CrawlID`: `integer`, `CrawlStartedAt`: `timestamp with time zone`, `CrawlEndedAt`: `timestamp with time zone`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `AgentVersion`: `character varying`, `PeerMultiHash`: `character varying`, `Protocols`: `ARRAYcharacter varying`, `MultiAddresses`: `ARRAYcharacter varying`, `DialError`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset')`, `Error`: `text`, `CreatedAt`: `timestamp with time zone`}
+	rawVisitDBTypes = map[string]string{`ID`: `integer`, `CrawlID`: `integer`, `VisitStartedAt`: `timestamp with time zone`, `VisitEndedAt`: `timestamp with time zone`, `DialDuration`: `interval`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `AgentVersion`: `character varying`, `PeerMultiHash`: `character varying`, `Protocols`: `ARRAYcharacter varying`, `MultiAddresses`: `ARRAYcharacter varying`, `DialError`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset')`, `Error`: `text`, `CreatedAt`: `timestamp with time zone`}
 	_               = bytes.MinRead
 )
 
