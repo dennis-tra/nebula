@@ -5,15 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
-	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
@@ -45,106 +42,80 @@ func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Pe
 	return p, nil
 }
 
-// StartPersisting TODO
+// StartPersisting enters an endless loop and consumes persist jobs from the persist queue
+// until it is told to stop or the persist queue was closed.
 func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 	p.ServiceStarted()
 	defer p.ServiceStopped()
-
 	ctx := p.ServiceContext()
-	logEntry := log.WithField("persisterID", p.Identifier())
+
 	for {
-		var cr Result
+		// Give the shutdown signal precedence
+		select {
+		case <-p.SigShutdown():
+			return
+		default:
+		}
+
 		select {
 		case elem, ok := <-persistQueue.Consume():
 			if !ok {
 				// The persist queue was closed
 				return
 			}
-			cr = elem.(Result)
+			p.handlePersistJob(ctx, elem.(Result))
 		case <-p.SigShutdown():
 			return
 		}
-		start := time.Now()
-
-		logEntry = logEntry.WithField("targetID", cr.Peer.ID.Pretty()[:16])
-		logEntry.Debugln("Persisting peer")
-
-		var err error
-		if err = p.insertRawEncounter(ctx, cr); err != nil {
-			logEntry.WithError(err).Warnln("Error inserting raw encounter")
-		} else {
-			logEntry.Debugln("Persisted peer")
-		}
-		logEntry.
-			WithField("persisted", p.persistedPeers).
-			WithField("success", err == nil).
-			WithField("duration", time.Since(start)).
-			Infoln("Persisted result from worker", cr.WorkerID)
 	}
 }
 
-func (p *Persister) insertRawEncounter(ctx context.Context, cr Result) error {
-	re := &models.RawVisit{
-		PeerMultiHash:  cr.Peer.ID.Pretty(),
-		CrawlID:          p.crawl.ID,
-		Protocols:        cr.Protocols,
-		MultiAddresses:   maddrsToAddrs(cr.Peer.Addrs),
-		ConnectLatency:   null.StringFrom(cr.ConnectLatency.String()),
-		ConnectStartedAt: cr.ConnectStartTime,
+// handlePersistJob takes a crawl result (persist job) and inserts a denormalized database entry of the results.
+func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
+	logEntry := log.WithFields(log.Fields{
+		"persisterID":  p.Identifier(),
+		"targetID":     cr.Peer.ID.Pretty()[:16],
+		"persistCount": p.persistedPeers,
+	})
+	logEntry.Debugln("Persisting peer")
+	defer logEntry.Debugln("Persisted peer")
+
+	start := time.Now()
+
+	err := p.insertRawVisit(ctx, cr)
+	if err != nil {
+		logEntry.WithError(err).Warnln("Error inserting raw visit")
+	}
+	logEntry.
+		WithField("persisted", p.persistedPeers).
+		WithField("success", err == nil).
+		WithField("duration", time.Since(start)).
+		Infoln("Persisted result from worker", cr.CrawlerID)
+}
+
+// insertRawVisit builds up a raw_visit database entry.
+func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
+	rv := &models.RawVisit{
+		CrawlID:         p.crawl.ID,
+		CrawlStartedAt:  cr.CrawlStartTime,
+		CrawlEndedAt:    cr.CrawlEndTime,
+		ConnectDuration: cr.ConnectDuration().String(),
+		CrawlDuration:   cr.CrawlDuration().String(),
+		PeerMultiHash:   cr.Peer.ID.Pretty(),
+		Protocols:       cr.Protocols,
+		MultiAddresses:  maddrsToAddrs(cr.Peer.Addrs),
 	}
 	if cr.Agent != "" {
-		re.AgentVersion = null.StringFrom(cr.Agent)
-	}
-	if cr.ConnectLatency != 0 {
-		re.ConnectLatency = null.StringFrom(cr.ConnectLatency.String())
+		rv.AgentVersion = null.StringFrom(cr.Agent)
 	}
 	if cr.Error != nil {
+		rv.DialError = null.StringFrom(cr.DialError)
 		if len(cr.Error.Error()) > 255 {
-			re.Error = null.StringFrom(cr.Error.Error()[:255])
+			rv.Error = null.StringFrom(cr.Error.Error()[:255])
 		} else {
-			re.Error = null.StringFrom(cr.Error.Error())
+			rv.Error = null.StringFrom(cr.Error.Error())
 		}
 	}
 
-	return p.dbc.InsertRawEncounter(ctx, re)
-}
-
-// persistCrawlResult inserts the given peer with its multi addresses in the database and
-// upserts its currently active session
-func (p *Persister) persistCrawlResult(ctx context.Context, cr Result) error {
-	var err error
-	startUpsert := time.Now()
-
-	dbPeer, err := p.dbc.UpsertPeer(ctx, cr.Peer, cr.Agent, cr.Protocols)
-	if err != nil {
-		return errors.Wrap(err, "upsert peer")
-	}
-
-	if p.config.PersistNeighbors {
-		if err = p.dbc.InsertNeighbors(ctx, p.crawl, dbPeer, cr.Neighbors); err != nil {
-			return errors.Wrap(err, "insert neighbors")
-		}
-	}
-
-	if cr.Error == nil {
-		if err := p.dbc.UpsertSessionSuccess(dbPeer); err != nil {
-			return errors.Wrap(err, "upsert session success")
-		}
-	} else if cr.Error != ctx.Err() {
-		if err := p.dbc.UpsertSessionError(dbPeer, cr.ErrorTime, determineDialError(cr.Error)); err != nil {
-			return errors.Wrap(err, "upsert session error")
-		}
-	}
-	stats.Record(ctx, metrics.CrawledUpsertDuration.M(millisSince(startUpsert)))
-
-	// Persist latency measurements
-	if cr.Latencies != nil {
-		if err := p.dbc.InsertLatencies(ctx, dbPeer, cr.Latencies); err != nil {
-			return errors.Wrap(err, "insert latencies")
-		}
-	}
-
-	p.persistedPeers++
-
-	return nil
+	return p.dbc.InsertRawEncounter(ctx, rv)
 }

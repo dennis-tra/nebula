@@ -70,29 +70,22 @@ var (
 
 // Measures
 var (
-	CrawlConnectDuration        = stats.Float64("crawl_connect_duration", "Duration of connecting to peers during crawl", stats.UnitMilliseconds)
-	MonitorDialDuration         = stats.Float64("monitor_dial_duration", "Duration of dialing peers during monitoring", stats.UnitMilliseconds)
-	CrawlConnectsCount          = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
-	MonitorDialCount            = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
-	CrawlConnectErrorsCount     = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
-	MonitorDialErrorsCount      = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
-	FetchNeighborsDuration      = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbors in its buckets", stats.UnitMilliseconds)
-	FetchedNeighborsCount       = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
-	CrawledPeersCount           = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
-	CrawledUpsertDuration       = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
-	CrawlResultHandlingDuration = stats.Float64("crawl_result_handling_duration", "Amount of time we need to handle one crawl result", stats.UnitMilliseconds)
-	PeerCrawlDuration           = stats.Float64("peer_crawl_duration", "Duration of connecting and querying peers", stats.UnitMilliseconds)
-	PeersToCrawlCount           = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
-	PeersToDialCount            = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
-	PeersToDialErrorsCount      = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
+	MonitorDialDuration     = stats.Float64("monitor_dial_duration", "Duration of dialing peers during monitoring", stats.UnitMilliseconds)
+	CrawlConnectsCount      = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
+	MonitorDialCount        = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
+	CrawlConnectErrorsCount = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
+	MonitorDialErrorsCount  = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
+	FetchNeighborsDuration  = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbors in its buckets", stats.UnitMilliseconds)
+	FetchedNeighborsCount   = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
+	CrawledPeersCount       = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
+	CrawledUpsertDuration   = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
+	PeersToCrawlCount       = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
+	PeersToDialCount        = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
+	PeersToDialErrorsCount  = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
 )
 
 // Views
 var (
-	CrawlConnectDurationView = &view.View{
-		Measure:     CrawlConnectDuration,
-		Aggregation: connectionDistribution,
-	}
 	MonitorDialDurationView = &view.View{
 		Measure:     MonitorDialDuration,
 		Aggregation: defaultMillisecondsDistribution,
@@ -127,16 +120,8 @@ var (
 		Measure:     CrawledPeersCount,
 		Aggregation: fibonacciDistribution,
 	}
-	PeerCrawlDurationView = &view.View{
-		Measure:     PeerCrawlDuration,
-		Aggregation: defaultMillisecondsDistribution,
-	}
 	CrawledUpsertDurationView = &view.View{
 		Measure:     CrawledUpsertDuration,
-		Aggregation: ocsql.DefaultMillisecondsDistribution,
-	}
-	CrawlResultHandlingDurationView = &view.View{
-		Measure:     CrawlResultHandlingDuration,
 		Aggregation: ocsql.DefaultMillisecondsDistribution,
 	}
 	PeersToCrawlCountView = &view.View{
@@ -156,16 +141,13 @@ var (
 
 // DefaultCrawlViews with all views in it.
 var DefaultCrawlViews = []*view.View{
-	CrawlConnectDurationView,
 	CrawlConnectsCountView,
 	CrawlConnectErrorsCountView,
 	FetchNeighborsDurationView,
 	FetchedNeighborsCountView,
 	CrawledPeersCountView,
-	PeerCrawlDurationView,
 	PeersToCrawlCountView,
 	CrawledUpsertDurationView,
-	CrawlResultHandlingDurationView,
 }
 
 // DefaultMonitorViews with all views in it.

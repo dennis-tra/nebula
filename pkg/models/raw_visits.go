@@ -25,67 +25,82 @@ import (
 
 // RawVisit is an object representing the database table.
 type RawVisit struct {
-	ID               int               `boil:"id" json:"id" toml:"id" yaml:"id"`
-	CrawlID          int               `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
-	ConnectLatency   null.String       `boil:"connect_latency" json:"connect_latency,omitempty" toml:"connect_latency" yaml:"connect_latency,omitempty"`
-	ConnectStartedAt time.Time         `boil:"connect_started_at" json:"connect_started_at" toml:"connect_started_at" yaml:"connect_started_at"`
-	PeerMultiHash    string            `boil:"peer_multi_hash" json:"peer_multi_hash" toml:"peer_multi_hash" yaml:"peer_multi_hash"`
-	AgentVersion     null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
-	Protocols        types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
-	MultiAddresses   types.StringArray `boil:"multi_addresses" json:"multi_addresses,omitempty" toml:"multi_addresses" yaml:"multi_addresses,omitempty"`
-	Error            null.String       `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
-	CreatedAt        time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID              int               `boil:"id" json:"id" toml:"id" yaml:"id"`
+	CrawlID         int               `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
+	CrawlStartedAt  time.Time         `boil:"crawl_started_at" json:"crawl_started_at" toml:"crawl_started_at" yaml:"crawl_started_at"`
+	CrawlEndedAt    time.Time         `boil:"crawl_ended_at" json:"crawl_ended_at" toml:"crawl_ended_at" yaml:"crawl_ended_at"`
+	ConnectDuration string            `boil:"connect_duration" json:"connect_duration" toml:"connect_duration" yaml:"connect_duration"`
+	CrawlDuration   string            `boil:"crawl_duration" json:"crawl_duration" toml:"crawl_duration" yaml:"crawl_duration"`
+	AgentVersion    null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
+	PeerMultiHash   string            `boil:"peer_multi_hash" json:"peer_multi_hash" toml:"peer_multi_hash" yaml:"peer_multi_hash"`
+	Protocols       types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
+	MultiAddresses  types.StringArray `boil:"multi_addresses" json:"multi_addresses,omitempty" toml:"multi_addresses" yaml:"multi_addresses,omitempty"`
+	DialError       null.String       `boil:"dial_error" json:"dial_error,omitempty" toml:"dial_error" yaml:"dial_error,omitempty"`
+	Error           null.String       `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	CreatedAt       time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *rawVisitR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L rawVisitL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var RawVisitColumns = struct {
-	ID               string
-	CrawlID          string
-	ConnectLatency   string
-	ConnectStartedAt string
-	PeerMultiHash    string
-	AgentVersion     string
-	Protocols        string
-	MultiAddresses   string
-	Error            string
-	CreatedAt        string
+	ID              string
+	CrawlID         string
+	CrawlStartedAt  string
+	CrawlEndedAt    string
+	ConnectDuration string
+	CrawlDuration   string
+	AgentVersion    string
+	PeerMultiHash   string
+	Protocols       string
+	MultiAddresses  string
+	DialError       string
+	Error           string
+	CreatedAt       string
 }{
-	ID:               "id",
-	CrawlID:          "crawl_id",
-	ConnectLatency:   "connect_latency",
-	ConnectStartedAt: "connect_started_at",
-	PeerMultiHash:    "peer_multi_hash",
-	AgentVersion:     "agent_version",
-	Protocols:        "protocols",
-	MultiAddresses:   "multi_addresses",
-	Error:            "error",
-	CreatedAt:        "created_at",
+	ID:              "id",
+	CrawlID:         "crawl_id",
+	CrawlStartedAt:  "crawl_started_at",
+	CrawlEndedAt:    "crawl_ended_at",
+	ConnectDuration: "connect_duration",
+	CrawlDuration:   "crawl_duration",
+	AgentVersion:    "agent_version",
+	PeerMultiHash:   "peer_multi_hash",
+	Protocols:       "protocols",
+	MultiAddresses:  "multi_addresses",
+	DialError:       "dial_error",
+	Error:           "error",
+	CreatedAt:       "created_at",
 }
 
 var RawVisitTableColumns = struct {
-	ID               string
-	CrawlID          string
-	ConnectLatency   string
-	ConnectStartedAt string
-	PeerMultiHash    string
-	AgentVersion     string
-	Protocols        string
-	MultiAddresses   string
-	Error            string
-	CreatedAt        string
+	ID              string
+	CrawlID         string
+	CrawlStartedAt  string
+	CrawlEndedAt    string
+	ConnectDuration string
+	CrawlDuration   string
+	AgentVersion    string
+	PeerMultiHash   string
+	Protocols       string
+	MultiAddresses  string
+	DialError       string
+	Error           string
+	CreatedAt       string
 }{
-	ID:               "raw_visits.id",
-	CrawlID:          "raw_visits.crawl_id",
-	ConnectLatency:   "raw_visits.connect_latency",
-	ConnectStartedAt: "raw_visits.connect_started_at",
-	PeerMultiHash:    "raw_visits.peer_multi_hash",
-	AgentVersion:     "raw_visits.agent_version",
-	Protocols:        "raw_visits.protocols",
-	MultiAddresses:   "raw_visits.multi_addresses",
-	Error:            "raw_visits.error",
-	CreatedAt:        "raw_visits.created_at",
+	ID:              "raw_visits.id",
+	CrawlID:         "raw_visits.crawl_id",
+	CrawlStartedAt:  "raw_visits.crawl_started_at",
+	CrawlEndedAt:    "raw_visits.crawl_ended_at",
+	ConnectDuration: "raw_visits.connect_duration",
+	CrawlDuration:   "raw_visits.crawl_duration",
+	AgentVersion:    "raw_visits.agent_version",
+	PeerMultiHash:   "raw_visits.peer_multi_hash",
+	Protocols:       "raw_visits.protocols",
+	MultiAddresses:  "raw_visits.multi_addresses",
+	DialError:       "raw_visits.dial_error",
+	Error:           "raw_visits.error",
+	CreatedAt:       "raw_visits.created_at",
 }
 
 // Generated where
@@ -116,27 +131,33 @@ func (w whereHelpertypes_StringArray) GTE(x types.StringArray) qm.QueryMod {
 }
 
 var RawVisitWhere = struct {
-	ID               whereHelperint
-	CrawlID          whereHelperint
-	ConnectLatency   whereHelpernull_String
-	ConnectStartedAt whereHelpertime_Time
-	PeerMultiHash    whereHelperstring
-	AgentVersion     whereHelpernull_String
-	Protocols        whereHelpertypes_StringArray
-	MultiAddresses   whereHelpertypes_StringArray
-	Error            whereHelpernull_String
-	CreatedAt        whereHelpertime_Time
+	ID              whereHelperint
+	CrawlID         whereHelperint
+	CrawlStartedAt  whereHelpertime_Time
+	CrawlEndedAt    whereHelpertime_Time
+	ConnectDuration whereHelperstring
+	CrawlDuration   whereHelperstring
+	AgentVersion    whereHelpernull_String
+	PeerMultiHash   whereHelperstring
+	Protocols       whereHelpertypes_StringArray
+	MultiAddresses  whereHelpertypes_StringArray
+	DialError       whereHelpernull_String
+	Error           whereHelpernull_String
+	CreatedAt       whereHelpertime_Time
 }{
-	ID:               whereHelperint{field: "\"raw_visits\".\"id\""},
-	CrawlID:          whereHelperint{field: "\"raw_visits\".\"crawl_id\""},
-	ConnectLatency:   whereHelpernull_String{field: "\"raw_visits\".\"connect_latency\""},
-	ConnectStartedAt: whereHelpertime_Time{field: "\"raw_visits\".\"connect_started_at\""},
-	PeerMultiHash:    whereHelperstring{field: "\"raw_visits\".\"peer_multi_hash\""},
-	AgentVersion:     whereHelpernull_String{field: "\"raw_visits\".\"agent_version\""},
-	Protocols:        whereHelpertypes_StringArray{field: "\"raw_visits\".\"protocols\""},
-	MultiAddresses:   whereHelpertypes_StringArray{field: "\"raw_visits\".\"multi_addresses\""},
-	Error:            whereHelpernull_String{field: "\"raw_visits\".\"error\""},
-	CreatedAt:        whereHelpertime_Time{field: "\"raw_visits\".\"created_at\""},
+	ID:              whereHelperint{field: "\"raw_visits\".\"id\""},
+	CrawlID:         whereHelperint{field: "\"raw_visits\".\"crawl_id\""},
+	CrawlStartedAt:  whereHelpertime_Time{field: "\"raw_visits\".\"crawl_started_at\""},
+	CrawlEndedAt:    whereHelpertime_Time{field: "\"raw_visits\".\"crawl_ended_at\""},
+	ConnectDuration: whereHelperstring{field: "\"raw_visits\".\"connect_duration\""},
+	CrawlDuration:   whereHelperstring{field: "\"raw_visits\".\"crawl_duration\""},
+	AgentVersion:    whereHelpernull_String{field: "\"raw_visits\".\"agent_version\""},
+	PeerMultiHash:   whereHelperstring{field: "\"raw_visits\".\"peer_multi_hash\""},
+	Protocols:       whereHelpertypes_StringArray{field: "\"raw_visits\".\"protocols\""},
+	MultiAddresses:  whereHelpertypes_StringArray{field: "\"raw_visits\".\"multi_addresses\""},
+	DialError:       whereHelpernull_String{field: "\"raw_visits\".\"dial_error\""},
+	Error:           whereHelpernull_String{field: "\"raw_visits\".\"error\""},
+	CreatedAt:       whereHelpertime_Time{field: "\"raw_visits\".\"created_at\""},
 }
 
 // RawVisitRels is where relationship names are stored.
@@ -156,8 +177,8 @@ func (*rawVisitR) NewStruct() *rawVisitR {
 type rawVisitL struct{}
 
 var (
-	rawVisitAllColumns            = []string{"id", "crawl_id", "connect_latency", "connect_started_at", "peer_multi_hash", "agent_version", "protocols", "multi_addresses", "error", "created_at"}
-	rawVisitColumnsWithoutDefault = []string{"connect_latency", "connect_started_at", "peer_multi_hash", "agent_version", "protocols", "multi_addresses", "error", "created_at"}
+	rawVisitAllColumns            = []string{"id", "crawl_id", "crawl_started_at", "crawl_ended_at", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
+	rawVisitColumnsWithoutDefault = []string{"crawl_started_at", "crawl_ended_at", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
 	rawVisitColumnsWithDefault    = []string{"id", "crawl_id"}
 	rawVisitPrimaryKeyColumns     = []string{"id"}
 )
