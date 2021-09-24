@@ -64,7 +64,8 @@ CREATE TABLE visits
     PRIMARY KEY (id)
 );
 
-INSERT INTO visits (id, peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration, visit_started_at,
+INSERT INTO visits (id, peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration,
+                    visit_started_at,
                     visit_ended_at, updated_at, created_at, type, error)
 SELECT vo.id,
        vo.peer_id,
@@ -91,6 +92,8 @@ ALTER TABLE visits_x_properties
     ADD CONSTRAINT fk_visits_x_properties_visit_id FOREIGN KEY (visit_id) REFERENCES visits (id) ON DELETE CASCADE;
 
 DROP TABLE visits_old;
+
+SELECT setval(pg_get_serial_sequence('visits', 'id'), (SELECT MAX(id) FROM visits) + 1);
 
 -- End the transaction
 COMMIT;
