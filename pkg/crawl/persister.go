@@ -84,8 +84,8 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 }
 
 func (p *Persister) insertRawEncounter(ctx context.Context, cr Result) error {
-	re := &models.RawEncounter{
-		PeerIDMultiHash:  cr.Peer.ID.Pretty(),
+	re := &models.RawVisit{
+		PeerMultiHash:  cr.Peer.ID.Pretty(),
 		CrawlID:          p.crawl.ID,
 		Protocols:        cr.Protocols,
 		MultiAddresses:   maddrsToAddrs(cr.Peer.Addrs),
