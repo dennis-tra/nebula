@@ -170,7 +170,7 @@ func (s *Scheduler) handleResult(dr Result) {
 	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
 		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
-	logEntry.Infoln("Handled dial result from worker", dr.WorkerID)
+	logEntry.WithField("duration", dr.DialDuration()).Infoln("Handled dial result from worker", dr.WorkerID)
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.

@@ -12,28 +12,35 @@ BEGIN;
 --   - connections - closest competitor imo - however the pegasys team already used that name
 CREATE TABLE visits
 (
-    -- A unique id that identifies this encounter
-    id         SERIAL,
+    -- A unique id that identifies this visit
+    id               SERIAL,
     -- Which peer did we meet
-    peer_id    SERIAL      NOT NULL,
+    peer_id          SERIAL      NOT NULL,
     -- In which crawl did we meet this peer (can be null if recorded during monitoring)
-    crawl_id   INT,
-    -- Which peer session did we update with this encounter
-    session_id INT,
-    -- The type of this visit
-    type       visit_type NOT NULL,
-
-    -- When was this encounter updated the last time
-    updated_at TIMESTAMPTZ NOT NULL,
-    -- When did this encounter happen
-    created_at TIMESTAMPTZ NOT NULL,
+    crawl_id         INT,
+    -- Which peer session did we update with this visit
+    session_id       INT,
+    -- The time it took to dial the peer or until an error occurred
+    dial_duration    INTERVAL,
+    -- The time it took to connect with the peer or until an error occurred
+    connect_duration INTERVAL,
+    -- The time it took to crawl the peer also if an error occurred
+    crawl_duration   INTERVAL,
+    -- When was this visit updated the last time
+    updated_at       TIMESTAMPTZ NOT NULL,
+    -- When did this visit happen
+    created_at       TIMESTAMPTZ NOT NULL,
+    -- The type of this visit (done here for column alignment)
+    type             visit_type  NOT NULL,
+    -- The type of this visit (done here for column alignment)
+    error            dial_error,
 
     -- The peer ID should always point to an existing peer in the DB
-    CONSTRAINT fk_encounter_peer FOREIGN KEY (peer_id) REFERENCES peers (id),
+    CONSTRAINT fk_visits_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id),
     -- The crawl ID should always point to an existing crawl in the DB
-    CONSTRAINT fk_encounter_crawl FOREIGN KEY (crawl_id) REFERENCES crawls (id),
+    CONSTRAINT fk_visits_crawl_id FOREIGN KEY (crawl_id) REFERENCES crawls (id),
     -- The session ID should always point to an existing session instance in the DB
-    CONSTRAINT fk_encounter_session FOREIGN KEY (session_id) REFERENCES sessions (id),
+    CONSTRAINT fk_visits_session_id FOREIGN KEY (session_id) REFERENCES sessions (id),
 
     PRIMARY KEY (id)
 );
