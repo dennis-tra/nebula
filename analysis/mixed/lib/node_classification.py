@@ -12,9 +12,10 @@ def get_all_nodes(conn, start, end):
         """
         SELECT DISTINCT peer_id
         FROM sessions
-        WHERE created_at < %s AND updated_at > %s
+        --WHERE created_at < %s AND updated_at > %s AND (updated_at - NOW() < interval '3 days')
+        WHERE updated_at < %s AND (updated_at - created_at < interval '3 days')
         """,
-        [end, start]
+        [end]
     )
     return [i for sub in cur.fetchall() for i in sub]
 
