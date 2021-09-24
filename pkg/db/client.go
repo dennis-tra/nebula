@@ -76,7 +76,7 @@ func InitClient(ctx context.Context) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) InsertRawEncounter(ctx context.Context, re *models.RawEncounter) error {
+func (c *Client) InsertRawEncounter(ctx context.Context, re *models.RawVisit) error {
 	//	p := models.Property{
 	//		Property: "agent_version",
 	//		Value:    re.AgentVersion.String,
