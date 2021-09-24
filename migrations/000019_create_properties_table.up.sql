@@ -4,9 +4,9 @@ CREATE TABLE properties
     -- An unique ID for this property
     id         SERIAL,
     -- The property name
-    property   VARCHAR(255) NOT NULL,
+    property   VARCHAR(500) NOT NULL,
     -- The property value
-    value      VARCHAR(255) NOT NULL,
+    value      VARCHAR(1000) NOT NULL,
 
     -- When was this property updated the last
     updated_at TIMESTAMPTZ  NOT NULL,
