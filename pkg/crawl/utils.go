@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"strings"
+	"time"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	ma "github.com/multiformats/go-multiaddr"
@@ -43,4 +44,23 @@ func maddrsToAddrs(maddrs []ma.Multiaddr) []string {
 		addrs[i] = maddr.String()
 	}
 	return addrs
+}
+
+// knownErrors contains a list of known errors. Property key + string to match for
+var knownErrors = map[string]string{
+	models.DialErrorIoTimeout:               "i/o timeout",
+	models.DialErrorConnectionRefused:       "connection refused",
+	models.DialErrorProtocolNotSupported:    "protocol not supported",
+	models.DialErrorPeerIDMismatch:          "peer id mismatch",
+	models.DialErrorNoRouteToHost:           "no route to host",
+	models.DialErrorNetworkUnreachable:      "network is unreachable",
+	models.DialErrorNoGoodAddresses:         "no good addresses",
+	models.DialErrorContextDeadlineExceeded: "context deadline exceeded",
+	models.DialErrorNoPublicIP:              "no public IP address",
+	models.DialErrorMaxDialAttemptsExceeded: "max dial attempts exceeded",
+}
+
+// millisSince returns the number of milliseconds between now and the given time.
+func millisSince(start time.Time) float64 {
+	return float64(time.Since(start)) / float64(time.Millisecond)
 }
