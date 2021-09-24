@@ -3,7 +3,6 @@ package monitor
 import (
 	"context"
 	"database/sql"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,9 +26,13 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
-type Scheduler struct { // Service represents an entity that runs in a
-	// separate go routine and where its lifecycle
-	// needs to be handled externally.
+// The Scheduler handles the scheduling and managing of
+//   a) workers - They consume a queue of peer address information, visit them and publish their results
+//                on a separate results queue. This results queue is consumed by this scheduler and further
+//                processed
+type Scheduler struct {
+	// Service represents an entity that runs in a separate go routine and where its lifecycle
+	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
 	*service.Service
 
 	// The libp2p node that's used to crawl the network. This one is also passed to all workers.
@@ -58,37 +61,7 @@ type Scheduler struct { // Service represents an entity that runs in a
 	workers sync.Map
 }
 
-type Job struct {
-	// The peer.AddrInfo that needs to be crawled
-	pi peer.AddrInfo
-
-	// Internal peer ID
-	InternalPeerID int
-}
-
-// knownErrors contains a list of known errors. Property key + string to match for
-var knownErrors = map[string]string{
-	models.DialErrorIoTimeout:               "i/o timeout",
-	models.DialErrorConnectionRefused:       "connection refused",
-	models.DialErrorProtocolNotSupported:    "protocol not supported",
-	models.DialErrorPeerIDMismatch:          "peer id mismatch",
-	models.DialErrorNoRouteToHost:           "no route to host",
-	models.DialErrorNetworkUnreachable:      "network is unreachable",
-	models.DialErrorNoGoodAddresses:         "no good addresses",
-	models.DialErrorContextDeadlineExceeded: "context deadline exceeded",
-	models.DialErrorNoPublicIP:              "no public IP address",
-	models.DialErrorMaxDialAttemptsExceeded: "max dial attempts exceeded",
-}
-
-func determineDialError(err error) string {
-	for key, errStr := range knownErrors {
-		if strings.Contains(err.Error(), errStr) {
-			return key
-		}
-	}
-	return models.DialErrorUnknown
-}
-
+// NewScheduler initializes a new libp2p host and scheduler instance.
 func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
@@ -191,7 +164,7 @@ func (s *Scheduler) handleResult(dr Result) {
 	if dr.Error == nil {
 		err = db.UpsertSessionSuccess(s.dbh, dr.InternalPeerID)
 	} else {
-		dialErr := determineDialError(dr.Error)
+		dialErr := db.DialError(dr.Error)
 		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
 			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
 		}
