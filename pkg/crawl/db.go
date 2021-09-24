@@ -4,45 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
-
-func (s *Scheduler) queryPeers(pis []peer.AddrInfo) error {
-	var queryList []peer.AddrInfo
-	for _, pi := range pis {
-		if _, crawled := s.crawled[pi.ID]; crawled {
-			continue
-		}
-		if _, loaded := s.dbPeers[pi.ID]; loaded {
-			continue
-		}
-		queryList = append(queryList, pi)
-	}
-
-	if len(queryList) == 0 {
-		return nil
-	}
-
-	peers, err := s.dbc.QueryPeers(s.ServiceContext(), queryList)
-	if err != nil {
-		return err
-	}
-
-	for _, p := range peers {
-		mh, err := peer.Decode(p.MultiHash)
-		if err != nil {
-			// TODO: log
-			continue
-		}
-		s.dbPeers[mh] = p
-	}
-
-	return nil
-}
 
 // updateCrawl writes crawl statistics to the database. TODO: comment
 func (s *Scheduler) updateCrawl(ctx context.Context) error {

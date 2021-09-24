@@ -675,9 +675,8 @@ func testCrawlToManyVisits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.CrawlID = a.ID
-	c.CrawlID = a.ID
-
+	queries.Assign(&b.CrawlID, a.ID)
+	queries.Assign(&c.CrawlID, a.ID)
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -692,10 +691,10 @@ func testCrawlToManyVisits(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.CrawlID == b.CrawlID {
+		if queries.Equal(v.CrawlID, b.CrawlID) {
 			bFound = true
 		}
-		if v.CrawlID == c.CrawlID {
+		if queries.Equal(v.CrawlID, c.CrawlID) {
 			cFound = true
 		}
 	}
@@ -923,10 +922,10 @@ func testCrawlToManyAddOpVisits(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.CrawlID {
+		if !queries.Equal(a.ID, first.CrawlID) {
 			t.Error("foreign key was wrong value", a.ID, first.CrawlID)
 		}
-		if a.ID != second.CrawlID {
+		if !queries.Equal(a.ID, second.CrawlID) {
 			t.Error("foreign key was wrong value", a.ID, second.CrawlID)
 		}
 
@@ -951,6 +950,181 @@ func testCrawlToManyAddOpVisits(t *testing.T) {
 		if want := int64((i + 1) * 2); count != want {
 			t.Error("want", want, "got", count)
 		}
+	}
+}
+
+func testCrawlToManySetOpVisits(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Crawl
+	var b, c, d, e Visit
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, crawlDBTypes, false, strmangle.SetComplement(crawlPrimaryKeyColumns, crawlColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Visit{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetVisits(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetVisits(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.CrawlID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.CrawlID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+	if !queries.Equal(a.ID, d.CrawlID) {
+		t.Error("foreign key was wrong value", a.ID, d.CrawlID)
+	}
+	if !queries.Equal(a.ID, e.CrawlID) {
+		t.Error("foreign key was wrong value", a.ID, e.CrawlID)
+	}
+
+	if b.R.Crawl != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.Crawl != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.Crawl != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.Crawl != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if a.R.Visits[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.Visits[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testCrawlToManyRemoveOpVisits(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Crawl
+	var b, c, d, e Visit
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, crawlDBTypes, false, strmangle.SetComplement(crawlPrimaryKeyColumns, crawlColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Visit{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddVisits(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveVisits(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.CrawlID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.CrawlID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+
+	if b.R.Crawl != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.Crawl != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.Crawl != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+	if e.R.Crawl != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+
+	if len(a.R.Visits) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.Visits[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.Visits[0] != &e {
+		t.Error("relationship to e should have been preserved")
 	}
 }
 

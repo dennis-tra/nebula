@@ -58,32 +58,42 @@ BEGIN
         RETURNING id INTO upserted_session_id;
     END IF;
 
+
     -- Now we're able to create the normalized visit instance
-    INSERT INTO visits (peer_id, crawl_id, session_id, updated_at, created_at)
+    INSERT
+    INTO visits (peer_id, crawl_id, session_id, updated_at, created_at)
     VALUES (inserted_peer_id, NEW.crawl_id, upserted_session_id, NEW.created_at, NEW.created_at)
     RETURNING id INTO inserted_visit_id;
 
-    -- Take the agent version of the peer and insert it into the association table
-    WITH properties_id_table AS (INSERT INTO properties (property, value, updated_at, created_at)
-        VALUES ('agent_version', NEW.agent_version, NEW.created_at, NEW.created_at)
-        ON CONFLICT (property, value) DO UPDATE SET updated_at = excluded.updated_at
-        RETURNING id)
+    -- First attempt to insert all properties into the properties table and retrieve the IDs
+    -- of freshly created and already existing entries. Use these IDs to fill the visits_x_properties
+    -- table and associate the properties with this visit.
+    WITH all_visit_properties as (
+        WITH visit_properties as (
+            SELECT 'agent_version'   as protocol,
+                   NEW.agent_version as val,
+                   NEW.created_at    as updated_at,
+                   NEW.created_at    as created_at
+            UNION
+            SELECT 'error'                 as protocol,
+                   NEW.dial_error::varchar as val,
+                   NEW.created_at          as updated_at,
+                   NEW.created_at          as created_at
+            WHERE NEW.dial_error IS NOT NULL
+            UNION
+            SELECT 'protocol'            as protocol,
+                   unnest(NEW.protocols) as val,
+                   NEW.created_at        as updated_at,
+                   NEW.created_at        as created_at
+            )
+            INSERT INTO properties (property, value, updated_at, created_at)
+                SELECT vp.protocol, vp.val, vp.updated_at, vp.created_at FROM visit_properties vp ORDER BY protocol, val
+                ON CONFLICT (property, value) DO UPDATE SET updated_at = excluded.updated_at
+                RETURNING id)
     INSERT
     INTO visits_x_properties (visit_id, property_id)
-    SELECT (inserted_visit_id, p.id)
-    FROM properties_id_table AS p;
-
-    -- Take the protocols of the peer and insert them into the association table
-    WITH properties_id_table AS (INSERT INTO properties (property, value, updated_at, created_at)
-        VALUES ('protocol', unnest(NEW.protocols), NEW.created_at, NEW.created_at)
-        ON CONFLICT (property, value) DO UPDATE SET updated_at = excluded.updated_at
-        RETURNING id, property, value as val)
-    INSERT
-    INTO visits_x_properties (visit_id, property_id)
-    SELECT (inserted_visit_id, p.id)
-    FROM properties_id_table AS p
-    ORDER BY property, val;
-    -- Order to prevent dead lock
+    SELECT inserted_visit_id, p2.id
+    FROM all_visit_properties AS p2;
 
     -- Take the multi addresses of the peer and insert them into the association table
     WITH multi_addresses_id_table AS (INSERT INTO multi_addresses (maddr, updated_at, created_at)
@@ -92,12 +102,9 @@ BEGIN
         RETURNING id, maddr)
     INSERT
     INTO visits_x_multi_addresses (visit_id, multi_address_id)
-    SELECT (inserted_visit_id, p.id)
+    SELECT inserted_visit_id, p.id
     FROM multi_addresses_id_table AS p
     ORDER BY maddr; -- Order to prevent dead lock
-
-    INSERT INTO pegasys_connections (peer_id, dial_attempt, latency, is_succeed, error)
-    VALUES (peer_id, NEW.connect_started_at, NEW.connect_latency, NEW.error IS NULL, NEW.error);
 
     RETURN NEW;
 END;

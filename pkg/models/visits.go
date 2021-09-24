@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -25,8 +26,8 @@ import (
 type Visit struct {
 	ID        int       `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PeerID    int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
-	CrawlID   int       `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
-	SessionID int       `boil:"session_id" json:"session_id" toml:"session_id" yaml:"session_id"`
+	CrawlID   null.Int  `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
+	SessionID null.Int  `boil:"session_id" json:"session_id,omitempty" toml:"session_id" yaml:"session_id,omitempty"`
 	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
@@ -71,15 +72,15 @@ var VisitTableColumns = struct {
 var VisitWhere = struct {
 	ID        whereHelperint
 	PeerID    whereHelperint
-	CrawlID   whereHelperint
-	SessionID whereHelperint
+	CrawlID   whereHelpernull_Int
+	SessionID whereHelpernull_Int
 	UpdatedAt whereHelpertime_Time
 	CreatedAt whereHelpertime_Time
 }{
 	ID:        whereHelperint{field: "\"visits\".\"id\""},
 	PeerID:    whereHelperint{field: "\"visits\".\"peer_id\""},
-	CrawlID:   whereHelperint{field: "\"visits\".\"crawl_id\""},
-	SessionID: whereHelperint{field: "\"visits\".\"session_id\""},
+	CrawlID:   whereHelpernull_Int{field: "\"visits\".\"crawl_id\""},
+	SessionID: whereHelpernull_Int{field: "\"visits\".\"session_id\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"visits\".\"updated_at\""},
 	CreatedAt: whereHelpertime_Time{field: "\"visits\".\"created_at\""},
 }
@@ -118,8 +119,8 @@ type visitL struct{}
 
 var (
 	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "updated_at", "created_at"}
-	visitColumnsWithoutDefault = []string{"updated_at", "created_at"}
-	visitColumnsWithDefault    = []string{"id", "peer_id", "crawl_id", "session_id"}
+	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "updated_at", "created_at"}
+	visitColumnsWithDefault    = []string{"id", "peer_id"}
 	visitPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -501,7 +502,9 @@ func (visitL) LoadCrawl(ctx context.Context, e boil.ContextExecutor, singular bo
 		if object.R == nil {
 			object.R = &visitR{}
 		}
-		args = append(args, object.CrawlID)
+		if !queries.IsNil(object.CrawlID) {
+			args = append(args, object.CrawlID)
+		}
 
 	} else {
 	Outer:
@@ -511,12 +514,14 @@ func (visitL) LoadCrawl(ctx context.Context, e boil.ContextExecutor, singular bo
 			}
 
 			for _, a := range args {
-				if a == obj.CrawlID {
+				if queries.Equal(a, obj.CrawlID) {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.CrawlID)
+			if !queries.IsNil(obj.CrawlID) {
+				args = append(args, obj.CrawlID)
+			}
 
 		}
 	}
@@ -574,7 +579,7 @@ func (visitL) LoadCrawl(ctx context.Context, e boil.ContextExecutor, singular bo
 
 	for _, local := range slice {
 		for _, foreign := range resultSlice {
-			if local.CrawlID == foreign.ID {
+			if queries.Equal(local.CrawlID, foreign.ID) {
 				local.R.Crawl = foreign
 				if foreign.R == nil {
 					foreign.R = &crawlR{}
@@ -709,7 +714,9 @@ func (visitL) LoadSession(ctx context.Context, e boil.ContextExecutor, singular 
 		if object.R == nil {
 			object.R = &visitR{}
 		}
-		args = append(args, object.SessionID)
+		if !queries.IsNil(object.SessionID) {
+			args = append(args, object.SessionID)
+		}
 
 	} else {
 	Outer:
@@ -719,12 +726,14 @@ func (visitL) LoadSession(ctx context.Context, e boil.ContextExecutor, singular 
 			}
 
 			for _, a := range args {
-				if a == obj.SessionID {
+				if queries.Equal(a, obj.SessionID) {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.SessionID)
+			if !queries.IsNil(obj.SessionID) {
+				args = append(args, obj.SessionID)
+			}
 
 		}
 	}
@@ -782,7 +791,7 @@ func (visitL) LoadSession(ctx context.Context, e boil.ContextExecutor, singular 
 
 	for _, local := range slice {
 		for _, foreign := range resultSlice {
-			if local.SessionID == foreign.ID {
+			if queries.Equal(local.SessionID, foreign.ID) {
 				local.R.Session = foreign
 				if foreign.R == nil {
 					foreign.R = &sessionR{}
@@ -1053,7 +1062,7 @@ func (o *Visit) SetCrawl(ctx context.Context, exec boil.ContextExecutor, insert 
 		return errors.Wrap(err, "failed to update local table")
 	}
 
-	o.CrawlID = related.ID
+	queries.Assign(&o.CrawlID, related.ID)
 	if o.R == nil {
 		o.R = &visitR{
 			Crawl: related,
@@ -1070,6 +1079,39 @@ func (o *Visit) SetCrawl(ctx context.Context, exec boil.ContextExecutor, insert 
 		related.R.Visits = append(related.R.Visits, o)
 	}
 
+	return nil
+}
+
+// RemoveCrawl relationship.
+// Sets o.R.Crawl to nil.
+// Removes o from all passed in related items' relationships struct (Optional).
+func (o *Visit) RemoveCrawl(ctx context.Context, exec boil.ContextExecutor, related *Crawl) error {
+	var err error
+
+	queries.SetScanner(&o.CrawlID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("crawl_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.Crawl = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.Visits {
+		if queries.Equal(o.CrawlID, ri.CrawlID) {
+			continue
+		}
+
+		ln := len(related.R.Visits)
+		if ln > 1 && i < ln-1 {
+			related.R.Visits[i] = related.R.Visits[ln-1]
+		}
+		related.R.Visits = related.R.Visits[:ln-1]
+		break
+	}
 	return nil
 }
 
@@ -1147,7 +1189,7 @@ func (o *Visit) SetSession(ctx context.Context, exec boil.ContextExecutor, inser
 		return errors.Wrap(err, "failed to update local table")
 	}
 
-	o.SessionID = related.ID
+	queries.Assign(&o.SessionID, related.ID)
 	if o.R == nil {
 		o.R = &visitR{
 			Session: related,
@@ -1164,6 +1206,39 @@ func (o *Visit) SetSession(ctx context.Context, exec boil.ContextExecutor, inser
 		related.R.Visits = append(related.R.Visits, o)
 	}
 
+	return nil
+}
+
+// RemoveSession relationship.
+// Sets o.R.Session to nil.
+// Removes o from all passed in related items' relationships struct (Optional).
+func (o *Visit) RemoveSession(ctx context.Context, exec boil.ContextExecutor, related *Session) error {
+	var err error
+
+	queries.SetScanner(&o.SessionID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("session_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.Session = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.Visits {
+		if queries.Equal(o.SessionID, ri.SessionID) {
+			continue
+		}
+
+		ln := len(related.R.Visits)
+		if ln > 1 && i < ln-1 {
+			related.R.Visits[i] = related.R.Visits[ln-1]
+		}
+		related.R.Visits = related.R.Visits[:ln-1]
+		break
+	}
 	return nil
 }
 

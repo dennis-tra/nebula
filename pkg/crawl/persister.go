@@ -73,9 +73,8 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 // handlePersistJob takes a crawl result (persist job) and inserts a denormalized database entry of the results.
 func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
-		"persisterID":  p.Identifier(),
-		"targetID":     cr.Peer.ID.Pretty()[:16],
-		"persistCount": p.persistedPeers,
+		"persisterID": p.Identifier(),
+		"targetID":    cr.Peer.ID.Pretty()[:16],
 	})
 	logEntry.Debugln("Persisting peer")
 	defer logEntry.Debugln("Persisted peer")
@@ -85,6 +84,8 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	err := p.insertRawVisit(ctx, cr)
 	if err != nil {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
+	} else {
+		p.persistedPeers++
 	}
 	logEntry.
 		WithField("persisted", p.persistedPeers).
@@ -96,11 +97,11 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 // insertRawVisit builds up a raw_visit database entry.
 func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 	rv := &models.RawVisit{
-		CrawlID:         p.crawl.ID,
-		CrawlStartedAt:  cr.CrawlStartTime,
-		CrawlEndedAt:    cr.CrawlEndTime,
-		ConnectDuration: cr.ConnectDuration().String(),
-		CrawlDuration:   cr.CrawlDuration().String(),
+		CrawlID:         null.IntFrom(p.crawl.ID),
+		VisitStartedAt:  cr.CrawlStartTime,
+		VisitEndedAt:    cr.CrawlEndTime,
+		ConnectDuration: null.StringFrom(fmt.Sprintf("%f seconds", cr.ConnectDuration().Seconds())),
+		CrawlDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.CrawlDuration().Seconds())),
 		PeerMultiHash:   cr.Peer.ID.Pretty(),
 		Protocols:       cr.Protocols,
 		MultiAddresses:  maddrsToAddrs(cr.Peer.Addrs),

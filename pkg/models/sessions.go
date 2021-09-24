@@ -613,7 +613,7 @@ func (sessionL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular
 			}
 
 			for _, a := range args {
-				if a == obj.ID {
+				if queries.Equal(a, obj.ID) {
 					continue Outer
 				}
 			}
@@ -671,7 +671,7 @@ func (sessionL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.SessionID {
+			if queries.Equal(local.ID, foreign.SessionID) {
 				local.R.Visits = append(local.R.Visits, foreign)
 				if foreign.R == nil {
 					foreign.R = &visitR{}
@@ -740,7 +740,7 @@ func (o *Session) AddVisits(ctx context.Context, exec boil.ContextExecutor, inse
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.SessionID = o.ID
+			queries.Assign(&rel.SessionID, o.ID)
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
@@ -761,7 +761,7 @@ func (o *Session) AddVisits(ctx context.Context, exec boil.ContextExecutor, inse
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.SessionID = o.ID
+			queries.Assign(&rel.SessionID, o.ID)
 		}
 	}
 
@@ -782,6 +782,80 @@ func (o *Session) AddVisits(ctx context.Context, exec boil.ContextExecutor, inse
 			rel.R.Session = o
 		}
 	}
+	return nil
+}
+
+// SetVisits removes all previously related items of the
+// session replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Session's Visits accordingly.
+// Replaces o.R.Visits with related.
+// Sets related.R.Session's Visits accordingly.
+func (o *Session) SetVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
+	query := "update \"visits\" set \"session_id\" = null where \"session_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.Visits {
+			queries.SetScanner(&rel.SessionID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.Session = nil
+		}
+
+		o.R.Visits = nil
+	}
+	return o.AddVisits(ctx, exec, insert, related...)
+}
+
+// RemoveVisits relationships from objects passed in.
+// Removes related items from R.Visits (uses pointer comparison, removal does not keep order)
+// Sets related.R.Session.
+func (o *Session) RemoveVisits(ctx context.Context, exec boil.ContextExecutor, related ...*Visit) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.SessionID, nil)
+		if rel.R != nil {
+			rel.R.Session = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("session_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Visits {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Visits)
+			if ln > 1 && i < ln-1 {
+				o.R.Visits[i] = o.R.Visits[ln-1]
+			}
+			o.R.Visits = o.R.Visits[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 

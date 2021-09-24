@@ -17,9 +17,9 @@ CREATE TABLE visits
     -- Which peer did we meet
     peer_id    SERIAL      NOT NULL,
     -- In which crawl did we meet this peer (can be null if recorded during monitoring)
-    crawl_id   SERIAL,
+    crawl_id   INT,
     -- Which peer session did we update with this encounter
-    session_id SERIAL      NOT NULL,
+    session_id INT,
 
     -- When was this encounter updated the last time
     updated_at TIMESTAMPTZ NOT NULL,
@@ -27,11 +27,11 @@ CREATE TABLE visits
     created_at TIMESTAMPTZ NOT NULL,
 
     -- The peer ID should always point to an existing peer in the DB
-    CONSTRAINT fk_encounter_peer FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
+    CONSTRAINT fk_encounter_peer FOREIGN KEY (peer_id) REFERENCES peers (id),
     -- The crawl ID should always point to an existing crawl in the DB
-    CONSTRAINT fk_encounter_crawl FOREIGN KEY (crawl_id) REFERENCES crawls (id) ON DELETE SET NULL,
+    CONSTRAINT fk_encounter_crawl FOREIGN KEY (crawl_id) REFERENCES crawls (id),
     -- The session ID should always point to an existing session instance in the DB
-    CONSTRAINT fk_encounter_session FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE,
+    CONSTRAINT fk_encounter_session FOREIGN KEY (session_id) REFERENCES sessions (id),
 
     PRIMARY KEY (id)
 );

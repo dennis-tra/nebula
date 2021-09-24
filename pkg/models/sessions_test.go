@@ -519,9 +519,8 @@ func testSessionToManyVisits(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.SessionID = a.ID
-	c.SessionID = a.ID
-
+	queries.Assign(&b.SessionID, a.ID)
+	queries.Assign(&c.SessionID, a.ID)
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -536,10 +535,10 @@ func testSessionToManyVisits(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.SessionID == b.SessionID {
+		if queries.Equal(v.SessionID, b.SessionID) {
 			bFound = true
 		}
-		if v.SessionID == c.SessionID {
+		if queries.Equal(v.SessionID, c.SessionID) {
 			cFound = true
 		}
 	}
@@ -617,10 +616,10 @@ func testSessionToManyAddOpVisits(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.SessionID {
+		if !queries.Equal(a.ID, first.SessionID) {
 			t.Error("foreign key was wrong value", a.ID, first.SessionID)
 		}
-		if a.ID != second.SessionID {
+		if !queries.Equal(a.ID, second.SessionID) {
 			t.Error("foreign key was wrong value", a.ID, second.SessionID)
 		}
 
@@ -647,6 +646,182 @@ func testSessionToManyAddOpVisits(t *testing.T) {
 		}
 	}
 }
+
+func testSessionToManySetOpVisits(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Session
+	var b, c, d, e Visit
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, sessionDBTypes, false, strmangle.SetComplement(sessionPrimaryKeyColumns, sessionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Visit{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetVisits(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetVisits(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.SessionID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.SessionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+	if !queries.Equal(a.ID, d.SessionID) {
+		t.Error("foreign key was wrong value", a.ID, d.SessionID)
+	}
+	if !queries.Equal(a.ID, e.SessionID) {
+		t.Error("foreign key was wrong value", a.ID, e.SessionID)
+	}
+
+	if b.R.Session != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.Session != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.Session != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.Session != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if a.R.Visits[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.Visits[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testSessionToManyRemoveOpVisits(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Session
+	var b, c, d, e Visit
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, sessionDBTypes, false, strmangle.SetComplement(sessionPrimaryKeyColumns, sessionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Visit{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddVisits(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveVisits(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.Visits().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.SessionID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.SessionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+
+	if b.R.Session != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.Session != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.Session != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+	if e.R.Session != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+
+	if len(a.R.Visits) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.Visits[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.Visits[0] != &e {
+		t.Error("relationship to e should have been preserved")
+	}
+}
+
 func testSessionToOnePeerUsingPeer(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))

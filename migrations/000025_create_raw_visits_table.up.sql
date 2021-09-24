@@ -11,15 +11,17 @@ CREATE TABLE raw_visits
     -- This field identifies this encounter.
     id               SERIAL,
     -- During which crawl did we visit this peer
-    crawl_id         SERIAL       NOT NULL,
+    crawl_id         INT,
     -- The time it took to connect with the peer
-    crawl_started_at TIMESTAMPTZ  NOT NULL,
+    visit_started_at TIMESTAMPTZ  NOT NULL,
     -- The time it took to connect with the peer
-    crawl_ended_at   TIMESTAMPTZ  NOT NULL,
+    visit_ended_at   TIMESTAMPTZ  NOT NULL,
+    -- The time it took to dial the peer or until an error occurred
+    dial_duration    INTERVAL,
     -- The time it took to connect with the peer or until an error occurred
-    connect_duration INTERVAL     NOT NULL,
-    -- The time it took to crawl the peer
-    crawl_duration   INTERVAL     NOT NULL,
+    connect_duration INTERVAL,
+    -- The time it took to crawl the peer also if an error occurred
+    crawl_duration   INTERVAL,
     -- Which agent version did this peer have at this visit
     agent_version    VARCHAR(255),
     -- The peer ID multi hash of which we want to track the multi address

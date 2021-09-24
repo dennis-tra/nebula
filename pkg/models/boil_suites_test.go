@@ -262,7 +262,10 @@ func TestToOneSet(t *testing.T) {
 
 // TestToOneRemove tests cannot be run in parallel
 // or deadlocks can occur.
-func TestToOneRemove(t *testing.T) {}
+func TestToOneRemove(t *testing.T) {
+	t.Run("VisitToCrawlUsingVisits", testVisitToOneRemoveOpCrawlUsingCrawl)
+	t.Run("VisitToSessionUsingVisits", testVisitToOneRemoveOpSessionUsingSession)
+}
 
 // TestOneToOneSet tests cannot be run in parallel
 // or deadlocks can occur.
@@ -298,12 +301,14 @@ func TestToManyAdd(t *testing.T) {
 // TestToManySet tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManySet(t *testing.T) {
+	t.Run("CrawlToVisits", testCrawlToManySetOpVisits)
 	t.Run("MultiAddressToPeers", testMultiAddressToManySetOpPeers)
 	t.Run("MultiAddressToVisits", testMultiAddressToManySetOpVisits)
 	t.Run("PeerToMultiAddresses", testPeerToManySetOpMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManySetOpProperties)
 	t.Run("PropertyToPeers", testPropertyToManySetOpPeers)
 	t.Run("PropertyToVisits", testPropertyToManySetOpVisits)
+	t.Run("SessionToVisits", testSessionToManySetOpVisits)
 	t.Run("VisitToMultiAddresses", testVisitToManySetOpMultiAddresses)
 	t.Run("VisitToProperties", testVisitToManySetOpProperties)
 }
@@ -311,12 +316,14 @@ func TestToManySet(t *testing.T) {
 // TestToManyRemove tests cannot be run in parallel
 // or deadlocks can occur.
 func TestToManyRemove(t *testing.T) {
+	t.Run("CrawlToVisits", testCrawlToManyRemoveOpVisits)
 	t.Run("MultiAddressToPeers", testMultiAddressToManyRemoveOpPeers)
 	t.Run("MultiAddressToVisits", testMultiAddressToManyRemoveOpVisits)
 	t.Run("PeerToMultiAddresses", testPeerToManyRemoveOpMultiAddresses)
 	t.Run("PeerToProperties", testPeerToManyRemoveOpProperties)
 	t.Run("PropertyToPeers", testPropertyToManyRemoveOpPeers)
 	t.Run("PropertyToVisits", testPropertyToManyRemoveOpVisits)
+	t.Run("SessionToVisits", testSessionToManyRemoveOpVisits)
 	t.Run("VisitToMultiAddresses", testVisitToManyRemoveOpMultiAddresses)
 	t.Run("VisitToProperties", testVisitToManyRemoveOpProperties)
 }

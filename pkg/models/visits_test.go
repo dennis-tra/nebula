@@ -1127,7 +1127,7 @@ func testVisitToOneCrawlUsingCrawl(t *testing.T) {
 	var foreign Crawl
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, visitDBTypes, false, visitColumnsWithDefault...); err != nil {
+	if err := randomize.Struct(seed, &local, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Visit struct: %s", err)
 	}
 	if err := randomize.Struct(seed, &foreign, crawlDBTypes, false, crawlColumnsWithDefault...); err != nil {
@@ -1138,7 +1138,7 @@ func testVisitToOneCrawlUsingCrawl(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	local.CrawlID = foreign.ID
+	queries.Assign(&local.CrawlID, foreign.ID)
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -1148,7 +1148,7 @@ func testVisitToOneCrawlUsingCrawl(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if check.ID != foreign.ID {
+	if !queries.Equal(check.ID, foreign.ID) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
@@ -1229,7 +1229,7 @@ func testVisitToOneSessionUsingSession(t *testing.T) {
 	var foreign Session
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, visitDBTypes, false, visitColumnsWithDefault...); err != nil {
+	if err := randomize.Struct(seed, &local, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Visit struct: %s", err)
 	}
 	if err := randomize.Struct(seed, &foreign, sessionDBTypes, false, sessionColumnsWithDefault...); err != nil {
@@ -1240,7 +1240,7 @@ func testVisitToOneSessionUsingSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	local.SessionID = foreign.ID
+	queries.Assign(&local.SessionID, foreign.ID)
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -1250,7 +1250,7 @@ func testVisitToOneSessionUsingSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if check.ID != foreign.ID {
+	if !queries.Equal(check.ID, foreign.ID) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
@@ -1312,7 +1312,7 @@ func testVisitToOneSetOpCrawlUsingCrawl(t *testing.T) {
 		if x.R.Visits[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.CrawlID != x.ID {
+		if !queries.Equal(a.CrawlID, x.ID) {
 			t.Error("foreign key was wrong value", a.CrawlID)
 		}
 
@@ -1323,11 +1323,63 @@ func testVisitToOneSetOpCrawlUsingCrawl(t *testing.T) {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.CrawlID != x.ID {
+		if !queries.Equal(a.CrawlID, x.ID) {
 			t.Error("foreign key was wrong value", a.CrawlID, x.ID)
 		}
 	}
 }
+
+func testVisitToOneRemoveOpCrawlUsingCrawl(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b Crawl
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, crawlDBTypes, false, strmangle.SetComplement(crawlPrimaryKeyColumns, crawlColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetCrawl(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveCrawl(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.Crawl().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.Crawl != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.CrawlID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Visits) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
+
 func testVisitToOneSetOpPeerUsingPeer(t *testing.T) {
 	var err error
 
@@ -1426,7 +1478,7 @@ func testVisitToOneSetOpSessionUsingSession(t *testing.T) {
 		if x.R.Visits[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.SessionID != x.ID {
+		if !queries.Equal(a.SessionID, x.ID) {
 			t.Error("foreign key was wrong value", a.SessionID)
 		}
 
@@ -1437,9 +1489,60 @@ func testVisitToOneSetOpSessionUsingSession(t *testing.T) {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.SessionID != x.ID {
+		if !queries.Equal(a.SessionID, x.ID) {
 			t.Error("foreign key was wrong value", a.SessionID, x.ID)
 		}
+	}
+}
+
+func testVisitToOneRemoveOpSessionUsingSession(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b Session
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, sessionDBTypes, false, strmangle.SetComplement(sessionPrimaryKeyColumns, sessionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetSession(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveSession(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.Session().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.Session != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.SessionID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Visits) != 0 {
+		t.Error("failed to remove a from b's relationships")
 	}
 }
 

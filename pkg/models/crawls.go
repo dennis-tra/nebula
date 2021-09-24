@@ -768,7 +768,7 @@ func (crawlL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular b
 			}
 
 			for _, a := range args {
-				if a == obj.ID {
+				if queries.Equal(a, obj.ID) {
 					continue Outer
 				}
 			}
@@ -826,7 +826,7 @@ func (crawlL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular b
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.CrawlID {
+			if queries.Equal(local.ID, foreign.CrawlID) {
 				local.R.Visits = append(local.R.Visits, foreign)
 				if foreign.R == nil {
 					foreign.R = &visitR{}
@@ -954,7 +954,7 @@ func (o *Crawl) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.CrawlID = o.ID
+			queries.Assign(&rel.CrawlID, o.ID)
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
@@ -975,7 +975,7 @@ func (o *Crawl) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.CrawlID = o.ID
+			queries.Assign(&rel.CrawlID, o.ID)
 		}
 	}
 
@@ -996,6 +996,80 @@ func (o *Crawl) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert
 			rel.R.Crawl = o
 		}
 	}
+	return nil
+}
+
+// SetVisits removes all previously related items of the
+// crawl replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Crawl's Visits accordingly.
+// Replaces o.R.Visits with related.
+// Sets related.R.Crawl's Visits accordingly.
+func (o *Crawl) SetVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
+	query := "update \"visits\" set \"crawl_id\" = null where \"crawl_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.Visits {
+			queries.SetScanner(&rel.CrawlID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.Crawl = nil
+		}
+
+		o.R.Visits = nil
+	}
+	return o.AddVisits(ctx, exec, insert, related...)
+}
+
+// RemoveVisits relationships from objects passed in.
+// Removes related items from R.Visits (uses pointer comparison, removal does not keep order)
+// Sets related.R.Crawl.
+func (o *Crawl) RemoveVisits(ctx context.Context, exec boil.ContextExecutor, related ...*Visit) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.CrawlID, nil)
+		if rel.R != nil {
+			rel.R.Crawl = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("crawl_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Visits {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Visits)
+			if ln > 1 && i < ln-1 {
+				o.R.Visits[i] = o.R.Visits[ln-1]
+			}
+			o.R.Visits = o.R.Visits[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 
