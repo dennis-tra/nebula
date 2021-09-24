@@ -29,7 +29,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
-var workerID = atomic.NewInt32(0)
+var crawlerID = atomic.NewInt32(0)
 
 // Result captures data that is gathered from crawling a single peer.
 type Result struct {
@@ -63,8 +63,8 @@ type Result struct {
 	ErrorTime time.Time
 }
 
-// Worker encapsulates a libp2p host that crawls the network.
-type Worker struct {
+// Crawler encapsulates a libp2p host that crawls the network.
+type Crawler struct {
 	*service.Service
 
 	host         host.Host
@@ -73,8 +73,8 @@ type Worker struct {
 	crawledPeers int
 }
 
-// NewWorker initializes a new worker based on the given configuration.
-func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
+// NewCrawler initializes a new crawler based on the given configuration.
+func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 	ms := &msgSender{
 		h:         h,
 		protocols: protocol.ConvertFromStrings(conf.Protocols),
@@ -86,24 +86,24 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 		return nil, err
 	}
 
-	c := &Worker{
-		Service: service.New(fmt.Sprintf("worker-%02d", workerID.Load())),
+	c := &Crawler{
+		Service: service.New(fmt.Sprintf("crawler-%02d", crawlerID.Load())),
 		host:    h,
 		pm:      pm,
 		config:  conf,
 	}
-	workerID.Inc()
+	crawlerID.Inc()
 
 	return c, nil
 }
 
 // StartCrawling reads from the given crawl queue and publishes the results on the results queue until interrupted.
-func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+func (w *Crawler) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 	w.ServiceStarted()
 	defer w.ServiceStopped()
 
 	ctx := w.ServiceContext()
-	logEntry := log.WithField("workerID", w.Identifier())
+	logEntry := log.WithField("crawlerID", w.Identifier())
 	for {
 		var pi peer.AddrInfo
 		select {
@@ -160,7 +160,7 @@ func (w *Worker) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO)
 	}
 }
 
-func (w *Worker) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
+func (w *Crawler) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	start := time.Now()
 	defer stats.Record(ctx, metrics.PeerCrawlDuration.M(millisSince(start)))
 
@@ -213,7 +213,7 @@ func millisSince(start time.Time) float64 {
 
 // connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
 // It also handles metric capturing.
-func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) (time.Duration, error) {
+func (w *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (time.Duration, error) {
 	stats.Record(ctx, metrics.CrawlConnectsCount.M(1))
 
 	pi = filterPrivateMaddrs(pi)
@@ -239,7 +239,7 @@ func (w *Worker) connect(ctx context.Context, pi peer.AddrInfo) (time.Duration, 
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
 // of 15 random peer IDs with increasing common prefix lengths (CPL). The returned peers are streamed
 // to the results channel.
-func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.AddrInfo, error) {
+func (w *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.AddrInfo, error) {
 	start := time.Now()
 	var allNeighbors []peer.AddrInfo
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
@@ -281,7 +281,7 @@ func (w *Worker) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.A
 }
 
 // measureLatency measures the ICM ping latency to the given peer.
-func (w *Worker) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
+func (w *Crawler) measureLatency(ctx context.Context, pi peer.AddrInfo) []*models.Latency {
 	// TODO: The following three steps can probably be consolidated. In the current state it's quite messy.
 
 	// Only consider publicly reachable multi-addresses
