@@ -159,14 +159,14 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	}
 
 	// Start all persisters
-	persisters := make([]*Persister, 10)
+	var persisters []*Persister
 	if s.dbc != nil {
 		for i := 0; i < 10; i++ {
 			p, err := NewPersister(s.dbc, s.config, s.crawl)
 			if err != nil {
 				return errors.Wrap(err, "new persister")
 			}
-			persisters[i] = p
+			persisters = append(persisters, p)
 			go p.StartPersisting(s.persistQueue)
 		}
 	}
