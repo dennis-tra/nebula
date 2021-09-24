@@ -192,14 +192,14 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.readResultsQueue()
 
 	// Indicate that we won't publish any new crawl tasks to the queue.
-	// TODO: This can still leak a Go routine.
+	// TODO: This can still leak a Go routine. However we're exiting here anyway...
 	s.crawlQueue.DoneProducing()
 
 	// Stop crawlers - blocking
 	s.shutdownCrawlers()
 
 	// Indicate that the crawlers won't send any new results as they are now stopped.
-	// TODO: This can still leak a Go routine.
+	// TODO: This can still leak a Go routine. However we're exiting here anyway...
 	s.resultsQueue.DoneProducing()
 
 	// Indicate that we won't send any more results to the persisters. This will

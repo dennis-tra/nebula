@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -39,7 +38,7 @@ type Scheduler struct {
 	host host.Host
 
 	// The database handle
-	dbh *sql.DB
+	dbc *db.Client
 
 	// The configuration of timeouts etc.
 	config *config.Config
@@ -62,7 +61,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
+func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 	conf, err := config.FromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -88,7 +87,7 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	m := &Scheduler{
 		Service:      service.New("scheduler"),
 		host:         h,
-		dbh:          dbh,
+		dbc:          dbc,
 		config:       conf,
 		inDialQueue:  sync.Map{},
 		dialQueue:    queue.NewFIFO(),
@@ -99,6 +98,8 @@ func NewScheduler(ctx context.Context, dbh *sql.DB) (*Scheduler, error) {
 	return m, nil
 }
 
+// StartMonitoring starts the configured amount of workers and fills
+// the dial queue with peers that are due to be dialed.
 func (s *Scheduler) StartMonitoring() error {
 	s.ServiceStarted()
 	defer s.ServiceStopped()
@@ -107,7 +108,7 @@ func (s *Scheduler) StartMonitoring() error {
 
 	// Start all workers
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
-		w, err := NewWorker(s.dbh, s.host, s.config)
+		w, err := NewWorker(s.host, s.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
 		}
@@ -132,10 +133,17 @@ func (s *Scheduler) StartMonitoring() error {
 	return nil
 }
 
-// readResultsQueue listens for crawl results on the resultsQueue channel and handles any
-// entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources
+// readResultsQueue listens for dial results on the resultsQueue and handles any
+// entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources.
 func (s *Scheduler) readResultsQueue() {
 	for {
+		// Give the shutdown signal precedence
+		select {
+		case <-s.SigShutdown():
+			return
+		default:
+		}
+
 		select {
 		case elem := <-s.resultsQueue.Consume():
 			s.handleResult(elem.(Result))
@@ -154,33 +162,22 @@ func (s *Scheduler) handleResult(dr Result) {
 	if dr.Error != nil {
 		logEntry = logEntry.WithError(dr.Error)
 	}
-	logEntry.Infoln("Handling dial result from worker", dr.WorkerID)
 
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
-	var err error
-	if dr.Error == nil {
-		err = db.UpsertSessionSuccess(s.dbh, dr.InternalPeerID)
-	} else {
-		dialErr := db.DialError(dr.Error)
-		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dialErr)); err == nil {
-			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
-		}
-		err = db.UpsertSessionError(s.dbh, dr.InternalPeerID, dr.ErrorTime, dialErr)
+	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
+		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
-
-	if err != nil {
-		logEntry.WithError(err).Warn("Could not update session record")
-	}
+	logEntry.Infoln("Handled dial result from worker", dr.WorkerID)
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
 func (s *Scheduler) monitorDatabase() {
 	for {
 		log.Infof("Looking for sessions to check...")
-		sessions, err := s.fetchSessions()
+		sessions, err := s.dbc.FetchDueSessions(s.ServiceContext())
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
@@ -201,16 +198,6 @@ func (s *Scheduler) monitorDatabase() {
 			return
 		}
 	}
-}
-
-func (s *Scheduler) fetchSessions() (models.SessionSlice, error) {
-	dueSessions, err := db.FetchDueSessions(s.ServiceContext(), s.dbh)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "fetch due sessions")
-	}
-	log.Infof("Found %d due sessions\n", len(dueSessions))
-
-	return dueSessions, nil
 }
 
 func (s *Scheduler) scheduleDial(session *models.Session) error {
@@ -234,16 +221,12 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 
 	// Check if peer is already in dial queue
 	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
-		logEntry.Traceln("Peer already in dial queue")
 		return nil
 	}
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
 	// Schedule dial for peer
-	s.dialQueue.Push(Job{
-		pi:             pi,
-		InternalPeerID: session.PeerID,
-	})
+	s.dialQueue.Push(pi)
 
 	return nil
 }

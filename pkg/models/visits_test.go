@@ -1620,7 +1620,7 @@ func testVisitsSelect(t *testing.T) {
 }
 
 var (
-	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `SessionID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `SessionID`: `integer`, `Type`: `enum.visit_type('crawl','dial')`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_            = bytes.MinRead
 )
 

@@ -32,6 +32,7 @@ type RawVisit struct {
 	DialDuration    null.String       `boil:"dial_duration" json:"dial_duration,omitempty" toml:"dial_duration" yaml:"dial_duration,omitempty"`
 	ConnectDuration null.String       `boil:"connect_duration" json:"connect_duration,omitempty" toml:"connect_duration" yaml:"connect_duration,omitempty"`
 	CrawlDuration   null.String       `boil:"crawl_duration" json:"crawl_duration,omitempty" toml:"crawl_duration" yaml:"crawl_duration,omitempty"`
+	Type            string            `boil:"type" json:"type" toml:"type" yaml:"type"`
 	AgentVersion    null.String       `boil:"agent_version" json:"agent_version,omitempty" toml:"agent_version" yaml:"agent_version,omitempty"`
 	PeerMultiHash   string            `boil:"peer_multi_hash" json:"peer_multi_hash" toml:"peer_multi_hash" yaml:"peer_multi_hash"`
 	Protocols       types.StringArray `boil:"protocols" json:"protocols,omitempty" toml:"protocols" yaml:"protocols,omitempty"`
@@ -52,6 +53,7 @@ var RawVisitColumns = struct {
 	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
+	Type            string
 	AgentVersion    string
 	PeerMultiHash   string
 	Protocols       string
@@ -67,6 +69,7 @@ var RawVisitColumns = struct {
 	DialDuration:    "dial_duration",
 	ConnectDuration: "connect_duration",
 	CrawlDuration:   "crawl_duration",
+	Type:            "type",
 	AgentVersion:    "agent_version",
 	PeerMultiHash:   "peer_multi_hash",
 	Protocols:       "protocols",
@@ -84,6 +87,7 @@ var RawVisitTableColumns = struct {
 	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
+	Type            string
 	AgentVersion    string
 	PeerMultiHash   string
 	Protocols       string
@@ -99,6 +103,7 @@ var RawVisitTableColumns = struct {
 	DialDuration:    "raw_visits.dial_duration",
 	ConnectDuration: "raw_visits.connect_duration",
 	CrawlDuration:   "raw_visits.crawl_duration",
+	Type:            "raw_visits.type",
 	AgentVersion:    "raw_visits.agent_version",
 	PeerMultiHash:   "raw_visits.peer_multi_hash",
 	Protocols:       "raw_visits.protocols",
@@ -143,6 +148,7 @@ var RawVisitWhere = struct {
 	DialDuration    whereHelpernull_String
 	ConnectDuration whereHelpernull_String
 	CrawlDuration   whereHelpernull_String
+	Type            whereHelperstring
 	AgentVersion    whereHelpernull_String
 	PeerMultiHash   whereHelperstring
 	Protocols       whereHelpertypes_StringArray
@@ -158,6 +164,7 @@ var RawVisitWhere = struct {
 	DialDuration:    whereHelpernull_String{field: "\"raw_visits\".\"dial_duration\""},
 	ConnectDuration: whereHelpernull_String{field: "\"raw_visits\".\"connect_duration\""},
 	CrawlDuration:   whereHelpernull_String{field: "\"raw_visits\".\"crawl_duration\""},
+	Type:            whereHelperstring{field: "\"raw_visits\".\"type\""},
 	AgentVersion:    whereHelpernull_String{field: "\"raw_visits\".\"agent_version\""},
 	PeerMultiHash:   whereHelperstring{field: "\"raw_visits\".\"peer_multi_hash\""},
 	Protocols:       whereHelpertypes_StringArray{field: "\"raw_visits\".\"protocols\""},
@@ -184,8 +191,8 @@ func (*rawVisitR) NewStruct() *rawVisitR {
 type rawVisitL struct{}
 
 var (
-	rawVisitAllColumns            = []string{"id", "crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
-	rawVisitColumnsWithoutDefault = []string{"crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
+	rawVisitAllColumns            = []string{"id", "crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
+	rawVisitColumnsWithoutDefault = []string{"crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "dial_error", "error", "created_at"}
 	rawVisitColumnsWithDefault    = []string{"id"}
 	rawVisitPrimaryKeyColumns     = []string{"id"}
 )

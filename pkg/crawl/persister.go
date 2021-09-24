@@ -105,6 +105,7 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 		PeerMultiHash:   cr.Peer.ID.Pretty(),
 		Protocols:       cr.Protocols,
 		MultiAddresses:  maddrsToAddrs(cr.Peer.Addrs),
+		Type:            models.VisitTypeCrawl,
 	}
 	if cr.Agent != "" {
 		rv.AgentVersion = null.StringFrom(cr.Agent)
@@ -118,5 +119,5 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 		}
 	}
 
-	return p.dbc.InsertRawEncounter(ctx, rv)
+	return p.dbc.InsertRawVisit(ctx, rv)
 }

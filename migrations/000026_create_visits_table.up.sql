@@ -20,6 +20,8 @@ CREATE TABLE visits
     crawl_id   INT,
     -- Which peer session did we update with this encounter
     session_id INT,
+    -- The type of this visit
+    type       visit_type NOT NULL,
 
     -- When was this encounter updated the last time
     updated_at TIMESTAMPTZ NOT NULL,
