@@ -31,6 +31,8 @@ type Visit struct {
 	DialDuration    null.String `boil:"dial_duration" json:"dial_duration,omitempty" toml:"dial_duration" yaml:"dial_duration,omitempty"`
 	ConnectDuration null.String `boil:"connect_duration" json:"connect_duration,omitempty" toml:"connect_duration" yaml:"connect_duration,omitempty"`
 	CrawlDuration   null.String `boil:"crawl_duration" json:"crawl_duration,omitempty" toml:"crawl_duration" yaml:"crawl_duration,omitempty"`
+	VisitStartedAt  time.Time   `boil:"visit_started_at" json:"visit_started_at" toml:"visit_started_at" yaml:"visit_started_at"`
+	VisitEndedAt    time.Time   `boil:"visit_ended_at" json:"visit_ended_at" toml:"visit_ended_at" yaml:"visit_ended_at"`
 	UpdatedAt       time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt       time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	Type            string      `boil:"type" json:"type" toml:"type" yaml:"type"`
@@ -48,6 +50,8 @@ var VisitColumns = struct {
 	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
+	VisitStartedAt  string
+	VisitEndedAt    string
 	UpdatedAt       string
 	CreatedAt       string
 	Type            string
@@ -60,6 +64,8 @@ var VisitColumns = struct {
 	DialDuration:    "dial_duration",
 	ConnectDuration: "connect_duration",
 	CrawlDuration:   "crawl_duration",
+	VisitStartedAt:  "visit_started_at",
+	VisitEndedAt:    "visit_ended_at",
 	UpdatedAt:       "updated_at",
 	CreatedAt:       "created_at",
 	Type:            "type",
@@ -74,6 +80,8 @@ var VisitTableColumns = struct {
 	DialDuration    string
 	ConnectDuration string
 	CrawlDuration   string
+	VisitStartedAt  string
+	VisitEndedAt    string
 	UpdatedAt       string
 	CreatedAt       string
 	Type            string
@@ -86,6 +94,8 @@ var VisitTableColumns = struct {
 	DialDuration:    "visits.dial_duration",
 	ConnectDuration: "visits.connect_duration",
 	CrawlDuration:   "visits.crawl_duration",
+	VisitStartedAt:  "visits.visit_started_at",
+	VisitEndedAt:    "visits.visit_ended_at",
 	UpdatedAt:       "visits.updated_at",
 	CreatedAt:       "visits.created_at",
 	Type:            "visits.type",
@@ -102,6 +112,8 @@ var VisitWhere = struct {
 	DialDuration    whereHelpernull_String
 	ConnectDuration whereHelpernull_String
 	CrawlDuration   whereHelpernull_String
+	VisitStartedAt  whereHelpertime_Time
+	VisitEndedAt    whereHelpertime_Time
 	UpdatedAt       whereHelpertime_Time
 	CreatedAt       whereHelpertime_Time
 	Type            whereHelperstring
@@ -114,6 +126,8 @@ var VisitWhere = struct {
 	DialDuration:    whereHelpernull_String{field: "\"visits\".\"dial_duration\""},
 	ConnectDuration: whereHelpernull_String{field: "\"visits\".\"connect_duration\""},
 	CrawlDuration:   whereHelpernull_String{field: "\"visits\".\"crawl_duration\""},
+	VisitStartedAt:  whereHelpertime_Time{field: "\"visits\".\"visit_started_at\""},
+	VisitEndedAt:    whereHelpertime_Time{field: "\"visits\".\"visit_ended_at\""},
 	UpdatedAt:       whereHelpertime_Time{field: "\"visits\".\"updated_at\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"visits\".\"created_at\""},
 	Type:            whereHelperstring{field: "\"visits\".\"type\""},
@@ -153,8 +167,8 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "updated_at", "created_at", "type", "error"}
-	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "updated_at", "created_at", "type", "error"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "visit_started_at", "visit_ended_at", "updated_at", "created_at", "type", "error"}
+	visitColumnsWithoutDefault = []string{"crawl_id", "session_id", "dial_duration", "connect_duration", "crawl_duration", "visit_started_at", "visit_ended_at", "updated_at", "created_at", "type", "error"}
 	visitColumnsWithDefault    = []string{"id", "peer_id"}
 	visitPrimaryKeyColumns     = []string{"id"}
 )

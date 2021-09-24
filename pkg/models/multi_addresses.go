@@ -619,7 +619,7 @@ func (multiAddressL) LoadVisits(ctx context.Context, e boil.ContextExecutor, sin
 	}
 
 	query := NewQuery(
-		qm.Select("\"visits\".id, \"visits\".peer_id, \"visits\".crawl_id, \"visits\".session_id, \"visits\".dial_duration, \"visits\".connect_duration, \"visits\".crawl_duration, \"visits\".updated_at, \"visits\".created_at, \"visits\".type, \"visits\".error, \"a\".\"multi_address_id\""),
+		qm.Select("\"visits\".id, \"visits\".peer_id, \"visits\".crawl_id, \"visits\".session_id, \"visits\".dial_duration, \"visits\".connect_duration, \"visits\".crawl_duration, \"visits\".visit_started_at, \"visits\".visit_ended_at, \"visits\".updated_at, \"visits\".created_at, \"visits\".type, \"visits\".error, \"a\".\"multi_address_id\""),
 		qm.From("\"visits\""),
 		qm.InnerJoin("\"visits_x_multi_addresses\" as \"a\" on \"visits\".\"id\" = \"a\".\"visit_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -640,7 +640,7 @@ func (multiAddressL) LoadVisits(ctx context.Context, e boil.ContextExecutor, sin
 		one := new(Visit)
 		var localJoinCol int
 
-		err = results.Scan(&one.ID, &one.PeerID, &one.CrawlID, &one.SessionID, &one.DialDuration, &one.ConnectDuration, &one.CrawlDuration, &one.UpdatedAt, &one.CreatedAt, &one.Type, &one.Error, &localJoinCol)
+		err = results.Scan(&one.ID, &one.PeerID, &one.CrawlID, &one.SessionID, &one.DialDuration, &one.ConnectDuration, &one.CrawlDuration, &one.VisitStartedAt, &one.VisitEndedAt, &one.UpdatedAt, &one.CreatedAt, &one.Type, &one.Error, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for visits")
 		}
