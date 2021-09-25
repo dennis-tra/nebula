@@ -265,7 +265,6 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 // of 15 random peer IDs with increasing common prefix lengths (CPL). The returned peers are streamed
 // to the results channel.
 func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.AddrInfo, error) {
-	start := time.Now()
 	var allNeighbors []peer.AddrInfo
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
@@ -299,7 +298,6 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 	}
 	err = errg.Wait()
 	stats.Record(c.ServiceContext(),
-		metrics.FetchNeighborsDuration.M(millisSince(start)),
 		metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))),
 	)
 	return allNeighbors, err
