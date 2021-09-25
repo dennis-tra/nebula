@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -174,6 +175,13 @@ func (s *Scheduler) handleResult(dr Result) {
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
 	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
+
+	// Track dial errors for prometheus
+	if dr.Error != nil {
+		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dr.DialError)); err == nil {
+			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
+		}
+	}
 
 	logEntry.
 		WithField("dialDur", dr.DialDuration()).
