@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/volatiletech/sqlboiler/v4/queries"
+
 	"contrib.go.opencensus.io/integrations/ocsql"
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
@@ -351,4 +353,18 @@ func (c *Client) FetchMultiAddresses(ctx context.Context, offset int, limit int)
 		qm.Offset(offset),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
+}
+
+func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, offset int, limit int) (models.MultiAddressSlice, error) {
+	b := models.MultiAddressSlice{}
+	err := queries.Raw(`
+SELECT *
+FROM multi_addresses ma
+WHERE NOT EXISTS(
+        SELECT
+        FROM multi_addresses_x_ip_addresses maxia
+        WHERE ma.id = maxia.multi_address_id
+    )
+LIMIT $1 OFFSET $2`, limit, offset).Bind(ctx, c.dbh, &b)
+	return b, err
 }
