@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime/pprof"
 	"strconv"
@@ -37,19 +36,6 @@ var CrawlCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_CRAWL_PEER_LIMIT"},
 			DefaultText: strconv.Itoa(config.DefaultConfig.CrawlLimit),
 			Value:       config.DefaultConfig.CrawlLimit,
-		},
-		&cli.BoolFlag{
-			Name:        "neighbors",
-			Usage:       "Persist DHT peer neighbors",
-			EnvVars:     []string{"NEBULA_CRAWL_NEIGHBORS"},
-			DefaultText: fmt.Sprintf("%v", config.DefaultConfig.PersistNeighbors),
-			Value:       config.DefaultConfig.PersistNeighbors,
-		}, &cli.BoolFlag{
-			Name:        "clear-neighbors",
-			Usage:       "If the neighbors table should be cleared prior persisting neighbors",
-			EnvVars:     []string{"NEBULA_CRAWL_CLEAR_NEIGHBORS"},
-			DefaultText: fmt.Sprintf("%v", config.DefaultConfig.ClearNeighbors),
-			Value:       config.DefaultConfig.ClearNeighbors,
 		},
 		&cli.BoolFlag{
 			Name:    "dry-run",
