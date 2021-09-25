@@ -140,6 +140,7 @@ func main() {
 		Commands: []*cli.Command{
 			CrawlCommand,
 			MonitorCommand,
+			ResolveCommand,
 		},
 	}
 

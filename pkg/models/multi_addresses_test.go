@@ -494,6 +494,84 @@ func testMultiAddressesInsertWhitelist(t *testing.T) {
 	}
 }
 
+func testMultiAddressToManyMultiAddressesXIPAddresses(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c MultiAddressesXIPAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, true, multiAddressColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize MultiAddress struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, multiAddressesXIPAddressDBTypes, false, multiAddressesXIPAddressColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, multiAddressesXIPAddressDBTypes, false, multiAddressesXIPAddressColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	b.MultiAddressID = a.ID
+	c.MultiAddressID = a.ID
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.MultiAddressesXIPAddresses().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.MultiAddressID == b.MultiAddressID {
+			bFound = true
+		}
+		if v.MultiAddressID == c.MultiAddressID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := MultiAddressSlice{&a}
+	if err = a.L.LoadMultiAddressesXIPAddresses(ctx, tx, false, (*[]*MultiAddress)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.MultiAddressesXIPAddresses); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.MultiAddressesXIPAddresses = nil
+	if err = a.L.LoadMultiAddressesXIPAddresses(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.MultiAddressesXIPAddresses); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
 func testMultiAddressToManyPeers(t *testing.T) {
 	var err error
 	ctx := context.Background()
@@ -662,6 +740,81 @@ func testMultiAddressToManyVisits(t *testing.T) {
 	}
 }
 
+func testMultiAddressToManyAddOpMultiAddressesXIPAddresses(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a MultiAddress
+	var b, c, d, e MultiAddressesXIPAddress
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*MultiAddressesXIPAddress{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, multiAddressesXIPAddressDBTypes, false, strmangle.SetComplement(multiAddressesXIPAddressPrimaryKeyColumns, multiAddressesXIPAddressColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	foreignersSplitByInsertion := [][]*MultiAddressesXIPAddress{
+		{&b, &c},
+		{&d, &e},
+	}
+
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddMultiAddressesXIPAddresses(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		first := x[0]
+		second := x[1]
+
+		if a.ID != first.MultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, first.MultiAddressID)
+		}
+		if a.ID != second.MultiAddressID {
+			t.Error("foreign key was wrong value", a.ID, second.MultiAddressID)
+		}
+
+		if first.R.MultiAddress != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.MultiAddress != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+
+		if a.R.MultiAddressesXIPAddresses[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.MultiAddressesXIPAddresses[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
+
+		count, err := a.MultiAddressesXIPAddresses().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
+	}
+}
 func testMultiAddressToManyAddOpPeers(t *testing.T) {
 	var err error
 
@@ -1192,7 +1345,7 @@ func testMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	multiAddressDBTypes = map[string]string{`ID`: `integer`, `Maddr`: `character varying`, `Addr`: `inet`, `Country`: `character varying`, `CloudProvider`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	multiAddressDBTypes = map[string]string{`ID`: `integer`, `Maddr`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                   = bytes.MinRead
 )
 
