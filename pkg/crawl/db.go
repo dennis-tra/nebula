@@ -12,7 +12,7 @@ import (
 )
 
 // updateCrawl writes crawl statistics to the database. TODO: comment
-func (s *Scheduler) updateCrawl(ctx context.Context) error {
+func (s *Scheduler) updateCrawl(ctx context.Context, success bool) error {
 	log.Infoln("Persisting crawl result...")
 
 	s.crawl.StartedAt = s.StartTime
@@ -21,7 +21,7 @@ func (s *Scheduler) updateCrawl(ctx context.Context) error {
 	s.crawl.DialablePeers = null.IntFrom(len(s.crawled) - s.TotalErrors())
 	s.crawl.UndialablePeers = null.IntFrom(s.TotalErrors())
 
-	if s.ServiceContext().Err() == nil {
+	if success {
 		s.crawl.State = models.CrawlStateSucceeded
 	} else if errors.Is(s.ServiceContext().Err(), context.Canceled) {
 		s.crawl.State = models.CrawlStateCancelled

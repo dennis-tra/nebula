@@ -222,7 +222,7 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	}
 
 	// Persist the crawl results
-	if err := s.updateCrawl(context.Background()); err != nil {
+	if err := s.updateCrawl(context.Background(), len(s.inCrawlQueue) == 0); err != nil {
 		return errors.Wrap(err, "persist crawl")
 	}
 
