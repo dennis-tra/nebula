@@ -38,7 +38,7 @@ var ResolveCommand = &cli.Command{
 	},
 }
 
-// ResolveAction is the function that is called when running `nebula monitor`.
+// ResolveAction is the function that is called when running `nebula resolve`.
 func ResolveAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula multi address resolver...")
 
@@ -76,7 +76,6 @@ func ResolveAction(c *cli.Context) error {
 	// Start the main loop
 	for {
 		log.Infoln("Fetching multi addresses...")
-		boil.DebugMode = true
 
 		var err error
 		var dbmaddrs models.MultiAddressSlice

@@ -39,6 +39,8 @@ var DefaultConfig = Config{
 	DialTimeout:        time.Minute,
 	CrawlWorkerCount:   1000,
 	CrawlLimit:         0,
+	PingLimit:          0,
+	PingWorkerCount:    1000,
 	MonitorWorkerCount: 1000,
 	MeasureLatencies:   false,
 	MinPingInterval:    time.Second * 30,
@@ -72,11 +74,17 @@ type Config struct {
 	// How many parallel workers should crawl the network.
 	CrawlWorkerCount int
 
+	// How many parallel workers should ping peers.
+	PingWorkerCount int
+
 	// How many parallel workers should crawl the network.
 	MonitorWorkerCount int
 
 	// Only crawl the specified amount of peers
 	CrawlLimit int
+
+	// Only ping the specified amount of peers
+	PingLimit int
 
 	// Whether the crawl task should measure and record latencies to peers
 	MeasureLatencies bool
@@ -151,16 +159,16 @@ func (c *Config) Apply(ctx *cli.Context) {
 			c.CrawlWorkerCount = ctx.Int("workers")
 		} else if ctx.Command.Name == "monitor" {
 			c.MonitorWorkerCount = ctx.Int("workers")
+		} else if ctx.Command.Name == "ping" {
+			c.PingWorkerCount = ctx.Int("workers")
 		}
 	}
-	if ctx.IsSet("crawl-workers") {
-		c.CrawlWorkerCount = ctx.Int("crawl-workers")
-	}
-	if ctx.IsSet("monitor-workers") {
-		c.CrawlWorkerCount = ctx.Int("monitor-workers")
-	}
 	if ctx.IsSet("limit") {
-		c.CrawlLimit = ctx.Int("limit")
+		if ctx.Command.Name == "crawl" {
+			c.CrawlLimit = ctx.Int("limit")
+		} else if ctx.Command.Name == "ping" {
+			c.PingLimit = ctx.Int("limit")
+		}
 	}
 	if ctx.IsSet("dial-timeout") {
 		c.DialTimeout = ctx.Duration("dial-timeout")

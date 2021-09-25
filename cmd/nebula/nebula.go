@@ -141,6 +141,7 @@ func main() {
 			CrawlCommand,
 			MonitorCommand,
 			ResolveCommand,
+			PingCommand,
 		},
 	}
 

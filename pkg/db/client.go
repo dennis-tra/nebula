@@ -368,3 +368,23 @@ WHERE NOT EXISTS(
 LIMIT $1 OFFSET $2`, limit, offset).Bind(ctx, c.dbh, &b)
 	return b, err
 }
+
+func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
+	pi := peer.AddrInfo{
+		Addrs: []ma.Multiaddr{},
+	}
+	peerID, err := peer.Decode(p.MultiHash)
+	if err != nil {
+		return pi, err
+	}
+	pi.ID = peerID
+
+	for _, dbmaddr := range p.R.MultiAddresses {
+		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
+		if err != nil {
+			return pi, err
+		}
+		pi.Addrs = append(pi.Addrs, maddr)
+	}
+	return pi, nil
+}
