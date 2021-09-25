@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -24,110 +23,69 @@ import (
 
 // MultiAddress is an object representing the database table.
 type MultiAddress struct {
-	ID            int         `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Maddr         string      `boil:"maddr" json:"maddr" toml:"maddr" yaml:"maddr"`
-	Addr          null.String `boil:"addr" json:"addr,omitempty" toml:"addr" yaml:"addr,omitempty"`
-	Country       null.String `boil:"country" json:"country,omitempty" toml:"country" yaml:"country,omitempty"`
-	CloudProvider null.String `boil:"cloud_provider" json:"cloud_provider,omitempty" toml:"cloud_provider" yaml:"cloud_provider,omitempty"`
-	UpdatedAt     time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	CreatedAt     time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	ID        int       `boil:"id" json:"id" toml:"id" yaml:"id"`
+	Maddr     string    `boil:"maddr" json:"maddr" toml:"maddr" yaml:"maddr"`
+	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 
 	R *multiAddressR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L multiAddressL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var MultiAddressColumns = struct {
-	ID            string
-	Maddr         string
-	Addr          string
-	Country       string
-	CloudProvider string
-	UpdatedAt     string
-	CreatedAt     string
+	ID        string
+	Maddr     string
+	UpdatedAt string
+	CreatedAt string
 }{
-	ID:            "id",
-	Maddr:         "maddr",
-	Addr:          "addr",
-	Country:       "country",
-	CloudProvider: "cloud_provider",
-	UpdatedAt:     "updated_at",
-	CreatedAt:     "created_at",
+	ID:        "id",
+	Maddr:     "maddr",
+	UpdatedAt: "updated_at",
+	CreatedAt: "created_at",
 }
 
 var MultiAddressTableColumns = struct {
-	ID            string
-	Maddr         string
-	Addr          string
-	Country       string
-	CloudProvider string
-	UpdatedAt     string
-	CreatedAt     string
+	ID        string
+	Maddr     string
+	UpdatedAt string
+	CreatedAt string
 }{
-	ID:            "multi_addresses.id",
-	Maddr:         "multi_addresses.maddr",
-	Addr:          "multi_addresses.addr",
-	Country:       "multi_addresses.country",
-	CloudProvider: "multi_addresses.cloud_provider",
-	UpdatedAt:     "multi_addresses.updated_at",
-	CreatedAt:     "multi_addresses.created_at",
+	ID:        "multi_addresses.id",
+	Maddr:     "multi_addresses.maddr",
+	UpdatedAt: "multi_addresses.updated_at",
+	CreatedAt: "multi_addresses.created_at",
 }
 
 // Generated where
 
-type whereHelpernull_String struct{ field string }
-
-func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, false, x)
-}
-func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
-	return qmhelper.WhereNullEQ(w.field, true, x)
-}
-func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
-func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
-func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LT, x)
-}
-func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.LTE, x)
-}
-func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GT, x)
-}
-func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.GTE, x)
-}
-
 var MultiAddressWhere = struct {
-	ID            whereHelperint
-	Maddr         whereHelperstring
-	Addr          whereHelpernull_String
-	Country       whereHelpernull_String
-	CloudProvider whereHelpernull_String
-	UpdatedAt     whereHelpertime_Time
-	CreatedAt     whereHelpertime_Time
+	ID        whereHelperint
+	Maddr     whereHelperstring
+	UpdatedAt whereHelpertime_Time
+	CreatedAt whereHelpertime_Time
 }{
-	ID:            whereHelperint{field: "\"multi_addresses\".\"id\""},
-	Maddr:         whereHelperstring{field: "\"multi_addresses\".\"maddr\""},
-	Addr:          whereHelpernull_String{field: "\"multi_addresses\".\"addr\""},
-	Country:       whereHelpernull_String{field: "\"multi_addresses\".\"country\""},
-	CloudProvider: whereHelpernull_String{field: "\"multi_addresses\".\"cloud_provider\""},
-	UpdatedAt:     whereHelpertime_Time{field: "\"multi_addresses\".\"updated_at\""},
-	CreatedAt:     whereHelpertime_Time{field: "\"multi_addresses\".\"created_at\""},
+	ID:        whereHelperint{field: "\"multi_addresses\".\"id\""},
+	Maddr:     whereHelperstring{field: "\"multi_addresses\".\"maddr\""},
+	UpdatedAt: whereHelpertime_Time{field: "\"multi_addresses\".\"updated_at\""},
+	CreatedAt: whereHelpertime_Time{field: "\"multi_addresses\".\"created_at\""},
 }
 
 // MultiAddressRels is where relationship names are stored.
 var MultiAddressRels = struct {
-	Peers  string
-	Visits string
+	MultiAddressesXIPAddresses string
+	Peers                      string
+	Visits                     string
 }{
-	Peers:  "Peers",
-	Visits: "Visits",
+	MultiAddressesXIPAddresses: "MultiAddressesXIPAddresses",
+	Peers:                      "Peers",
+	Visits:                     "Visits",
 }
 
 // multiAddressR is where relationships are stored.
 type multiAddressR struct {
-	Peers  PeerSlice  `boil:"Peers" json:"Peers" toml:"Peers" yaml:"Peers"`
-	Visits VisitSlice `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
+	MultiAddressesXIPAddresses MultiAddressesXIPAddressSlice `boil:"MultiAddressesXIPAddresses" json:"MultiAddressesXIPAddresses" toml:"MultiAddressesXIPAddresses" yaml:"MultiAddressesXIPAddresses"`
+	Peers                      PeerSlice                     `boil:"Peers" json:"Peers" toml:"Peers" yaml:"Peers"`
+	Visits                     VisitSlice                    `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
 }
 
 // NewStruct creates a new relationship struct
@@ -139,8 +97,8 @@ func (*multiAddressR) NewStruct() *multiAddressR {
 type multiAddressL struct{}
 
 var (
-	multiAddressAllColumns            = []string{"id", "maddr", "addr", "country", "cloud_provider", "updated_at", "created_at"}
-	multiAddressColumnsWithoutDefault = []string{"maddr", "addr", "country", "cloud_provider", "updated_at", "created_at"}
+	multiAddressAllColumns            = []string{"id", "maddr", "updated_at", "created_at"}
+	multiAddressColumnsWithoutDefault = []string{"maddr", "updated_at", "created_at"}
 	multiAddressColumnsWithDefault    = []string{"id"}
 	multiAddressPrimaryKeyColumns     = []string{"id"}
 )
@@ -420,6 +378,27 @@ func (q multiAddressQuery) Exists(ctx context.Context, exec boil.ContextExecutor
 	return count > 0, nil
 }
 
+// MultiAddressesXIPAddresses retrieves all the multi_addresses_x_ip_address's MultiAddressesXIPAddresses with an executor.
+func (o *MultiAddress) MultiAddressesXIPAddresses(mods ...qm.QueryMod) multiAddressesXIPAddressQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"multi_addresses_x_ip_addresses\".\"multi_address_id\"=?", o.ID),
+	)
+
+	query := MultiAddressesXIPAddresses(queryMods...)
+	queries.SetFrom(query.Query, "\"multi_addresses_x_ip_addresses\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"multi_addresses_x_ip_addresses\".*"})
+	}
+
+	return query
+}
+
 // Peers retrieves all the peer's Peers with an executor.
 func (o *MultiAddress) Peers(mods ...qm.QueryMod) peerQuery {
 	var queryMods []qm.QueryMod
@@ -462,6 +441,104 @@ func (o *MultiAddress) Visits(mods ...qm.QueryMod) visitQuery {
 	}
 
 	return query
+}
+
+// LoadMultiAddressesXIPAddresses allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (multiAddressL) LoadMultiAddressesXIPAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
+	var slice []*MultiAddress
+	var object *MultiAddress
+
+	if singular {
+		object = maybeMultiAddress.(*MultiAddress)
+	} else {
+		slice = *maybeMultiAddress.(*[]*MultiAddress)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &multiAddressR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &multiAddressR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`multi_addresses_x_ip_addresses`),
+		qm.WhereIn(`multi_addresses_x_ip_addresses.multi_address_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load multi_addresses_x_ip_addresses")
+	}
+
+	var resultSlice []*MultiAddressesXIPAddress
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice multi_addresses_x_ip_addresses")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on multi_addresses_x_ip_addresses")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for multi_addresses_x_ip_addresses")
+	}
+
+	if len(multiAddressesXIPAddressAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.MultiAddressesXIPAddresses = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &multiAddressesXIPAddressR{}
+			}
+			foreign.R.MultiAddress = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.MultiAddressID {
+				local.R.MultiAddressesXIPAddresses = append(local.R.MultiAddressesXIPAddresses, foreign)
+				if foreign.R == nil {
+					foreign.R = &multiAddressesXIPAddressR{}
+				}
+				foreign.R.MultiAddress = local
+				break
+			}
+		}
+	}
+
+	return nil
 }
 
 // LoadPeers allows an eager lookup of values, cached into the
@@ -691,6 +768,59 @@ func (multiAddressL) LoadVisits(ctx context.Context, e boil.ContextExecutor, sin
 		}
 	}
 
+	return nil
+}
+
+// AddMultiAddressesXIPAddresses adds the given related objects to the existing relationships
+// of the multi_address, optionally inserting them as new records.
+// Appends related to o.R.MultiAddressesXIPAddresses.
+// Sets related.R.MultiAddress appropriately.
+func (o *MultiAddress) AddMultiAddressesXIPAddresses(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*MultiAddressesXIPAddress) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.MultiAddressID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"multi_addresses_x_ip_addresses\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"multi_address_id"}),
+				strmangle.WhereClause("\"", "\"", 2, multiAddressesXIPAddressPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.MultiAddressID, rel.IPAddressID, rel.ResolvedAt}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.MultiAddressID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &multiAddressR{
+			MultiAddressesXIPAddresses: related,
+		}
+	} else {
+		o.R.MultiAddressesXIPAddresses = append(o.R.MultiAddressesXIPAddresses, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &multiAddressesXIPAddressR{
+				MultiAddress: o,
+			}
+		} else {
+			rel.R.MultiAddress = o
+		}
+	}
 	return nil
 }
 

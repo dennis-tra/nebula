@@ -894,7 +894,7 @@ func (visitL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, si
 	}
 
 	query := NewQuery(
-		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".addr, \"multi_addresses\".country, \"multi_addresses\".cloud_provider, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"visit_id\""),
+		qm.Select("\"multi_addresses\".id, \"multi_addresses\".maddr, \"multi_addresses\".updated_at, \"multi_addresses\".created_at, \"a\".\"visit_id\""),
 		qm.From("\"multi_addresses\""),
 		qm.InnerJoin("\"visits_x_multi_addresses\" as \"a\" on \"multi_addresses\".\"id\" = \"a\".\"multi_address_id\""),
 		qm.WhereIn("\"a\".\"visit_id\" in ?", args...),
@@ -915,7 +915,7 @@ func (visitL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, si
 		one := new(MultiAddress)
 		var localJoinCol int
 
-		err = results.Scan(&one.ID, &one.Maddr, &one.Addr, &one.Country, &one.CloudProvider, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.Maddr, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for multi_addresses")
 		}

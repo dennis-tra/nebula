@@ -15,7 +15,6 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
@@ -73,6 +72,10 @@ func InitClient(ctx context.Context) (*Client, error) {
 		dbh:     dbh,
 		propMap: propMap,
 	}, nil
+}
+
+func (c *Client) Handle() *sql.DB {
+	return c.dbh
 }
 
 func (c *Client) InsertRawVisit(ctx context.Context, re *models.RawVisit) error {
@@ -239,10 +242,7 @@ func (c *Client) UpsertPeer(ctx context.Context, pi peer.AddrInfo, agent string,
 
 	var maddrs []*models.MultiAddress
 	for _, maddrStr := range maddrStrs {
-		ma := &models.MultiAddress{
-			Maddr: maddrStr,
-			Addr:  null.String{},
-		}
+		ma := &models.MultiAddress{Maddr: maddrStr}
 		if err = ma.Upsert(ctx, txn, true,
 			[]string{models.MultiAddressColumns.Maddr},
 			boil.Whitelist(models.MultiAddressColumns.UpdatedAt), boil.Infer(),
@@ -343,5 +343,12 @@ func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, err
 		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
 		qm.Load(models.SessionRels.Peer),
 		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
+	).All(ctx, c.dbh)
+}
+
+func (c *Client) FetchMultiAddresses(ctx context.Context, offset int, limit int) (models.MultiAddressSlice, error) {
+	return models.MultiAddresses(
+		qm.Offset(offset),
+		qm.Limit(limit),
 	).All(ctx, c.dbh)
 }

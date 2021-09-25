@@ -10,9 +10,13 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("Crawls", testCrawlsUpsert)
 
+	t.Run("IPAddresses", testIPAddressesUpsert)
+
 	t.Run("Latencies", testLatenciesUpsert)
 
 	t.Run("MultiAddresses", testMultiAddressesUpsert)
+
+	t.Run("MultiAddressesXIPAddresses", testMultiAddressesXIPAddressesUpsert)
 
 	t.Run("Neighbors", testNeighborsUpsert)
 
