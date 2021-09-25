@@ -197,7 +197,7 @@ func (s *Scheduler) handleResult(cr Result) {
 
 	logEntry.WithFields(map[string]interface{}{
 		"inPingQueue": s.inPingQueue,
-		"duration":    start,
+		"duration":    time.Since(start),
 	}).Infoln("Handled ping result from worker", cr.PingerID)
 }
 
