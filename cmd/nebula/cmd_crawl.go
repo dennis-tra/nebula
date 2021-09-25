@@ -39,13 +39,6 @@ var CrawlCommand = &cli.Command{
 			Value:       config.DefaultConfig.CrawlLimit,
 		},
 		&cli.BoolFlag{
-			Name:        "latencies",
-			Usage:       "Measure latencies to peers by exchanging ICM ping packets (approx. doubles crawl duration)",
-			EnvVars:     []string{"NEBULA_CRAWL_LATENCIES"},
-			DefaultText: fmt.Sprintf("%v", config.DefaultConfig.MeasureLatencies),
-			Value:       config.DefaultConfig.MeasureLatencies,
-		},
-		&cli.BoolFlag{
 			Name:        "neighbors",
 			Usage:       "Persist DHT peer neighbors",
 			EnvVars:     []string{"NEBULA_CRAWL_NEIGHBORS"},
