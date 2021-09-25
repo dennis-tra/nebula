@@ -538,8 +538,8 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version' AND\n  count >= 100\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count >= 100\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -609,8 +609,8 @@
           ],
           "hide": false,
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  $__timeGroupAlias(updated_at,$__interval),\n  sum(count) AS \"other\"\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version' AND\n  count < 100\nGROUP BY 1\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(cp.updated_at,$__interval),\n  sum(count) AS \"other\"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count < 100\nGROUP BY 1\nORDER BY 1",
           "refId": "B",
           "select": [
             [
@@ -721,8 +721,8 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'error'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -989,8 +989,8 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'error'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1288,279 +1288,13 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_peers_to_dial_errors_count_count{instance=\"localhost:6669\"}[5m])",
+          "expr": "rate(nebula_peers_to_dial_errors_count{instance=\"localhost:6669\"}[5m])",
           "interval": "",
           "legendFormat": "{{ error }}",
           "refId": "A"
         }
       ],
       "title": "Dial errors per second",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Nebula Postgres Filecoin",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 8,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 0,
-        "y": 38
-      },
-      "id": 23,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "format": "time_series",
-          "group": [],
-          "hide": false,
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count > 10\nORDER BY 1",
-          "refId": "B",
-          "select": [
-            [
-              {
-                "params": [
-                  "count"
-                ],
-                "type": "column"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "peer_properties",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "property",
-                "~*",
-                "'agent_version'"
-              ],
-              "type": "expression"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "value",
-                "!~*",
-                "/go-ipfs"
-              ],
-              "type": "expression"
-            }
-          ]
-        }
-      ],
-      "title": "Agent Versions (count > 10)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Nebula Postgres Filecoin",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 8,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 6,
-        "y": 38
-      },
-      "id": 46,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "format": "time_series",
-          "group": [],
-          "hide": false,
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count <= 10\nORDER BY 1",
-          "refId": "B",
-          "select": [
-            [
-              {
-                "params": [
-                  "count"
-                ],
-                "type": "column"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "peer_properties",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "property",
-                "~*",
-                "'agent_version'"
-              ],
-              "type": "expression"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "value",
-                "!~*",
-                "/go-ipfs"
-              ],
-              "type": "expression"
-            }
-          ]
-        }
-      ],
-      "title": "Agent Versions (count <= 10)",
       "type": "timeseries"
     },
     {
@@ -1639,8 +1373,8 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1699,144 +1433,6 @@
         }
       ],
       "title": "Supported Protocols (count >= 200)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Nebula Postgres Filecoin",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 18,
-        "y": 38
-      },
-      "id": 47,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count <= 200\nORDER BY 1",
-          "refId": "A",
-          "select": [
-            [
-              {
-                "params": [
-                  "count"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                  " "
-                ],
-                "type": "alias"
-              }
-            ],
-            [
-              {
-                "params": [
-                  "value"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "peer_properties",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "property",
-                "=",
-                "'protocol'"
-              ],
-              "type": "expression"
-            },
-            {
-              "datatype": "int4",
-              "name": "",
-              "params": [
-                "count",
-                "<=",
-                "200"
-              ],
-              "type": "expression"
-            }
-          ]
-        }
-      ],
-      "title": "Supported Protocols (count <= 200)",
       "type": "timeseries"
     },
     {
@@ -2118,7 +1714,7 @@
           ],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  id LIKE 'Qm%'\nORDER BY 1",
+          "rawSql": "SELECT\n  count(multi_hash) AS \"id\"\nFROM peers\nWHERE\n  multi_hash LIKE 'Qm%'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -2161,65 +1757,6 @@
       ],
       "title": "Total Peer IDs starting with Qm...",
       "type": "stat"
-    },
-    {
-      "datasource": null,
-      "description": "The latency distribution of dialing peers during monitoring.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 25000,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 8,
-        "y": 61
-      },
-      "id": 49,
-      "options": {
-        "displayMode": "gradient",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showUnfilled": false,
-        "text": {}
-      },
-      "pluginVersion": "8.0.4",
-      "targets": [
-        {
-          "exemplar": true,
-          "expr": "nebula_monitor_dial_duration_bucket{instance=\"localhost:6669\"} > 200",
-          "format": "heatmap",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "{{le}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Dial latency",
-      "type": "bargauge"
     },
     {
       "datasource": "Nebula Postgres Filecoin",
@@ -2279,7 +1816,7 @@
           ],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  id LIKE '12%'\nORDER BY 1",
+          "rawSql": "SELECT\n  count(multi_hash) AS \"id\"\nFROM peers\nWHERE\n  multi_hash LIKE '12%'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -2802,5 +2339,5 @@
   "timezone": "",
   "title": "Filecoin Dashboard",
   "uid": "gXoa_Hm7z",
-  "version": 10
+  "version": 11
 }

@@ -66,7 +66,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -87,7 +87,7 @@
             [
               {
                 "params": [
-                    "dialable_peers"
+                  "dialable_peers"
                 ],
                 "type": "column"
               }
@@ -143,7 +143,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -164,13 +164,13 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -189,9 +189,9 @@
               "datatype": "bool",
               "name": "",
               "params": [
-                  "finished",
-                  "=",
-                  "'false'"
+                "finished",
+                "=",
+                "'false'"
               ],
               "type": "expression"
             }
@@ -236,7 +236,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -257,7 +257,7 @@
             [
               {
                 "params": [
-                    "undialable_peers"
+                  "undialable_peers"
                 ],
                 "type": "column"
               }
@@ -313,7 +313,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -328,8 +328,8 @@
           "group": [
             {
               "params": [
-                  "48h",
-                  "none"
+                "48h",
+                "none"
               ],
               "type": "time"
             }
@@ -343,19 +343,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -369,9 +369,9 @@
               "datatype": "timestamptz",
               "name": "",
               "params": [
-                  "next_dial_attempt",
-                  "<",
-                  "NOW()+'1m'::interval"
+                "next_dial_attempt",
+                "<",
+                "NOW()+'1m'::interval"
               ],
               "type": "expression"
             }
@@ -413,14 +413,14 @@
           "displayMode": "table",
           "placement": "right",
           "values": [
-              "percent",
-              "value"
+            "percent",
+            "value"
           ]
         },
         "pieType": "pie",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -434,20 +434,20 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version_core'\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version_core'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -455,7 +455,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -474,9 +474,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'agent_version_core'"
+                "property",
+                "=",
+                "'agent_version_core'"
               ],
               "type": "expression"
             }
@@ -502,43 +502,7 @@
           },
           "mappings": []
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                    "  go-ipfs/0.7.0/",
-                    "  go-ipfs/0.7.0/ea77213",
-                    "  go-ipfs/0.8.0/",
-                    "  go-ipfs/0.8.0/28bea0ee5",
-                    "  go-ipfs/0.8.0/48f94e2",
-                    "  go-ipfs/0.8.0/ce693d7",
-                    "  go-ipfs/0.9.0/",
-                    "  go-ipfs/0.9.0/179d1d1",
-                    "  hydra-booster/0.7.3",
-                    "  hydra-booster/0.7.4",
-                    "  storm",
-                    "other"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 9,
@@ -552,14 +516,14 @@
           "displayMode": "table",
           "placement": "right",
           "values": [
-              "percent",
-              "value"
+            "percent",
+            "value"
           ]
         },
         "pieType": "pie",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -572,15 +536,16 @@
         {
           "format": "time_series",
           "group": [],
+          "hide": false,
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version' AND\n  count >= 100\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count >= 100 AND\n  value != '' AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -588,13 +553,13 @@
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -613,9 +578,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'agent_version'"
+                "property",
+                "=",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -623,9 +588,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  ">=",
-                  "100"
+                "count",
+                ">=",
+                "100"
               ],
               "type": "expression"
             }
@@ -636,34 +601,34 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
           ],
           "hide": false,
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  $__timeGroupAlias(updated_at,$__interval),\n  sum(count) AS \"other\"\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'agent_version' AND\n  count < 100\nGROUP BY 1\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(cp.updated_at,$__interval),\n  sum(count) AS \"other\"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count < 100 AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nGROUP BY 1\nORDER BY 1",
           "refId": "B",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "sum"
+                  "sum"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "other"
+                  "other"
                 ],
                 "type": "alias"
               }
@@ -682,9 +647,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'agent_version'"
+                "property",
+                "=",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -692,11 +657,40 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  "<",
-                  "100"
+                "count",
+                "<",
+                "100"
               ],
               "type": "expression"
+            }
+          ]
+        },
+        {
+          "format": "time_series",
+          "group": [],
+          "hide": false,
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  value = '' AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nORDER BY 1",
+          "refId": "C",
+          "select": [
+            [
+              {
+                "params": [
+                  "ping_latency_s_avg"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "table": "latencies",
+          "timeColumn": "updated_at",
+          "timeColumnType": "timestamp",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
             }
           ]
         }
@@ -735,14 +729,14 @@
           "displayMode": "table",
           "placement": "right",
           "values": [
-              "percent",
-              "value"
+            "percent",
+            "value"
           ]
         },
         "pieType": "pie",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -756,20 +750,20 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'error'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -777,7 +771,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -796,9 +790,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'error'"
+                "property",
+                "=",
+                "'error'"
               ],
               "type": "expression"
             }
@@ -871,7 +865,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -892,13 +886,13 @@
             [
               {
                 "params": [
-                    "crawled_peers"
+                  "crawled_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Total Peers"
+                  "Total Peers"
                 ],
                 "type": "alias"
               }
@@ -906,13 +900,13 @@
             [
               {
                 "params": [
-                    "dialable_peers"
+                  "dialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Dialable Peers"
+                  "Dialable Peers"
                 ],
                 "type": "alias"
               }
@@ -920,13 +914,13 @@
             [
               {
                 "params": [
-                    "undialable_peers"
+                  "undialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Undialable Peers"
+                  "Undialable Peers"
                 ],
                 "type": "alias"
               }
@@ -1009,7 +1003,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1023,20 +1017,20 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1044,7 +1038,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1063,9 +1057,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'protocol'"
+                "property",
+                "=",
+                "'protocol'"
               ],
               "type": "expression"
             },
@@ -1073,9 +1067,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  ">",
-                  "200"
+                "count",
+                ">",
+                "200"
               ],
               "type": "expression"
             }
@@ -1149,7 +1143,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "hidden",
           "placement": "right"
@@ -1170,13 +1164,13 @@
             [
               {
                 "params": [
-                    "crawled_peers"
+                  "crawled_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Total Peers"
+                  "Total Peers"
                 ],
                 "type": "alias"
               }
@@ -1184,13 +1178,13 @@
             [
               {
                 "params": [
-                    "dialable_peers"
+                  "dialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Dialable Peers"
+                  "Dialable Peers"
                 ],
                 "type": "alias"
               }
@@ -1198,13 +1192,13 @@
             [
               {
                 "params": [
-                    "undialable_peers"
+                  "undialable_peers"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "Undialable Peers"
+                  "Undialable Peers"
                 ],
                 "type": "alias"
               }
@@ -1298,7 +1292,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "nebula_peers_to_dial_count{instance=\"nebula_monitor:6667\"}",
+          "expr": "nebula_peers_to_dial_count{instance=\"localhost:6667\"}",
           "interval": "",
           "legendFormat": "Count",
           "refId": "A"
@@ -1380,14 +1374,14 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_monitor_dials_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_monitor_dials_count{instance=\"localhost:6667\"}[5m])",
           "interval": "",
           "legendFormat": "Dials",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "rate(nebula_monitor_dial_errors_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_monitor_dial_errors_count{instance=\"localhost:6667\"}[5m])",
           "hide": false,
           "interval": "",
           "legendFormat": "Errors",
@@ -1460,7 +1454,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1472,7 +1466,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_peers_to_dial_errors_count_count{instance=\"nebula_monitor:6667\"}[5m])",
+          "expr": "rate(nebula_peers_to_dial_errors_count{instance=\"localhost:6667\"}[5m])",
           "interval": "",
           "legendFormat": "{{ error }}",
           "refId": "A"
@@ -1543,7 +1537,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1559,13 +1553,13 @@
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count > 10\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count > 10\nORDER BY 1",
           "refId": "B",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               }
@@ -1573,7 +1567,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1592,9 +1586,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "~*",
-                  "'agent_version'"
+                "property",
+                "~*",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -1602,9 +1596,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "value",
-                  "!~*",
-                  "/go-ipfs"
+                "value",
+                "!~*",
+                "/go-ipfs"
               ],
               "type": "expression"
             }
@@ -1676,7 +1670,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1692,13 +1686,13 @@
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count <= 10\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count <= 10\nORDER BY 1",
           "refId": "B",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               }
@@ -1706,7 +1700,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1725,9 +1719,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "~*",
-                  "'agent_version'"
+                "property",
+                "~*",
+                "'agent_version'"
               ],
               "type": "expression"
             },
@@ -1735,9 +1729,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "value",
-                  "!~*",
-                  "/go-ipfs"
+                "value",
+                "!~*",
+                "/go-ipfs"
               ],
               "type": "expression"
             }
@@ -1810,7 +1804,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1824,20 +1818,20 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  p.value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  p.property = 'error'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1845,7 +1839,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1864,9 +1858,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'error'"
+                "property",
+                "=",
+                "'error'"
               ],
               "type": "expression"
             }
@@ -1938,7 +1932,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -1952,20 +1946,20 @@
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
-          "rawQuery": false,
-          "rawSql": "SELECT\n  updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM peer_properties\nWHERE\n  $__timeFilter(updated_at) AND\n  property = 'protocol' AND\n  count <= 200\nORDER BY 1",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'protocol' AND\n  count <= 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    " "
+                  " "
                 ],
                 "type": "alias"
               }
@@ -1973,7 +1967,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -1992,9 +1986,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "property",
-                  "=",
-                  "'protocol'"
+                "property",
+                "=",
+                "'protocol'"
               ],
               "type": "expression"
             },
@@ -2002,9 +1996,9 @@
               "datatype": "int4",
               "name": "",
               "params": [
-                  "count",
-                  "<=",
-                  "200"
+                "count",
+                "<=",
+                "200"
               ],
               "type": "expression"
             }
@@ -2100,34 +2094,18 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "nebula_peers_to_crawl_count{instance=\"nebula_crawler:6666\"}",
+          "expr": "nebula_peers_to_crawl_count{instance=\"localhost:6666\"}",
           "interval": "",
           "legendFormat": "Peers to crawl",
           "refId": "A"
         },
         {
           "exemplar": true,
-          "expr": "sum(nebula_crawled_peers_count_count{instance=\"nebula_crawler:6666\"})",
+          "expr": "sum(nebula_crawled_peers_count{instance=\"localhost:6666\"})",
           "hide": false,
           "interval": "",
           "legendFormat": "Peers crawled",
           "refId": "B"
-        },
-        {
-          "exemplar": true,
-          "expr": "nebula_connect_errors_count{instance=\"nebula_crawler:6666\"}",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Dial errors",
-          "refId": "C"
-        },
-        {
-          "exemplar": true,
-          "expr": "sum(nebula_peers_to_crawl_count{instance=\"nebula_crawler:6666\"})+sum(nebula_crawled_peers_count_count{instance=\"nebula_crawler:6666\"})",
-          "hide": false,
-          "interval": "",
-          "legendFormat": "Found peers",
-          "refId": "D"
         }
       ],
       "title": "Individual Crawls",
@@ -2168,7 +2146,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2183,8 +2161,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2197,19 +2175,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2223,9 +2201,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2270,7 +2248,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2285,33 +2263,33 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
           ],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  id LIKE 'Qm%'\nORDER BY 1",
+          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  multi_hash LIKE 'Qm%'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2325,9 +2303,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2401,7 +2379,7 @@
       "options": {
         "legend": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "displayMode": "table",
           "placement": "right"
@@ -2422,7 +2400,7 @@
             [
               {
                 "params": [
-                    "crawled_peers"
+                  "crawled_peers"
                 ],
                 "type": "column"
               }
@@ -2478,7 +2456,7 @@
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
-              "lastNotNull"
+            "lastNotNull"
           ],
           "fields": "",
           "values": false
@@ -2493,33 +2471,33 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
           ],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  id LIKE '12%'\nORDER BY 1",
+          "rawSql": "SELECT\n  count(id) AS \"id\"\nFROM peers\nWHERE\n  multi_hash LIKE '12%'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2533,9 +2511,9 @@
               "datatype": "varchar",
               "name": "",
               "params": [
-                  "id",
-                  "LIKE",
-                  "'Qm%'"
+                "id",
+                "LIKE",
+                "'Qm%'"
               ],
               "type": "expression"
             }
@@ -2617,7 +2595,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "rate(nebula_go_sql_client_calls{instance=~\"nebula_crawler:6666|nebula_monitor:6667\"}[1m])",
+          "expr": "rate(nebula_go_sql_client_calls{instance=~\"localhost:6666|localhost:6667\"}[1m])",
           "interval": "",
           "legendFormat": "{{job}} - {{go_sql_method}}",
           "refId": "A"
@@ -2703,8 +2681,8 @@
           "group": [
             {
               "params": [
-                  "$__interval",
-                  "none"
+                "$__interval",
+                "none"
               ],
               "type": "time"
             }
@@ -2717,19 +2695,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "avg"
+                  "avg"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "alias"
               }
@@ -2758,7 +2736,7 @@
             [
               {
                 "params": [
-                    "value"
+                  "value"
                 ],
                 "type": "column"
               }
@@ -2853,8 +2831,8 @@
           "group": [
             {
               "params": [
-                  "30m",
-                  "none"
+                "30m",
+                "none"
               ],
               "type": "time"
             }
@@ -2868,19 +2846,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "Sessions ended"
+                  "Sessions ended"
                 ],
                 "type": "alias"
               }
@@ -2902,8 +2880,8 @@
           "group": [
             {
               "params": [
-                  "30m",
-                  "none"
+                "30m",
+                "none"
               ],
               "type": "time"
             }
@@ -2917,19 +2895,19 @@
             [
               {
                 "params": [
-                    "id"
+                  "id"
                 ],
                 "type": "column"
               },
               {
                 "params": [
-                    "count"
+                  "count"
                 ],
                 "type": "aggregate"
               },
               {
                 "params": [
-                    "Sessions started"
+                  "Sessions started"
                 ],
                 "type": "alias"
               }
@@ -2966,5 +2944,5 @@
   "timezone": "",
   "title": "IPFS Dashboard",
   "uid": "Zhvb7kk7k",
-  "version": 0
+  "version": 93
 }
