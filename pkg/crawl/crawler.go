@@ -198,7 +198,7 @@ func (c *Crawler) crawlPeer(ctx context.Context, pi peer.AddrInfo) Result {
 	}
 
 	cr.ConnectStartTime = time.Now()
-	cr.Error = c.connect(ctx, pi)
+	cr.Error = c.connect(ctx, cr.Peer) // use filtered addr list
 	cr.ConnectEndTime = time.Now()
 
 	// If we could successfully connect to the peer we actually crawl it.
