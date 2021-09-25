@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"contrib.go.opencensus.io/exporter/prometheus"
+	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"contrib.go.opencensus.io/integrations/ocsql"
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -36,7 +38,16 @@ func RegisterMonitorMetrics() error {
 }
 
 func ListenAndServe(host string, port int) error {
-	pe, err := prometheus.NewExporter(prometheus.Options{Namespace: "nebula"})
+	// Register default Go and process metrics
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collectors.NewGoCollector())
+	registry.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+
+	// Initialize new exporter instance
+	pe, err := ocprom.NewExporter(ocprom.Options{
+		Namespace: "nebula",
+		Registry:  registry,
+	})
 	if err != nil {
 		return errors.Wrap(err, "new prometheus exporter")
 	}
@@ -62,10 +73,7 @@ var (
 
 // Distributions
 var (
-	defaultBytesDistribution        = view.Distribution(1024, 2048, 4096, 16384, 65536, 262144, 1048576, 4194304, 16777216, 67108864, 268435456, 1073741824, 4294967296)
-	fibonacciDistribution           = view.Distribution(1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377)
-	connectionDistribution          = view.Distribution(0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50)
-	defaultMillisecondsDistribution = view.Distribution(0.01, 0.05, 0.1, 0.3, 0.6, 0.8, 1, 2, 3, 4, 5, 6, 8, 10, 13, 16, 20, 25, 30, 40, 50, 65, 80, 100, 130, 160, 200, 250, 300, 400, 500, 650, 800, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+	neighborsDistribution = view.Distribution(100, 150, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290, 300)
 )
 
 // Measures
@@ -74,7 +82,6 @@ var (
 	MonitorDialCount        = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
 	CrawlConnectErrorsCount = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
 	MonitorDialErrorsCount  = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
-	FetchNeighborsDuration  = stats.Float64("fetch_neighbors_duration", "Duration of crawling a peer for all neighbors in its buckets", stats.UnitMilliseconds)
 	FetchedNeighborsCount   = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
 	CrawledPeersCount       = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
 	CrawledUpsertDuration   = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
@@ -101,19 +108,14 @@ var (
 		Measure:     MonitorDialErrorsCount,
 		Aggregation: view.Count(),
 	}
-	FetchNeighborsDurationView = &view.View{
-		Measure:     FetchNeighborsDuration,
-		TagKeys:     []tag.Key{KeyAgentVersion},
-		Aggregation: defaultMillisecondsDistribution,
-	}
 	FetchedNeighborsCountView = &view.View{
 		Measure:     FetchedNeighborsCount,
 		TagKeys:     []tag.Key{KeyAgentVersion},
-		Aggregation: fibonacciDistribution,
+		Aggregation: neighborsDistribution,
 	}
 	CrawledPeersCountView = &view.View{
 		Measure:     CrawledPeersCount,
-		Aggregation: fibonacciDistribution,
+		Aggregation: view.Count(),
 	}
 	CrawledUpsertDurationView = &view.View{
 		Measure:     CrawledUpsertDuration,
@@ -130,7 +132,7 @@ var (
 	PeersToDialErrorsCountView = &view.View{
 		Measure:     PeersToDialErrorsCount,
 		TagKeys:     []tag.Key{KeyError},
-		Aggregation: fibonacciDistribution,
+		Aggregation: view.Count(),
 	}
 )
 
@@ -138,7 +140,6 @@ var (
 var DefaultCrawlViews = []*view.View{
 	CrawlConnectsCountView,
 	CrawlConnectErrorsCountView,
-	FetchNeighborsDurationView,
 	FetchedNeighborsCountView,
 	CrawledPeersCountView,
 	PeersToCrawlCountView,
