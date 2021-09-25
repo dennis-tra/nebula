@@ -144,10 +144,7 @@ func (c *Crawler) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO
 	}
 }
 
-// handleCrawlJob takes a crawl result, aggregates crawl information and publishes the result
-// to the persist queue, so that the persisters can persist the information in the database.
-// It also looks into the result and publishes new crawl jobs based on whether the found peers
-// weren't crawled before or are not already in the queue.
+// handleCrawlJob takes peer address information and crawls (connects and fetches neighbors).
 func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.Identifier(),
