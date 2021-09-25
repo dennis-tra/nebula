@@ -102,7 +102,7 @@ func (c *Pinger) handleMeasureJob(ctx context.Context, job Job) Result {
 
 	return Result{
 		PingerID:      c.Identifier(),
-		Peer:          filterPrivateMaddrs(job.pi),
+		Peer:          job.pi,
 		PingLatencies: latencies,
 	}
 }
