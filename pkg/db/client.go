@@ -388,3 +388,21 @@ func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
 	}
 	return pi, nil
 }
+
+func (c *Client) DeletePreviousRawVisits(ctx context.Context) error {
+	// Get most recent successful crawl
+	crawl, err := models.Crawls(
+		qm.OrderBy(models.CrawlColumns.FinishedAt+" DESC"),
+		qm.Limit(1),
+	).One(ctx, c.dbh)
+	if err != nil {
+		return err
+	}
+
+	// Delete all raw visits of that crawl
+	deleted, err := models.RawVisits(
+		qm.Where(models.RawVisitColumns.CreatedAt+" < ?", crawl.StartedAt),
+	).DeleteAll(ctx, c.dbh)
+	log.Debugf("Deleted %d previous obsolete raw_visit rows", deleted)
+	return err
+}

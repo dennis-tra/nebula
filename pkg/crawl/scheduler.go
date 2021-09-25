@@ -141,6 +141,11 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	// can associate results with this crawl via
 	// its DB identifier
 	if s.dbc != nil {
+
+		if err := s.dbc.DeletePreviousRawVisits(s.ServiceContext()); err != nil {
+			log.Warnln("Could not delete previous raw visits")
+		}
+
 		crawl, err := s.dbc.InitCrawl(s.ServiceContext())
 		if err != nil {
 			return errors.Wrap(err, "creating crawl in db")
