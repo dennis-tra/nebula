@@ -5,7 +5,7 @@ def get_time_range(conn):
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT MIN(created_at), MAX(updated_at)
+        SELECT MAX(updated_at) - interval '3 days', MAX(updated_at)
         FROM sessions
         """
     )
