@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -128,34 +127,10 @@ func TestClient_QueryPeers(t *testing.T) {
 	assert.Len(t, peers, 0)
 }
 
-func TestClient_UpsertPeer(t *testing.T) {
-	ctx, client, teardown := setupTest(t)
-	defer teardown()
-
-	id, err := peer.Decode("Qmbjb4FuGtmG59fSQuZj5g561QrvpT5FYnkbJxGXcgGLgx")
-	require.NoError(t, err)
-
-	pi := peer.AddrInfo{ID: id}
-	p, err := client.UpsertPeer(ctx, pi, "", nil)
-	require.NoError(t, err)
-	assert.NotZero(t, p.ID)
-	assert.Equal(t, id.String(), p.MultiHash)
-	assert.Len(t, p.MultiAddresses, 0)
-
-	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/5000")
-	require.NoError(t, err)
-	pi = peer.AddrInfo{ID: id, Addrs: []ma.Multiaddr{maddr}}
-	p, err = client.UpsertPeer(ctx, pi, "", nil)
-	require.NoError(t, err)
-	assert.NotZero(t, p.ID)
-	assert.Equal(t, id.String(), p.MultiHash)
-	assert.Len(t, p.MultiAddresses, 1)
-}
-
 func TestClient_QueryBootstrapPeers(t *testing.T) {
 	ctx, client, teardown := setupTest(t)
 	defer teardown()
-	peers, err := client.QueryBootstrapPeers(ctx)
+	peers, err := client.QueryBootstrapPeers(ctx, 10)
 	require.NoError(t, err)
 	assert.Len(t, peers, 0)
 }

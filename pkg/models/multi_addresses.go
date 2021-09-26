@@ -74,18 +74,15 @@ var MultiAddressWhere = struct {
 var MultiAddressRels = struct {
 	MultiAddressesXIPAddresses string
 	Peers                      string
-	Visits                     string
 }{
 	MultiAddressesXIPAddresses: "MultiAddressesXIPAddresses",
 	Peers:                      "Peers",
-	Visits:                     "Visits",
 }
 
 // multiAddressR is where relationships are stored.
 type multiAddressR struct {
 	MultiAddressesXIPAddresses MultiAddressesXIPAddressSlice `boil:"MultiAddressesXIPAddresses" json:"MultiAddressesXIPAddresses" toml:"MultiAddressesXIPAddresses" yaml:"MultiAddressesXIPAddresses"`
 	Peers                      PeerSlice                     `boil:"Peers" json:"Peers" toml:"Peers" yaml:"Peers"`
-	Visits                     VisitSlice                    `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
 }
 
 // NewStruct creates a new relationship struct
@@ -421,28 +418,6 @@ func (o *MultiAddress) Peers(mods ...qm.QueryMod) peerQuery {
 	return query
 }
 
-// Visits retrieves all the visit's Visits with an executor.
-func (o *MultiAddress) Visits(mods ...qm.QueryMod) visitQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.InnerJoin("\"visits_x_multi_addresses\" on \"visits\".\"id\" = \"visits_x_multi_addresses\".\"visit_id\""),
-		qm.Where("\"visits_x_multi_addresses\".\"multi_address_id\"=?", o.ID),
-	)
-
-	query := Visits(queryMods...)
-	queries.SetFrom(query.Query, "\"visits\"")
-
-	if len(queries.GetSelect(query.Query)) == 0 {
-		queries.SetSelect(query.Query, []string{"\"visits\".*"})
-	}
-
-	return query
-}
-
 // LoadMultiAddressesXIPAddresses allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (multiAddressL) LoadMultiAddressesXIPAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
@@ -581,7 +556,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 	}
 
 	query := NewQuery(
-		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".id, \"a\".\"multi_address_id\""),
+		qm.Select("\"peers\".multi_hash, \"peers\".updated_at, \"peers\".created_at, \"peers\".id, \"peers\".protocols_set_id, \"peers\".agent_version_id, \"a\".\"multi_address_id\""),
 		qm.From("\"peers\""),
 		qm.InnerJoin("\"peers_x_multi_addresses\" as \"a\" on \"peers\".\"id\" = \"a\".\"peer_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -602,7 +577,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 		one := new(Peer)
 		var localJoinCol int
 
-		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.ID, &localJoinCol)
+		err = results.Scan(&one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.ID, &one.ProtocolsSetID, &one.AgentVersionID, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for peers")
 		}
@@ -646,121 +621,6 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 				local.R.Peers = append(local.R.Peers, foreign)
 				if foreign.R == nil {
 					foreign.R = &peerR{}
-				}
-				foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadVisits allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (multiAddressL) LoadVisits(ctx context.Context, e boil.ContextExecutor, singular bool, maybeMultiAddress interface{}, mods queries.Applicator) error {
-	var slice []*MultiAddress
-	var object *MultiAddress
-
-	if singular {
-		object = maybeMultiAddress.(*MultiAddress)
-	} else {
-		slice = *maybeMultiAddress.(*[]*MultiAddress)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &multiAddressR{}
-		}
-		args = append(args, object.ID)
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &multiAddressR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ID)
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.Select("\"visits\".id, \"visits\".peer_id, \"visits\".crawl_id, \"visits\".session_id, \"visits\".dial_duration, \"visits\".connect_duration, \"visits\".crawl_duration, \"visits\".visit_started_at, \"visits\".visit_ended_at, \"visits\".updated_at, \"visits\".created_at, \"visits\".type, \"visits\".error, \"a\".\"multi_address_id\""),
-		qm.From("\"visits\""),
-		qm.InnerJoin("\"visits_x_multi_addresses\" as \"a\" on \"visits\".\"id\" = \"a\".\"visit_id\""),
-		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load visits")
-	}
-
-	var resultSlice []*Visit
-
-	var localJoinCols []int
-	for results.Next() {
-		one := new(Visit)
-		var localJoinCol int
-
-		err = results.Scan(&one.ID, &one.PeerID, &one.CrawlID, &one.SessionID, &one.DialDuration, &one.ConnectDuration, &one.CrawlDuration, &one.VisitStartedAt, &one.VisitEndedAt, &one.UpdatedAt, &one.CreatedAt, &one.Type, &one.Error, &localJoinCol)
-		if err != nil {
-			return errors.Wrap(err, "failed to scan eager loaded results for visits")
-		}
-		if err = results.Err(); err != nil {
-			return errors.Wrap(err, "failed to plebian-bind eager loaded slice visits")
-		}
-
-		resultSlice = append(resultSlice, one)
-		localJoinCols = append(localJoinCols, localJoinCol)
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on visits")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for visits")
-	}
-
-	if len(visitAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.Visits = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &visitR{}
-			}
-			foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, object)
-		}
-		return nil
-	}
-
-	for i, foreign := range resultSlice {
-		localJoinCol := localJoinCols[i]
-		for _, local := range slice {
-			if local.ID == localJoinCol {
-				local.R.Visits = append(local.R.Visits, foreign)
-				if foreign.R == nil {
-					foreign.R = &visitR{}
 				}
 				foreign.R.MultiAddresses = append(foreign.R.MultiAddresses, local)
 				break
@@ -949,150 +809,6 @@ func (o *MultiAddress) RemovePeers(ctx context.Context, exec boil.ContextExecuto
 }
 
 func removePeersFromMultiAddressesSlice(o *MultiAddress, related []*Peer) {
-	for _, rel := range related {
-		if rel.R == nil {
-			continue
-		}
-		for i, ri := range rel.R.MultiAddresses {
-			if o.ID != ri.ID {
-				continue
-			}
-
-			ln := len(rel.R.MultiAddresses)
-			if ln > 1 && i < ln-1 {
-				rel.R.MultiAddresses[i] = rel.R.MultiAddresses[ln-1]
-			}
-			rel.R.MultiAddresses = rel.R.MultiAddresses[:ln-1]
-			break
-		}
-	}
-}
-
-// AddVisits adds the given related objects to the existing relationships
-// of the multi_address, optionally inserting them as new records.
-// Appends related to o.R.Visits.
-// Sets related.R.MultiAddresses appropriately.
-func (o *MultiAddress) AddVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		}
-	}
-
-	for _, rel := range related {
-		query := "insert into \"visits_x_multi_addresses\" (\"multi_address_id\", \"visit_id\") values ($1, $2)"
-		values := []interface{}{o.ID, rel.ID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, query)
-			fmt.Fprintln(writer, values)
-		}
-		_, err = exec.ExecContext(ctx, query, values...)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert into join table")
-		}
-	}
-	if o.R == nil {
-		o.R = &multiAddressR{
-			Visits: related,
-		}
-	} else {
-		o.R.Visits = append(o.R.Visits, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &visitR{
-				MultiAddresses: MultiAddressSlice{o},
-			}
-		} else {
-			rel.R.MultiAddresses = append(rel.R.MultiAddresses, o)
-		}
-	}
-	return nil
-}
-
-// SetVisits removes all previously related items of the
-// multi_address replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.MultiAddresses's Visits accordingly.
-// Replaces o.R.Visits with related.
-// Sets related.R.MultiAddresses's Visits accordingly.
-func (o *MultiAddress) SetVisits(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Visit) error {
-	query := "delete from \"visits_x_multi_addresses\" where \"multi_address_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	removeVisitsFromMultiAddressesSlice(o, related)
-	if o.R != nil {
-		o.R.Visits = nil
-	}
-	return o.AddVisits(ctx, exec, insert, related...)
-}
-
-// RemoveVisits relationships from objects passed in.
-// Removes related items from R.Visits (uses pointer comparison, removal does not keep order)
-// Sets related.R.MultiAddresses.
-func (o *MultiAddress) RemoveVisits(ctx context.Context, exec boil.ContextExecutor, related ...*Visit) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	query := fmt.Sprintf(
-		"delete from \"visits_x_multi_addresses\" where \"multi_address_id\" = $1 and \"visit_id\" in (%s)",
-		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
-	)
-	values := []interface{}{o.ID}
-	for _, rel := range related {
-		values = append(values, rel.ID)
-	}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err = exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-	removeVisitsFromMultiAddressesSlice(o, related)
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.Visits {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.Visits)
-			if ln > 1 && i < ln-1 {
-				o.R.Visits[i] = o.R.Visits[ln-1]
-			}
-			o.R.Visits = o.R.Visits[:ln-1]
-			break
-		}
-	}
-
-	return nil
-}
-
-func removeVisitsFromMultiAddressesSlice(o *MultiAddress, related []*Visit) {
 	for _, rel := range related {
 		if rel.R == nil {
 			continue

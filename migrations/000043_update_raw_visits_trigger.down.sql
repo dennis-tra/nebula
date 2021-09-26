@@ -4,6 +4,7 @@ BEGIN;
 DROP TRIGGER insert_raw_visit ON raw_visits;
 DROP FUNCTION normalize_raw_visit();
 
+
 CREATE FUNCTION normalize_raw_visit() RETURNS TRIGGER AS
 $normalize_raw_visit$
 DECLARE
@@ -39,11 +40,11 @@ BEGIN
                         WHEN 0.5 *
                              (EXCLUDED.last_successful_dial - sessions.first_successful_dial) <
                              '30s'::interval THEN
-                            EXCLUDED.last_successful_dial + '30s'::interval
+                                EXCLUDED.last_successful_dial + '30s'::interval
                         WHEN 0.5 *
                              (EXCLUDED.last_successful_dial - sessions.first_successful_dial) >
                              '15m'::interval THEN
-                            EXCLUDED.last_successful_dial + '15m'::interval
+                                EXCLUDED.last_successful_dial + '15m'::interval
                         ELSE
                                 EXCLUDED.last_successful_dial +
                                 0.5 *

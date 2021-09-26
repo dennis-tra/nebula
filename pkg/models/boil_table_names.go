@@ -4,41 +4,41 @@
 package models
 
 var TableNames = struct {
+	AgentVersions              string
 	CrawlProperties            string
 	Crawls                     string
 	IPAddresses                string
 	Latencies                  string
 	MultiAddresses             string
+	MultiAddressesSets         string
 	MultiAddressesXIPAddresses string
 	Neighbors                  string
 	Peers                      string
 	PeersXMultiAddresses       string
-	PeersXProperties           string
 	PegasysConnections         string
 	PegasysNeighbours          string
-	Properties                 string
+	Protocols                  string
+	ProtocolsSets              string
 	RawVisits                  string
 	Sessions                   string
 	Visits                     string
-	VisitsXMultiAddresses      string
-	VisitsXProperties          string
 }{
+	AgentVersions:              "agent_versions",
 	CrawlProperties:            "crawl_properties",
 	Crawls:                     "crawls",
 	IPAddresses:                "ip_addresses",
 	Latencies:                  "latencies",
 	MultiAddresses:             "multi_addresses",
+	MultiAddressesSets:         "multi_addresses_sets",
 	MultiAddressesXIPAddresses: "multi_addresses_x_ip_addresses",
 	Neighbors:                  "neighbors",
 	Peers:                      "peers",
 	PeersXMultiAddresses:       "peers_x_multi_addresses",
-	PeersXProperties:           "peers_x_properties",
 	PegasysConnections:         "pegasys_connections",
 	PegasysNeighbours:          "pegasys_neighbours",
-	Properties:                 "properties",
+	Protocols:                  "protocols",
+	ProtocolsSets:              "protocols_sets",
 	RawVisits:                  "raw_visits",
 	Sessions:                   "sessions",
 	Visits:                     "visits",
-	VisitsXMultiAddresses:      "visits_x_multi_addresses",
-	VisitsXProperties:          "visits_x_properties",
 }

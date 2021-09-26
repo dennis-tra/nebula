@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testProperties(t *testing.T) {
+func testAgentVersions(t *testing.T) {
 	t.Parallel()
 
-	query := Properties()
+	query := AgentVersions()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testPropertiesDelete(t *testing.T) {
+func testAgentVersionsDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testPropertiesDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testPropertiesDelete(t *testing.T) {
 	}
 }
 
-func testPropertiesQueryDeleteAll(t *testing.T) {
+func testAgentVersionsQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testPropertiesQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := Properties().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := AgentVersions().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testPropertiesQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testPropertiesSliceDeleteAll(t *testing.T) {
+func testAgentVersionsSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testPropertiesSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := PropertySlice{o}
+	slice := AgentVersionSlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testPropertiesSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testPropertiesSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testPropertiesExists(t *testing.T) {
+func testAgentVersionsExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testPropertiesExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := PropertyExists(ctx, tx, o.ID)
+	e, err := AgentVersionExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if Property exists: %s", err)
+		t.Errorf("Unable to check if AgentVersion exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected PropertyExists to return true, but got false.")
+		t.Errorf("Expected AgentVersionExists to return true, but got false.")
 	}
 }
 
-func testPropertiesFind(t *testing.T) {
+func testAgentVersionsFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testPropertiesFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	propertyFound, err := FindProperty(ctx, tx, o.ID)
+	agentVersionFound, err := FindAgentVersion(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if propertyFound == nil {
+	if agentVersionFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testPropertiesBind(t *testing.T) {
+func testAgentVersionsBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testPropertiesBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = Properties().Bind(ctx, tx, o); err != nil {
+	if err = AgentVersions().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testPropertiesOne(t *testing.T) {
+func testAgentVersionsOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testPropertiesOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := Properties().One(ctx, tx); err != nil {
+	if x, err := AgentVersions().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testPropertiesAll(t *testing.T) {
+func testAgentVersionsAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	propertyOne := &Property{}
-	propertyTwo := &Property{}
-	if err = randomize.Struct(seed, propertyOne, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	agentVersionOne := &AgentVersion{}
+	agentVersionTwo := &AgentVersion{}
+	if err = randomize.Struct(seed, agentVersionOne, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
-	if err = randomize.Struct(seed, propertyTwo, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, agentVersionTwo, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = propertyOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = agentVersionOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = propertyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = agentVersionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := Properties().All(ctx, tx)
+	slice, err := AgentVersions().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testPropertiesAll(t *testing.T) {
 	}
 }
 
-func testPropertiesCount(t *testing.T) {
+func testAgentVersionsCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	propertyOne := &Property{}
-	propertyTwo := &Property{}
-	if err = randomize.Struct(seed, propertyOne, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	agentVersionOne := &AgentVersion{}
+	agentVersionTwo := &AgentVersion{}
+	if err = randomize.Struct(seed, agentVersionOne, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
-	if err = randomize.Struct(seed, propertyTwo, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, agentVersionTwo, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = propertyOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = agentVersionOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = propertyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = agentVersionTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testPropertiesCount(t *testing.T) {
 	}
 }
 
-func propertyBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func propertyAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Property) error {
-	*o = Property{}
+func agentVersionAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *AgentVersion) error {
+	*o = AgentVersion{}
 	return nil
 }
 
-func testPropertiesHooks(t *testing.T) {
+func testAgentVersionsHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &Property{}
-	o := &Property{}
+	empty := &AgentVersion{}
+	o := &AgentVersion{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, propertyDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize Property object: %s", err)
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize AgentVersion object: %s", err)
 	}
 
-	AddPropertyHook(boil.BeforeInsertHook, propertyBeforeInsertHook)
+	AddAgentVersionHook(boil.BeforeInsertHook, agentVersionBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	propertyBeforeInsertHooks = []PropertyHook{}
+	agentVersionBeforeInsertHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.AfterInsertHook, propertyAfterInsertHook)
+	AddAgentVersionHook(boil.AfterInsertHook, agentVersionAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	propertyAfterInsertHooks = []PropertyHook{}
+	agentVersionAfterInsertHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.AfterSelectHook, propertyAfterSelectHook)
+	AddAgentVersionHook(boil.AfterSelectHook, agentVersionAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	propertyAfterSelectHooks = []PropertyHook{}
+	agentVersionAfterSelectHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.BeforeUpdateHook, propertyBeforeUpdateHook)
+	AddAgentVersionHook(boil.BeforeUpdateHook, agentVersionBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	propertyBeforeUpdateHooks = []PropertyHook{}
+	agentVersionBeforeUpdateHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.AfterUpdateHook, propertyAfterUpdateHook)
+	AddAgentVersionHook(boil.AfterUpdateHook, agentVersionAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	propertyAfterUpdateHooks = []PropertyHook{}
+	agentVersionAfterUpdateHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.BeforeDeleteHook, propertyBeforeDeleteHook)
+	AddAgentVersionHook(boil.BeforeDeleteHook, agentVersionBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	propertyBeforeDeleteHooks = []PropertyHook{}
+	agentVersionBeforeDeleteHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.AfterDeleteHook, propertyAfterDeleteHook)
+	AddAgentVersionHook(boil.AfterDeleteHook, agentVersionAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	propertyAfterDeleteHooks = []PropertyHook{}
+	agentVersionAfterDeleteHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.BeforeUpsertHook, propertyBeforeUpsertHook)
+	AddAgentVersionHook(boil.BeforeUpsertHook, agentVersionBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	propertyBeforeUpsertHooks = []PropertyHook{}
+	agentVersionBeforeUpsertHooks = []AgentVersionHook{}
 
-	AddPropertyHook(boil.AfterUpsertHook, propertyAfterUpsertHook)
+	AddAgentVersionHook(boil.AfterUpsertHook, agentVersionAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	propertyAfterUpsertHooks = []PropertyHook{}
+	agentVersionAfterUpsertHooks = []AgentVersionHook{}
 }
 
-func testPropertiesInsert(t *testing.T) {
+func testAgentVersionsInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testPropertiesInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testPropertiesInsert(t *testing.T) {
 	}
 }
 
-func testPropertiesInsertWhitelist(t *testing.T) {
+func testAgentVersionsInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(propertyColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(agentVersionColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,18 +494,18 @@ func testPropertiesInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testPropertyToManyCrawlProperties(t *testing.T) {
+func testAgentVersionToManyCrawlProperties(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c CrawlProperty
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
@@ -519,9 +519,8 @@ func testPropertyToManyCrawlProperties(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	b.PropertyID = a.ID
-	c.PropertyID = a.ID
-
+	queries.Assign(&b.AgentVersionID, a.ID)
+	queries.Assign(&c.AgentVersionID, a.ID)
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -536,10 +535,10 @@ func testPropertyToManyCrawlProperties(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.PropertyID == b.PropertyID {
+		if queries.Equal(v.AgentVersionID, b.AgentVersionID) {
 			bFound = true
 		}
-		if v.PropertyID == c.PropertyID {
+		if queries.Equal(v.AgentVersionID, c.AgentVersionID) {
 			cFound = true
 		}
 	}
@@ -551,8 +550,8 @@ func testPropertyToManyCrawlProperties(t *testing.T) {
 		t.Error("expected to find c")
 	}
 
-	slice := PropertySlice{&a}
-	if err = a.L.LoadCrawlProperties(ctx, tx, false, (*[]*Property)(&slice), nil); err != nil {
+	slice := AgentVersionSlice{&a}
+	if err = a.L.LoadCrawlProperties(ctx, tx, false, (*[]*AgentVersion)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := len(a.R.CrawlProperties); got != 2 {
@@ -572,18 +571,18 @@ func testPropertyToManyCrawlProperties(t *testing.T) {
 	}
 }
 
-func testPropertyToManyPeers(t *testing.T) {
+func testAgentVersionToManyPeers(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
@@ -597,19 +596,12 @@ func testPropertyToManyPeers(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	queries.Assign(&b.AgentVersionID, a.ID)
+	queries.Assign(&c.AgentVersionID, a.ID)
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = tx.Exec("insert into \"peers_x_properties\" (\"property_id\", \"peer_id\") values ($1, $2)", a.ID, b.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec("insert into \"peers_x_properties\" (\"property_id\", \"peer_id\") values ($1, $2)", a.ID, c.ID)
-	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -620,10 +612,10 @@ func testPropertyToManyPeers(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.ID == b.ID {
+		if queries.Equal(v.AgentVersionID, b.AgentVersionID) {
 			bFound = true
 		}
-		if v.ID == c.ID {
+		if queries.Equal(v.AgentVersionID, c.AgentVersionID) {
 			cFound = true
 		}
 	}
@@ -635,8 +627,8 @@ func testPropertyToManyPeers(t *testing.T) {
 		t.Error("expected to find c")
 	}
 
-	slice := PropertySlice{&a}
-	if err = a.L.LoadPeers(ctx, tx, false, (*[]*Property)(&slice), nil); err != nil {
+	slice := AgentVersionSlice{&a}
+	if err = a.L.LoadPeers(ctx, tx, false, (*[]*AgentVersion)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := len(a.R.Peers); got != 2 {
@@ -656,18 +648,18 @@ func testPropertyToManyPeers(t *testing.T) {
 	}
 }
 
-func testPropertyToManyVisits(t *testing.T) {
+func testAgentVersionToManyVisits(t *testing.T) {
 	var err error
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c Visit
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
@@ -681,19 +673,12 @@ func testPropertyToManyVisits(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	queries.Assign(&b.AgentVersionID, a.ID)
+	queries.Assign(&c.AgentVersionID, a.ID)
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = tx.Exec("insert into \"visits_x_properties\" (\"property_id\", \"visit_id\") values ($1, $2)", a.ID, b.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec("insert into \"visits_x_properties\" (\"property_id\", \"visit_id\") values ($1, $2)", a.ID, c.ID)
-	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -704,10 +689,10 @@ func testPropertyToManyVisits(t *testing.T) {
 
 	bFound, cFound := false, false
 	for _, v := range check {
-		if v.ID == b.ID {
+		if queries.Equal(v.AgentVersionID, b.AgentVersionID) {
 			bFound = true
 		}
-		if v.ID == c.ID {
+		if queries.Equal(v.AgentVersionID, c.AgentVersionID) {
 			cFound = true
 		}
 	}
@@ -719,8 +704,8 @@ func testPropertyToManyVisits(t *testing.T) {
 		t.Error("expected to find c")
 	}
 
-	slice := PropertySlice{&a}
-	if err = a.L.LoadVisits(ctx, tx, false, (*[]*Property)(&slice), nil); err != nil {
+	slice := AgentVersionSlice{&a}
+	if err = a.L.LoadVisits(ctx, tx, false, (*[]*AgentVersion)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := len(a.R.Visits); got != 2 {
@@ -740,18 +725,18 @@ func testPropertyToManyVisits(t *testing.T) {
 	}
 }
 
-func testPropertyToManyAddOpCrawlProperties(t *testing.T) {
+func testAgentVersionToManyAddOpCrawlProperties(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e CrawlProperty
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*CrawlProperty{&b, &c, &d, &e}
@@ -785,17 +770,17 @@ func testPropertyToManyAddOpCrawlProperties(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if a.ID != first.PropertyID {
-			t.Error("foreign key was wrong value", a.ID, first.PropertyID)
+		if !queries.Equal(a.ID, first.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, first.AgentVersionID)
 		}
-		if a.ID != second.PropertyID {
-			t.Error("foreign key was wrong value", a.ID, second.PropertyID)
+		if !queries.Equal(a.ID, second.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, second.AgentVersionID)
 		}
 
-		if first.R.Property != &a {
+		if first.R.AgentVersion != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
-		if second.R.Property != &a {
+		if second.R.AgentVersion != &a {
 			t.Error("relationship was not added properly to the foreign slice")
 		}
 
@@ -815,18 +800,194 @@ func testPropertyToManyAddOpCrawlProperties(t *testing.T) {
 		}
 	}
 }
-func testPropertyToManyAddOpPeers(t *testing.T) {
+
+func testAgentVersionToManySetOpCrawlProperties(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
+	var b, c, d, e CrawlProperty
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*CrawlProperty{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.SetCrawlProperties(ctx, tx, false, &b, &c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.CrawlProperties().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.SetCrawlProperties(ctx, tx, true, &d, &e)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.CrawlProperties().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+	if !queries.Equal(a.ID, d.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, d.AgentVersionID)
+	}
+	if !queries.Equal(a.ID, e.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, e.AgentVersionID)
+	}
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+
+	if a.R.CrawlProperties[0] != &d {
+		t.Error("relationship struct slice not set to correct value")
+	}
+	if a.R.CrawlProperties[1] != &e {
+		t.Error("relationship struct slice not set to correct value")
+	}
+}
+
+func testAgentVersionToManyRemoveOpCrawlProperties(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a AgentVersion
+	var b, c, d, e CrawlProperty
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*CrawlProperty{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.AddCrawlProperties(ctx, tx, true, foreigners...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := a.CrawlProperties().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 4 {
+		t.Error("count was wrong:", count)
+	}
+
+	err = a.RemoveCrawlProperties(ctx, tx, foreigners[:2]...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err = a.CrawlProperties().Count(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Error("count was wrong:", count)
+	}
+
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
+	}
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+
+	if len(a.R.CrawlProperties) != 2 {
+		t.Error("should have preserved two relationships")
+	}
+
+	// Removal doesn't do a stable deletion for performance so we have to flip the order
+	if a.R.CrawlProperties[1] != &d {
+		t.Error("relationship to d should have been preserved")
+	}
+	if a.R.CrawlProperties[0] != &e {
+		t.Error("relationship to e should have been preserved")
+	}
+}
+
+func testAgentVersionToManyAddOpPeers(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a AgentVersion
 	var b, c, d, e Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Peer{&b, &c, &d, &e}
@@ -860,11 +1021,18 @@ func testPropertyToManyAddOpPeers(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if first.R.Properties[0] != &a {
-			t.Error("relationship was not added properly to the slice")
+		if !queries.Equal(a.ID, first.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, first.AgentVersionID)
 		}
-		if second.R.Properties[0] != &a {
-			t.Error("relationship was not added properly to the slice")
+		if !queries.Equal(a.ID, second.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, second.AgentVersionID)
+		}
+
+		if first.R.AgentVersion != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.AgentVersion != &a {
+			t.Error("relationship was not added properly to the foreign slice")
 		}
 
 		if a.R.Peers[i*2] != first {
@@ -884,18 +1052,18 @@ func testPropertyToManyAddOpPeers(t *testing.T) {
 	}
 }
 
-func testPropertyToManySetOpPeers(t *testing.T) {
+func testAgentVersionToManySetOpPeers(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Peer{&b, &c, &d, &e}
@@ -941,21 +1109,30 @@ func testPropertyToManySetOpPeers(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	// The following checks cannot be implemented since we have no handle
-	// to these when we call Set(). Leaving them here as wishful thinking
-	// and to let people know there's dragons.
-	//
-	// if len(b.R.Properties) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	// if len(c.R.Properties) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	if d.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the slice")
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
 	}
-	if e.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the slice")
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+	if !queries.Equal(a.ID, d.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, d.AgentVersionID)
+	}
+	if !queries.Equal(a.ID, e.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, e.AgentVersionID)
+	}
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
 	}
 
 	if a.R.Peers[0] != &d {
@@ -966,18 +1143,18 @@ func testPropertyToManySetOpPeers(t *testing.T) {
 	}
 }
 
-func testPropertyToManyRemoveOpPeers(t *testing.T) {
+func testAgentVersionToManyRemoveOpPeers(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Peer{&b, &c, &d, &e}
@@ -1017,17 +1194,24 @@ func testPropertyToManyRemoveOpPeers(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	if len(b.R.Properties) != 0 {
-		t.Error("relationship was not removed properly from the slice")
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
 	}
-	if len(c.R.Properties) != 0 {
-		t.Error("relationship was not removed properly from the slice")
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
 	}
-	if d.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
 	}
-	if e.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
 	}
 
 	if len(a.R.Peers) != 2 {
@@ -1043,18 +1227,18 @@ func testPropertyToManyRemoveOpPeers(t *testing.T) {
 	}
 }
 
-func testPropertyToManyAddOpVisits(t *testing.T) {
+func testAgentVersionToManyAddOpVisits(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e Visit
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Visit{&b, &c, &d, &e}
@@ -1088,11 +1272,18 @@ func testPropertyToManyAddOpVisits(t *testing.T) {
 		first := x[0]
 		second := x[1]
 
-		if first.R.Properties[0] != &a {
-			t.Error("relationship was not added properly to the slice")
+		if !queries.Equal(a.ID, first.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, first.AgentVersionID)
 		}
-		if second.R.Properties[0] != &a {
-			t.Error("relationship was not added properly to the slice")
+		if !queries.Equal(a.ID, second.AgentVersionID) {
+			t.Error("foreign key was wrong value", a.ID, second.AgentVersionID)
+		}
+
+		if first.R.AgentVersion != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.AgentVersion != &a {
+			t.Error("relationship was not added properly to the foreign slice")
 		}
 
 		if a.R.Visits[i*2] != first {
@@ -1112,18 +1303,18 @@ func testPropertyToManyAddOpVisits(t *testing.T) {
 	}
 }
 
-func testPropertyToManySetOpVisits(t *testing.T) {
+func testAgentVersionToManySetOpVisits(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e Visit
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Visit{&b, &c, &d, &e}
@@ -1169,21 +1360,30 @@ func testPropertyToManySetOpVisits(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	// The following checks cannot be implemented since we have no handle
-	// to these when we call Set(). Leaving them here as wishful thinking
-	// and to let people know there's dragons.
-	//
-	// if len(b.R.Properties) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	// if len(c.R.Properties) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	if d.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the slice")
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
 	}
-	if e.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the slice")
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
+	}
+	if !queries.Equal(a.ID, d.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, d.AgentVersionID)
+	}
+	if !queries.Equal(a.ID, e.AgentVersionID) {
+		t.Error("foreign key was wrong value", a.ID, e.AgentVersionID)
+	}
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship was not added properly to the foreign struct")
 	}
 
 	if a.R.Visits[0] != &d {
@@ -1194,18 +1394,18 @@ func testPropertyToManySetOpVisits(t *testing.T) {
 	}
 }
 
-func testPropertyToManyRemoveOpVisits(t *testing.T) {
+func testAgentVersionToManyRemoveOpVisits(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Property
+	var a AgentVersion
 	var b, c, d, e Visit
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	foreigners := []*Visit{&b, &c, &d, &e}
@@ -1245,17 +1445,24 @@ func testPropertyToManyRemoveOpVisits(t *testing.T) {
 		t.Error("count was wrong:", count)
 	}
 
-	if len(b.R.Properties) != 0 {
-		t.Error("relationship was not removed properly from the slice")
+	if !queries.IsValuerNil(b.AgentVersionID) {
+		t.Error("want b's foreign key value to be nil")
 	}
-	if len(c.R.Properties) != 0 {
-		t.Error("relationship was not removed properly from the slice")
+	if !queries.IsValuerNil(c.AgentVersionID) {
+		t.Error("want c's foreign key value to be nil")
 	}
-	if d.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
+
+	if b.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
 	}
-	if e.R.Properties[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
+	if c.R.AgentVersion != nil {
+		t.Error("relationship was not removed properly from the foreign struct")
+	}
+	if d.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
+	}
+	if e.R.AgentVersion != &a {
+		t.Error("relationship to a should have been preserved")
 	}
 
 	if len(a.R.Visits) != 2 {
@@ -1271,14 +1478,14 @@ func testPropertyToManyRemoveOpVisits(t *testing.T) {
 	}
 }
 
-func testPropertiesReload(t *testing.T) {
+func testAgentVersionsReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -1293,14 +1500,14 @@ func testPropertiesReload(t *testing.T) {
 	}
 }
 
-func testPropertiesReloadAll(t *testing.T) {
+func testAgentVersionsReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -1310,21 +1517,21 @@ func testPropertiesReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := PropertySlice{o}
+	slice := AgentVersionSlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testPropertiesSelect(t *testing.T) {
+func testAgentVersionsSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -1334,7 +1541,7 @@ func testPropertiesSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := Properties().All(ctx, tx)
+	slice, err := AgentVersions().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1345,25 +1552,25 @@ func testPropertiesSelect(t *testing.T) {
 }
 
 var (
-	propertyDBTypes = map[string]string{`ID`: `integer`, `Property`: `character varying`, `Value`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
-	_               = bytes.MinRead
+	agentVersionDBTypes = map[string]string{`ID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `AgentVersion`: `character varying`}
+	_                   = bytes.MinRead
 )
 
-func testPropertiesUpdate(t *testing.T) {
+func testAgentVersionsUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(propertyPrimaryKeyColumns) {
+	if 0 == len(agentVersionPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
+	if len(agentVersionAllColumns) == len(agentVersionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -1373,7 +1580,7 @@ func testPropertiesUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1382,8 +1589,8 @@ func testPropertiesUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -1393,18 +1600,18 @@ func testPropertiesUpdate(t *testing.T) {
 	}
 }
 
-func testPropertiesSliceUpdateAll(t *testing.T) {
+func testAgentVersionsSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
+	if len(agentVersionAllColumns) == len(agentVersionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &Property{}
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := &AgentVersion{}
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -1414,7 +1621,7 @@ func testPropertiesSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1423,18 +1630,18 @@ func testPropertiesSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, propertyDBTypes, true, propertyPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, o, agentVersionDBTypes, true, agentVersionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(propertyAllColumns, propertyPrimaryKeyColumns) {
-		fields = propertyAllColumns
+	if strmangle.StringSliceMatch(agentVersionAllColumns, agentVersionPrimaryKeyColumns) {
+		fields = agentVersionAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			propertyAllColumns,
-			propertyPrimaryKeyColumns,
+			agentVersionAllColumns,
+			agentVersionPrimaryKeyColumns,
 		)
 	}
 
@@ -1452,7 +1659,7 @@ func testPropertiesSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := PropertySlice{o}
+	slice := AgentVersionSlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -1460,29 +1667,29 @@ func testPropertiesSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testPropertiesUpsert(t *testing.T) {
+func testAgentVersionsUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(propertyAllColumns) == len(propertyPrimaryKeyColumns) {
+	if len(agentVersionAllColumns) == len(agentVersionPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := Property{}
-	if err = randomize.Struct(seed, &o, propertyDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	o := AgentVersion{}
+	if err = randomize.Struct(seed, &o, agentVersionDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Property: %s", err)
+		t.Errorf("Unable to upsert AgentVersion: %s", err)
 	}
 
-	count, err := Properties().Count(ctx, tx)
+	count, err := AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -1491,15 +1698,15 @@ func testPropertiesUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, propertyDBTypes, false, propertyPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err = randomize.Struct(seed, &o, agentVersionDBTypes, false, agentVersionPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert Property: %s", err)
+		t.Errorf("Unable to upsert AgentVersion: %s", err)
 	}
 
-	count, err = Properties().Count(ctx, tx)
+	count, err = AgentVersions().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}

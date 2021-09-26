@@ -494,627 +494,54 @@ func testVisitsInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testVisitToManyMultiAddresses(t *testing.T) {
-	var err error
+func testVisitToOneAgentVersionUsingAgentVersion(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a Visit
-	var b, c MultiAddress
+	var local Visit
+	var foreign AgentVersion
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
+	if err := randomize.Struct(seed, &local, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Visit struct: %s", err)
 	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
+	if err := randomize.Struct(seed, &foreign, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
-	if err = randomize.Struct(seed, &b, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, multiAddressDBTypes, false, multiAddressColumnsWithDefault...); err != nil {
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+	queries.Assign(&local.AgentVersionID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	_, err = tx.Exec("insert into \"visits_x_multi_addresses\" (\"visit_id\", \"multi_address_id\") values ($1, $2)", a.ID, b.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec("insert into \"visits_x_multi_addresses\" (\"visit_id\", \"multi_address_id\") values ($1, $2)", a.ID, c.ID)
+	check, err := local.AgentVersion().One(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := a.MultiAddresses().All(ctx, tx)
-	if err != nil {
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := VisitSlice{&local}
+	if err = local.L.LoadAgentVersion(ctx, tx, false, (*[]*Visit)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-
-	bFound, cFound := false, false
-	for _, v := range check {
-		if v.ID == b.ID {
-			bFound = true
-		}
-		if v.ID == c.ID {
-			cFound = true
-		}
+	if local.R.AgentVersion == nil {
+		t.Error("struct should have been eager loaded")
 	}
 
-	if !bFound {
-		t.Error("expected to find b")
-	}
-	if !cFound {
-		t.Error("expected to find c")
-	}
-
-	slice := VisitSlice{&a}
-	if err = a.L.LoadMultiAddresses(ctx, tx, false, (*[]*Visit)(&slice), nil); err != nil {
+	local.R.AgentVersion = nil
+	if err = local.L.LoadAgentVersion(ctx, tx, true, &local, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got := len(a.R.MultiAddresses); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	a.R.MultiAddresses = nil
-	if err = a.L.LoadMultiAddresses(ctx, tx, true, &a, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.MultiAddresses); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	if t.Failed() {
-		t.Logf("%#v", check)
-	}
-}
-
-func testVisitToManyProperties(t *testing.T) {
-	var err error
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Visit struct: %s", err)
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = randomize.Struct(seed, &b, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = tx.Exec("insert into \"visits_x_properties\" (\"visit_id\", \"property_id\") values ($1, $2)", a.ID, b.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec("insert into \"visits_x_properties\" (\"visit_id\", \"property_id\") values ($1, $2)", a.ID, c.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := a.Properties().All(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bFound, cFound := false, false
-	for _, v := range check {
-		if v.ID == b.ID {
-			bFound = true
-		}
-		if v.ID == c.ID {
-			cFound = true
-		}
-	}
-
-	if !bFound {
-		t.Error("expected to find b")
-	}
-	if !cFound {
-		t.Error("expected to find c")
-	}
-
-	slice := VisitSlice{&a}
-	if err = a.L.LoadProperties(ctx, tx, false, (*[]*Visit)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.Properties); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	a.R.Properties = nil
-	if err = a.L.LoadProperties(ctx, tx, true, &a, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.Properties); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	if t.Failed() {
-		t.Logf("%#v", check)
-	}
-}
-
-func testVisitToManyAddOpMultiAddresses(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e MultiAddress
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*MultiAddress{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	foreignersSplitByInsertion := [][]*MultiAddress{
-		{&b, &c},
-		{&d, &e},
-	}
-
-	for i, x := range foreignersSplitByInsertion {
-		err = a.AddMultiAddresses(ctx, tx, i != 0, x...)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		first := x[0]
-		second := x[1]
-
-		if first.R.Visits[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-		if second.R.Visits[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-
-		if a.R.MultiAddresses[i*2] != first {
-			t.Error("relationship struct slice not set to correct value")
-		}
-		if a.R.MultiAddresses[i*2+1] != second {
-			t.Error("relationship struct slice not set to correct value")
-		}
-
-		count, err := a.MultiAddresses().Count(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := int64((i + 1) * 2); count != want {
-			t.Error("want", want, "got", count)
-		}
-	}
-}
-
-func testVisitToManySetOpMultiAddresses(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e MultiAddress
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*MultiAddress{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.SetMultiAddresses(ctx, tx, false, &b, &c)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.MultiAddresses().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.SetMultiAddresses(ctx, tx, true, &d, &e)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.MultiAddresses().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	// The following checks cannot be implemented since we have no handle
-	// to these when we call Set(). Leaving them here as wishful thinking
-	// and to let people know there's dragons.
-	//
-	// if len(b.R.Visits) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	// if len(c.R.Visits) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	if d.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-	if e.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-
-	if a.R.MultiAddresses[0] != &d {
-		t.Error("relationship struct slice not set to correct value")
-	}
-	if a.R.MultiAddresses[1] != &e {
-		t.Error("relationship struct slice not set to correct value")
-	}
-}
-
-func testVisitToManyRemoveOpMultiAddresses(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e MultiAddress
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*MultiAddress{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, multiAddressDBTypes, false, strmangle.SetComplement(multiAddressPrimaryKeyColumns, multiAddressColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.AddMultiAddresses(ctx, tx, true, foreigners...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.MultiAddresses().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 4 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.RemoveMultiAddresses(ctx, tx, foreigners[:2]...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.MultiAddresses().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	if len(b.R.Visits) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if len(c.R.Visits) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if d.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-	if e.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-
-	if len(a.R.MultiAddresses) != 2 {
-		t.Error("should have preserved two relationships")
-	}
-
-	// Removal doesn't do a stable deletion for performance so we have to flip the order
-	if a.R.MultiAddresses[1] != &d {
-		t.Error("relationship to d should have been preserved")
-	}
-	if a.R.MultiAddresses[0] != &e {
-		t.Error("relationship to e should have been preserved")
-	}
-}
-
-func testVisitToManyAddOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	foreignersSplitByInsertion := [][]*Property{
-		{&b, &c},
-		{&d, &e},
-	}
-
-	for i, x := range foreignersSplitByInsertion {
-		err = a.AddProperties(ctx, tx, i != 0, x...)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		first := x[0]
-		second := x[1]
-
-		if first.R.Visits[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-		if second.R.Visits[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-
-		if a.R.Properties[i*2] != first {
-			t.Error("relationship struct slice not set to correct value")
-		}
-		if a.R.Properties[i*2+1] != second {
-			t.Error("relationship struct slice not set to correct value")
-		}
-
-		count, err := a.Properties().Count(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := int64((i + 1) * 2); count != want {
-			t.Error("want", want, "got", count)
-		}
-	}
-}
-
-func testVisitToManySetOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.SetProperties(ctx, tx, false, &b, &c)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.SetProperties(ctx, tx, true, &d, &e)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	// The following checks cannot be implemented since we have no handle
-	// to these when we call Set(). Leaving them here as wishful thinking
-	// and to let people know there's dragons.
-	//
-	// if len(b.R.Visits) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	// if len(c.R.Visits) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	if d.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-	if e.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-
-	if a.R.Properties[0] != &d {
-		t.Error("relationship struct slice not set to correct value")
-	}
-	if a.R.Properties[1] != &e {
-		t.Error("relationship struct slice not set to correct value")
-	}
-}
-
-func testVisitToManyRemoveOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Visit
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.AddProperties(ctx, tx, true, foreigners...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 4 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.RemoveProperties(ctx, tx, foreigners[:2]...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	if len(b.R.Visits) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if len(c.R.Visits) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if d.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-	if e.R.Visits[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-
-	if len(a.R.Properties) != 2 {
-		t.Error("should have preserved two relationships")
-	}
-
-	// Removal doesn't do a stable deletion for performance so we have to flip the order
-	if a.R.Properties[1] != &d {
-		t.Error("relationship to d should have been preserved")
-	}
-	if a.R.Properties[0] != &e {
-		t.Error("relationship to e should have been preserved")
+	if local.R.AgentVersion == nil {
+		t.Error("struct should have been eager loaded")
 	}
 }
 
@@ -1165,6 +592,57 @@ func testVisitToOneCrawlUsingCrawl(t *testing.T) {
 		t.Fatal(err)
 	}
 	if local.R.Crawl == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testVisitToOneMultiAddressesSetUsingMultiAddressesSet(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Visit
+	var foreign MultiAddressesSet
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Visit struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, multiAddressesSetDBTypes, false, multiAddressesSetColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize MultiAddressesSet struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	queries.Assign(&local.MultiAddressesSetID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.MultiAddressesSet().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := VisitSlice{&local}
+	if err = local.L.LoadMultiAddressesSet(ctx, tx, false, (*[]*Visit)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.MultiAddressesSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.MultiAddressesSet = nil
+	if err = local.L.LoadMultiAddressesSet(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.MultiAddressesSet == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
@@ -1220,6 +698,57 @@ func testVisitToOnePeerUsingPeer(t *testing.T) {
 	}
 }
 
+func testVisitToOneProtocolsSetUsingProtocolsSet(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Visit
+	var foreign ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, visitDBTypes, true, visitColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Visit struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, protocolsSetDBTypes, false, protocolsSetColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize ProtocolsSet struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	queries.Assign(&local.ProtocolsSetID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.ProtocolsSet().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := VisitSlice{&local}
+	if err = local.L.LoadProtocolsSet(ctx, tx, false, (*[]*Visit)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ProtocolsSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.ProtocolsSet = nil
+	if err = local.L.LoadProtocolsSet(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ProtocolsSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
 func testVisitToOneSessionUsingSession(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
@@ -1268,6 +797,115 @@ func testVisitToOneSessionUsingSession(t *testing.T) {
 	}
 	if local.R.Session == nil {
 		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testVisitToOneSetOpAgentVersionUsingAgentVersion(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b, c AgentVersion
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*AgentVersion{&b, &c} {
+		err = a.SetAgentVersion(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.AgentVersion != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Visits[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.AgentVersionID))
+		reflect.Indirect(reflect.ValueOf(&a.AgentVersionID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID, x.ID)
+		}
+	}
+}
+
+func testVisitToOneRemoveOpAgentVersionUsingAgentVersion(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b AgentVersion
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetAgentVersion(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveAgentVersion(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.AgentVersion().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.AgentVersion != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.AgentVersionID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Visits) != 0 {
+		t.Error("failed to remove a from b's relationships")
 	}
 }
 
@@ -1380,6 +1018,115 @@ func testVisitToOneRemoveOpCrawlUsingCrawl(t *testing.T) {
 	}
 }
 
+func testVisitToOneSetOpMultiAddressesSetUsingMultiAddressesSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b, c MultiAddressesSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, multiAddressesSetDBTypes, false, strmangle.SetComplement(multiAddressesSetPrimaryKeyColumns, multiAddressesSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, multiAddressesSetDBTypes, false, strmangle.SetComplement(multiAddressesSetPrimaryKeyColumns, multiAddressesSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*MultiAddressesSet{&b, &c} {
+		err = a.SetMultiAddressesSet(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.MultiAddressesSet != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Visits[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.MultiAddressesSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.MultiAddressesSetID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.MultiAddressesSetID))
+		reflect.Indirect(reflect.ValueOf(&a.MultiAddressesSetID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.MultiAddressesSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.MultiAddressesSetID, x.ID)
+		}
+	}
+}
+
+func testVisitToOneRemoveOpMultiAddressesSetUsingMultiAddressesSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b MultiAddressesSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, multiAddressesSetDBTypes, false, strmangle.SetComplement(multiAddressesSetPrimaryKeyColumns, multiAddressesSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetMultiAddressesSet(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveMultiAddressesSet(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.MultiAddressesSet().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.MultiAddressesSet != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.MultiAddressesSetID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Visits) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
+
 func testVisitToOneSetOpPeerUsingPeer(t *testing.T) {
 	var err error
 
@@ -1437,6 +1184,115 @@ func testVisitToOneSetOpPeerUsingPeer(t *testing.T) {
 		}
 	}
 }
+func testVisitToOneSetOpProtocolsSetUsingProtocolsSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b, c ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*ProtocolsSet{&b, &c} {
+		err = a.SetProtocolsSet(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.ProtocolsSet != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Visits[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.ProtocolsSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolsSetID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.ProtocolsSetID))
+		reflect.Indirect(reflect.ValueOf(&a.ProtocolsSetID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.ProtocolsSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolsSetID, x.ID)
+		}
+	}
+}
+
+func testVisitToOneRemoveOpProtocolsSetUsingProtocolsSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Visit
+	var b ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, visitDBTypes, false, strmangle.SetComplement(visitPrimaryKeyColumns, visitColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetProtocolsSet(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveProtocolsSet(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.ProtocolsSet().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.ProtocolsSet != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.ProtocolsSetID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Visits) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
+
 func testVisitToOneSetOpSessionUsingSession(t *testing.T) {
 	var err error
 
@@ -1620,7 +1476,7 @@ func testVisitsSelect(t *testing.T) {
 }
 
 var (
-	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `SessionID`: `integer`, `DialDuration`: `interval`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `VisitStartedAt`: `timestamp with time zone`, `VisitEndedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Type`: `enum.visit_type('crawl','dial')`, `Error`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`}
+	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `SessionID`: `integer`, `DialDuration`: `interval`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `VisitStartedAt`: `timestamp with time zone`, `VisitEndedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Type`: `enum.visit_type('crawl','dial')`, `Error`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`, `ProtocolsSetID`: `integer`, `AgentVersionID`: `integer`, `MultiAddressesSetID`: `integer`}
 	_            = bytes.MinRead
 )
 

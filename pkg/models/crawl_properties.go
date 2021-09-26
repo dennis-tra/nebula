@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,124 +24,143 @@ import (
 
 // CrawlProperty is an object representing the database table.
 type CrawlProperty struct {
-	ID         int       `boil:"id" json:"id" toml:"id" yaml:"id"`
-	Count      int       `boil:"count" json:"count" toml:"count" yaml:"count"`
-	CrawlID    int       `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
-	CreatedAt  time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt  time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
-	PropertyID int       `boil:"property_id" json:"property_id" toml:"property_id" yaml:"property_id"`
+	ID             int         `boil:"id" json:"id" toml:"id" yaml:"id"`
+	CrawlID        int         `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
+	ProtocolID     null.Int    `boil:"protocol_id" json:"protocol_id,omitempty" toml:"protocol_id" yaml:"protocol_id,omitempty"`
+	AgentVersionID null.Int    `boil:"agent_version_id" json:"agent_version_id,omitempty" toml:"agent_version_id" yaml:"agent_version_id,omitempty"`
+	Error          null.String `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	Count          int         `boil:"count" json:"count" toml:"count" yaml:"count"`
+	CreatedAt      time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt      time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 
 	R *crawlPropertyR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L crawlPropertyL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var CrawlPropertyColumns = struct {
-	ID         string
-	Count      string
-	CrawlID    string
-	CreatedAt  string
-	UpdatedAt  string
-	PropertyID string
+	ID             string
+	CrawlID        string
+	ProtocolID     string
+	AgentVersionID string
+	Error          string
+	Count          string
+	CreatedAt      string
+	UpdatedAt      string
 }{
-	ID:         "id",
-	Count:      "count",
-	CrawlID:    "crawl_id",
-	CreatedAt:  "created_at",
-	UpdatedAt:  "updated_at",
-	PropertyID: "property_id",
+	ID:             "id",
+	CrawlID:        "crawl_id",
+	ProtocolID:     "protocol_id",
+	AgentVersionID: "agent_version_id",
+	Error:          "error",
+	Count:          "count",
+	CreatedAt:      "created_at",
+	UpdatedAt:      "updated_at",
 }
 
 var CrawlPropertyTableColumns = struct {
-	ID         string
-	Count      string
-	CrawlID    string
-	CreatedAt  string
-	UpdatedAt  string
-	PropertyID string
+	ID             string
+	CrawlID        string
+	ProtocolID     string
+	AgentVersionID string
+	Error          string
+	Count          string
+	CreatedAt      string
+	UpdatedAt      string
 }{
-	ID:         "crawl_properties.id",
-	Count:      "crawl_properties.count",
-	CrawlID:    "crawl_properties.crawl_id",
-	CreatedAt:  "crawl_properties.created_at",
-	UpdatedAt:  "crawl_properties.updated_at",
-	PropertyID: "crawl_properties.property_id",
+	ID:             "crawl_properties.id",
+	CrawlID:        "crawl_properties.crawl_id",
+	ProtocolID:     "crawl_properties.protocol_id",
+	AgentVersionID: "crawl_properties.agent_version_id",
+	Error:          "crawl_properties.error",
+	Count:          "crawl_properties.count",
+	CreatedAt:      "crawl_properties.created_at",
+	UpdatedAt:      "crawl_properties.updated_at",
 }
 
 // Generated where
 
-type whereHelperint struct{ field string }
+type whereHelpernull_Int struct{ field string }
 
-func (w whereHelperint) EQ(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
-func (w whereHelperint) NEQ(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
-func (w whereHelperint) LT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
-func (w whereHelperint) LTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
-func (w whereHelperint) GT(x int) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
-func (w whereHelperint) GTE(x int) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
-func (w whereHelperint) IN(slice []int) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-func (w whereHelperint) NIN(slice []int) qm.QueryMod {
-	values := make([]interface{}, 0, len(slice))
-	for _, value := range slice {
-		values = append(values, value)
-	}
-	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-
-type whereHelpertime_Time struct{ field string }
-
-func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.EQ, x)
-}
-func (w whereHelpertime_Time) NEQ(x time.Time) qm.QueryMod {
-	return qmhelper.Where(w.field, qmhelper.NEQ, x)
-}
-func (w whereHelpertime_Time) LT(x time.Time) qm.QueryMod {
+func (w whereHelpernull_Int) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_Int) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-func (w whereHelpertime_Time) LTE(x time.Time) qm.QueryMod {
+func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-func (w whereHelpertime_Time) GT(x time.Time) qm.QueryMod {
+func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
+func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GTE, x)
+}
+
+type whereHelpernull_String struct{ field string }
+
+func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, false, x)
+}
+func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
+	return qmhelper.WhereNullEQ(w.field, true, x)
+}
+func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
+func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
+func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LT, x)
+}
+func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.LTE, x)
+}
+func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
+	return qmhelper.Where(w.field, qmhelper.GT, x)
+}
+func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
 var CrawlPropertyWhere = struct {
-	ID         whereHelperint
-	Count      whereHelperint
-	CrawlID    whereHelperint
-	CreatedAt  whereHelpertime_Time
-	UpdatedAt  whereHelpertime_Time
-	PropertyID whereHelperint
+	ID             whereHelperint
+	CrawlID        whereHelperint
+	ProtocolID     whereHelpernull_Int
+	AgentVersionID whereHelpernull_Int
+	Error          whereHelpernull_String
+	Count          whereHelperint
+	CreatedAt      whereHelpertime_Time
+	UpdatedAt      whereHelpertime_Time
 }{
-	ID:         whereHelperint{field: "\"crawl_properties\".\"id\""},
-	Count:      whereHelperint{field: "\"crawl_properties\".\"count\""},
-	CrawlID:    whereHelperint{field: "\"crawl_properties\".\"crawl_id\""},
-	CreatedAt:  whereHelpertime_Time{field: "\"crawl_properties\".\"created_at\""},
-	UpdatedAt:  whereHelpertime_Time{field: "\"crawl_properties\".\"updated_at\""},
-	PropertyID: whereHelperint{field: "\"crawl_properties\".\"property_id\""},
+	ID:             whereHelperint{field: "\"crawl_properties\".\"id\""},
+	CrawlID:        whereHelperint{field: "\"crawl_properties\".\"crawl_id\""},
+	ProtocolID:     whereHelpernull_Int{field: "\"crawl_properties\".\"protocol_id\""},
+	AgentVersionID: whereHelpernull_Int{field: "\"crawl_properties\".\"agent_version_id\""},
+	Error:          whereHelpernull_String{field: "\"crawl_properties\".\"error\""},
+	Count:          whereHelperint{field: "\"crawl_properties\".\"count\""},
+	CreatedAt:      whereHelpertime_Time{field: "\"crawl_properties\".\"created_at\""},
+	UpdatedAt:      whereHelpertime_Time{field: "\"crawl_properties\".\"updated_at\""},
 }
 
 // CrawlPropertyRels is where relationship names are stored.
 var CrawlPropertyRels = struct {
-	Property string
-	Crawl    string
+	AgentVersion string
+	Crawl        string
+	Protocol     string
 }{
-	Property: "Property",
-	Crawl:    "Crawl",
+	AgentVersion: "AgentVersion",
+	Crawl:        "Crawl",
+	Protocol:     "Protocol",
 }
 
 // crawlPropertyR is where relationships are stored.
 type crawlPropertyR struct {
-	Property *Property `boil:"Property" json:"Property" toml:"Property" yaml:"Property"`
-	Crawl    *Crawl    `boil:"Crawl" json:"Crawl" toml:"Crawl" yaml:"Crawl"`
+	AgentVersion *AgentVersion `boil:"AgentVersion" json:"AgentVersion" toml:"AgentVersion" yaml:"AgentVersion"`
+	Crawl        *Crawl        `boil:"Crawl" json:"Crawl" toml:"Crawl" yaml:"Crawl"`
+	Protocol     *Protocol     `boil:"Protocol" json:"Protocol" toml:"Protocol" yaml:"Protocol"`
 }
 
 // NewStruct creates a new relationship struct
@@ -152,9 +172,9 @@ func (*crawlPropertyR) NewStruct() *crawlPropertyR {
 type crawlPropertyL struct{}
 
 var (
-	crawlPropertyAllColumns            = []string{"id", "count", "crawl_id", "created_at", "updated_at", "property_id"}
-	crawlPropertyColumnsWithoutDefault = []string{"count", "created_at", "updated_at"}
-	crawlPropertyColumnsWithDefault    = []string{"id", "crawl_id", "property_id"}
+	crawlPropertyAllColumns            = []string{"id", "crawl_id", "protocol_id", "agent_version_id", "error", "count", "created_at", "updated_at"}
+	crawlPropertyColumnsWithoutDefault = []string{"protocol_id", "agent_version_id", "error", "count", "created_at", "updated_at"}
+	crawlPropertyColumnsWithDefault    = []string{"id", "crawl_id"}
 	crawlPropertyPrimaryKeyColumns     = []string{"id"}
 )
 
@@ -433,16 +453,16 @@ func (q crawlPropertyQuery) Exists(ctx context.Context, exec boil.ContextExecuto
 	return count > 0, nil
 }
 
-// Property pointed to by the foreign key.
-func (o *CrawlProperty) Property(mods ...qm.QueryMod) propertyQuery {
+// AgentVersion pointed to by the foreign key.
+func (o *CrawlProperty) AgentVersion(mods ...qm.QueryMod) agentVersionQuery {
 	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.PropertyID),
+		qm.Where("\"id\" = ?", o.AgentVersionID),
 	}
 
 	queryMods = append(queryMods, mods...)
 
-	query := Properties(queryMods...)
-	queries.SetFrom(query.Query, "\"properties\"")
+	query := AgentVersions(queryMods...)
+	queries.SetFrom(query.Query, "\"agent_versions\"")
 
 	return query
 }
@@ -461,9 +481,23 @@ func (o *CrawlProperty) Crawl(mods ...qm.QueryMod) crawlQuery {
 	return query
 }
 
-// LoadProperty allows an eager lookup of values, cached into the
+// Protocol pointed to by the foreign key.
+func (o *CrawlProperty) Protocol(mods ...qm.QueryMod) protocolQuery {
+	queryMods := []qm.QueryMod{
+		qm.Where("\"id\" = ?", o.ProtocolID),
+	}
+
+	queryMods = append(queryMods, mods...)
+
+	query := Protocols(queryMods...)
+	queries.SetFrom(query.Query, "\"protocols\"")
+
+	return query
+}
+
+// LoadAgentVersion allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for an N-1 relationship.
-func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, singular bool, maybeCrawlProperty interface{}, mods queries.Applicator) error {
+func (crawlPropertyL) LoadAgentVersion(ctx context.Context, e boil.ContextExecutor, singular bool, maybeCrawlProperty interface{}, mods queries.Applicator) error {
 	var slice []*CrawlProperty
 	var object *CrawlProperty
 
@@ -478,7 +512,9 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 		if object.R == nil {
 			object.R = &crawlPropertyR{}
 		}
-		args = append(args, object.PropertyID)
+		if !queries.IsNil(object.AgentVersionID) {
+			args = append(args, object.AgentVersionID)
+		}
 
 	} else {
 	Outer:
@@ -488,12 +524,14 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 			}
 
 			for _, a := range args {
-				if a == obj.PropertyID {
+				if queries.Equal(a, obj.AgentVersionID) {
 					continue Outer
 				}
 			}
 
-			args = append(args, obj.PropertyID)
+			if !queries.IsNil(obj.AgentVersionID) {
+				args = append(args, obj.AgentVersionID)
+			}
 
 		}
 	}
@@ -503,8 +541,8 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 	}
 
 	query := NewQuery(
-		qm.From(`properties`),
-		qm.WhereIn(`properties.id in ?`, args...),
+		qm.From(`agent_versions`),
+		qm.WhereIn(`agent_versions.id in ?`, args...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -512,19 +550,19 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load Property")
+		return errors.Wrap(err, "failed to eager load AgentVersion")
 	}
 
-	var resultSlice []*Property
+	var resultSlice []*AgentVersion
 	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Property")
+		return errors.Wrap(err, "failed to bind eager loaded slice AgentVersion")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for properties")
+		return errors.Wrap(err, "failed to close results of eager load for agent_versions")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for properties")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for agent_versions")
 	}
 
 	if len(crawlPropertyAfterSelectHooks) != 0 {
@@ -541,9 +579,9 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 
 	if singular {
 		foreign := resultSlice[0]
-		object.R.Property = foreign
+		object.R.AgentVersion = foreign
 		if foreign.R == nil {
-			foreign.R = &propertyR{}
+			foreign.R = &agentVersionR{}
 		}
 		foreign.R.CrawlProperties = append(foreign.R.CrawlProperties, object)
 		return nil
@@ -551,10 +589,10 @@ func (crawlPropertyL) LoadProperty(ctx context.Context, e boil.ContextExecutor, 
 
 	for _, local := range slice {
 		for _, foreign := range resultSlice {
-			if local.PropertyID == foreign.ID {
-				local.R.Property = foreign
+			if queries.Equal(local.AgentVersionID, foreign.ID) {
+				local.R.AgentVersion = foreign
 				if foreign.R == nil {
-					foreign.R = &propertyR{}
+					foreign.R = &agentVersionR{}
 				}
 				foreign.R.CrawlProperties = append(foreign.R.CrawlProperties, local)
 				break
@@ -669,10 +707,118 @@ func (crawlPropertyL) LoadCrawl(ctx context.Context, e boil.ContextExecutor, sin
 	return nil
 }
 
-// SetProperty of the crawlProperty to the related item.
-// Sets o.R.Property to related.
+// LoadProtocol allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for an N-1 relationship.
+func (crawlPropertyL) LoadProtocol(ctx context.Context, e boil.ContextExecutor, singular bool, maybeCrawlProperty interface{}, mods queries.Applicator) error {
+	var slice []*CrawlProperty
+	var object *CrawlProperty
+
+	if singular {
+		object = maybeCrawlProperty.(*CrawlProperty)
+	} else {
+		slice = *maybeCrawlProperty.(*[]*CrawlProperty)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &crawlPropertyR{}
+		}
+		if !queries.IsNil(object.ProtocolID) {
+			args = append(args, object.ProtocolID)
+		}
+
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &crawlPropertyR{}
+			}
+
+			for _, a := range args {
+				if queries.Equal(a, obj.ProtocolID) {
+					continue Outer
+				}
+			}
+
+			if !queries.IsNil(obj.ProtocolID) {
+				args = append(args, obj.ProtocolID)
+			}
+
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`protocols`),
+		qm.WhereIn(`protocols.id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load Protocol")
+	}
+
+	var resultSlice []*Protocol
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice Protocol")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results of eager load for protocols")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for protocols")
+	}
+
+	if len(crawlPropertyAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(resultSlice) == 0 {
+		return nil
+	}
+
+	if singular {
+		foreign := resultSlice[0]
+		object.R.Protocol = foreign
+		if foreign.R == nil {
+			foreign.R = &protocolR{}
+		}
+		foreign.R.CrawlProperties = append(foreign.R.CrawlProperties, object)
+		return nil
+	}
+
+	for _, local := range slice {
+		for _, foreign := range resultSlice {
+			if queries.Equal(local.ProtocolID, foreign.ID) {
+				local.R.Protocol = foreign
+				if foreign.R == nil {
+					foreign.R = &protocolR{}
+				}
+				foreign.R.CrawlProperties = append(foreign.R.CrawlProperties, local)
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// SetAgentVersion of the crawlProperty to the related item.
+// Sets o.R.AgentVersion to related.
 // Adds o to related.R.CrawlProperties.
-func (o *CrawlProperty) SetProperty(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Property) error {
+func (o *CrawlProperty) SetAgentVersion(ctx context.Context, exec boil.ContextExecutor, insert bool, related *AgentVersion) error {
 	var err error
 	if insert {
 		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
@@ -682,7 +828,7 @@ func (o *CrawlProperty) SetProperty(ctx context.Context, exec boil.ContextExecut
 
 	updateQuery := fmt.Sprintf(
 		"UPDATE \"crawl_properties\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"property_id"}),
+		strmangle.SetParamNames("\"", "\"", 1, []string{"agent_version_id"}),
 		strmangle.WhereClause("\"", "\"", 2, crawlPropertyPrimaryKeyColumns),
 	)
 	values := []interface{}{related.ID, o.ID}
@@ -696,23 +842,56 @@ func (o *CrawlProperty) SetProperty(ctx context.Context, exec boil.ContextExecut
 		return errors.Wrap(err, "failed to update local table")
 	}
 
-	o.PropertyID = related.ID
+	queries.Assign(&o.AgentVersionID, related.ID)
 	if o.R == nil {
 		o.R = &crawlPropertyR{
-			Property: related,
+			AgentVersion: related,
 		}
 	} else {
-		o.R.Property = related
+		o.R.AgentVersion = related
 	}
 
 	if related.R == nil {
-		related.R = &propertyR{
+		related.R = &agentVersionR{
 			CrawlProperties: CrawlPropertySlice{o},
 		}
 	} else {
 		related.R.CrawlProperties = append(related.R.CrawlProperties, o)
 	}
 
+	return nil
+}
+
+// RemoveAgentVersion relationship.
+// Sets o.R.AgentVersion to nil.
+// Removes o from all passed in related items' relationships struct (Optional).
+func (o *CrawlProperty) RemoveAgentVersion(ctx context.Context, exec boil.ContextExecutor, related *AgentVersion) error {
+	var err error
+
+	queries.SetScanner(&o.AgentVersionID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("agent_version_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.AgentVersion = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.CrawlProperties {
+		if queries.Equal(o.AgentVersionID, ri.AgentVersionID) {
+			continue
+		}
+
+		ln := len(related.R.CrawlProperties)
+		if ln > 1 && i < ln-1 {
+			related.R.CrawlProperties[i] = related.R.CrawlProperties[ln-1]
+		}
+		related.R.CrawlProperties = related.R.CrawlProperties[:ln-1]
+		break
+	}
 	return nil
 }
 
@@ -760,6 +939,86 @@ func (o *CrawlProperty) SetCrawl(ctx context.Context, exec boil.ContextExecutor,
 		related.R.CrawlProperties = append(related.R.CrawlProperties, o)
 	}
 
+	return nil
+}
+
+// SetProtocol of the crawlProperty to the related item.
+// Sets o.R.Protocol to related.
+// Adds o to related.R.CrawlProperties.
+func (o *CrawlProperty) SetProtocol(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Protocol) error {
+	var err error
+	if insert {
+		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
+			return errors.Wrap(err, "failed to insert into foreign table")
+		}
+	}
+
+	updateQuery := fmt.Sprintf(
+		"UPDATE \"crawl_properties\" SET %s WHERE %s",
+		strmangle.SetParamNames("\"", "\"", 1, []string{"protocol_id"}),
+		strmangle.WhereClause("\"", "\"", 2, crawlPropertyPrimaryKeyColumns),
+	)
+	values := []interface{}{related.ID, o.ID}
+
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, updateQuery)
+		fmt.Fprintln(writer, values)
+	}
+	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	queries.Assign(&o.ProtocolID, related.ID)
+	if o.R == nil {
+		o.R = &crawlPropertyR{
+			Protocol: related,
+		}
+	} else {
+		o.R.Protocol = related
+	}
+
+	if related.R == nil {
+		related.R = &protocolR{
+			CrawlProperties: CrawlPropertySlice{o},
+		}
+	} else {
+		related.R.CrawlProperties = append(related.R.CrawlProperties, o)
+	}
+
+	return nil
+}
+
+// RemoveProtocol relationship.
+// Sets o.R.Protocol to nil.
+// Removes o from all passed in related items' relationships struct (Optional).
+func (o *CrawlProperty) RemoveProtocol(ctx context.Context, exec boil.ContextExecutor, related *Protocol) error {
+	var err error
+
+	queries.SetScanner(&o.ProtocolID, nil)
+	if _, err = o.Update(ctx, exec, boil.Whitelist("protocol_id")); err != nil {
+		return errors.Wrap(err, "failed to update local table")
+	}
+
+	if o.R != nil {
+		o.R.Protocol = nil
+	}
+	if related == nil || related.R == nil {
+		return nil
+	}
+
+	for i, ri := range related.R.CrawlProperties {
+		if queries.Equal(o.ProtocolID, ri.ProtocolID) {
+			continue
+		}
+
+		ln := len(related.R.CrawlProperties)
+		if ln > 1 && i < ln-1 {
+			related.R.CrawlProperties[i] = related.R.CrawlProperties[ln-1]
+		}
+		related.R.CrawlProperties = related.R.CrawlProperties[:ln-1]
+		break
+	}
 	return nil
 }
 

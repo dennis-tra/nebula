@@ -812,90 +812,6 @@ func testPeerToManyMultiAddresses(t *testing.T) {
 	}
 }
 
-func testPeerToManyProperties(t *testing.T) {
-	var err error
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Peer
-	var b, c Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Peer struct: %s", err)
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = randomize.Struct(seed, &b, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = tx.Exec("insert into \"peers_x_properties\" (\"peer_id\", \"property_id\") values ($1, $2)", a.ID, b.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = tx.Exec("insert into \"peers_x_properties\" (\"peer_id\", \"property_id\") values ($1, $2)", a.ID, c.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	check, err := a.Properties().All(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	bFound, cFound := false, false
-	for _, v := range check {
-		if v.ID == b.ID {
-			bFound = true
-		}
-		if v.ID == c.ID {
-			cFound = true
-		}
-	}
-
-	if !bFound {
-		t.Error("expected to find b")
-	}
-	if !cFound {
-		t.Error("expected to find c")
-	}
-
-	slice := PeerSlice{&a}
-	if err = a.L.LoadProperties(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.Properties); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	a.R.Properties = nil
-	if err = a.L.LoadProperties(ctx, tx, true, &a, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.Properties); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	if t.Failed() {
-		t.Logf("%#v", check)
-	}
-}
-
 func testPeerToManySessions(t *testing.T) {
 	var err error
 	ctx := context.Background()
@@ -1505,234 +1421,6 @@ func testPeerToManyRemoveOpMultiAddresses(t *testing.T) {
 	}
 }
 
-func testPeerToManyAddOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Peer
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	foreignersSplitByInsertion := [][]*Property{
-		{&b, &c},
-		{&d, &e},
-	}
-
-	for i, x := range foreignersSplitByInsertion {
-		err = a.AddProperties(ctx, tx, i != 0, x...)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		first := x[0]
-		second := x[1]
-
-		if first.R.Peers[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-		if second.R.Peers[0] != &a {
-			t.Error("relationship was not added properly to the slice")
-		}
-
-		if a.R.Properties[i*2] != first {
-			t.Error("relationship struct slice not set to correct value")
-		}
-		if a.R.Properties[i*2+1] != second {
-			t.Error("relationship struct slice not set to correct value")
-		}
-
-		count, err := a.Properties().Count(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := int64((i + 1) * 2); count != want {
-			t.Error("want", want, "got", count)
-		}
-	}
-}
-
-func testPeerToManySetOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Peer
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.SetProperties(ctx, tx, false, &b, &c)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.SetProperties(ctx, tx, true, &d, &e)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	// The following checks cannot be implemented since we have no handle
-	// to these when we call Set(). Leaving them here as wishful thinking
-	// and to let people know there's dragons.
-	//
-	// if len(b.R.Peers) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	// if len(c.R.Peers) != 0 {
-	// 	t.Error("relationship was not removed properly from the slice")
-	// }
-	if d.R.Peers[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-	if e.R.Peers[0] != &a {
-		t.Error("relationship was not added properly to the slice")
-	}
-
-	if a.R.Properties[0] != &d {
-		t.Error("relationship struct slice not set to correct value")
-	}
-	if a.R.Properties[1] != &e {
-		t.Error("relationship struct slice not set to correct value")
-	}
-}
-
-func testPeerToManyRemoveOpProperties(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Peer
-	var b, c, d, e Property
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*Property{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.AddProperties(ctx, tx, true, foreigners...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err := a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 4 {
-		t.Error("count was wrong:", count)
-	}
-
-	err = a.RemoveProperties(ctx, tx, foreigners[:2]...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	count, err = a.Properties().Count(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 {
-		t.Error("count was wrong:", count)
-	}
-
-	if len(b.R.Peers) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if len(c.R.Peers) != 0 {
-		t.Error("relationship was not removed properly from the slice")
-	}
-	if d.R.Peers[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-	if e.R.Peers[0] != &a {
-		t.Error("relationship was not added properly to the foreign struct")
-	}
-
-	if len(a.R.Properties) != 2 {
-		t.Error("should have preserved two relationships")
-	}
-
-	// Removal doesn't do a stable deletion for performance so we have to flip the order
-	if a.R.Properties[1] != &d {
-		t.Error("relationship to d should have been preserved")
-	}
-	if a.R.Properties[0] != &e {
-		t.Error("relationship to e should have been preserved")
-	}
-}
-
 func testPeerToManyAddOpSessions(t *testing.T) {
 	var err error
 
@@ -1883,6 +1571,325 @@ func testPeerToManyAddOpVisits(t *testing.T) {
 		}
 	}
 }
+func testPeerToOneAgentVersionUsingAgentVersion(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Peer
+	var foreign AgentVersion
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	queries.Assign(&local.AgentVersionID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.AgentVersion().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := PeerSlice{&local}
+	if err = local.L.LoadAgentVersion(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.AgentVersion == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.AgentVersion = nil
+	if err = local.L.LoadAgentVersion(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.AgentVersion == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testPeerToOneProtocolsSetUsingProtocolsSet(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local Peer
+	var foreign ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, protocolsSetDBTypes, false, protocolsSetColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize ProtocolsSet struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	queries.Assign(&local.ProtocolsSetID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.ProtocolsSet().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := PeerSlice{&local}
+	if err = local.L.LoadProtocolsSet(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ProtocolsSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.ProtocolsSet = nil
+	if err = local.L.LoadProtocolsSet(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.ProtocolsSet == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testPeerToOneSetOpAgentVersionUsingAgentVersion(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Peer
+	var b, c AgentVersion
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*AgentVersion{&b, &c} {
+		err = a.SetAgentVersion(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.AgentVersion != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Peers[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.AgentVersionID))
+		reflect.Indirect(reflect.ValueOf(&a.AgentVersionID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID, x.ID)
+		}
+	}
+}
+
+func testPeerToOneRemoveOpAgentVersionUsingAgentVersion(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Peer
+	var b AgentVersion
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetAgentVersion(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveAgentVersion(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.AgentVersion().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.AgentVersion != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.AgentVersionID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Peers) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
+
+func testPeerToOneSetOpProtocolsSetUsingProtocolsSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Peer
+	var b, c ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*ProtocolsSet{&b, &c} {
+		err = a.SetProtocolsSet(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.ProtocolsSet != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.Peers[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.ProtocolsSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolsSetID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.ProtocolsSetID))
+		reflect.Indirect(reflect.ValueOf(&a.ProtocolsSetID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.ProtocolsSetID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolsSetID, x.ID)
+		}
+	}
+}
+
+func testPeerToOneRemoveOpProtocolsSetUsingProtocolsSet(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Peer
+	var b ProtocolsSet
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolsSetDBTypes, false, strmangle.SetComplement(protocolsSetPrimaryKeyColumns, protocolsSetColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetProtocolsSet(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveProtocolsSet(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.ProtocolsSet().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.ProtocolsSet != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.ProtocolsSetID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.Peers) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
 
 func testPeersReload(t *testing.T) {
 	t.Parallel()
@@ -1958,7 +1965,7 @@ func testPeersSelect(t *testing.T) {
 }
 
 var (
-	peerDBTypes = map[string]string{`MultiHash`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ID`: `integer`}
+	peerDBTypes = map[string]string{`MultiHash`: `character varying`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `ID`: `integer`, `ProtocolsSetID`: `integer`, `AgentVersionID`: `integer`}
 	_           = bytes.MinRead
 )
 

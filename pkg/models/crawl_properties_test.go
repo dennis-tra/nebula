@@ -494,53 +494,53 @@ func testCrawlPropertiesInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testCrawlPropertyToOnePropertyUsingProperty(t *testing.T) {
+func testCrawlPropertyToOneAgentVersionUsingAgentVersion(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
 	var local CrawlProperty
-	var foreign Property
+	var foreign AgentVersion
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, crawlPropertyDBTypes, false, crawlPropertyColumnsWithDefault...); err != nil {
+	if err := randomize.Struct(seed, &local, crawlPropertyDBTypes, true, crawlPropertyColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize CrawlProperty struct: %s", err)
 	}
-	if err := randomize.Struct(seed, &foreign, propertyDBTypes, false, propertyColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Property struct: %s", err)
+	if err := randomize.Struct(seed, &foreign, agentVersionDBTypes, false, agentVersionColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize AgentVersion struct: %s", err)
 	}
 
 	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	local.PropertyID = foreign.ID
+	queries.Assign(&local.AgentVersionID, foreign.ID)
 	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
 
-	check, err := local.Property().One(ctx, tx)
+	check, err := local.AgentVersion().One(ctx, tx)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if check.ID != foreign.ID {
+	if !queries.Equal(check.ID, foreign.ID) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
 	slice := CrawlPropertySlice{&local}
-	if err = local.L.LoadProperty(ctx, tx, false, (*[]*CrawlProperty)(&slice), nil); err != nil {
+	if err = local.L.LoadAgentVersion(ctx, tx, false, (*[]*CrawlProperty)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Property == nil {
+	if local.R.AgentVersion == nil {
 		t.Error("struct should have been eager loaded")
 	}
 
-	local.R.Property = nil
-	if err = local.L.LoadProperty(ctx, tx, true, &local, nil); err != nil {
+	local.R.AgentVersion = nil
+	if err = local.L.LoadAgentVersion(ctx, tx, true, &local, nil); err != nil {
 		t.Fatal(err)
 	}
-	if local.R.Property == nil {
+	if local.R.AgentVersion == nil {
 		t.Error("struct should have been eager loaded")
 	}
 }
@@ -596,7 +596,58 @@ func testCrawlPropertyToOneCrawlUsingCrawl(t *testing.T) {
 	}
 }
 
-func testCrawlPropertyToOneSetOpPropertyUsingProperty(t *testing.T) {
+func testCrawlPropertyToOneProtocolUsingProtocol(t *testing.T) {
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var local CrawlProperty
+	var foreign Protocol
+
+	seed := randomize.NewSeed()
+	if err := randomize.Struct(seed, &local, crawlPropertyDBTypes, true, crawlPropertyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize CrawlProperty struct: %s", err)
+	}
+	if err := randomize.Struct(seed, &foreign, protocolDBTypes, false, protocolColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Protocol struct: %s", err)
+	}
+
+	if err := foreign.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	queries.Assign(&local.ProtocolID, foreign.ID)
+	if err := local.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := local.Protocol().One(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !queries.Equal(check.ID, foreign.ID) {
+		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
+	}
+
+	slice := CrawlPropertySlice{&local}
+	if err = local.L.LoadProtocol(ctx, tx, false, (*[]*CrawlProperty)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Protocol == nil {
+		t.Error("struct should have been eager loaded")
+	}
+
+	local.R.Protocol = nil
+	if err = local.L.LoadProtocol(ctx, tx, true, &local, nil); err != nil {
+		t.Fatal(err)
+	}
+	if local.R.Protocol == nil {
+		t.Error("struct should have been eager loaded")
+	}
+}
+
+func testCrawlPropertyToOneSetOpAgentVersionUsingAgentVersion(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
@@ -604,16 +655,16 @@ func testCrawlPropertyToOneSetOpPropertyUsingProperty(t *testing.T) {
 	defer func() { _ = tx.Rollback() }()
 
 	var a CrawlProperty
-	var b, c Property
+	var b, c AgentVersion
 
 	seed := randomize.NewSeed()
 	if err = randomize.Struct(seed, &a, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
-	if err = randomize.Struct(seed, &b, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
-	if err = randomize.Struct(seed, &c, propertyDBTypes, false, strmangle.SetComplement(propertyPrimaryKeyColumns, propertyColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &c, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 
@@ -624,35 +675,87 @@ func testCrawlPropertyToOneSetOpPropertyUsingProperty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for i, x := range []*Property{&b, &c} {
-		err = a.SetProperty(ctx, tx, i != 0, x)
+	for i, x := range []*AgentVersion{&b, &c} {
+		err = a.SetAgentVersion(ctx, tx, i != 0, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if a.R.Property != x {
+		if a.R.AgentVersion != x {
 			t.Error("relationship struct not set to correct value")
 		}
 
 		if x.R.CrawlProperties[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
-		if a.PropertyID != x.ID {
-			t.Error("foreign key was wrong value", a.PropertyID)
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID)
 		}
 
-		zero := reflect.Zero(reflect.TypeOf(a.PropertyID))
-		reflect.Indirect(reflect.ValueOf(&a.PropertyID)).Set(zero)
+		zero := reflect.Zero(reflect.TypeOf(a.AgentVersionID))
+		reflect.Indirect(reflect.ValueOf(&a.AgentVersionID)).Set(zero)
 
 		if err = a.Reload(ctx, tx); err != nil {
 			t.Fatal("failed to reload", err)
 		}
 
-		if a.PropertyID != x.ID {
-			t.Error("foreign key was wrong value", a.PropertyID, x.ID)
+		if !queries.Equal(a.AgentVersionID, x.ID) {
+			t.Error("foreign key was wrong value", a.AgentVersionID, x.ID)
 		}
 	}
 }
+
+func testCrawlPropertyToOneRemoveOpAgentVersionUsingAgentVersion(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a CrawlProperty
+	var b AgentVersion
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, agentVersionDBTypes, false, strmangle.SetComplement(agentVersionPrimaryKeyColumns, agentVersionColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetAgentVersion(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveAgentVersion(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.AgentVersion().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.AgentVersion != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.AgentVersionID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.CrawlProperties) != 0 {
+		t.Error("failed to remove a from b's relationships")
+	}
+}
+
 func testCrawlPropertyToOneSetOpCrawlUsingCrawl(t *testing.T) {
 	var err error
 
@@ -708,6 +811,114 @@ func testCrawlPropertyToOneSetOpCrawlUsingCrawl(t *testing.T) {
 		if a.CrawlID != x.ID {
 			t.Error("foreign key was wrong value", a.CrawlID, x.ID)
 		}
+	}
+}
+func testCrawlPropertyToOneSetOpProtocolUsingProtocol(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a CrawlProperty
+	var b, c Protocol
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolDBTypes, false, strmangle.SetComplement(protocolPrimaryKeyColumns, protocolColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, protocolDBTypes, false, strmangle.SetComplement(protocolPrimaryKeyColumns, protocolColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	for i, x := range []*Protocol{&b, &c} {
+		err = a.SetProtocol(ctx, tx, i != 0, x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if a.R.Protocol != x {
+			t.Error("relationship struct not set to correct value")
+		}
+
+		if x.R.CrawlProperties[0] != &a {
+			t.Error("failed to append to foreign relationship struct")
+		}
+		if !queries.Equal(a.ProtocolID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolID)
+		}
+
+		zero := reflect.Zero(reflect.TypeOf(a.ProtocolID))
+		reflect.Indirect(reflect.ValueOf(&a.ProtocolID)).Set(zero)
+
+		if err = a.Reload(ctx, tx); err != nil {
+			t.Fatal("failed to reload", err)
+		}
+
+		if !queries.Equal(a.ProtocolID, x.ID) {
+			t.Error("foreign key was wrong value", a.ProtocolID, x.ID)
+		}
+	}
+}
+
+func testCrawlPropertyToOneRemoveOpProtocolUsingProtocol(t *testing.T) {
+	var err error
+
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a CrawlProperty
+	var b Protocol
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, crawlPropertyDBTypes, false, strmangle.SetComplement(crawlPropertyPrimaryKeyColumns, crawlPropertyColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &b, protocolDBTypes, false, strmangle.SetComplement(protocolPrimaryKeyColumns, protocolColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.SetProtocol(ctx, tx, true, &b); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = a.RemoveProtocol(ctx, tx, &b); err != nil {
+		t.Error("failed to remove relationship")
+	}
+
+	count, err := a.Protocol().Count(ctx, tx)
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("want no relationships remaining")
+	}
+
+	if a.R.Protocol != nil {
+		t.Error("R struct entry should be nil")
+	}
+
+	if !queries.IsValuerNil(a.ProtocolID) {
+		t.Error("foreign key value should be nil")
+	}
+
+	if len(b.R.CrawlProperties) != 0 {
+		t.Error("failed to remove a from b's relationships")
 	}
 }
 
@@ -785,7 +996,7 @@ func testCrawlPropertiesSelect(t *testing.T) {
 }
 
 var (
-	crawlPropertyDBTypes = map[string]string{`ID`: `integer`, `Count`: `integer`, `CrawlID`: `integer`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `PropertyID`: `integer`}
+	crawlPropertyDBTypes = map[string]string{`ID`: `integer`, `CrawlID`: `integer`, `ProtocolID`: `integer`, `AgentVersionID`: `integer`, `Error`: `enum.dial_error('io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','unknown','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`, `Count`: `integer`, `CreatedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`}
 	_                    = bytes.MinRead
 )
 

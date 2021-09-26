@@ -6,6 +6,8 @@ package models
 import "testing"
 
 func TestUpsert(t *testing.T) {
+	t.Run("AgentVersions", testAgentVersionsUpsert)
+
 	t.Run("CrawlProperties", testCrawlPropertiesUpsert)
 
 	t.Run("Crawls", testCrawlsUpsert)
@@ -15,6 +17,8 @@ func TestUpsert(t *testing.T) {
 	t.Run("Latencies", testLatenciesUpsert)
 
 	t.Run("MultiAddresses", testMultiAddressesUpsert)
+
+	t.Run("MultiAddressesSets", testMultiAddressesSetsUpsert)
 
 	t.Run("MultiAddressesXIPAddresses", testMultiAddressesXIPAddressesUpsert)
 
@@ -26,7 +30,9 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("PegasysNeighbours", testPegasysNeighboursUpsert)
 
-	t.Run("Properties", testPropertiesUpsert)
+	t.Run("Protocols", testProtocolsUpsert)
+
+	t.Run("ProtocolsSets", testProtocolsSetsUpsert)
 
 	t.Run("RawVisits", testRawVisitsUpsert)
 
