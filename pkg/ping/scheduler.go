@@ -127,7 +127,7 @@ func (s *Scheduler) PingNetwork() error {
 
 	s.readResultsQueue()
 
-	// Indicate that we won't publish any new crawl tasks to the queue.
+	// Indicate that we won't publish any new ping tasks to the queue.
 	// TODO: This can still leak a Go routine. However we're exiting here anyway...
 	s.pingQueue.DoneProducing()
 
@@ -166,10 +166,7 @@ func (s *Scheduler) readResultsQueue() {
 	}
 }
 
-// handleResult takes a crawl result, aggregates crawl information and publishes the result
-// to the persist queue, so that the persisters can persist the information in the database.
-// It also looks into the result and publishes new crawl jobs based on whether the found peers
-// weren't pinged before or are not already in the queue.
+// handleResult takes a ping result and saves the latencies to the database.
 func (s *Scheduler) handleResult(cr Result) {
 	start := time.Now()
 	logEntry := log.WithFields(log.Fields{

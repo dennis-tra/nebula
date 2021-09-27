@@ -1,8 +1,6 @@
 package crawl
 
 import (
-	"time"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -17,29 +15,13 @@ func (s *Scheduler) TotalErrors() int {
 	return sum
 }
 
-func addrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
-	maddrs := make([]ma.Multiaddr, len(addrs))
-	for i, addr := range addrs {
-		maddr, err := ma.NewMultiaddr(addr)
-		if err != nil {
-			return nil, err
-		}
-		maddrs[i] = maddr
-	}
-	return maddrs, nil
-}
-
+// maddrsToAddrs maps a slice of multi addresses to their string representation.
 func maddrsToAddrs(maddrs []ma.Multiaddr) []string {
 	addrs := make([]string, len(maddrs))
 	for i, maddr := range maddrs {
 		addrs[i] = maddr.String()
 	}
 	return addrs
-}
-
-// millisSince returns the number of milliseconds between now and the given time.
-func millisSince(start time.Time) float64 {
-	return float64(time.Since(start)) / float64(time.Millisecond)
 }
 
 // filterPrivateMaddrs strips private multiaddrs from the given peer address information.

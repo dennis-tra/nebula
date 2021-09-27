@@ -19,8 +19,6 @@ import (
 var persisterID = atomic.NewInt32(0)
 
 // Persister handles the insert/upsert/update operations for a particular crawl result.
-// We're doing it asynchronously as each insert can take multiple tens of milliseconds.
-// This would take too long to do synchronously during a crawl.
 type Persister struct {
 	*service.Service
 

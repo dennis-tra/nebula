@@ -32,18 +32,9 @@ func NewClient() (*Client, error) {
 	}, nil
 }
 
-func (c *Client) AddrCountry(addr string) (string, error) {
-	ip := net.ParseIP(addr)
-	if ip == nil {
-		return "", fmt.Errorf("invalid address %s", addr)
-	}
-	record, err := c.reader.City(ip)
-	if err != nil {
-		return "", err
-	}
-	return record.Country.IsoCode, nil
-}
-
+// MaddrCountry resolve the give multi address to its corresponding
+// IP addresses (it could be multiple due to protocols like dnsaddr)
+// and returns a map of the form IP-address -> country ISO code.
 func (c *Client) MaddrCountry(ctx context.Context, maddr ma.Multiaddr) (map[string]string, error) {
 	resolved := resolveAddrs(ctx, maddr)
 	if len(resolved) == 0 {
@@ -59,6 +50,19 @@ func (c *Client) MaddrCountry(ctx context.Context, maddr ma.Multiaddr) (map[stri
 		countries[addr] = country
 	}
 	return countries, nil
+}
+
+// AddrCountry takes an IP address string and tries to derive the country ISO code.
+func (c *Client) AddrCountry(addr string) (string, error) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return "", fmt.Errorf("invalid address %s", addr)
+	}
+	record, err := c.reader.Country(ip)
+	if err != nil {
+		return "", err
+	}
+	return record.Country.IsoCode, nil
 }
 
 func (c *Client) Close() error {

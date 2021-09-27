@@ -3,12 +3,12 @@ package db
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"fmt"
 	"sync"
 	"time"
 
 	"contrib.go.opencensus.io/integrations/ocsql"
+	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"

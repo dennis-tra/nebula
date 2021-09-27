@@ -18,7 +18,7 @@ import (
 // ResolveCommand contains the monitor sub-command configuration.
 var ResolveCommand = &cli.Command{
 	Name:   "resolve",
-	Usage:  "Resolves all **unresolved** multi addresses to their IP addresses and geo location information",
+	Usage:  "Resolves all multi addresses to their IP addresses and geo location information",
 	Action: ResolveAction,
 	Flags: []cli.Flag{
 		&cli.IntFlag{
@@ -27,13 +27,6 @@ var ResolveCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_RESOLVE_BATCH_SIZE"},
 			DefaultText: "100",
 			Value:       100,
-		},
-		&cli.BoolFlag{
-			Name:        "full",
-			Usage:       "If set nebula starts resolving all multi addresses in the database",
-			EnvVars:     []string{"NEBULA_RESOLVE_FULL"},
-			DefaultText: "false",
-			Value:       false,
 		},
 	},
 }
@@ -79,11 +72,7 @@ func ResolveAction(c *cli.Context) error {
 
 		var err error
 		var dbmaddrs models.MultiAddressSlice
-		if c.Bool("full") {
-			dbmaddrs, err = dbc.FetchMultiAddresses(c.Context, offset, limit)
-		} else {
-			dbmaddrs, err = dbc.FetchUnresolvedMultiAddresses(c.Context, offset, limit)
-		}
+		dbmaddrs, err = dbc.FetchMultiAddresses(c.Context, offset, limit)
 		if err != nil {
 			return errors.Wrap(err, "fetching multi addresses")
 		}

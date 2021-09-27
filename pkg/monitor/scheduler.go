@@ -3,6 +3,7 @@ package monitor
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
@@ -27,7 +29,7 @@ import (
 )
 
 // The Scheduler handles the scheduling and managing of
-//   a) workers - They consume a queue of peer address information, visit them and publish their results
+//   a) dialers - They consume a queue of peer address information, visit them and publish their results
 //                on a separate results queue. This results queue is consumed by this scheduler and further
 //                processed
 type Scheduler struct {
@@ -35,7 +37,7 @@ type Scheduler struct {
 	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
 	*service.Service
 
-	// The libp2p node that's used to crawl the network. This one is also passed to all workers.
+	// The libp2p node that's used to crawl the network. This one is also passed to all dialers.
 	host host.Host
 
 	// The database handle
@@ -54,11 +56,11 @@ type Scheduler struct {
 	// The number of peers in the ping queue.
 	inDialQueueCount atomic.Uint32
 
-	// The queue that the workers publish their dial results on
+	// The queue that the dialers publish their dial results on
 	resultsQueue *queue.FIFO
 
-	// The list of worker node references.
-	workers sync.Map
+	// The list of dialer node references.
+	dialers sync.Map
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -74,7 +76,7 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
-	// Initialize a single libp2p node that's shared between all workers.
+	// Initialize a single libp2p node that's shared between all dialers.
 	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
 		return nil, err
@@ -93,13 +95,13 @@ func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
 		inDialQueue:  sync.Map{},
 		dialQueue:    queue.NewFIFO(),
 		resultsQueue: queue.NewFIFO(),
-		workers:      sync.Map{},
+		dialers:      sync.Map{},
 	}
 
 	return m, nil
 }
 
-// StartMonitoring starts the configured amount of workers and fills
+// StartMonitoring starts the configured amount of dialers and fills
 // the dial queue with peers that are due to be dialed.
 func (s *Scheduler) StartMonitoring() error {
 	s.ServiceStarted()
@@ -107,24 +109,24 @@ func (s *Scheduler) StartMonitoring() error {
 
 	s.StartTime = time.Now()
 
-	// Start all workers
+	// Start all dialers
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
-		w, err := NewWorker(s.host, s.config)
+		w, err := NewDialer(s.host, s.config)
 		if err != nil {
-			return errors.Wrap(err, "new worker")
+			return errors.Wrap(err, "new dialer")
 		}
-		s.workers.Store(i, w)
+		s.dialers.Store(i, w)
 		go w.StartDialing(s.dialQueue, s.resultsQueue)
 	}
 
-	// Async handle the results from workers
+	// Async handle the results from dialers
 	go s.readResultsQueue()
 
 	// Monitor the database and schedule dial jobs
 	s.monitorDatabase()
 
 	// release all resources
-	s.shutdownWorkers()
+	s.shutdownDialers()
 
 	log.WithFields(log.Fields{
 		"inDialQueue":     s.inDialQueueCount.Load(),
@@ -156,7 +158,7 @@ func (s *Scheduler) readResultsQueue() {
 
 func (s *Scheduler) handleResult(dr Result) {
 	logEntry := log.WithFields(log.Fields{
-		"workerID": dr.WorkerID,
+		"dialerID": dr.DialerID,
 		"targetID": dr.Peer.ID.Pretty()[:16],
 		"alive":    dr.Error == nil,
 	})
@@ -186,7 +188,7 @@ func (s *Scheduler) handleResult(dr Result) {
 	logEntry.
 		WithField("dialDur", dr.DialDuration()).
 		WithField("persistDur", time.Since(start)).
-		Infoln("Handled dial result from worker", dr.WorkerID)
+		Infoln("Handled dial result from dialer", dr.DialerID)
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
@@ -247,16 +249,38 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 	return nil
 }
 
-// shutdownWorkers sends shutdown signals to all workers and blocks until all have shut down.
-func (s *Scheduler) shutdownWorkers() {
+// insertRawVisit builds up a raw_visit database entry.
+func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
+	rv := &models.RawVisit{
+		VisitStartedAt: cr.DialStartTime,
+		VisitEndedAt:   cr.DialEndTime,
+		DialDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.DialDuration().Seconds())),
+		Type:           models.VisitTypeDial,
+		PeerMultiHash:  cr.Peer.ID.Pretty(),
+		MultiAddresses: maddrsToAddrs(cr.Peer.Addrs),
+	}
+	if cr.Error != nil {
+		rv.Error = null.StringFrom(cr.DialError)
+		if len(cr.Error.Error()) > 255 {
+			rv.ErrorMessage = null.StringFrom(cr.Error.Error()[:255])
+		} else {
+			rv.ErrorMessage = null.StringFrom(cr.Error.Error())
+		}
+	}
+
+	return s.dbc.InsertRawVisit(ctx, rv)
+}
+
+// shutdownDialers sends shutdown signals to all dialers and blocks until all have shut down.
+func (s *Scheduler) shutdownDialers() {
 	var wg sync.WaitGroup
-	s.workers.Range(func(_, worker interface{}) bool {
-		w := worker.(*Worker)
+	s.dialers.Range(func(_, dialer interface{}) bool {
+		d := dialer.(*Dialer)
 		wg.Add(1)
-		go func(w *Worker) {
+		go func(w *Dialer) {
 			w.Shutdown()
 			wg.Done()
-		}(w)
+		}(d)
 		return true
 	})
 	wg.Wait()

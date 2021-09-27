@@ -11,7 +11,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
-// updateCrawl writes crawl statistics to the database. TODO: comment
+// updateCrawl writes crawl statistics to the database
 func (s *Scheduler) updateCrawl(ctx context.Context, success bool) error {
 	log.Infoln("Persisting crawl result...")
 
@@ -49,7 +49,7 @@ func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
 	}
 	pps := map[string]map[string]int{
 		"agent_version":      avFull,
-		"agent_version_core": avCore,
+		"agent_version_core": avCore, // TODO: Not used currently
 		"protocol":           s.protocols,
 		"error":              s.errors,
 	}

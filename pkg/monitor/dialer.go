@@ -21,11 +21,11 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
-var workerID = atomic.NewInt32(0)
+var dialerID = atomic.NewInt32(0)
 
 // Result captures data that is gathered from pinging a single peer.
 type Result struct {
-	WorkerID string
+	DialerID string
 
 	// The dialed peer
 	Peer peer.AddrInfo
@@ -48,8 +48,8 @@ func (r *Result) DialDuration() time.Duration {
 	return r.DialEndTime.Sub(r.DialStartTime)
 }
 
-// Worker encapsulates a libp2p host that dials peers.
-type Worker struct {
+// Dialer encapsulates a libp2p host that dials peers.
+type Dialer struct {
 	*service.Service
 
 	host        host.Host
@@ -57,14 +57,14 @@ type Worker struct {
 	dialedPeers int
 }
 
-// NewWorker initializes a new worker based on the given configuration.
-func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
-	c := &Worker{
-		Service: service.New(fmt.Sprintf("worker-%02d", workerID.Load())),
+// NewDialer initializes a new dialer based on the given configuration.
+func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
+	c := &Dialer{
+		Service: service.New(fmt.Sprintf("dialer-%02d", dialerID.Load())),
 		host:    h,
 		config:  conf,
 	}
-	workerID.Inc()
+	dialerID.Inc()
 
 	return c, nil
 }
@@ -72,15 +72,15 @@ func NewWorker(h host.Host, conf *config.Config) (*Worker, error) {
 // StartDialing enters an endless loop and consumes dial jobs from the dial queue
 // and publishes its result on the results queue until it is told to stop or the
 // dial queue was closed.
-func (w *Worker) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
-	w.ServiceStarted()
-	defer w.ServiceStopped()
-	ctx := w.ServiceContext()
+func (d *Dialer) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+	d.ServiceStarted()
+	defer d.ServiceStopped()
+	ctx := d.ServiceContext()
 
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-w.SigShutdown():
+		case <-d.SigShutdown():
 			return
 		default:
 		}
@@ -91,9 +91,9 @@ func (w *Worker) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 				// The crawl queue was closed
 				return
 			}
-			result := w.handleDialJob(ctx, elem.(peer.AddrInfo))
+			result := d.handleDialJob(ctx, elem.(peer.AddrInfo))
 			resultsQueue.Push(result)
-		case <-w.SigShutdown():
+		case <-d.SigShutdown():
 			return
 		}
 	}
@@ -103,19 +103,19 @@ func (w *Worker) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 // to the persist queue, so that the persisters can persist the information in the database.
 // It also looks into the result and publishes new crawl jobs based on whether the found peers
 // weren't crawled before or are not already in the queue.
-func (w *Worker) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
+func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
-		"workerID":  w.Identifier(),
+		"dialerID":  d.Identifier(),
 		"targetID":  pi.ID.Pretty()[:16],
-		"dialCount": w.dialedPeers,
+		"dialCount": d.dialedPeers,
 	})
 	logEntry.Debugln("Dialing peer")
 	defer logEntry.Debugln("Dialed peer")
 
 	// Initialize dial result
 	dr := Result{
-		WorkerID:      w.Identifier(),
+		DialerID:      d.Identifier(),
 		Peer:          pi,
 		DialStartTime: time.Now(),
 	}
@@ -129,10 +129,10 @@ retryLoop:
 
 		// Add peer information to peer store so that DialPeer can pick it up from there
 		// Do this in every retry due to the TTL of one minute
-		w.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
+		d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 		// Actually dial the peer
-		if err := w.dial(ctx, pi.ID); err != nil {
+		if err := d.dial(ctx, pi.ID); err != nil {
 			dr.Error = err
 			dr.DialError = db.DialError(dr.Error)
 
@@ -170,7 +170,7 @@ retryLoop:
 			logEntry.WithError(err).Debugf(errMsg)
 			select {
 			case <-time.After(sleepDur):
-			case <-w.SigShutdown():
+			case <-d.SigShutdown():
 				break retryLoop
 			}
 			continue retryLoop
@@ -181,7 +181,7 @@ retryLoop:
 		dr.DialError = ""
 
 		// Close established connection to prevent running out of FDs?
-		if err := w.host.Network().ClosePeer(pi.ID); err != nil {
+		if err := d.host.Network().ClosePeer(pi.ID); err != nil {
 			logEntry.WithError(err).Warnln("Could not close connection to peer")
 		}
 		break retryLoop
@@ -191,10 +191,10 @@ retryLoop:
 	return dr
 }
 
-func (w *Worker) dial(ctx context.Context, peerID peer.ID) error {
+func (d *Dialer) dial(ctx context.Context, peerID peer.ID) error {
 	stats.Record(ctx, metrics.MonitorDialCount.M(1))
 
-	if _, err := w.host.Network().DialPeer(ctx, peerID); err != nil {
+	if _, err := d.host.Network().DialPeer(ctx, peerID); err != nil {
 		stats.Record(ctx, metrics.MonitorDialErrorsCount.M(1))
 		return err
 	}
