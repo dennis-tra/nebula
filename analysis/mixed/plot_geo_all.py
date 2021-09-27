@@ -2,7 +2,6 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_geolocation
-import numpy as np
 
 
 config = toml.load("./db.toml")['psql']
@@ -35,9 +34,7 @@ for key, val in counts.items():
 {k: v for k, v in sorted(countsTrim.items(), key=lambda item: item[1])}
 # Plot
 plt.rc('font', size=8)
-colormap = plt.cm.nipy_spectral
-colors = [colormap(i) for i in np.linspace(0, 1, len(countsTrim))]
-patches, texts, _ = plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%", colors=colors)
+patches, texts, _ = plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%")
 labels = []
 for key in countsTrim.keys():
     labels.append("{}-{}".format(key, countsTrim[key]))
