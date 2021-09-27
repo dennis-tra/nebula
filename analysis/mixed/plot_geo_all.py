@@ -34,6 +34,10 @@ for key, val in counts.items():
 {k: v for k, v in sorted(countsTrim.items(), key=lambda item: item[1])}
 # Plot
 plt.rc('font', size=8)
-plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%")
+patches, texts, _ = plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%")
+labels = []
+for key in countsTrim.keys():
+    labels.append("{}-{}".format(key, countsTrim[key]))
+plt.legend(patches, labels, loc="best")
 plt.title("All nodes geolocation info from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 plt.show()
