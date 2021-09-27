@@ -153,6 +153,16 @@ Thanks to the original author of nebula crawler Dennis ([@dennis-tra](https://gi
 ![Graph](./analysis/mixed/figs/geolocation_for_all_nodes_d.png)  
 One interesting thing is that among all seen nodes, there are 52.3% nodes running from Digital Ocean. However, this does not mean that 50% of the nodes are running in the cloud, it is likely that IPFS running in Digital Ocean can restart with a different peer ID and thus contributed to one count in the pie chart.
 
+### Plots for storm nodes
+#### 1 Storm nodes classification
+![Graph](./analysis/mixed/figs/storm_node_classification.png)
+
+#### 2 Storm nodes geolocation
+![Graph](./analysis/mixed/figs/geolocation_for_all_storm.png)
+
+#### 3 Storm nodes cloud infomation
+![Graph](./analysis/mixed/figs/cloud_info_for_all_storm.png)
+
 ### Conclusion
 - We have made some extensions to the original so it is able to collect some additional data to analyse the churn.
 - We created a list of python functions that interact directly with the database to collect useful data.
