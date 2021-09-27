@@ -163,6 +163,14 @@ One interesting thing is that among all seen nodes, there are 52.3% nodes runnin
 #### 3 Storm nodes cloud infomation
 ![Graph](./analysis/mixed/figs/cloud_info_for_all_storm.png)
 
+### Dangling nodes off time & inter-arrival time
+
+#### 1 CDF of off time for dangling nodes
+![Graph](./analysis/mixed/figs/offtime_cdf_dangle.png)
+
+#### 2 CDF of inter-arrival time for dangling nodes
+![Graph](./analysis/mixed/figs/arrivaltime_cdf_dangle.png)
+
 ### Conclusion
 - We have made some extensions to the original so it is able to collect some additional data to analyse the churn.
 - We created a list of python functions that interact directly with the database to collect useful data.
