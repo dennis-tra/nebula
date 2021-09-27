@@ -6,16 +6,18 @@ import csv
 
 
 # get_cloud gets the cloud info of given peers.
-# It takes an sql connection, the peer ids as arguments, and
+# It takes an sql connection, the peer **database** ids as arguments, and
 # returns the cloud info of these peer ids.
 def get_cloud(conn, peer_ids):
     cur = conn.cursor()
     res = dict()
     cur.execute(
         """
-        SELECT id, multi_addresses
-        FROM peers
-        WHERE id IN (%s)
+        SELECT p.id, ma.maddr
+        FROM peers p
+        INNER JOIN peers_x_multi_addresses pxma on p.id = pxma.peer_id
+        INNER JOIN multi_addresses ma on pxma.multi_address_id = ma.id
+        WHERE p.id IN (%s)
         """ % ','.join(['%s'] * len(peer_ids)),
         tuple(peer_ids)
     )
@@ -31,7 +33,7 @@ def get_cloud(conn, peer_ids):
     page = requests.get(azure_url)
     tree = html.fromstring(page.content)
     download_url = tree.xpath("//a[contains(@class, 'failoverLink') and "
-                                "contains(@href,'download.microsoft.com/download/')]/@href")[0]
+                              "contains(@href,'download.microsoft.com/download/')]/@href")[0]
     azure_ips = requests.get(download_url, allow_redirects=True).json()
     azure_prefixes = set()
     for item in azure_ips["values"]:

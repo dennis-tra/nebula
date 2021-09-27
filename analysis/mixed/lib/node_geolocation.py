@@ -11,9 +11,11 @@ def get_geolocation(conn, peer_ids):
         res = dict()
         cur.execute(
             """
-            SELECT id, multi_addresses
-            FROM peers
-            WHERE id IN (%s)
+            SELECT p.id, ma.maddr
+            FROM peers p
+            INNER JOIN peers_x_multi_addresses pxma on p.id = pxma.peer_id
+            INNER JOIN multi_addresses ma on pxma.multi_address_id = ma.id
+            WHERE p.id IN (%s)
             """ % ','.join(['%s'] * len(peer_ids)),
             tuple(peer_ids)
         )
