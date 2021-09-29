@@ -6,7 +6,7 @@
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula-crawler)](https://github.com/dennis-tra/nebula-crawler/blob/main/LICENSE)
 
-A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler runs every 30 minutes by connecting to the standard DHT bootstrap nodes and then recursively following all entries in the k-buckets until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
+A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler connects to the standard [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap nodes and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
 
 🏆 _The crawler was awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 
@@ -37,13 +37,13 @@ The crawler is successfully visiting and following all reachable nodes in the IP
 
 ## Usage
 
-Nebula is a command line tool and provides the two sub-commands `crawl` and `monitor`. To simply crawl the IPFS network run:
+Nebula is a command line tool and provides the `crawl` sub-command. To simply crawl the IPFS network run:
 
 ```shell
 nebula crawl --dry-run
 ```
 
-Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min dependent on your internet connection.
+Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min depending on your internet connection.
 
 See the command line help page below for configuration options:
 
@@ -61,18 +61,20 @@ AUTHOR:
    Dennis Trautwein <nebula@dtrautwein.eu>
 
 COMMANDS:
-   crawl    Crawls the entire network based on a set of bootstrap nodes.
-   monitor  Monitors the network by periodically dialing and pinging previously crawled peers.
+   crawl    Crawls the entire network starting with a set of bootstrap nodes.
+   monitor  Monitors the network by periodically dialing previously crawled peers.
+   resolve  Resolves all multi addresses to their IP addresses and geo location information
+   ping     Runs an ICMP latency measurement over the set of online peers of the most recent crawl
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --debug                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
    --log-level value        Set this flag to a value from 0 to 6. Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
    --config FILE            Load configuration from FILE [$NEBULA_CONFIG_FILE]
-   --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 30s) [$NEBULA_DIAL_TIMEOUT]
+   --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
    --prom-port value        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
-   --prom-host value        Where should prometheus serve the metrics endpoint (default: localhost) [$NEBULA_PROMETHEUS_HOST]
-   --db-host value          On which host address can nebula reach the database (default: localhost) [$NEBULA_DATABASE_HOST]
+   --prom-host value        Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
+   --db-host value          On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
    --db-port value          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
    --db-name value          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
    --db-password value      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
@@ -90,12 +92,12 @@ GLOBAL OPTIONS:
 The `crawl` sub-command starts by connecting to a set of bootstrap nodes and constructing the routing tables (kademlia _k_-buckets)
 of the remote peers based on their [`PeerIds`](https://docs.libp2p.io/concepts/peer-id/). Then `nebula` builds
 random `PeerIds` with a common prefix length (CPL) and asks each remote peer if they know any peers that are
-closer to the ones `nebula` just constructed. This will effectively yield a list of all `PeerIds` that a peer has
+closer to the ones `nebula` just constructed (XOR distance). This will effectively yield a list of all `PeerIds` that a peer has
 in its routing table. The process repeats for all found peers until `nebula` does not find any new `PeerIds`.
 
 This process is heavily inspired by the `basic-crawler` in [libp2p/go-libp2p-kad-dht](https://github.com/libp2p/go-libp2p-kad-dht/tree/master/crawler) from @aschmahmann.
 
-Every peer that was found is persisted together with its multi-addresses. If the peer was dialable `nebula` will
+Every peer that was visited is persisted in the database. The information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
 also create a `session` instance that contains the following information:
 
 ```go
@@ -131,7 +133,7 @@ type Session struct {
 }
 ```
 
-At the end of each crawl `nebula` persists general statistics about the crawl like the duration, dialable peers, encountered errors, agent versions etc...
+At the end of each crawl `nebula` persists general statistics about the crawl like the total duration, dialable peers, encountered errors, agent versions etc...
 
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
 
@@ -144,6 +146,15 @@ saved multi-addresses and updates their `session` instances accordingly if they'
 The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` has observed for that given peer.
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
+
+### `resolve`
+
+The resolve sub-command takes goes through all multi addresses in that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
+It further queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
+
+### `ping`
+
+The ping command fetches all peers that were found online of the most recent successful crawl from the database and sends ten ICM pings to each host. The measured latencies are saved in the `latencies` table.
 
 ## Install
 
@@ -331,6 +342,7 @@ There is a top-level `analysis` folder that contains various scripts to help und
 
 - [`geoip`](./analysis/geoip) - Uses a [Maxmind](https://maxmind.com) database to map IP addresses to country ISO codes and plots the results.
 - [`churn`](./analysis/churn) - Uses a `sessions` database dump to construct a CDF of peer session lengths.
+- [`mixed`](./analysis/mixed) - Multiple plotting scripts for various metrics of interest. See [wcgcyx/nebula-crawler](https://github.com/wcgcyx/nebula-crawler) for plots as I have just copied the scripts from there.
 - More to come...
 
 ## Related Efforts
