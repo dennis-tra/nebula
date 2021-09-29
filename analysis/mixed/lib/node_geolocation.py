@@ -6,16 +6,17 @@ from multiaddr import Multiaddr
 # It takes an sql connection, the peer ids as arguments, and
 # returns the geolocation info of these peer ids.
 def get_geolocation(conn, peer_ids):
-    with geoip2.database.Reader("../geoip/GeoLite2/GeoLite2-Country.mmdb") as geoipreader:
+    with geoip2.database.Reader("../../pkg/maxmind/GeoLite2-Country.mmdb") as geoipreader:
         cur = conn.cursor()
         res = dict()
         cur.execute(
             """
-            SELECT p.id, ma.maddr
+            SELECT p.id, array_agg(ma.maddr)
             FROM peers p
             INNER JOIN peers_x_multi_addresses pxma on p.id = pxma.peer_id
             INNER JOIN multi_addresses ma on pxma.multi_address_id = ma.id
             WHERE p.id IN (%s)
+            GROUP BY 1
             """ % ','.join(['%s'] * len(peer_ids)),
             tuple(peer_ids)
         )

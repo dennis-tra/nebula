@@ -1,18 +1,12 @@
-# get_latency gets the latency of given peer ids.
-# It takes an sql connection, the start time, the end time, the peer ids as the arguments, and
-# returns the latency of there peer ids.
-def get_latency(conn, peer_ids):
+# get_latency gets the average latencies.
+def get_latencies(conn):
     cur = conn.cursor()
     res = dict()
     cur.execute(
         """
-        SELECT peer_id, MAX(latency), MIN(latency), AVG(latency)
-        FROM pegasys_connections
-        WHERE is_succeed = true AND peer_id IN (%s)
-        GROUP BY peer_id
-        """ % ','.join(['%s'] * len(peer_ids)),
-        tuple(peer_ids)
+        SELECT ping_latency_s_avg
+        FROM latencies
+        WHERE ping_latency_s_avg > 0 and updated_at > NOW() - '1 day'::interval
+        """
     )
-    for id, max, min, avg in cur.fetchall():
-        res[id] = (max, min, avg)
-    return res
+    return cur.fetchall()
