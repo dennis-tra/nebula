@@ -35,24 +35,25 @@ var configFile = filepath.Join(Prefix, "config.json")
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapPeers:     []string{}, // see init
-	DialTimeout:        time.Minute,
-	CrawlWorkerCount:   1000,
-	CrawlLimit:         0,
-	PingLimit:          0,
-	PingWorkerCount:    1000,
-	MonitorWorkerCount: 1000,
-	MeasureLatencies:   false,
-	MinPingInterval:    time.Second * 30,
-	PingIntervalFactor: 1.2,
-	PrometheusHost:     "0.0.0.0",
-	PrometheusPort:     6666,
-	DatabaseHost:       "0.0.0.0",
-	DatabasePort:       5432,
-	DatabaseName:       "nebula",
-	DatabasePassword:   "password",
-	DatabaseUser:       "nebula",
-	Protocols:          []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
+	BootstrapPeers:      []string{}, // see init
+	DialTimeout:         time.Minute,
+	CrawlWorkerCount:    1000,
+	CrawlLimit:          0,
+	PingLimit:           0,
+	PingWorkerCount:     1000,
+	MonitorWorkerCount:  1000,
+	MeasureLatencies:    false,
+	MinPingInterval:     time.Second * 30,
+	PingIntervalFactor:  1.2,
+	PrometheusHost:      "0.0.0.0",
+	PrometheusPort:      6666,
+	DatabaseHost:        "0.0.0.0",
+	DatabasePort:        5432,
+	DatabaseName:        "nebula",
+	DatabasePassword:    "password",
+	DatabaseUser:        "nebula",
+	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
+	RefreshRoutingTable: false,
 }
 
 // Config contains general user configuration.
@@ -116,6 +117,9 @@ type Config struct {
 
 	// The list of protocols that this crawler should look for.
 	Protocols []string
+
+	// Whether the provider's routing table for should be refreshed
+	RefreshRoutingTable bool
 }
 
 func init() {
@@ -194,6 +198,9 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("protocols") {
 		c.Protocols = ctx.StringSlice("protocols")
+	}
+	if ctx.IsSet("routing-table") {
+		c.RefreshRoutingTable = ctx.Bool("routing-table")
 	}
 }
 

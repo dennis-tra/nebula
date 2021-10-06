@@ -3,6 +3,7 @@ module github.com/dennis-tra/nebula-crawler
 go 1.16
 
 require (
+	bou.ke/monkey v1.0.2
 	contrib.go.opencensus.io/exporter/prometheus v0.3.0
 	contrib.go.opencensus.io/integrations/ocsql v0.1.7
 	github.com/adrg/xdg v0.3.3
@@ -13,7 +14,9 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/ipfs/go-cid v0.0.7
 	github.com/ipfs/go-ipns v0.1.0 // indirect
+	github.com/ipfs/go-log v1.0.5
 	github.com/ipld/go-ipld-prime v0.10.0 // indirect
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
@@ -25,16 +28,20 @@ require (
 	github.com/libp2p/go-libp2p-discovery v0.5.1 // indirect
 	github.com/libp2p/go-libp2p-kad-dht v0.12.2
 	github.com/libp2p/go-libp2p-kbucket v0.4.7
+	github.com/libp2p/go-libp2p-transport-upgrader v0.4.2
 	github.com/libp2p/go-msgio v0.0.6
+	github.com/libp2p/go-tcp-transport v0.2.3
+	github.com/libp2p/go-ws-transport v0.4.0
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/multiformats/go-multiaddr v0.3.3
-	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
+	github.com/multiformats/go-multiaddr-dns v0.3.1
+	github.com/multiformats/go-multihash v0.0.15
 	github.com/onsi/ginkgo v1.15.0 // indirect
 	github.com/onsi/gomega v1.10.5 // indirect
-	github.com/oschwald/geoip2-golang v1.5.0 // indirect
+	github.com/oschwald/geoip2-golang v1.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e // indirect
-	github.com/prometheus/client_golang v1.11.0 // indirect
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

@@ -154,6 +154,10 @@ func (s *Service) ServiceContext() context.Context {
 	return s.ctx
 }
 
+func (s *Service) Ctx() context.Context {
+	return s.ctx
+}
+
 // Shutdown instructs the service to gracefully shut down.
 // This function blocks until the done channel was closed
 // which happens when ServiceStopped is called.
