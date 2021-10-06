@@ -32,7 +32,7 @@ func main() {
 
 	app := &cli.App{
 		Name:      "nebula",
-		Usage:     "A libp2p DHT crawler and monitor that exposes timely information about DHT networks.",
+		Usage:     "A libp2p DHT crawler, monitor and measurement tool that exposes timely information about DHT networks.",
 		UsageText: "nebula [global options] command [command options] [arguments...]",
 		Authors: []*cli.Author{
 			{
