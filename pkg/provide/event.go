@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -101,46 +100,4 @@ type SendMessageEnd struct {
 
 func (e *SendMessageEnd) Error() error {
 	return e.Err
-}
-
-type OpenStreamStart struct {
-	BaseEvent
-	Protocols []protocol.ID
-}
-
-func (e *OpenStreamStart) Error() error {
-	return nil
-}
-
-type OpenStreamEnd struct {
-	BaseEvent
-	Err       error
-	Protocols []protocol.ID
-}
-
-func (e *OpenStreamEnd) Error() error {
-	return e.Err
-}
-
-type ConnectedEvent struct {
-	BaseEvent
-}
-
-type DisconnectedEvent struct {
-	BaseEvent
-}
-
-type OpenedStream struct {
-	BaseEvent
-	Protocol protocol.ID
-}
-
-type ClosedStream struct {
-	BaseEvent
-	Protocol protocol.ID
-}
-
-type DiscoveredPeer struct {
-	BaseEvent
-	Discovered peer.ID
 }

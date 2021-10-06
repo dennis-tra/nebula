@@ -89,7 +89,7 @@ func (r *Requester) logEntry() *log.Entry {
 }
 
 func (r *Requester) MonitorProviders(c *Content) error {
-	r.logEntry().Infoln("Getting closest peers")
+	r.logEntry().Infoln("Getting closest peers to monitor for provider records")
 	peers, err := r.dht.GetClosestPeers(r.Ctx(), string(c.cid.Hash()))
 	if err != nil {
 		return errors.Wrap(err, "get closest peers")
@@ -120,13 +120,13 @@ func (r *Requester) monitorPeer(c *Content, p peer.ID, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	logEntry := r.logEntry().WithField("remoteID", p.Pretty()[:16])
-	logEntry.Infoln("Starting to monitor peer")
+	logEntry.Infoln("Start monitoring peer")
 
 	for {
 		select {
 		case <-time.Tick(time.Millisecond * 500):
 		case <-r.SigShutdown():
-			logEntry.Infoln("Stopping to monitor peer")
+			logEntry.Infoln("Stop monitoring peer")
 			return
 		}
 
@@ -134,8 +134,8 @@ func (r *Requester) monitorPeer(c *Content, p peer.ID, wg *sync.WaitGroup) {
 		if err != nil {
 			logEntry.WithError(err).Warnln("Failed to get providers")
 			return
-		} else if len(provs) >= 0 {
-			logEntry.Infoln("Stopping to monitor peer - received providers!")
+		} else if len(provs) > 0 {
+			logEntry.Infoln("Found provider record")
 			return
 		}
 	}

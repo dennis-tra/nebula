@@ -72,14 +72,6 @@ func (m *messageSenderImpl) SendRequest(ctx context.Context, p peer.ID, pmes *pb
 	defer func() {
 		endEvent.Time = time.Now()
 		m.ec <- endEvent
-		if endEvent.Error() == nil && endEvent.Response.Type == pb.Message_FIND_NODE {
-			for _, pi := range pb.PBPeersToPeerInfos(endEvent.Response.CloserPeers) {
-				m.ec <- &DiscoveredPeer{
-					BaseEvent:  NewBaseEvent(m.local, p),
-					Discovered: pi.ID,
-				}
-			}
-		}
 	}()
 
 	ctx, _ = tag.New(ctx, metrics.UpsertMessageType(pmes))
@@ -231,21 +223,8 @@ func (ms *peerMessageSender) prepOrInvalidate(ctx context.Context) error {
 }
 
 func (ms *peerMessageSender) prep(ctx context.Context) error {
-	ms.ec <- &OpenStreamStart{
-		BaseEvent: NewBaseEvent(ms.local, ms.p),
-		Protocols: ms.m.protocols,
-	}
-	endEvent := &OpenStreamEnd{
-		BaseEvent: NewBaseEvent(ms.local, ms.p),
-		Protocols: ms.m.protocols,
-	}
-	defer func() {
-		endEvent.Time = time.Now()
-		ms.ec <- endEvent
-	}()
 	if ms.invalid {
 		err := fmt.Errorf("message sender has been invalidated")
-		endEvent.Err = err
 		return err
 	}
 	if ms.s != nil {
@@ -257,7 +236,6 @@ func (ms *peerMessageSender) prep(ctx context.Context) error {
 	// backwards compatibility reasons).
 	nstr, err := ms.m.host.NewStream(ctx, ms.p, ms.m.protocols...)
 	if err != nil {
-		endEvent.Err = err
 		return err
 	}
 
