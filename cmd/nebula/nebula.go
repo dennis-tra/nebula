@@ -142,6 +142,7 @@ func main() {
 			MonitorCommand,
 			ResolveCommand,
 			PingCommand,
+			ProvideCommand,
 		},
 	}
 
