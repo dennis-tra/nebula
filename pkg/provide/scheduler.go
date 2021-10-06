@@ -1,10 +1,14 @@
 package provide
 
 import (
-	"golang.org/x/sync/errgroup"
+	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/routing"
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
@@ -27,6 +31,8 @@ type Scheduler struct {
 
 	//
 	eventsChan chan Event
+
+	exp Experiment
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -36,6 +42,10 @@ func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 		dbc:        dbc,
 		config:     conf,
 		eventsChan: make(chan Event),
+		exp: Experiment{
+			events:   []Event{},
+			involved: map[peer.ID]struct{}{},
+		},
 	}, nil
 }
 
@@ -62,6 +72,10 @@ func (s *Scheduler) StartExperiment() error {
 		return errors.Wrap(err, "new provider")
 	}
 
+	// Update experiment data
+	s.exp.requesterID = r.h.ID()
+	s.exp.providerID = p.h.ID()
+
 	// Bootstrap both libp2p hosts by connecting to the canonical bootstrap peers.
 	// TODO: use configuration for list of bootstrap peers
 	group, ctx := errgroup.WithContext(s.Ctx())
@@ -85,14 +99,49 @@ func (s *Scheduler) StartExperiment() error {
 		return errors.Wrap(err, "monitor provider")
 	}
 
+	ctx, queryEvents := routing.RegisterForQueryEvents(s.Ctx())
+	go s.handleQueryEvents(queryEvents)
+
+	// Note start of experiment
+	s.exp.startTime = time.Now()
+
 	// Provide the random content from above.
 	if err = p.Provide(ctx, content); err != nil {
-		return errors.Wrap(err, "provide")
+		return errors.Wrap(err, "provide content")
 	}
 
-	r.Shutdown()
+	// Give some time for the requesters to pick up the provider record.
+	// If it times out stop them...
+	select {
+	case <-time.After(30 * time.Second):
+		r.Shutdown()
+	case <-r.SigDone():
+	}
+
+	var fevents []Event
+	for _, event := range s.exp.events {
+		if _, isInvolved := s.exp.involved[event.RemoteID()]; isInvolved {
+			fevents = append(fevents, event)
+		}
+	}
+	s.exp.events = fevents
 
 	return nil
+}
+
+type Experiment struct {
+	providerID  peer.ID
+	requesterID peer.ID
+	startTime   time.Time
+	events      []Event
+	involved    map[peer.ID]struct{}
+}
+
+func (s *Scheduler) handleQueryEvents(queryEvents <-chan *routing.QueryEvent) {
+	for event := range queryEvents {
+		// no need for locking as only this go routine accesses this map
+		s.exp.involved[event.ID] = struct{}{}
+	}
 }
 
 func (s *Scheduler) readEvents() {
@@ -103,12 +152,43 @@ func (s *Scheduler) readEvents() {
 	defer log.Info("Stop reading events")
 
 	for {
-		var event Event
 		select {
-		case event = <-s.eventsChan:
+		case event := <-s.eventsChan:
+			s.handleEvent(event)
 		case <-s.SigShutdown():
 			return
 		}
-		log.Debugf("Read event %T", event)
 	}
+}
+
+func (s *Scheduler) handleEvent(event Event) {
+	log.Debugf("Read event %T", event)
+
+	switch event.LocalID() {
+	case s.exp.providerID:
+		s.addEvent(event)
+		switch evt := event.(type) {
+		case *SendMessageStart:
+			if evt.Message.Type == pb.Message_ADD_PROVIDER {
+				log.WithField("remoteID", evt.RemoteID().Pretty()[:16]).Infoln("Adding provider record")
+			}
+		}
+	case s.exp.requesterID:
+		switch evt := event.(type) {
+		case *SendRequestStart:
+			if evt.Request.Type == pb.Message_GET_PROVIDERS {
+				s.addEvent(event)
+			}
+		case *SendRequestEnd:
+			if evt.Err == nil && evt.Response.Type == pb.Message_GET_PROVIDERS {
+				s.addEvent(event)
+			}
+		}
+	default:
+		panic("unexpected")
+	}
+}
+
+func (s *Scheduler) addEvent(event Event) {
+	s.exp.events = append(s.exp.events, event)
 }
