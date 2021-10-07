@@ -3,6 +3,7 @@ package provide
 import (
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	ma "github.com/multiformats/go-multiaddr"
@@ -14,6 +15,8 @@ type Event interface {
 	LocalID() peer.ID
 	RemoteID() peer.ID
 	TimeStamp() time.Time
+	Scope() string
+	IsStart() bool
 	Error() error
 }
 
@@ -59,6 +62,14 @@ type DialStart struct {
 	Maddr     ma.Multiaddr
 }
 
+func (d *DialStart) Scope() string {
+	return "dial"
+}
+
+func (d *DialStart) IsStart() bool {
+	return true
+}
+
 // The DialEnd event is dispatch when the TCP or Websocket
 // trpt modules have finished dialing a certain peer under
 // the given multi address.
@@ -69,19 +80,86 @@ type DialEnd struct {
 	Err       error
 }
 
-func (e *DialEnd) Error() error {
-	return e.Err
+func (d *DialEnd) Scope() string {
+	return "dial"
+}
+
+func (d *DialEnd) IsStart() bool {
+	return false
+}
+
+func (d *DialEnd) Error() error {
+	return d.Err
 }
 
 type SendRequestStart struct {
 	BaseEvent
-	Request *pb.Message
+	Request      *pb.Message
+	AgentVersion string
+	Protocols    []string
+}
+
+func NewSendRequestStart(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Message) *SendRequestStart {
+	event := &SendRequestStart{
+		BaseEvent: NewBaseEvent(local, remote),
+		Request:   pmes,
+		Protocols: []string{},
+	}
+
+	// Extract agent
+	if agent, err := h.Peerstore().Get(remote, "AgentVersion"); err == nil {
+		event.AgentVersion = agent.(string)
+	}
+
+	// Extract protocols
+	if protocols, err := h.Peerstore().GetProtocols(remote); err == nil {
+		event.Protocols = protocols
+	}
+
+	return event
+}
+
+func (s *SendRequestStart) Scope() string {
+	return "send_request"
+}
+
+func (s *SendRequestStart) IsStart() bool {
+	return true
 }
 
 type SendRequestEnd struct {
 	BaseEvent
-	Response *pb.Message
-	Err      error
+	Response     *pb.Message
+	AgentVersion string
+	Protocols    []string
+	Err          error
+}
+
+func NewSendRequestEnd(h host.Host, local peer.ID, remote peer.ID) *SendRequestEnd {
+	event := &SendRequestEnd{
+		BaseEvent: NewBaseEvent(local, remote),
+		Protocols: []string{},
+	}
+
+	// Extract agent
+	if agent, err := h.Peerstore().Get(remote, "AgentVersion"); err == nil {
+		event.AgentVersion = agent.(string)
+	}
+
+	// Extract protocols
+	if protocols, err := h.Peerstore().GetProtocols(remote); err == nil {
+		event.Protocols = protocols
+	}
+
+	return event
+}
+
+func (s *SendRequestEnd) Scope() string {
+	return "send_request"
+}
+
+func (s *SendRequestEnd) IsStart() bool {
+	return false
 }
 
 func (e *SendRequestEnd) Error() error {
@@ -90,12 +168,72 @@ func (e *SendRequestEnd) Error() error {
 
 type SendMessageStart struct {
 	BaseEvent
-	Message *pb.Message
+	Message      *pb.Message
+	AgentVersion string
+	Protocols    []string
+}
+
+func NewSendMessageStart(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Message) *SendMessageStart {
+	event := &SendMessageStart{
+		BaseEvent: NewBaseEvent(local, remote),
+		Message:   pmes,
+		Protocols: []string{},
+	}
+
+	// Extract agent
+	if agent, err := h.Peerstore().Get(remote, "AgentVersion"); err == nil {
+		event.AgentVersion = agent.(string)
+	}
+
+	// Extract protocols
+	if protocols, err := h.Peerstore().GetProtocols(remote); err == nil {
+		event.Protocols = protocols
+	}
+
+	return event
+}
+
+func (s *SendMessageStart) Scope() string {
+	return "send_message"
+}
+
+func (s *SendMessageStart) IsStart() bool {
+	return true
 }
 
 type SendMessageEnd struct {
 	BaseEvent
-	Err error
+	Message      *pb.Message
+	AgentVersion string
+	Protocols    []string
+	Err          error
+}
+
+func NewSendMessageEnd(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Message) *SendMessageEnd {
+	event := &SendMessageEnd{
+		BaseEvent: NewBaseEvent(local, remote),
+		Protocols: []string{},
+	}
+
+	// Extract agent
+	if agent, err := h.Peerstore().Get(remote, "AgentVersion"); err == nil {
+		event.AgentVersion = agent.(string)
+	}
+
+	// Extract protocols
+	if protocols, err := h.Peerstore().GetProtocols(remote); err == nil {
+		event.Protocols = protocols
+	}
+
+	return event
+}
+
+func (s *SendMessageEnd) Scope() string {
+	return "send_message"
+}
+
+func (s *SendMessageEnd) IsStart() bool {
+	return false
 }
 
 func (e *SendMessageEnd) Error() error {

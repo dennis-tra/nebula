@@ -3,13 +3,14 @@ package main
 import (
 	"strconv"
 
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/provide"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 )
 
 // ProvideCommand contains the provide sub-command configuration.

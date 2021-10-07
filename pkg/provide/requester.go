@@ -5,9 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -18,14 +15,19 @@ import (
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+	"go.uber.org/atomic"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 type Requester struct {
 	*service.Service
-	h   host.Host
-	dht *kaddht.IpfsDHT
-	pm  *pb.ProtocolMessenger
-	ec  chan<- Event
+	h            host.Host
+	dht          *kaddht.IpfsDHT
+	pm           *pb.ProtocolMessenger
+	ec           chan<- Event
+	monitorCount atomic.Int32
 }
 
 func NewRequester(ctx context.Context, conf *config.Config, ec chan<- Event) (*Requester, error) {
@@ -88,17 +90,17 @@ func (r *Requester) logEntry() *log.Entry {
 	return log.WithField("type", "requester")
 }
 
-func (r *Requester) MonitorProviders(c *Content) error {
-	r.logEntry().Infoln("Getting closest peers to monitor for provider records")
+func (r *Requester) MonitorProviders(c *Content) ([]peer.ID, error) {
+	r.logEntry().Infoln("Getting closest peers to monitor")
 	peers, err := r.dht.GetClosestPeers(r.Ctx(), string(c.cid.Hash()))
 	if err != nil {
-		return errors.Wrap(err, "get closest peers")
+		return nil, errors.Wrap(err, "get closest peers")
 	}
 	r.logEntry().Infof("Found %d peers", len(peers))
 
 	go r.monitorPeers(c, peers)
 
-	return nil
+	return peers, nil
 }
 
 func (r *Requester) monitorPeers(c *Content, peers []peer.ID) {
@@ -111,6 +113,7 @@ func (r *Requester) monitorPeers(c *Content, peers []peer.ID) {
 	var wg sync.WaitGroup
 	for _, p := range peers {
 		wg.Add(1)
+		r.monitorCount.Inc()
 		go r.monitorPeer(c, p, &wg)
 	}
 	wg.Wait()
@@ -118,24 +121,25 @@ func (r *Requester) monitorPeers(c *Content, peers []peer.ID) {
 
 func (r *Requester) monitorPeer(c *Content, p peer.ID, wg *sync.WaitGroup) {
 	defer wg.Done()
+	defer r.monitorCount.Dec()
 
 	logEntry := r.logEntry().WithField("remoteID", p.Pretty()[:16])
-	logEntry.Infoln("Start monitoring peer")
+	logEntry.WithField("monitorCount", r.monitorCount.Load()).Infoln("Start monitoring peer")
 
 	for {
 		select {
 		case <-time.Tick(time.Millisecond * 500):
 		case <-r.SigShutdown():
-			logEntry.Infoln("Stop monitoring peer")
+			logEntry.WithField("monitorCount", r.monitorCount.Load()-1).Infoln("Stop monitoring peer")
 			return
 		}
 
 		provs, _, err := r.pm.GetProviders(r.Ctx(), p, c.mhash)
 		if err != nil {
-			logEntry.WithError(err).Warnln("Failed to get providers")
+			logEntry.WithField("monitorCount", r.monitorCount.Load()-1).WithError(err).Warnln("Failed to get providers")
 			return
 		} else if len(provs) > 0 {
-			logEntry.Infoln("Found provider record")
+			logEntry.WithField("monitorCount", r.monitorCount.Load()-1).Infoln("Found provider record")
 			return
 		}
 	}
