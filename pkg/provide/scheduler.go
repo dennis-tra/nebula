@@ -133,10 +133,6 @@ func (s *Scheduler) StartExperiment() error {
 	//	log.Warnln("Events do not have matching amounts of start and end events")
 	//}
 
-	if err = s.measurement.saveMeasurementInfo(); err != nil {
-		return err
-	}
-
 	providerSpans, requesterSpans := s.measurement.detectSpans()
 	if err = s.measurement.saveSpans("provider", providerSpans); err != nil {
 		return err
@@ -146,7 +142,12 @@ func (s *Scheduler) StartExperiment() error {
 		return err
 	}
 
-	if err = s.measurement.savePeerInfos(); err != nil {
+	peerOrder, err := s.measurement.savePeerInfos()
+	if err != nil {
+		return err
+	}
+
+	if err = s.measurement.saveMeasurementInfo(peerOrder); err != nil {
 		return err
 	}
 
