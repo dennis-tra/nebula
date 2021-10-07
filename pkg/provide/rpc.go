@@ -64,11 +64,8 @@ func (m *messageSenderImpl) OnDisconnect(ctx context.Context, p peer.ID) {
 // SendRequest sends out a request, but also makes sure to
 // measure the RTT for latency measurements.
 func (m *messageSenderImpl) SendRequest(ctx context.Context, p peer.ID, pmes *pb.Message) (*pb.Message, error) {
-	m.ec <- &SendRequestStart{
-		BaseEvent: NewBaseEvent(m.local, p),
-		Request:   pmes,
-	}
-	endEvent := &SendRequestEnd{BaseEvent: NewBaseEvent(m.local, p)}
+	m.ec <- NewSendRequestStart(m.host, m.local, p, pmes)
+	endEvent := NewSendRequestEnd(m.host, m.local, p)
 	defer func() {
 		endEvent.Time = time.Now()
 		m.ec <- endEvent
@@ -112,11 +109,8 @@ func (m *messageSenderImpl) SendRequest(ctx context.Context, p peer.ID, pmes *pb
 
 // SendMessage sends out a message
 func (m *messageSenderImpl) SendMessage(ctx context.Context, p peer.ID, pmes *pb.Message) error {
-	m.ec <- &SendMessageStart{
-		BaseEvent: NewBaseEvent(m.local, p),
-		Message:   pmes,
-	}
-	endEvent := &SendMessageEnd{BaseEvent: NewBaseEvent(m.local, p)}
+	m.ec <- NewSendMessageStart(m.host, m.local, p, pmes)
+	endEvent := NewSendMessageEnd(m.host, m.local, p, pmes)
 	defer func() {
 		endEvent.Time = time.Now()
 		m.ec <- endEvent

@@ -1,9 +1,9 @@
 package provide
 
 import (
+	"sync"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/pkg/errors"
@@ -16,8 +16,10 @@ import (
 )
 
 // The Scheduler handles the scheduling and managing of
-//   a) providers - TODO
-//   b) requesters - TODO
+//   a) providers - Takes the CID of randomly generated data and tries to insert a provider record in the DHT.
+// 					During this process dial-events and more are collected.
+//   b) requesters - The requester tries to find the closest peers to the CID of random data and periodically
+//                   monitors them for associated provider records.
 type Scheduler struct {
 	// Service represents an entity that runs in a separate go routine and where its lifecycle
 	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
@@ -29,10 +31,11 @@ type Scheduler struct {
 	// The configuration of timeouts etc.
 	config *config.Config
 
-	//
+	// A channel that receives events from the receiver and provider and is read by this scheduler
 	eventsChan chan Event
 
-	exp Experiment
+	// Keeps track of the raw events that were dispatched on the eventsChan and also general experiment information.
+	measurement Measurement
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -42,9 +45,9 @@ func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 		dbc:        dbc,
 		config:     conf,
 		eventsChan: make(chan Event),
-		exp: Experiment{
+		measurement: Measurement{
 			events:   []Event{},
-			involved: map[peer.ID]struct{}{},
+			involved: sync.Map{},
 		},
 	}, nil
 }
@@ -56,6 +59,7 @@ func (s *Scheduler) StartExperiment() error {
 		return errors.Wrap(err, "new random content")
 	}
 	log.Infof("Generated random content %s", content.cid.String())
+	s.measurement.content = content
 
 	// Start reading events
 	go s.readEvents()
@@ -73,8 +77,8 @@ func (s *Scheduler) StartExperiment() error {
 	}
 
 	// Update experiment data
-	s.exp.requesterID = r.h.ID()
-	s.exp.providerID = p.h.ID()
+	s.measurement.requesterID = r.h.ID()
+	s.measurement.providerID = p.h.ID()
 
 	// Bootstrap both libp2p hosts by connecting to the canonical bootstrap peers.
 	// TODO: use configuration for list of bootstrap peers
@@ -95,7 +99,8 @@ func (s *Scheduler) StartExperiment() error {
 	}
 
 	// Start pinging the closest peers to the random content from above for provider records.
-	if err = r.MonitorProviders(content); err != nil {
+	s.measurement.monitored, err = r.MonitorProviders(content) // mpeers = monitored peers
+	if err != nil {
 		return errors.Wrap(err, "monitor provider")
 	}
 
@@ -103,12 +108,15 @@ func (s *Scheduler) StartExperiment() error {
 	go s.handleQueryEvents(queryEvents)
 
 	// Note start of experiment
-	s.exp.startTime = time.Now()
+	s.measurement.startTime = time.Now()
 
 	// Provide the random content from above.
 	if err = p.Provide(ctx, content); err != nil {
 		return errors.Wrap(err, "provide content")
 	}
+
+	// Note end of experiment
+	s.measurement.endTime = time.Now()
 
 	// Give some time for the requesters to pick up the provider record.
 	// If it times out stop them...
@@ -118,32 +126,27 @@ func (s *Scheduler) StartExperiment() error {
 	case <-r.SigDone():
 	}
 
-	var fevents []Event
-	for _, event := range s.exp.events {
-		if _, isInvolved := s.exp.involved[event.RemoteID()]; isInvolved {
-			fevents = append(fevents, event)
-		}
+	// filter out all events that are not relevant to the provide process.
+	s.measurement.filterEvents()
+
+	if !s.measurement.checkIntegrity() {
+		log.Warnln("Events do not have matching amounts of start and end events")
 	}
-	s.exp.events = fevents
 
 	return nil
 }
 
-type Experiment struct {
-	providerID  peer.ID
-	requesterID peer.ID
-	startTime   time.Time
-	events      []Event
-	involved    map[peer.ID]struct{}
-}
-
+// handleQueryEvents is called in the scope of the Provide operation. So every query
+// event that we'll receive on the queryEvents channel is _involved_ for the Provide
+// process.
 func (s *Scheduler) handleQueryEvents(queryEvents <-chan *routing.QueryEvent) {
 	for event := range queryEvents {
 		// no need for locking as only this go routine accesses this map
-		s.exp.involved[event.ID] = struct{}{}
+		s.measurement.involved.Store(event.ID, struct{}{})
 	}
 }
 
+// readEvents reads the events channel until it's closed or the scheduler was asked to stop.
 func (s *Scheduler) readEvents() {
 	s.Service.ServiceStarted()
 	defer s.Service.ServiceStopped()
@@ -165,7 +168,7 @@ func (s *Scheduler) handleEvent(event Event) {
 	log.Debugf("Read event %T", event)
 
 	switch event.LocalID() {
-	case s.exp.providerID:
+	case s.measurement.providerID:
 		s.addEvent(event)
 		switch evt := event.(type) {
 		case *SendMessageStart:
@@ -173,7 +176,7 @@ func (s *Scheduler) handleEvent(event Event) {
 				log.WithField("remoteID", evt.RemoteID().Pretty()[:16]).Infoln("Adding provider record")
 			}
 		}
-	case s.exp.requesterID:
+	case s.measurement.requesterID:
 		switch evt := event.(type) {
 		case *SendRequestStart:
 			if evt.Request.Type == pb.Message_GET_PROVIDERS {
@@ -190,5 +193,5 @@ func (s *Scheduler) handleEvent(event Event) {
 }
 
 func (s *Scheduler) addEvent(event Event) {
-	s.exp.events = append(s.exp.events, event)
+	s.measurement.events = append(s.measurement.events, event)
 }
