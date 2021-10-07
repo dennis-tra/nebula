@@ -16,6 +16,7 @@ func TestMeasurement_detectSpans_singleDial(t *testing.T) {
 	require.NoError(t, err)
 
 	m := &Measurement{
+		providerID: local,
 		events: []Event{
 			&DialStart{
 				BaseEvent: NewBaseEvent(local, remote),
@@ -25,11 +26,11 @@ func TestMeasurement_detectSpans_singleDial(t *testing.T) {
 			},
 		},
 	}
-	spans := m.detectSpans()
+	spans, _ := m.detectSpans()
 	assert.Len(t, spans, 1)
 	assert.Equal(t, SpanTypeDial, spans[0].Type)
 	assert.Equal(t, remote, spans[0].PeerID)
-	assert.Nil(t, spans[0].Error)
+	assert.Empty(t, spans[0].Error)
 }
 
 func TestMeasurement_detectSpans_multiDial(t *testing.T) {
@@ -39,6 +40,7 @@ func TestMeasurement_detectSpans_multiDial(t *testing.T) {
 	require.NoError(t, err)
 
 	m := &Measurement{
+		providerID: local,
 		events: []Event{
 			&DialStart{
 				BaseEvent: NewBaseEvent(local, remote),
@@ -55,11 +57,11 @@ func TestMeasurement_detectSpans_multiDial(t *testing.T) {
 			},
 		},
 	}
-	spans := m.detectSpans()
+	spans, _ := m.detectSpans()
 	assert.Len(t, spans, 1)
 	assert.Equal(t, SpanTypeDial, spans[0].Type)
 	assert.Equal(t, remote, spans[0].PeerID)
-	assert.Nil(t, spans[0].Error)
+	assert.Empty(t, spans[0].Error)
 }
 
 func TestMeasurement_detectSpans_multiDial_errorLast(t *testing.T) {
@@ -69,6 +71,7 @@ func TestMeasurement_detectSpans_multiDial_errorLast(t *testing.T) {
 	require.NoError(t, err)
 
 	m := &Measurement{
+		providerID: local,
 		events: []Event{
 			&DialStart{
 				BaseEvent: NewBaseEvent(local, remote),
@@ -85,9 +88,40 @@ func TestMeasurement_detectSpans_multiDial_errorLast(t *testing.T) {
 			},
 		},
 	}
-	spans := m.detectSpans()
+	spans, _ := m.detectSpans()
 	require.Len(t, spans, 1)
 	assert.Equal(t, SpanTypeDial, spans[0].Type)
 	assert.Equal(t, remote, spans[0].PeerID)
-	assert.Nil(t, spans[0].Error)
+	assert.Empty(t, spans[0].Error)
+}
+
+func TestMeasurement_detectSpans_multiDial_requester(t *testing.T) {
+	local, err := pt.RandPeerID()
+	require.NoError(t, err)
+	remote, err := pt.RandPeerID()
+	require.NoError(t, err)
+
+	m := &Measurement{
+		requesterID: local,
+		events: []Event{
+			&DialStart{
+				BaseEvent: NewBaseEvent(local, remote),
+			},
+			&DialStart{
+				BaseEvent: NewBaseEvent(local, remote),
+			},
+			&DialEnd{
+				BaseEvent: NewBaseEvent(local, remote),
+			},
+			&DialEnd{
+				BaseEvent: NewBaseEvent(local, remote),
+				Err:       fmt.Errorf("some err"),
+			},
+		},
+	}
+	_, spans := m.detectSpans()
+	require.Len(t, spans, 1)
+	assert.Equal(t, SpanTypeDial, spans[0].Type)
+	assert.Equal(t, remote, spans[0].PeerID)
+	assert.Empty(t, spans[0].Error)
 }
