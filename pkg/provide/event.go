@@ -9,13 +9,21 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
+type SpanType string
+
+const (
+	SpanTypeDial        SpanType = "dial"
+	SpanTypeSendRequest SpanType = "send_request"
+	SpanTypeSendMessage SpanType = "send_message"
+)
+
 // The Event interface must be implemented by all ec
 // that need to be tracked.
 type Event interface {
 	LocalID() peer.ID
 	RemoteID() peer.ID
 	TimeStamp() time.Time
-	Scope() string
+	Span() SpanType
 	IsStart() bool
 	Error() error
 }
@@ -62,8 +70,8 @@ type DialStart struct {
 	Maddr     ma.Multiaddr
 }
 
-func (d *DialStart) Scope() string {
-	return "dial"
+func (d *DialStart) Span() SpanType {
+	return SpanTypeDial
 }
 
 func (d *DialStart) IsStart() bool {
@@ -80,8 +88,8 @@ type DialEnd struct {
 	Err       error
 }
 
-func (d *DialEnd) Scope() string {
-	return "dial"
+func (d *DialEnd) Span() SpanType {
+	return SpanTypeDial
 }
 
 func (d *DialEnd) IsStart() bool {
@@ -119,8 +127,8 @@ func NewSendRequestStart(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Me
 	return event
 }
 
-func (s *SendRequestStart) Scope() string {
-	return "send_request"
+func (s *SendRequestStart) Span() SpanType {
+	return SpanTypeSendRequest
 }
 
 func (s *SendRequestStart) IsStart() bool {
@@ -154,8 +162,8 @@ func NewSendRequestEnd(h host.Host, local peer.ID, remote peer.ID) *SendRequestE
 	return event
 }
 
-func (s *SendRequestEnd) Scope() string {
-	return "send_request"
+func (s *SendRequestEnd) Span() SpanType {
+	return SpanTypeSendRequest
 }
 
 func (s *SendRequestEnd) IsStart() bool {
@@ -193,8 +201,8 @@ func NewSendMessageStart(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Me
 	return event
 }
 
-func (s *SendMessageStart) Scope() string {
-	return "send_message"
+func (s *SendMessageStart) Span() SpanType {
+	return SpanTypeSendMessage
 }
 
 func (s *SendMessageStart) IsStart() bool {
@@ -228,8 +236,8 @@ func NewSendMessageEnd(h host.Host, local peer.ID, remote peer.ID, pmes *pb.Mess
 	return event
 }
 
-func (s *SendMessageEnd) Scope() string {
-	return "send_message"
+func (s *SendMessageEnd) Span() SpanType {
+	return SpanTypeSendMessage
 }
 
 func (s *SendMessageEnd) IsStart() bool {
