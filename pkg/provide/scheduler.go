@@ -137,9 +137,19 @@ func (s *Scheduler) StartExperiment() error {
 		return err
 	}
 
-	if err = s.measurement.saveSpans(s.measurement.detectSpans()); err != nil {
+	providerSpans, requesterSpans := s.measurement.detectSpans()
+	if err = s.measurement.saveSpans("provider", providerSpans); err != nil {
 		return err
 	}
+
+	if err = s.measurement.saveSpans("requester", requesterSpans); err != nil {
+		return err
+	}
+
+	if err = s.measurement.savePeerInfos(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

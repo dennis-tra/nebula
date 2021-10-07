@@ -11,6 +11,7 @@ import (
 	"github.com/friendsofgo/errors"
 	u "github.com/ipfs/go-ipfs-util"
 	"github.com/libp2p/go-libp2p-core/peer"
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	log "github.com/sirupsen/logrus"
 )
@@ -98,19 +99,30 @@ func (m *Measurement) checkIntegrity() bool {
 // detectSpans loops through all events and tries to detect corresponding start and end events
 // to construct a span entity. E.g. there will be multiple simultaneous dials where only one
 // will succeed. The other dials end with an error, yet the dial attempt is successful.
-func (m *Measurement) detectSpans() []Span {
+func (m *Measurement) detectSpans() ([]Span, []Span) {
 	// S
 	type SpanState struct {
 		Start time.Time
 		Count int
 	}
-	var spans []Span
-	spanStates := map[peer.ID]map[SpanType]*SpanState{}
-	// providerSpanStates := map[peer.ID]map[SpanType]*SpanState{}
-	// requesterSpanStates := map[peer.ID]map[SpanType]*SpanState{}
+	var providerSpans []Span
+	var requesterSpans []Span
+	providerSpanStates := map[peer.ID]map[SpanType]*SpanState{}
+	requesterSpanStates := map[peer.ID]map[SpanType]*SpanState{}
 
 	// Loop through all events
 	for _, event := range m.events {
+		var spans *[]Span
+		var spanStates map[peer.ID]map[SpanType]*SpanState
+		if event.LocalID() == m.providerID {
+			spanStates = providerSpanStates
+			spans = &providerSpans
+		} else if event.LocalID() == m.requesterID {
+			spanStates = requesterSpanStates
+			spans = &requesterSpans
+		} else {
+			panic("unexpected peer id")
+		}
 
 		// Check if we are already tracking this peer - if not create a map for it.
 		if _, found := spanStates[event.RemoteID()]; !found {
@@ -147,25 +159,30 @@ func (m *Measurement) detectSpans() []Span {
 			}
 
 			// Create span
-			spans = append(spans, Span{
+			span := Span{
 				RelStart:  spanStates[event.RemoteID()][event.Span()].Start.Sub(m.startTime).Seconds(),
 				DurationS: event.TimeStamp().Sub(spanStates[event.RemoteID()][event.Span()].Start).Seconds(),
 				Start:     spanStates[event.RemoteID()][event.Span()].Start,
 				End:       event.TimeStamp(),
 				PeerID:    event.RemoteID(),
 				Type:      event.Span(),
-				Error:     event.Error().Error(),
-			})
+			}
+
+			if event.Error() != nil {
+				span.Error = event.Error().Error()
+			}
+
+			*spans = append(*spans, span)
 
 			// Delete span state so that subsequent events of this span type can be tracked again.
 			delete(spanStates[event.RemoteID()], event.Span())
 		}
 	}
 
-	return spans
+	return providerSpans, requesterSpans
 }
 
-func (m *Measurement) saveSpans(spans []Span) error {
+func (m *Measurement) saveSpans(name string, spans []Span) error {
 	spanMap := map[string][]Span{}
 
 	for _, span := range spans {
@@ -180,7 +197,7 @@ func (m *Measurement) saveSpans(spans []Span) error {
 		return errors.Wrap(err, "marshal spans")
 	}
 
-	f, err := os.Create(m.prefix() + "_spans.json")
+	f, err := os.Create(m.prefix() + "_" + name + "_spans.json")
 	if err != nil {
 		return errors.Wrap(err, "creating spans file")
 	}
@@ -188,6 +205,75 @@ func (m *Measurement) saveSpans(spans []Span) error {
 	_, err = f.Write(data)
 	if err != nil {
 		return errors.Wrap(err, "writing spans file")
+	}
+
+	return f.Close()
+}
+
+func (m *Measurement) savePeerInfos() error {
+	peerInfos := map[string]PeerInfo{}
+
+	m.involved.Range(func(key, value interface{}) bool {
+		peerID := key.(peer.ID)
+		pi := PeerInfo{
+			ID:          peerID,
+			XORDistance: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(peerID), kbucket.ConvertKey(string(m.content.mhash)))),
+		}
+
+		for _, event := range m.events {
+			switch evt := event.(type) {
+			case *SendRequestStart:
+				if event.RemoteID() == peerID && evt.AgentVersion != "" {
+					pi.AgentVersion = evt.AgentVersion
+				}
+			case *SendRequestEnd:
+				if event.RemoteID() == peerID && evt.AgentVersion != "" {
+					pi.AgentVersion = evt.AgentVersion
+				}
+				// Track which peer discovered this peer
+				// If there is no tracked discovery (pi.RelDiscoveredAt <= 0) AND
+				// the event originated from another peer (event.RemoteID() != peerID) AND
+				// there was no error (evt.Error() == nil) AND
+				// It was a find node request (evt.Response.Type == pb.Message_FIND_NODE)
+				// Then loop through the returned peers and see if it is part of that.
+				if pi.RelDiscoveredAt <= 0 && event.RemoteID() != peerID && evt.Error() == nil && evt.Response.Type == pb.Message_FIND_NODE {
+					for _, closer := range pb.PBPeersToPeerInfos(evt.Response.CloserPeers) {
+						if closer.ID == peerID {
+							pi.DiscoveredAt = evt.Time
+							pi.DiscoveredFrom = evt.RemoteID()
+							pi.RelDiscoveredAt = evt.Time.Sub(m.startTime).Seconds()
+						}
+					}
+				}
+			case *SendMessageStart:
+				if event.RemoteID() == peerID && evt.AgentVersion != "" {
+					pi.AgentVersion = evt.AgentVersion
+				}
+			case *SendMessageEnd:
+				if event.RemoteID() == peerID && evt.AgentVersion != "" {
+					pi.AgentVersion = evt.AgentVersion
+				}
+			}
+		}
+
+		peerInfos[peerID.Pretty()] = pi
+
+		return true
+	})
+
+	data, err := json.MarshalIndent(peerInfos, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "marshal peer info")
+	}
+
+	f, err := os.Create(m.prefix() + "_peer_infos.json")
+	if err != nil {
+		return errors.Wrap(err, "creating peer info file")
+	}
+
+	_, err = f.Write(data)
+	if err != nil {
+		return errors.Wrap(err, "writing peer info file")
 	}
 
 	return f.Close()
@@ -233,11 +319,12 @@ type Span struct {
 }
 
 type PeerInfo struct {
-	ID             peer.ID
-	AgentVersion   string
-	XORDistance    float64
-	DiscoveredAt   time.Time
-	DiscoveredFrom peer.ID
+	ID              peer.ID
+	AgentVersion    string
+	XORDistance     string
+	RelDiscoveredAt float64
+	DiscoveredAt    time.Time
+	DiscoveredFrom  peer.ID
 }
 
 type MeasurementInfo struct {
