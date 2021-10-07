@@ -129,10 +129,17 @@ func (s *Scheduler) StartExperiment() error {
 	// filter out all events that are not relevant to the provide process.
 	s.measurement.filterEvents()
 
-	if !s.measurement.checkIntegrity() {
-		log.Warnln("Events do not have matching amounts of start and end events")
+	//if !s.measurement.checkIntegrity() {
+	//	log.Warnln("Events do not have matching amounts of start and end events")
+	//}
+
+	if err = s.measurement.saveMeasurementInfo(); err != nil {
+		return err
 	}
 
+	if err = s.measurement.saveSpans(s.measurement.detectSpans()); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -15,6 +15,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.0.7
+	github.com/ipfs/go-ipfs-util v0.0.2
 	github.com/ipfs/go-ipns v0.1.0 // indirect
 	github.com/ipfs/go-log v1.0.5
 	github.com/ipld/go-ipld-prime v0.10.0 // indirect
