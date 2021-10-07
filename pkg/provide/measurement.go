@@ -210,7 +210,7 @@ func (m *Measurement) saveSpans(name string, spans []Span) error {
 	return f.Close()
 }
 
-func (m *Measurement) savePeerInfos() error {
+func (m *Measurement) savePeerInfos() ([]peer.ID, error) {
 	peerInfos := map[string]PeerInfo{}
 
 	m.involved.Range(func(key, value interface{}) bool {
@@ -261,25 +261,91 @@ func (m *Measurement) savePeerInfos() error {
 		return true
 	})
 
+	// The below code is ugly
+	// This should sort the peers by their time they were discovered OR
+	// if they are bootstrap peers by their sendRequest finish time.
+	type sortInfo struct {
+		id           peer.ID
+		discoveredAt *time.Time
+		sendReqEnd   *time.Time
+	}
+	var sortInfos []sortInfo
+OUTER:
+	for _, peerInfo := range peerInfos {
+		pi := peerInfo
+		if pi.DiscoveredFrom.String() != "" {
+			for i, p := range sortInfos {
+				if p.discoveredAt == nil {
+					continue
+				}
+				if p.discoveredAt.After(pi.DiscoveredAt) {
+					sortInfos = append(sortInfos[:i+1], sortInfos[i:]...)
+					sortInfos[i] = sortInfo{
+						id:           pi.ID,
+						discoveredAt: &pi.DiscoveredAt,
+					}
+					continue OUTER
+				}
+			}
+			sortInfos = append(sortInfos,
+				sortInfo{
+					id:           pi.ID,
+					discoveredAt: &pi.DiscoveredAt,
+				})
+		} else {
+			for _, event := range m.events {
+				_, ok := event.(*SendRequestEnd)
+				if event.RemoteID() != pi.ID || event.Error() != nil || !ok {
+					continue
+				}
+
+				for i, p := range sortInfos {
+					if p.sendReqEnd == nil {
+						continue
+					}
+
+					if (p.sendReqEnd.After(event.TimeStamp()) && event.TimeStamp().After(m.startTime)) || p.discoveredAt != nil {
+						sortInfos = append(sortInfos[:i+1], sortInfos[i:]...)
+						sortInfos[i] = sortInfo{
+							id:           pi.ID,
+							discoveredAt: &pi.DiscoveredAt,
+						}
+						continue OUTER
+					}
+				}
+				sortInfos = append([]sortInfo{{
+					id:           pi.ID,
+					discoveredAt: &pi.DiscoveredAt,
+				}}, sortInfos...)
+				continue OUTER
+			}
+		}
+	}
+
+	var peerOrder []peer.ID
+	for _, si := range sortInfos {
+		peerOrder = append(peerOrder, si.id)
+	}
+
 	data, err := json.MarshalIndent(peerInfos, "", "  ")
 	if err != nil {
-		return errors.Wrap(err, "marshal peer info")
+		return nil, errors.Wrap(err, "marshal peer info")
 	}
 
 	f, err := os.Create(m.prefix() + "_peer_infos.json")
 	if err != nil {
-		return errors.Wrap(err, "creating peer info file")
+		return nil, errors.Wrap(err, "creating peer info file")
 	}
 
 	_, err = f.Write(data)
 	if err != nil {
-		return errors.Wrap(err, "writing peer info file")
+		return nil, errors.Wrap(err, "writing peer info file")
 	}
 
-	return f.Close()
+	return peerOrder, f.Close()
 }
 
-func (m *Measurement) saveMeasurementInfo() error {
+func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID) error {
 	ei := MeasurementInfo{
 		StartedAt:     m.startTime,
 		EndedAt:       m.endTime,
@@ -288,6 +354,7 @@ func (m *Measurement) saveMeasurementInfo() error {
 		ProviderDist:  hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(m.providerID), kbucket.ConvertKey(string(m.content.mhash)))),
 		RequesterID:   m.requesterID.Pretty(),
 		RequesterDist: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(m.requesterID), kbucket.ConvertKey(string(m.content.mhash)))),
+		PeerOrder:     peerOrder,
 	}
 
 	data, err := json.MarshalIndent(ei, "", "  ")
@@ -335,6 +402,7 @@ type MeasurementInfo struct {
 	ProviderDist  string
 	RequesterID   string
 	RequesterDist string
+	PeerOrder     []peer.ID
 	// DialCount     int
 	// Content           *Content
 	// RoutingTableStart int
