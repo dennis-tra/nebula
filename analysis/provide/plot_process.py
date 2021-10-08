@@ -28,45 +28,17 @@ colors = {
     'brown': sns.color_palette()[5],
 }
 
-# Load measurement information
-measurement_info: MeasurementInfo
-with open(f"{run_prefix}_measurement_info.json") as f:
-    measurement_info = MeasurementInfo.from_dict(json.load(f))
-
-# Load peer information
-peer_infos: dict[str, PeerInfo] = {}
-with open(f"{run_prefix}_peer_infos.json") as f:
-    data = json.load(f)
-    for key in data:
-        peer_infos[key] = PeerInfo.from_dict(data[key])
-
-# Load provider spans
-provider_spans: dict[str, list[Span]] = {}
-with open(f"{run_prefix}_provider_spans.json") as f:
-    data = json.load(f)
-    for key in data:
-        provider_spans[key] = []
-        for span_dict in data[key]:
-            provider_spans[key] += [Span.from_dict(span_dict)]
-
-# Load requester spans
-requester_spans: dict[str, list[Span]] = {}
-with open(f"{run_prefix}_requester_spans.json") as f:
-    data = json.load(f)
-    for key in data:
-        requester_spans[key] = []
-        for span_dict in data[key]:
-            requester_spans[key] += [Span.from_dict(span_dict)]
+measurement = Measurement.from_location("data", run_prefix)
 
 # Start plotting
-num_peers = len(measurement_info.peer_order)
+num_peers = len(measurement.info.peer_order)
 
 fig, ax = plt.subplots(1, figsize=(16, 6))
 
-for peer_id in provider_spans:
-    spans = provider_spans[peer_id]
+for peer_id in measurement.provider_spans:
+    spans = measurement.provider_spans[peer_id]
     for span in spans:
-        y = num_peers - measurement_info.peer_order.index(peer_id)
+        y = num_peers - measurement.info.peer_order.index(peer_id)
         xmin = span.rel_start
         xmax = span.rel_start + span.duration_s
         c = span_colors if span.error == "" else span_colors_muted
@@ -76,12 +48,12 @@ for peer_id in provider_spans:
         if span.type == 'send_message':
             ax.plot([xmin], [y], marker='.', color=c[span.type], markersize=4)
 
-for peer_id in peer_infos:
-    peer_info = peer_infos[peer_id]
+for peer_id in measurement.peer_infos:
+    peer_info = measurement.peer_infos[peer_id]
     if peer_info.discovered_from == "":
         continue
-    top = num_peers - measurement_info.peer_order.index(peer_info.discovered_from)
-    bottom = num_peers - measurement_info.peer_order.index(peer_info.id)
+    top = num_peers - measurement.info.peer_order.index(peer_info.discovered_from)
+    bottom = num_peers - measurement.info.peer_order.index(peer_info.id)
     ax.arrow(
         peer_info.rel_discovered_at,
         top,
@@ -96,10 +68,10 @@ for peer_id in peer_infos:
 ax.vlines(0, 0, num_peers, linewidth=0.5, colors=colors['brown'])
 
 labels = []
-for peer_id in measurement_info.peer_order:
-    distance = int(peer_infos[peer_id].xor_distance, base=16)
+for peer_id in measurement.info.peer_order:
+    distance = int(measurement.peer_infos[peer_id].xor_distance, base=16)
     distance_norm = distance / (2 ** 256)
-    labels += ["{:s} | {:.2f} | {:s}".format(peer_infos[peer_id].agent_version, distance_norm*100, peer_id[:16])]
+    labels += ["{:s} | {:.2f} | {:s}".format(measurement.peer_infos[peer_id].agent_version, distance_norm*100, peer_id[:16])]
 
 labels.reverse()
 
@@ -118,7 +90,7 @@ plt.legend(handles=[
 ])
 
 plt.title(
-    "Providing content with distance {:.2f}".format(int(measurement_info.provider_dist, base=16) / (2 ** 256) * 100))
+    "Providing content with distance {:.2f}".format(int(measurement.info.provider_dist, base=16) / (2 ** 256) * 100))
 
 plt.xlabel("Time in s")
 plt.xlim(0)

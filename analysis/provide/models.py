@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime
+import json
+from os import path
 from typing import List, Any, TypeVar, Callable
 import dateutil.parser
-
 
 T = TypeVar("T")
 
@@ -134,3 +135,46 @@ class PeerInfo:
             "DiscoveredAt": self.discovered_at.isoformat(),
             "DiscoveredFrom": from_str(self.discovered_from)
         }
+
+
+@dataclass
+class Measurement:
+    info: MeasurementInfo
+    peer_infos: dict[str, PeerInfo]
+    provider_spans: dict[str, list[Span]]
+    requester_spans: dict[str, list[Span]]
+
+    @staticmethod
+    def from_location(loc: str, prefix: str):
+
+        # Load measurement information
+        measurement_info: MeasurementInfo
+        with open(path.join(loc, f"{prefix}_measurement_info.json")) as f:
+            measurement_info = MeasurementInfo.from_dict(json.load(f))
+
+        # Load peer information
+        peer_infos: dict[str, PeerInfo] = {}
+        with open(path.join(loc, f"{prefix}_peer_infos.json")) as f:
+            data = json.load(f)
+            for key in data:
+                peer_infos[key] = PeerInfo.from_dict(data[key])
+
+        # Load provider spans
+        provider_spans: dict[str, list[Span]] = {}
+        with open(path.join(loc, f"{prefix}_provider_spans.json")) as f:
+            data = json.load(f)
+            for key in data:
+                provider_spans[key] = []
+                for span_dict in data[key]:
+                    provider_spans[key] += [Span.from_dict(span_dict)]
+
+        # Load requester spans
+        requester_spans: dict[str, list[Span]] = {}
+        with open(path.join(loc, f"{prefix}_requester_spans.json")) as f:
+            data = json.load(f)
+            for key in data:
+                requester_spans[key] = []
+                for span_dict in data[key]:
+                    requester_spans[key] += [Span.from_dict(span_dict)]
+
+        return Measurement(measurement_info, peer_infos, provider_spans, requester_spans)
