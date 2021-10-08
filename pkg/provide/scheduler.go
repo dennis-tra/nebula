@@ -147,7 +147,7 @@ func (s *Scheduler) StartExperiment() error {
 		return err
 	}
 
-	if err = s.measurement.saveMeasurementInfo(peerOrder); err != nil {
+	if err = s.measurement.saveMeasurementInfo(peerOrder, s.config.RefreshRoutingTable); err != nil {
 		return err
 	}
 

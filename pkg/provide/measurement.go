@@ -217,7 +217,7 @@ func (m *Measurement) savePeerInfos() ([]peer.ID, error) {
 		peerID := key.(peer.ID)
 		pi := PeerInfo{
 			ID:          peerID,
-			XORDistance: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(peerID), kbucket.ConvertKey(string(m.content.mhash)))),
+			XORDistance: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(peerID), kbucket.ConvertKey(string(m.content.cid.Hash())))),
 		}
 
 		for _, event := range m.events {
@@ -345,7 +345,7 @@ OUTER:
 	return peerOrder, f.Close()
 }
 
-func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID) error {
+func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID, initRT bool) error {
 	ei := MeasurementInfo{
 		StartedAt:     m.startTime,
 		EndedAt:       m.endTime,
@@ -355,6 +355,7 @@ func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID) error {
 		RequesterID:   m.requesterID.Pretty(),
 		RequesterDist: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(m.requesterID), kbucket.ConvertKey(string(m.content.mhash)))),
 		PeerOrder:     peerOrder,
+		InitRT:        initRT,
 	}
 
 	data, err := json.MarshalIndent(ei, "", "  ")
@@ -403,6 +404,7 @@ type MeasurementInfo struct {
 	RequesterID   string
 	RequesterDist string
 	PeerOrder     []peer.ID
+	InitRT        bool // Whether the routing table of the provider was initialized.
 	// DialCount     int
 	// Content           *Content
 	// RoutingTableStart int
