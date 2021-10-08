@@ -4,9 +4,9 @@ from models import *
 import matplotlib.pyplot as plt
 
 # Load measurement information
-measurements: list[str]
-with open(f"measurements.json") as f:
-    measurements = json.load(f)
+prefixes: list[str]
+with open("./data/measurements.json") as f:
+    prefixes = json.load(f)
 
 discovered_times = []
 
@@ -19,39 +19,11 @@ failed_queries = 0
 successful_provides = 0
 failed_provides = 0
 
-for measurement in measurements:
+for prefix in prefixes:
 
-    # Load measurement information
-    measurement_info: MeasurementInfo
-    with open(f"{measurement}_measurement_info.json") as f:
-        measurement_info = MeasurementInfo.from_dict(json.load(f))
+    measurement = Measurement.from_location("data", prefix)
 
-    # Load peer information
-    peer_infos: dict[str, PeerInfo] = {}
-    with open(f"{measurement}_peer_infos.json") as f:
-        data = json.load(f)
-        for key in data:
-            peer_infos[key] = PeerInfo.from_dict(data[key])
-
-    # Load provider spans
-    provider_spans: dict[str, list[Span]] = {}
-    with open(f"{measurement}_provider_spans.json") as f:
-        data = json.load(f)
-        for key in data:
-            provider_spans[key] = []
-            for span_dict in data[key]:
-                provider_spans[key] += [Span.from_dict(span_dict)]
-
-    # Load requester spans
-    requester_spans: dict[str, list[Span]] = {}
-    with open(f"{measurement}_requester_spans.json") as f:
-        data = json.load(f)
-        for key in data:
-            requester_spans[key] = []
-            for span_dict in data[key]:
-                requester_spans[key] += [Span.from_dict(span_dict)]
-
-    for spans in provider_spans.values():
+    for spans in measurement.provider_spans.values():
         for span in spans:
             if span.type == "dial":
                 if span.error == "":
