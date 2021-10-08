@@ -205,8 +205,8 @@ func (c *Config) Apply(ctx *cli.Context) {
 	if ctx.IsSet("protocols") {
 		c.Protocols = ctx.StringSlice("protocols")
 	}
-	if ctx.IsSet("routing-table") {
-		c.RefreshRoutingTable = ctx.Bool("routing-table")
+	if ctx.IsSet("init-rt") {
+		c.RefreshRoutingTable = ctx.Bool("init-rt")
 	}
 	if ctx.IsSet("run-count") {
 		c.ProvideRunCount = ctx.Int("run-count")

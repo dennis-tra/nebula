@@ -434,12 +434,7 @@ type MeasurementInfo struct {
 	RequesterID   string
 	RequesterDist string
 	PeerOrder     []peer.ID
-	InitRT        bool // Whether the routing table of the provider was initialized.
-	// DialCount     int
-	// Content           *Content
-	// RoutingTableStart int
-	// Hops       int
-	// HydraCount int
+	InitRT        bool
 }
 
 func (m *Measurement) Prefix() string {
