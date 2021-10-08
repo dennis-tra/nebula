@@ -5,13 +5,14 @@ import matplotlib.patches as mpatches
 from models import *
 
 sns.set_theme(style="darkgrid")
-run_prefix = "2021-10-07T21:11:00"
+run_prefix = "2021-10-08T14:06:38"
 
 span_colors = {
     "dial": sns.color_palette()[3],
     "send_request": sns.color_palette()[2],
     "send_message": sns.color_palette()[1],
 }
+
 span_colors_muted = {
     "dial": "#e8b0b0",
     "send_request": "#badec4",
@@ -61,6 +62,7 @@ with open(f"{run_prefix}_requester_spans.json") as f:
 num_peers = len(measurement_info.peer_order)
 
 fig, ax = plt.subplots(1, figsize=(16, 6))
+
 for peer_id in provider_spans:
     spans = provider_spans[peer_id]
     for span in spans:
@@ -97,7 +99,9 @@ labels = []
 for peer_id in measurement_info.peer_order:
     distance = int(peer_infos[peer_id].xor_distance, base=16)
     distance_norm = distance / (2 ** 256)
-    labels += ["{:s} | {:.2e} | {:s}".format(peer_infos[peer_id].agent_version, distance_norm, peer_id[:16])]
+    labels += ["{:s} | {:.2f} | {:s}".format(peer_infos[peer_id].agent_version, distance_norm*100, peer_id[:16])]
+
+labels.reverse()
 
 ax.set_yticklabels(
     labels,
@@ -112,6 +116,9 @@ plt.legend(handles=[
     mpatches.Patch(color=span_colors["send_message"], label='Add Provider'),
     mpatches.Patch(color="#ccc", label='Discovered'),
 ])
+
+plt.title(
+    "Providing content with distance {:.2f}".format(int(measurement_info.provider_dist, base=16) / (2 ** 256) * 100))
 
 plt.xlabel("Time in s")
 plt.xlim(0)
