@@ -120,6 +120,12 @@ type Config struct {
 
 	// Whether the provider's routing table for should be refreshed
 	RefreshRoutingTable bool
+
+	// How many random content provide runs should be performed
+	ProvideRunCount int
+
+	// The directory where the measurement files should be saved
+	ProvideOutDir string
 }
 
 func init() {
@@ -201,6 +207,12 @@ func (c *Config) Apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("routing-table") {
 		c.RefreshRoutingTable = ctx.Bool("routing-table")
+	}
+	if ctx.IsSet("run-count") {
+		c.ProvideRunCount = ctx.Int("run-count")
+	}
+	if ctx.IsSet("out") {
+		c.ProvideOutDir = ctx.String("out")
 	}
 }
 

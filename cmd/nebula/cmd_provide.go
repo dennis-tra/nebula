@@ -24,11 +24,25 @@ var ProvideCommand = &cli.Command{
 			Usage:   "Don't persist anything to a database (you don't need a running DB)",
 			EnvVars: []string{"NEBULA_PROVIDE_DRY_RUN"},
 		},
+		&cli.StringFlag{
+			Name:    "out",
+			Aliases: []string{"o"},
+			Usage:   "Write measurement to this directory",
+			EnvVars: []string{"NEBULA_PROVIDE_OUT"},
+		},
 		&cli.BoolFlag{
-			Name:        "routing-table",
+			Name:        "init-rt",
 			Usage:       "Whether or not Nebula should wait until the provider's routing table was refreshed",
-			EnvVars:     []string{"NEBULA_PROVIDE_ROUTING_TABLE"},
+			EnvVars:     []string{"NEBULA_PROVIDE_INIT_ROUTING_TABLE"},
 			DefaultText: strconv.FormatBool(config.DefaultConfig.RefreshRoutingTable),
+		},
+		&cli.IntFlag{
+			Name:        "run-count",
+			Aliases:     []string{"r"},
+			Usage:       "How many provide runs should be performed",
+			EnvVars:     []string{"NEBULA_PROVIDE_RUN_COUNT"},
+			Value:       1,
+			DefaultText: "1",
 		},
 	},
 }
@@ -62,11 +76,5 @@ func ProvideAction(c *cli.Context) error {
 		return errors.Wrap(err, "creating new scheduler")
 	}
 
-	go func() {
-		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
-		<-c.Context.Done()
-		s.Shutdown()
-	}()
-
-	return s.StartExperiment()
+	return s.StartExperiment(c.Context)
 }

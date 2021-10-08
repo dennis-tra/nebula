@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -36,6 +37,9 @@ type Measurement struct {
 	// All events that occurred during the whole process
 	events []Event
 
+	// Whether the provider routing table was refreshed initially
+	refreshRT bool
+
 	// Keeps track of peers that were involved in the provide process. Since
 	// events are dispatched for all dials regardless of whether they were
 	// necessary for the provide process or e.g., the routing table refresh.
@@ -48,6 +52,32 @@ type Measurement struct {
 	// monitored represents the list of peers that the requester periodically
 	// asked for provider records.
 	monitored []peer.ID
+}
+
+func (m *Measurement) serialize(out string) error {
+	// filter out all events that are not relevant to the provide process.
+	m.filterEvents()
+
+	// Go through all events and detect the spans of events (dials, find nodes etc...)
+	providerSpans, requesterSpans := m.detectSpans()
+
+	// Save the span results
+	if err := m.saveSpans(out, providerSpans, "provider"); err != nil {
+		return err
+	}
+
+	if err := m.saveSpans(out, requesterSpans, "requester"); err != nil {
+		return err
+	}
+
+	// Save all information we gathered around peers.
+	peerOrder, err := m.savePeerInfos(out)
+	if err != nil {
+		return err
+	}
+
+	// save general measurement information
+	return m.saveMeasurementInfo(out, peerOrder)
 }
 
 // filterEvents removes all events that are related to remote peers that were not involved in the Provide process.
@@ -182,7 +212,7 @@ func (m *Measurement) detectSpans() ([]Span, []Span) {
 	return providerSpans, requesterSpans
 }
 
-func (m *Measurement) saveSpans(name string, spans []Span) error {
+func (m *Measurement) saveSpans(out string, spans []Span, name string) error {
 	spanMap := map[string][]Span{}
 
 	for _, span := range spans {
@@ -197,7 +227,7 @@ func (m *Measurement) saveSpans(name string, spans []Span) error {
 		return errors.Wrap(err, "marshal spans")
 	}
 
-	f, err := os.Create(m.prefix() + "_" + name + "_spans.json")
+	f, err := os.Create(path.Join(out, m.Prefix()+"_"+name+"_spans.json"))
 	if err != nil {
 		return errors.Wrap(err, "creating spans file")
 	}
@@ -210,7 +240,7 @@ func (m *Measurement) saveSpans(name string, spans []Span) error {
 	return f.Close()
 }
 
-func (m *Measurement) savePeerInfos() ([]peer.ID, error) {
+func (m *Measurement) savePeerInfos(out string) ([]peer.ID, error) {
 	peerInfos := map[string]PeerInfo{}
 
 	m.involved.Range(func(key, value interface{}) bool {
@@ -332,7 +362,7 @@ OUTER:
 		return nil, errors.Wrap(err, "marshal peer info")
 	}
 
-	f, err := os.Create(m.prefix() + "_peer_infos.json")
+	f, err := os.Create(path.Join(out, m.Prefix()+"_peer_infos.json"))
 	if err != nil {
 		return nil, errors.Wrap(err, "creating peer info file")
 	}
@@ -345,7 +375,7 @@ OUTER:
 	return peerOrder, f.Close()
 }
 
-func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID, initRT bool) error {
+func (m *Measurement) saveMeasurementInfo(out string, peerOrder []peer.ID) error {
 	ei := MeasurementInfo{
 		StartedAt:     m.startTime,
 		EndedAt:       m.endTime,
@@ -355,7 +385,7 @@ func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID, initRT bool) erro
 		RequesterID:   m.requesterID.Pretty(),
 		RequesterDist: hex.EncodeToString(u.XOR(kbucket.ConvertPeerID(m.requesterID), kbucket.ConvertKey(string(m.content.mhash)))),
 		PeerOrder:     peerOrder,
-		InitRT:        initRT,
+		InitRT:        m.refreshRT,
 	}
 
 	data, err := json.MarshalIndent(ei, "", "  ")
@@ -363,7 +393,7 @@ func (m *Measurement) saveMeasurementInfo(peerOrder []peer.ID, initRT bool) erro
 		return errors.Wrap(err, "marshal experiment info")
 	}
 
-	f, err := os.Create(m.prefix() + "_measurement_info.json")
+	f, err := os.Create(path.Join(out, m.Prefix()+"_measurement_info.json"))
 	if err != nil {
 		return errors.Wrap(err, "creating experiment info file")
 	}
@@ -412,7 +442,7 @@ type MeasurementInfo struct {
 	// HydraCount int
 }
 
-func (m *Measurement) prefix() string {
+func (m *Measurement) Prefix() string {
 	t := m.startTime
 	return fmt.Sprintf("%d-%02d-%02dT%02d:%02d:%02d",
 		t.Year(), t.Month(), t.Day(),
