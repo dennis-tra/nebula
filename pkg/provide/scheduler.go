@@ -159,6 +159,23 @@ func (s *Scheduler) StartExperiment(ctx context.Context) error {
 		if err = s.measurement.serialize(s.config.ProvideOutDir); err != nil {
 			return errors.Wrap(err, "serialize measurement")
 		}
+
+		s.measurements = append(s.measurements, s.measurement.Prefix())
+	}
+
+	f, err := os.Create(path.Join(s.config.ProvideOutDir, "measurements.json"))
+	if err != nil {
+		return errors.Wrap(err, "creating measurements json")
+	}
+	defer f.Close()
+
+	data, err := json.MarshalIndent(s.measurements, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "marshal measurements json")
+	}
+
+	if _, err = f.Write(data); err != nil {
+		return errors.Wrap(err, "writing measurements json")
 	}
 
 	return nil
