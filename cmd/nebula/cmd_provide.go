@@ -8,7 +8,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/provide"
 )
@@ -58,20 +57,12 @@ func ProvideAction(c *cli.Context) error {
 	}
 	c.Context = ctx
 
-	// Acquire database handle
-	var dbc *db.Client
-	if !c.Bool("dry-run") {
-		if dbc, err = db.InitClient(c.Context); err != nil {
-			return err
-		}
-	}
-
 	// Start prometheus metrics endpoint
 	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
 		return errors.Wrap(err, "initialize metrics")
 	}
 
-	s, err := provide.NewScheduler(conf, dbc)
+	s, err := provide.NewScheduler(conf)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

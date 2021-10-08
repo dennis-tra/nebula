@@ -2,6 +2,9 @@ package provide
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -14,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -23,9 +25,6 @@ import (
 //   b) requesters - The requester tries to find the closest peers to the CID of random data and periodically
 //                   monitors them for associated provider records.
 type Scheduler struct {
-	// The database client
-	dbc *db.Client
-
 	// The configuration of timeouts etc.
 	config *config.Config
 
@@ -40,11 +39,11 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
+func NewScheduler(conf *config.Config) (*Scheduler, error) {
 	return &Scheduler{
-		dbc:        dbc,
-		config:     conf,
-		eventsChan: make(chan Event),
+		config:       conf,
+		eventsChan:   make(chan Event),
+		measurements: []string{},
 	}, nil
 }
 
