@@ -25,6 +25,10 @@ const (
 // If this happens somethings wrong :/
 var ErrServiceAlreadyStarted = errors.New("the service was already started in the past")
 
+// ErrServiceRunning is returned if there is a call to Reset but the service is neither
+// Stopped nor Idle.
+var ErrServiceRunning = errors.New("the service is running")
+
 // Service represents an entity that runs in a
 // separate go routine and where its lifecycle
 // needs to be handled externally.
@@ -75,6 +79,33 @@ func New(id string) *Service {
 		shutdown: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
+}
+
+// Reset can be called to set the service in its starting state.
+func (s *Service) Reset() error {
+	log.WithField("serviceId", s.id).Traceln("Service has been reset")
+	s.lk.Lock()
+	defer s.lk.Unlock()
+
+	switch s.state {
+	case Idle:
+		close(s.shutdown)
+		close(s.done)
+	case Started:
+		return ErrServiceRunning
+	case Stopping:
+		return ErrServiceRunning
+	case Stopped:
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ctx = ctx
+	s.cancel = cancel
+	s.state = Idle
+	s.shutdown = make(chan struct{})
+	s.done = make(chan struct{})
+
+	return nil
 }
 
 // ServiceStarted marks this service as started.
