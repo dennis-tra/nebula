@@ -26,52 +26,6 @@ import (
 
 var crawlerID = atomic.NewInt32(0)
 
-// Result captures data that is gathered from crawling a single peer.
-type Result struct {
-	// The crawler that generated this result
-	CrawlerID string
-
-	// The crawled peer
-	Peer peer.AddrInfo
-
-	// The neighbors of the crawled peer
-	Neighbors []peer.AddrInfo
-
-	// The agent version of the crawled peer
-	Agent string
-
-	// The protocols the peer supports
-	Protocols []string
-
-	// Any error that has occurred during the crawl
-	Error error
-
-	// The above error transferred to a known error
-	DialError string
-
-	// When was the crawl started
-	CrawlStartTime time.Time
-
-	// When did this crawl end
-	CrawlEndTime time.Time
-
-	// When was the connection attempt made
-	ConnectStartTime time.Time
-
-	// As it can take some time to handle the result we track the timestamp explicitly
-	ConnectEndTime time.Time
-}
-
-// CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
-func (r *Result) CrawlDuration() time.Duration {
-	return r.CrawlEndTime.Sub(r.CrawlStartTime)
-}
-
-// ConnectDuration returns the time it took to connect to the peer.
-func (r *Result) ConnectDuration() time.Duration {
-	return r.ConnectEndTime.Sub(r.ConnectStartTime)
-}
-
 // Crawler encapsulates a libp2p host that crawls the network.
 type Crawler struct {
 	*service.Service
@@ -96,12 +50,11 @@ func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 	}
 
 	c := &Crawler{
-		Service: service.New(fmt.Sprintf("crawler-%02d", crawlerID.Load())),
+		Service: service.New(fmt.Sprintf("crawler-%02d", crawlerID.Inc())),
 		host:    h,
 		pm:      pm,
 		config:  conf,
 	}
-	crawlerID.Inc()
 
 	return c, nil
 }
@@ -217,16 +170,17 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 // of 15 random peer IDs with increasing common prefix lengths (CPL). The returned peers are streamed
 // to the results channel.
 func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.AddrInfo, error) {
-	var allNeighbors []peer.AddrInfo
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
-		return allNeighbors, err
+		return nil, err
 	}
 
 	allNeighborsLk := sync.RWMutex{}
+	var allNeighbors []peer.AddrInfo
+
 	errg := errgroup.Group{}
 	for i := uint(0); i <= 15; i++ { // 15 is maximum
-		count := i
+		count := i // Copy value
 		errg.Go(func() error {
 			// Generate a peer with the given common prefix length
 			rpi, err := rt.GenRandPeerID(count)
