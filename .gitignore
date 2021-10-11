@@ -129,3 +129,6 @@ sessions.csv
 sessions_filecoin.csv
 
 *__pycache__*
+
+analysis/provide/data
+analysis/provide/server
