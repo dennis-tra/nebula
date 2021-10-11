@@ -85,12 +85,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
-	conf, err := config.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 	// Set the timeout for dialing peers
 	ctx = network.WithDialPeerTimeout(ctx, conf.DialTimeout)
 

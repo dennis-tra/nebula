@@ -35,14 +35,13 @@ func MonitorAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula monitor...")
 
 	// Load configuration file
-	ctx, conf, err := config.FillContext(c)
+	conf, err := config.Init(c)
 	if err != nil {
-		return errors.Wrap(err, "filling context with configuration")
+		return err
 	}
-	c.Context = ctx
 
 	// Acquire database handle
-	dbc, err := db.InitClient(c.Context)
+	dbc, err := db.InitClient(conf)
 	if err != nil {
 		return err
 	}
@@ -56,7 +55,7 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Initialize the monitoring task
-	s, err := monitor.NewScheduler(c.Context, dbc)
+	s, err := monitor.NewScheduler(c.Context, conf, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

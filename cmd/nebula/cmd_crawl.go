@@ -1,11 +1,7 @@
 package main
 
 import (
-	"context"
-	"os"
-	"runtime/pprof"
 	"strconv"
-	"time"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -50,16 +46,15 @@ func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 
 	// Load configuration file
-	ctx, conf, err := config.FillContext(c)
+	conf, err := config.Init(c)
 	if err != nil {
-		return errors.Wrap(err, "filling context with configuration")
+		return err
 	}
-	c.Context = ctx
 
 	// Acquire database handle
 	var dbc *db.Client
 	if !c.Bool("dry-run") {
-		if dbc, err = db.InitClient(c.Context); err != nil {
+		if dbc, err = db.InitClient(conf); err != nil {
 			return err
 		}
 	}
@@ -79,12 +74,10 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(c.Context, dbc)
+	s, err := crawl.NewScheduler(c.Context, conf, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}
-
-	go dumpGoRoutines(c.Context)
 
 	go func() {
 		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
@@ -93,17 +86,4 @@ func CrawlAction(c *cli.Context) error {
 	}()
 
 	return s.CrawlNetwork(pis)
-}
-
-func dumpGoRoutines(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Minute):
-			if err := pprof.Lookup("goroutine").WriteTo(os.Stdout, 1); err != nil {
-				log.WithError(err).Warnln("Could not dump goroutines")
-			}
-		}
-	}
 }
