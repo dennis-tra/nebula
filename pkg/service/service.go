@@ -83,7 +83,7 @@ func New(id string) *Service {
 
 // Reset can be called to set the service in its starting state.
 func (s *Service) Reset() error {
-	log.WithField("serviceId", s.id).Traceln("Service has been reset")
+	s.logEntry().Traceln("Service has been reset")
 	s.lk.Lock()
 	defer s.lk.Unlock()
 
@@ -110,7 +110,7 @@ func (s *Service) Reset() error {
 
 // ServiceStarted marks this service as started.
 func (s *Service) ServiceStarted() {
-	log.WithField("serviceId", s.id).Traceln("Service has started")
+	s.logEntry().Traceln("Service has started")
 
 	s.StartTime = time.Now()
 
@@ -173,7 +173,7 @@ func (s *Service) ServiceStopped() {
 
 	close(s.done)
 	s.DoneTime = time.Now()
-	log.WithField("serviceId", s.id).Traceln("Service has stopped")
+	s.logEntry().Traceln("Service has stopped")
 }
 
 // ServiceContext returns the context associated with this
@@ -189,6 +189,11 @@ func (s *Service) Ctx() context.Context {
 	return s.ctx
 }
 
+// logEntry returns a logrus entry that provides service id identification.
+func (s *Service) logEntry() *log.Entry {
+	return log.WithField("serviceId", s.id)
+}
+
 // Shutdown instructs the service to gracefully shut down.
 // This function blocks until the done channel was closed
 // which happens when ServiceStopped is called.
@@ -199,12 +204,12 @@ func (s *Service) Shutdown() {
 		return
 	}
 
-	log.WithField("serviceId", s.id).Traceln("Service shutting down...")
+	s.logEntry().Traceln("Service shutting down...")
 	s.state = Stopping
 	s.lk.Unlock()
 
 	close(s.shutdown)
 	s.ShutdownTime = time.Now()
 	<-s.done
-	log.WithField("serviceId", s.id).Traceln("Service was shut down")
+	s.logEntry().Traceln("Service was shut down")
 }
