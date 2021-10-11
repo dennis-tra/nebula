@@ -1,7 +1,6 @@
 package ping
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -52,12 +51,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, dbc *db.Client) (*Scheduler, error) {
-	conf, err := config.FromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 	s := &Scheduler{
 		Service:      service.New("scheduler"),
 		dbc:          dbc,

@@ -41,13 +41,12 @@ func PingAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula ping latency measurement...")
 
 	// Load configuration file
-	ctx, conf, err := config.FillContext(c)
+	conf, err := config.Init(c)
 	if err != nil {
-		return errors.Wrap(err, "filling context with configuration")
+		return err
 	}
-	c.Context = ctx
 
-	dbc, err := db.InitClient(c.Context)
+	dbc, err := db.InitClient(conf)
 	if err != nil {
 		return err
 	}
@@ -61,7 +60,7 @@ func PingAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := ping.NewScheduler(c.Context, dbc)
+	s, err := ping.NewScheduler(conf, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

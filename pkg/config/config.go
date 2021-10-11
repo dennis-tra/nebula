@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -134,6 +133,23 @@ func init() {
 	}
 }
 
+// Init takes the command line argument and tries to read the config file from that directory.
+func Init(c *cli.Context) (*Config, error) {
+	conf, err := read(c.String("config"))
+	if err != nil {
+		return nil, errors.Wrap(err, "read config")
+	}
+
+	// Apply command line argument configurations.
+	conf.apply(c)
+
+	// Print full configuration.
+	log.Debugln("Configuration (CLI params overwrite file config):\n", conf)
+
+	// Populate the context with the configuration.
+	return conf, nil
+}
+
 // Save persists the configuration to disk using the `Path` field.
 // Permissions will be 0o744
 func (c *Config) Save() error {
@@ -154,8 +170,64 @@ func (c *Config) Save() error {
 	return ioutil.WriteFile(c.Path, data, 0o744)
 }
 
-// Apply takes command line arguments and overwrites the respective configurations.
-func (c *Config) Apply(ctx *cli.Context) {
+// ReachedCrawlLimit returns true if the crawl limit is configured (aka != 0) and the crawled peers exceed this limit.
+func (c *Config) ReachedCrawlLimit(crawled int) bool {
+	return c.CrawlLimit > 0 && crawled >= c.CrawlLimit
+}
+
+// String prints the configuration as a json string
+func (c *Config) String() string {
+	data, _ := json.MarshalIndent(c, "", "  ")
+	return fmt.Sprintf("%s", data)
+}
+
+// BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
+func (c *Config) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
+	var pis []peer.AddrInfo
+	for _, maddrStr := range c.BootstrapPeers {
+		maddr, err := ma.NewMultiaddr(maddrStr)
+		if err != nil {
+			return nil, err
+		}
+		pi, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			return nil, err
+		}
+		pis = append(pis, *pi)
+	}
+	return pis, nil
+}
+
+func read(path string) (*Config, error) {
+	if path == "" {
+		// If no configuration file was given use xdg file.
+		var err error
+		path, err = xdg.ConfigFile(configFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	log.Debugln("Loading configuration from:", path)
+	config := DefaultConfig
+	config.Path = path
+	data, err := ioutil.ReadFile(path)
+	if err == nil {
+		err = json.Unmarshal(data, &config)
+		if err != nil {
+			return nil, err
+		}
+		config.Existed = true
+		return &config, nil
+	} else if !os.IsNotExist(err) {
+		return nil, err
+	} else {
+		return &config, config.Save()
+	}
+}
+
+// apply takes command line arguments and overwrites the respective configurations.
+func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("workers") {
 		if ctx.Command.Name == "crawl" {
 			c.CrawlWorkerCount = ctx.Int("workers")
@@ -214,89 +286,4 @@ func (c *Config) Apply(ctx *cli.Context) {
 	if ctx.IsSet("out") {
 		c.ProvideOutDir = ctx.String("out")
 	}
-}
-
-func (c *Config) ReachedCrawlLimit(crawled int) bool {
-	return c.CrawlLimit > 0 && crawled >= c.CrawlLimit
-}
-
-// String prints the configuration as a json string
-func (c *Config) String() string {
-	data, _ := json.MarshalIndent(c, "", "  ")
-	return fmt.Sprintf("%s", data)
-}
-
-// BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
-func (c *Config) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
-	var pis []peer.AddrInfo
-	for _, maddrStr := range c.BootstrapPeers {
-		maddr, err := ma.NewMultiaddr(maddrStr)
-		if err != nil {
-			return nil, err
-		}
-		pi, err := peer.AddrInfoFromP2pAddr(maddr)
-		if err != nil {
-			return nil, err
-		}
-		pis = append(pis, *pi)
-	}
-	return pis, nil
-}
-
-func LoadConfig(path string) (*Config, error) {
-	if path == "" {
-		// If no configuration file was given use xdg file.
-		var err error
-		path, err = xdg.ConfigFile(configFile)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	log.Debugln("Loading configuration from:", path)
-	config := DefaultConfig
-	config.Path = path
-	data, err := ioutil.ReadFile(path)
-	if err == nil {
-		err = json.Unmarshal(data, &config)
-		if err != nil {
-			return nil, err
-		}
-		config.Existed = true
-		return &config, nil
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	} else {
-		return &config, config.Save()
-	}
-}
-
-func FillContext(c *cli.Context) (context.Context, *Config, error) {
-	conf, err := LoadConfig(c.String("config"))
-	if err != nil {
-		return c.Context, nil, err
-	}
-
-	// Apply command line argument configurations.
-	conf.Apply(c)
-
-	// Print full configuration.
-	log.Debugln("Configuration (CLI params overwrite file config):\n", conf)
-
-	// Populate the context with the configuration.
-	return context.WithValue(c.Context, ContextKey, conf), conf, nil
-}
-
-func FromContext(ctx context.Context) (*Config, error) {
-	obj := ctx.Value(ContextKey)
-	if obj == nil {
-		return nil, errors.New("config not found in context")
-	}
-
-	config, ok := obj.(*Config)
-	if !ok {
-		return nil, errors.New("config in context has wrong type")
-	}
-
-	return config, nil
 }

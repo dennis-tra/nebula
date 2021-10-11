@@ -51,11 +51,10 @@ func ProvideAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula DHT measurement...")
 
 	// Load configuration file
-	ctx, conf, err := config.FillContext(c)
+	conf, err := config.Init(c)
 	if err != nil {
-		return errors.Wrap(err, "filling context with configuration")
+		return err
 	}
-	c.Context = ctx
 
 	// Start prometheus metrics endpoint
 	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {

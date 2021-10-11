@@ -30,11 +30,8 @@ type Client struct {
 	propLk sync.RWMutex
 }
 
-func InitClient(ctx context.Context) (*Client, error) {
-	conf, err := config.FromContext(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "config from context")
-	}
+func InitClient(conf *config.Config) (*Client, error) {
+	log.Infoln("Initializing database client")
 
 	driverName, err := ocsql.Register("postgres")
 	if err != nil {

@@ -51,24 +51,24 @@ func TestConfig_BootstrapAddrInfos(t *testing.T) {
 	assert.Equal(t, len(config.BootstrapPeers), len(addrInfos))
 }
 
-func Test_LoadConfig_noPath_notExists(t *testing.T) {
+func Test_readConfig_noPath_notExists(t *testing.T) {
 	_, teardown := setup(t)
 	defer teardown(t)
 
-	config, err := LoadConfig("")
+	config, err := read("")
 	require.NoError(t, err)
 	assert.NotEmpty(t, config.Path)
 	assert.False(t, config.Existed)
 }
 
-func Test_LoadConfig_noPath_exists(t *testing.T) {
+func Test_readConfig_noPath_exists(t *testing.T) {
 	config, teardown := setup(t)
 	defer teardown(t)
 
 	err := config.Save()
 	require.NoError(t, err)
 
-	configLoaded, err := LoadConfig("")
+	configLoaded, err := read("")
 	require.NoError(t, err)
 	assert.True(t, configLoaded.Existed)
 }

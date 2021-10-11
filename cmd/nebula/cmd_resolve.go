@@ -36,14 +36,13 @@ func ResolveAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula multi address resolver...")
 
 	// Load configuration file
-	ctx, _, err := config.FillContext(c)
+	conf, err := config.Init(c)
 	if err != nil {
-		return errors.Wrap(err, "filling context with configuration")
+		return err
 	}
-	c.Context = ctx
 
 	// Initialize the database client
-	dbc, err := db.InitClient(c.Context)
+	dbc, err := db.InitClient(conf)
 	if err != nil {
 		return err
 	}
