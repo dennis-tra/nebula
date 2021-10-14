@@ -21,19 +21,18 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 var crawlerID = atomic.NewInt32(0)
 
 // Crawler encapsulates a libp2p host that crawls the network.
 type Crawler struct {
-	*service.Service
-
+	id           string
 	host         host.Host
 	config       *config.Config
 	pm           *pb.ProtocolMessenger
 	crawledPeers int
+	done         chan struct{}
 }
 
 // NewCrawler initializes a new crawler based on the given configuration.
@@ -50,10 +49,11 @@ func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 	}
 
 	c := &Crawler{
-		Service: service.New(fmt.Sprintf("crawler-%02d", crawlerID.Inc())),
-		host:    h,
-		pm:      pm,
-		config:  conf,
+		id:     fmt.Sprintf("crawler-%02d", crawlerID.Inc()),
+		host:   h,
+		pm:     pm,
+		config: conf,
+		done:   make(chan struct{}),
 	}
 
 	return c, nil
@@ -62,20 +62,19 @@ func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 // StartCrawling enters an endless loop and consumes crawl jobs from the crawl queue
 // and publishes its result on the results queue until it is told to stop or the
 // crawl queue was closed.
-func (c *Crawler) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
-	c.ServiceStarted()
-	defer c.ServiceStopped()
-	ctx := c.ServiceContext()
-
+func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+	defer close(c.done)
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-c.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
+		case <-ctx.Done():
+			return
 		case elem, ok := <-crawlQueue.Consume():
 			if !ok {
 				// The crawl queue was closed
@@ -83,8 +82,6 @@ func (c *Crawler) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO
 			}
 			result := c.handleCrawlJob(ctx, elem.(peer.AddrInfo))
 			resultsQueue.Push(result)
-		case <-c.SigShutdown():
-			return
 		}
 	}
 }
@@ -92,7 +89,7 @@ func (c *Crawler) StartCrawling(crawlQueue *queue.FIFO, resultsQueue *queue.FIFO
 // handleCrawlJob takes peer address information and crawls (connects and fetches neighbors).
 func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	logEntry := log.WithFields(log.Fields{
-		"crawlerID":  c.Identifier(),
+		"crawlerID":  c.id,
 		"targetID":   pi.ID.Pretty()[:16],
 		"crawlCount": c.crawledPeers,
 	})
@@ -100,7 +97,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	defer logEntry.Debugln("Crawled peer")
 
 	cr := Result{
-		CrawlerID:      c.Identifier(),
+		CrawlerID:      c.id,
 		Peer:           filterPrivateMaddrs(pi),
 		CrawlStartTime: time.Now(),
 	}
@@ -203,7 +200,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 		})
 	}
 	err = errg.Wait()
-	stats.Record(c.ServiceContext(),
+	stats.Record(ctx,
 		metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))),
 	)
 	return allNeighbors, err

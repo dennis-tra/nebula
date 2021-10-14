@@ -50,7 +50,7 @@ func main() {
 			},
 			&cli.IntFlag{
 				Name:        "log-level",
-				Usage:       "Set this flag to a value from 0 to 6. Overrides the --debug flag",
+				Usage:       "Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag",
 				EnvVars:     []string{"NEBULA_LOG_LEVEL"},
 				Value:       4,
 				DefaultText: "4",
@@ -152,13 +152,13 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	go func() {
 		sig := <-sigs
-		log.Printf("Received %s - Stopping...\n", sig.String())
+		log.Printf("Received %s signal - Stopping...\n", sig.String())
 		signal.Stop(sigs)
 		cancel()
 	}()
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
-		log.Printf("error: %v\n", err)
+		log.Errorf("error: %v\n", err)
 		os.Exit(1)
 	}
 }

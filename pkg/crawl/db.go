@@ -15,7 +15,7 @@ import (
 func (s *Scheduler) updateCrawl(ctx context.Context, success bool) error {
 	log.Infoln("Persisting crawl result...")
 
-	s.crawl.StartedAt = s.StartTime
+	s.crawl.StartedAt = s.crawlStart
 	s.crawl.FinishedAt = null.TimeFrom(time.Now())
 	s.crawl.CrawledPeers = null.IntFrom(len(s.crawled))
 	s.crawl.DialablePeers = null.IntFrom(len(s.crawled) - s.TotalErrors())
@@ -23,7 +23,7 @@ func (s *Scheduler) updateCrawl(ctx context.Context, success bool) error {
 
 	if success {
 		s.crawl.State = models.CrawlStateSucceeded
-	} else if errors.Is(s.ServiceContext().Err(), context.Canceled) {
+	} else if errors.Is(ctx.Err(), context.Canceled) {
 		s.crawl.State = models.CrawlStateCancelled
 	} else {
 		s.crawl.State = models.CrawlStateFailed
