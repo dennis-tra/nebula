@@ -31,7 +31,12 @@ type Client struct {
 }
 
 func InitClient(conf *config.Config) (*Client, error) {
-	log.Infoln("Initializing database client")
+	log.WithFields(log.Fields{
+		"host": conf.DatabaseHost,
+		"port": conf.DatabasePort,
+		"name": conf.DatabaseName,
+		"user": conf.DatabaseUser,
+	}).Infoln("Initializing database client")
 
 	driverName, err := ocsql.Register("postgres")
 	if err != nil {

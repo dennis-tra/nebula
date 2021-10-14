@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"go.uber.org/atomic"
@@ -13,28 +14,28 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 var persisterID = atomic.NewInt32(0)
 
 // Persister handles the insert/upsert/update operations for a particular crawl result.
 type Persister struct {
-	*service.Service
-
+	id             string
 	config         *config.Config
 	dbc            *db.Client
 	crawl          *models.Crawl
 	persistedPeers int
+	done           chan struct{}
 }
 
 // NewPersister initializes a new persister based on the given configuration.
 func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Persister, error) {
 	p := &Persister{
-		Service: service.New(fmt.Sprintf("persister-%02d", persisterID.Load())),
-		config:  conf,
-		dbc:     dbc,
-		crawl:   crawl,
+		id:     fmt.Sprintf("crawler-%02d", crawlerID.Inc()),
+		config: conf,
+		dbc:    dbc,
+		crawl:  crawl,
+		done:   make(chan struct{}),
 	}
 	persisterID.Inc()
 	return p, nil
@@ -42,28 +43,25 @@ func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Pe
 
 // StartPersisting enters an endless loop and consumes persist jobs from the persist queue
 // until it is told to stop or the persist queue was closed.
-func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
-	p.ServiceStarted()
-	defer p.ServiceStopped()
-	ctx := p.ServiceContext()
-
+func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIFO) {
+	defer close(p.done)
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-p.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
+		case <-ctx.Done():
+			return
 		case elem, ok := <-persistQueue.Consume():
 			if !ok {
 				// The persist queue was closed
 				return
 			}
 			p.handlePersistJob(ctx, elem.(Result))
-		case <-p.SigShutdown():
-			return
 		}
 	}
 }
@@ -71,7 +69,7 @@ func (p *Persister) StartPersisting(persistQueue *queue.FIFO) {
 // handlePersistJob takes a crawl result (persist job) and inserts a denormalized database entry of the results.
 func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
-		"persisterID": p.Identifier(),
+		"persisterID": p.id,
 		"targetID":    cr.Peer.ID.Pretty()[:16],
 	})
 	logEntry.Debugln("Persisting peer")
@@ -80,7 +78,7 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	start := time.Now()
 
 	err := p.insertRawVisit(ctx, cr)
-	if err != nil {
+	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).WithField("result", cr).Warnln("Error inserting raw visit")
 	} else {
 		p.persistedPeers++

@@ -3,7 +3,6 @@ package crawl
 import (
 	"context"
 	"regexp"
-	"sync"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -20,7 +19,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prerelease>\w+)?\/(?P<commit>\w+)?`
@@ -36,10 +34,6 @@ var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 //                 the crawl results and builds up aggregate information for the whole crawl. Letting the
 //                 persister directly consume the results queue would not allow that.
 type Scheduler struct {
-	// Service represents an entity that runs in a separate go routine and where its lifecycle
-	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
-	*service.Service
-
 	// The libp2p node that's used to crawl the network. This one is also passed to all crawlers.
 	host host.Host
 
@@ -52,6 +46,9 @@ type Scheduler struct {
 	// Instance of this crawl. This instance gets created right at the beginning of the crawl, so we have
 	// an ID that we can link subsequent database entities with.
 	crawl *models.Crawl
+
+	// The timestamp when the crawler was started
+	crawlStart time.Time
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put them there again.
@@ -79,9 +76,6 @@ type Scheduler struct {
 
 	// A map of errors that happened during the crawl.
 	errors map[string]int
-
-	// The list of worker node references.
-	crawlers sync.Map
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -106,7 +100,6 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	}
 
 	s := &Scheduler{
-		Service:      service.New("scheduler"),
 		host:         h,
 		dbc:          dbc,
 		config:       conf,
@@ -118,7 +111,6 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		agentVersion: map[string]int{},
 		protocols:    map[string]int{},
 		errors:       map[string]int{},
-		crawlers:     sync.Map{},
 	}
 
 	return s, nil
@@ -128,71 +120,51 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 // the crawl queue with bootstrap nodes to start with. These bootstrap
 // nodes will be enriched by nodes we have seen in the past from the
 // database. It also starts the persisters
-func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
-	s.ServiceStarted()
-	defer s.ServiceStopped()
+func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo) error {
+	s.crawlStart = time.Now()
 
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	if s.dbc != nil {
-
-		crawl, err := s.dbc.InitCrawl(s.ServiceContext())
-		if err != nil {
-			return errors.Wrap(err, "creating crawl in db")
-		}
-		s.crawl = crawl
+	if err := s.initCrawl(ctx); err != nil {
+		return err
 	}
 
 	// Start all crawlers
-	for i := 0; i < s.config.CrawlWorkerCount; i++ {
-		c, err := NewCrawler(s.host, s.config)
-		if err != nil {
-			return errors.Wrap(err, "new worker")
-		}
-		s.crawlers.Store(i, c)
-		go c.StartCrawling(s.crawlQueue, s.resultsQueue)
+	crawlers, crawlerCancel, err := s.startCrawlers(ctx)
+	if err != nil {
+		return err
 	}
+	defer crawlerCancel()
 
 	// Start all persisters
-	var persisters []*Persister
-	if s.dbc != nil {
-		for i := 0; i < 10; i++ {
-			p, err := NewPersister(s.dbc, s.config, s.crawl)
-			if err != nil {
-				return errors.Wrap(err, "new persister")
-			}
-			persisters = append(persisters, p)
-			go p.StartPersisting(s.persistQueue)
-		}
+	persisters, persistersCancel, err := s.startPersisters(ctx)
+	if err != nil {
+		return err
 	}
+	defer persistersCancel()
 
 	// Query known peers for bootstrapping
-	if s.dbc != nil {
-		bps, err := s.dbc.QueryBootstrapPeers(s.ServiceContext(), s.config.CrawlWorkerCount)
-		if err != nil {
-			log.WithError(err).Warnln("Could not query bootstrap peers")
-		}
-		bootstrap = append(bootstrap, bps...)
-	}
+	bootstrap = append(bootstrap, s.cachedBootstrapPeers(ctx)...)
 
 	// Fill the queue with bootstrap nodes
 	for _, b := range bootstrap {
-		// This check is necessary as the query above could have returned a canonical bootstrap peer as well
-		if _, inCrawlQueue := s.inCrawlQueue[b.ID]; !inCrawlQueue {
-			s.scheduleCrawl(b)
-		}
+		s.tryScheduleCrawl(ctx, b)
 	}
 
 	// Read from the results queue blocking - this is the main loop
-	s.readResultsQueue()
+	s.readResultsQueue(ctx)
 
 	// Indicate that we won't publish any new crawl tasks to the queue.
 	// TODO: This can still leak a Go routine. However we're exiting here anyway...
 	s.crawlQueue.DoneProducing()
 
 	// Stop crawlers - blocking
-	s.shutdownCrawlers()
+	crawlerCancel()
+	for _, c := range crawlers {
+		log.WithField("persisterID", "").Debugln("Waiting for crawler to stop")
+		<-c.done
+	}
 
 	// Indicate that the crawlers won't send any new results as they are now stopped.
 	// TODO: This can still leak a Go routine. However we're exiting here anyway...
@@ -205,9 +177,10 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	s.persistQueue.DoneProducing()
 
 	// Wait for all persisters to finish
+	persistersCancel()
 	for _, p := range persisters {
-		log.Infoln("Waiting for persister to finish ", p.Identifier())
-		<-p.SigDone()
+		log.WithField("persisterID", "").Debugln("Waiting for persister to stop")
+		<-p.done
 	}
 
 	// Finally, log the crawl summary
@@ -229,26 +202,112 @@ func (s *Scheduler) CrawlNetwork(bootstrap []peer.AddrInfo) error {
 	return nil
 }
 
+// cachedBootstrapPeers queries peers from the database with an active session.
+// If an error occurs it is only logged and an empty slice is returned as
+// bootstrap peers are usually given during crawl start. The resulting list
+// of cached peers could theoretically overlap with the list of bootstrap peers
+// that were given during crawl start. This double-crawl is prevented in the
+// tryScheduleCrawl method.
+func (s *Scheduler) cachedBootstrapPeers(ctx context.Context) []peer.AddrInfo {
+	if s.dbc == nil {
+		return []peer.AddrInfo{}
+	}
+
+	bps, err := s.dbc.QueryBootstrapPeers(ctx, s.config.CrawlWorkerCount)
+	if err != nil {
+		log.WithError(err).Warnln("Could not query bootstrap peers")
+		return []peer.AddrInfo{}
+	}
+
+	return bps
+}
+
+// initCrawl inserts a row in the crawls table (if it's not a dry run) with
+// the state of Started and saves it on the crawl field of the scheduler.
+func (s *Scheduler) initCrawl(ctx context.Context) error {
+	if s.dbc == nil {
+		return nil
+	}
+
+	crawl, err := s.dbc.InitCrawl(ctx)
+	if err != nil {
+		return errors.Wrap(err, "creating crawl in db")
+	}
+	s.crawl = crawl
+	s.crawlStart = crawl.StartedAt
+
+	return nil
+}
+
+// startCrawlers initializes Crawler structs and instructs them to read the crawlQueue to _start crawling_.
+// The returned cancelFunc can be used to stop the crawlers from reading from the crawlQueue and "shut down".
+func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.CancelFunc, error) {
+	crawlerCtx, crawlerCancel := context.WithCancel(ctx)
+
+	var crawlers []*Crawler
+	for i := 0; i < s.config.CrawlWorkerCount; i++ {
+		c, err := NewCrawler(s.host, s.config)
+		if err != nil {
+			crawlerCancel()
+			return nil, nil, errors.Wrap(err, "new crawler")
+		}
+		crawlers = append(crawlers, c)
+		go c.StartCrawling(crawlerCtx, s.crawlQueue, s.resultsQueue)
+	}
+
+	return crawlers, crawlerCancel, nil
+}
+
+// startPersisters initializes Persister structs and instructs them to read the persistQueue to _start persisting_.
+// The returned cancelFunc can be used to stop the persisters from reading from the persistQueue and "shut down".
+func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.CancelFunc, error) {
+	persistersCtx, persistersCancel := context.WithCancel(ctx)
+	if s.dbc == nil {
+		return []*Persister{}, persistersCancel, nil
+	}
+
+	var persisters []*Persister
+	for i := 0; i < 10; i++ {
+		p, err := NewPersister(s.dbc, s.config, s.crawl)
+		if err != nil {
+			persistersCancel()
+			return nil, nil, errors.Wrap(err, "new persister")
+		}
+		persisters = append(persisters, p)
+		go p.StartPersisting(persistersCtx, s.persistQueue)
+	}
+
+	return persisters, persistersCancel, nil
+}
+
 // readResultsQueue listens for crawl results on the resultsQueue and handles any
 // entries in handleResult. If the scheduler is asked to shut down it
 // breaks out of this loop and the clean-up routines above take over.
-func (s *Scheduler) readResultsQueue() {
+func (s *Scheduler) readResultsQueue(ctx context.Context) {
+	var result Result
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-s.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
-		case <-s.SigShutdown():
+		case <-ctx.Done():
 			return
 		case elem, ok := <-s.resultsQueue.Consume():
 			if !ok {
 				return
 			}
-			s.handleResult(elem.(Result))
+			result = elem.(Result)
+		}
+
+		s.handleResult(ctx, result)
+
+		// If the queue is empty, or we have reached the configured limit we stop the crawl.
+		if len(s.inCrawlQueue) == 0 || s.config.ReachedCrawlLimit(len(s.crawled)) {
+			return
 		}
 	}
 }
@@ -257,7 +316,7 @@ func (s *Scheduler) readResultsQueue() {
 // to the persist queue, so that the persisters can persist the information in the database.
 // It also looks into the result and publishes new crawl jobs based on whether the found peers
 // weren't crawled before or are not already in the queue.
-func (s *Scheduler) handleResult(cr Result) {
+func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
 		"targetID":   cr.Peer.ID.Pretty()[:16],
@@ -267,11 +326,11 @@ func (s *Scheduler) handleResult(cr Result) {
 
 	// Keep track that this peer was crawled, so we don't do it again during this run
 	s.crawled[cr.Peer.ID] = cr.Peer
-	stats.Record(s.ServiceContext(), metrics.CrawledPeersCount.M(1))
+	stats.Record(ctx, metrics.CrawledPeersCount.M(1))
 
 	// Remove peer from crawl queue map as it is not in there anymore
 	delete(s.inCrawlQueue, cr.Peer.ID)
-	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 
 	// Publish crawl result to persist queue so that the data is saved into the DB.
 	s.persistQueue.Push(cr)
@@ -287,17 +346,7 @@ func (s *Scheduler) handleResult(cr Result) {
 	// Log error or schedule new crawls
 	if cr.Error == nil {
 		for _, pi := range cr.Neighbors {
-			// Don't add this peer to the queue if its already in it
-			if _, inCrawlQueue := s.inCrawlQueue[pi.ID]; inCrawlQueue {
-				continue
-			}
-
-			// Don't add the peer to the queue if we have already visited it
-			if _, crawled := s.crawled[pi.ID]; crawled {
-				continue
-			}
-
-			s.scheduleCrawl(pi)
+			s.tryScheduleCrawl(ctx, pi)
 		}
 	} else {
 		// Count errors
@@ -313,33 +362,25 @@ func (s *Scheduler) handleResult(cr Result) {
 		"inCrawlQueue": len(s.inCrawlQueue),
 		"crawled":      len(s.crawled),
 	}).Infoln("Handled crawl result from worker", cr.CrawlerID)
-
-	// If the queue is empty or we have reached the configured limit we stop the crawl.
-	if len(s.inCrawlQueue) == 0 || s.config.ReachedCrawlLimit(len(s.crawled)) {
-		go s.Shutdown()
-	}
 }
 
-// scheduleCrawl takes the address information, inserts it in the crawl queue and updates the associated map.
-func (s *Scheduler) scheduleCrawl(pi peer.AddrInfo) {
+// tryScheduleCrawl takes the address information, inserts it in the crawl queue and updates the associated map.
+// The prefix "try" should indicate that there are the side-effects of checking whether the peer was already
+// crawled or is already scheduled.
+func (s *Scheduler) tryScheduleCrawl(ctx context.Context, pi peer.AddrInfo) {
+	// Don't add this peer to the queue if it's already in it
+	if _, inCrawlQueue := s.inCrawlQueue[pi.ID]; inCrawlQueue {
+		return
+	}
+
+	// Don't add the peer to the queue if we have already visited it
+	if _, crawled := s.crawled[pi.ID]; crawled {
+		return
+	}
+
 	s.inCrawlQueue[pi.ID] = pi
 	s.crawlQueue.Push(pi)
-	stats.Record(s.ServiceContext(), metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
-}
-
-// shutdownCrawlers sends shutdown signals to all crawlers and blocks until all have shut down.
-func (s *Scheduler) shutdownCrawlers() {
-	var wg sync.WaitGroup
-	s.crawlers.Range(func(_, worker interface{}) bool {
-		w := worker.(*Crawler)
-		wg.Add(1)
-		go func(w *Crawler) {
-			w.Shutdown()
-			wg.Done()
-		}(w)
-		return true
-	})
-	wg.Wait()
+	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
 }
 
 // logSummary logs the final results of the crawl.
@@ -362,7 +403,7 @@ func (s *Scheduler) logSummary() {
 
 	log.WithFields(log.Fields{
 		"crawledPeers":    len(s.crawled),
-		"crawlDuration":   time.Now().Sub(s.StartTime).String(),
+		"crawlDuration":   time.Now().Sub(s.crawlStart).String(), // TODO: crash on dry run
 		"dialablePeers":   len(s.crawled) - s.TotalErrors(),
 		"undialablePeers": s.TotalErrors(),
 	}).Infoln("Finished crawl")

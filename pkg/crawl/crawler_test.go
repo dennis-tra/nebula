@@ -1,6 +1,7 @@
 package crawl
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -21,12 +22,12 @@ func TestNewCrawler_correctInit(t *testing.T) {
 
 	assert.NotNil(t, crawler.pm)
 	assert.Equal(t, conf, crawler.config)
-	assert.Equal(t, "crawler-01", crawler.Service.Identifier())
+	assert.Equal(t, "crawler-01", crawler.id)
 
 	// increments crawler service number
 	crawler, err = NewCrawler(nil, conf)
 	require.NoError(t, err)
-	assert.Equal(t, "crawler-02", crawler.Service.Identifier())
+	assert.Equal(t, "crawler-02", crawler.id)
 }
 
 func TestCrawler_StartCrawling_stopsOnShutdown(t *testing.T) {
@@ -37,9 +38,11 @@ func TestCrawler_StartCrawling_stopsOnShutdown(t *testing.T) {
 	crawler, err := NewCrawler(nil, conf)
 	require.NoError(t, err)
 
-	go crawler.StartCrawling(queue.NewFIFO(), queue.NewFIFO())
+	ctx, cancel := context.WithCancel(context.Background())
+	go crawler.StartCrawling(ctx, queue.NewFIFO(), queue.NewFIFO())
 
 	time.Sleep(time.Millisecond * 100)
 
-	crawler.Shutdown()
+	cancel()
+	<-crawler.done
 }

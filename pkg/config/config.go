@@ -208,7 +208,7 @@ func read(path string) (*Config, error) {
 		}
 	}
 
-	log.Debugln("Loading configuration from:", path)
+	log.Infoln("Loading configuration from:", path)
 	config := DefaultConfig
 	config.Path = path
 	data, err := ioutil.ReadFile(path)
