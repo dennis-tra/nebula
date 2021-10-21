@@ -1,16 +1,16 @@
 package queue
 
 type FIFO struct {
-	buf []interface{}
-	in  chan interface{}
-	out chan interface{}
+	ring *ring
+	in   chan interface{}
+	out  chan interface{}
 }
 
 func NewFIFO() *FIFO {
 	fifo := &FIFO{
-		buf: []interface{}{}, // TODO: use a ring buffer?
-		in:  make(chan interface{}),
-		out: make(chan interface{}),
+		ring: New(1000),
+		in:   make(chan interface{}),
+		out:  make(chan interface{}),
 	}
 
 	go fifo.listen()
@@ -58,23 +58,23 @@ LOOP:
 		}
 
 		// We could not send the element, so we're buffering it
-		fifo.buf = append(fifo.buf, elem)
+		fifo.ring.Push(elem)
 
-		for len(fifo.buf) > 0 {
+		for fifo.ring.Length() > 0 {
 			select {
 			case elem, ok := <-fifo.in:
 				if !ok {
 					// The sender has closed the channel
 					break LOOP
 				}
-				fifo.buf = append(fifo.buf, elem)
-			case fifo.out <- fifo.buf[0]:
-				fifo.buf = fifo.buf[1:]
+				fifo.ring.Push(elem)
+			case fifo.out <- fifo.ring.Peek():
+				fifo.ring.Pop()
 			}
 		}
 	}
 
-	for _, elem := range fifo.buf {
+	for _, elem := range fifo.ring.PopMany(fifo.ring.Length()) {
 		fifo.out <- elem
 	}
 }
