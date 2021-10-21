@@ -18,7 +18,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 var pingerID = atomic.NewInt32(0)
@@ -42,16 +41,18 @@ type Job struct {
 
 // Pinger encapsulates a libp2p host that crawls the network.
 type Pinger struct {
-	*service.Service
+	id          string
 	config      *config.Config
 	pingedPeers int
+	done        chan struct{}
 }
 
 // NewPinger initializes a new pinger based on the given configuration.
 func NewPinger(conf *config.Config) (*Pinger, error) {
 	p := &Pinger{
-		Service: service.New(fmt.Sprintf("pinger-%02d", pingerID.Load())),
-		config:  conf,
+		id:     fmt.Sprintf("pinger-%02d", pingerID.Load()),
+		config: conf,
+		done:   make(chan struct{}),
 	}
 	pingerID.Inc()
 
@@ -61,15 +62,12 @@ func NewPinger(conf *config.Config) (*Pinger, error) {
 // StartPinging enters an endless loop and consumes measure jobs from the measure queue
 // and publishes its result on the results queue until it is told to stop or the
 // measure queue was closed.
-func (c *Pinger) StartPinging(measureQueue *queue.FIFO, resultsQueue *queue.FIFO) {
-	c.ServiceStarted()
-	defer c.ServiceStopped()
-	ctx := c.ServiceContext()
-
+func (p *Pinger) StartPinging(ctx context.Context, measureQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+	defer close(p.done)
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-c.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
@@ -80,35 +78,35 @@ func (c *Pinger) StartPinging(measureQueue *queue.FIFO, resultsQueue *queue.FIFO
 				// The crawl queue was closed
 				return
 			}
-			result := c.handleMeasureJob(ctx, elem.(Job))
+			result := p.handleMeasureJob(ctx, elem.(Job))
 			resultsQueue.Push(result)
-		case <-c.SigShutdown():
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 // handleMeasureJob takes a measure job and pings the given peer.
-func (c *Pinger) handleMeasureJob(ctx context.Context, job Job) Result {
+func (p *Pinger) handleMeasureJob(ctx context.Context, job Job) Result {
 	logEntry := log.WithFields(log.Fields{
-		"pingerID":  c.Identifier(),
+		"pingerID":  p.id,
 		"targetID":  job.pi.ID.Pretty()[:16],
-		"pingCount": c.pingedPeers,
+		"pingCount": p.pingedPeers,
 	})
 	logEntry.Debugln("Pinging peer")
 	defer logEntry.Debugln("Pinged peer")
 
-	latencies := c.measureLatencies(ctx, job)
+	latencies := p.measureLatencies(ctx, job)
 
 	return Result{
-		PingerID:      c.Identifier(),
+		PingerID:      p.id,
 		Peer:          job.pi,
 		PingLatencies: latencies,
 	}
 }
 
 // measureLatencies measures the ICM ping latency to all addresses of the given peer.
-func (c *Pinger) measureLatencies(ctx context.Context, job Job) []*models.Latency {
+func (p *Pinger) measureLatencies(ctx context.Context, job Job) []*models.Latency {
 	// TODO: The following three steps can probably be consolidated. In the current state it's quite messy.
 
 	pi := job.pi

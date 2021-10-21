@@ -1,7 +1,7 @@
 package ping
 
 import (
-	"sync"
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,7 +13,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -21,10 +20,6 @@ import (
 //                 on a separate results queue. This results queue is consumed by this scheduler and further
 //                 processed
 type Scheduler struct {
-	// Service represents an entity that runs in a separate go routine and where its lifecycle
-	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
-	*service.Service
-
 	// The database client
 	dbc *db.Client
 
@@ -45,20 +40,15 @@ type Scheduler struct {
 	// The queue that the pingers publish their results on, so that the scheduler can handle them,
 	// e.g. update the maps above etc.
 	resultsQueue *queue.FIFO
-
-	// The list of worker node references.
-	pingers sync.Map
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
 func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 	s := &Scheduler{
-		Service:      service.New("scheduler"),
 		dbc:          dbc,
 		config:       conf,
 		pingQueue:    queue.NewFIFO(),
 		resultsQueue: queue.NewFIFO(),
-		pingers:      sync.Map{},
 	}
 
 	return s, nil
@@ -67,18 +57,17 @@ func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 // PingNetwork starts the configured amount of pingers and fills
 // the ping queue with all online peers of the most recent
 // successful crawl
-func (s *Scheduler) PingNetwork() error {
-	s.ServiceStarted()
-	defer s.ServiceStopped()
-
+func (s *Scheduler) PingNetwork(ctx context.Context) error {
 	// Start all pingers
+	var pingers []*Pinger
 	for i := 0; i < s.config.PingWorkerCount; i++ {
-		c, err := NewPinger(s.config)
+		p, err := NewPinger(s.config)
 		if err != nil {
 			return errors.Wrap(err, "new worker")
 		}
-		s.pingers.Store(i, c)
-		go c.StartPinging(s.pingQueue, s.resultsQueue)
+
+		pingers = append(pingers, p)
+		go p.StartPinging(ctx, s.pingQueue, s.resultsQueue)
 	}
 
 	// Get most recent successful crawl
@@ -86,7 +75,7 @@ func (s *Scheduler) PingNetwork() error {
 		qm.Where(models.CrawlColumns.State+" = ?", models.CrawlStateSucceeded),
 		qm.OrderBy(models.CrawlColumns.FinishedAt+" DESC"),
 		qm.Limit(1),
-	).One(s.ServiceContext(), s.dbc.Handle())
+	).One(ctx, s.dbc.Handle())
 	if err != nil {
 		return errors.Wrap(err, "fetching crawl")
 	}
@@ -96,7 +85,7 @@ func (s *Scheduler) PingNetwork() error {
 		qm.InnerJoin("visits v on v.peer_id = peers.id"),
 		qm.Where("v.crawl_id = ? and v.error is null", crawl.ID),
 		qm.Load(models.PeerRels.MultiAddresses),
-	).All(s.ServiceContext(), s.dbc.Handle())
+	).All(ctx, s.dbc.Handle())
 	if err != nil {
 		return err
 	}
@@ -119,14 +108,17 @@ func (s *Scheduler) PingNetwork() error {
 
 	log.Infof("Started pinging %d peers...", s.inPingQueue)
 
-	s.readResultsQueue()
+	s.readResultsQueue(ctx)
 
 	// Indicate that we won't publish any new ping tasks to the queue.
 	// TODO: This can still leak a Go routine. However we're exiting here anyway...
 	s.pingQueue.DoneProducing()
 
 	// Stop pingers - blocking
-	s.shutdownPingers()
+	for _, p := range pingers {
+		log.WithField("pingerId", p.id).Debugln("Waiting for pinger to stop")
+		<-p.done
+	}
 
 	// Indicate that the pingers won't send any new results as they are now stopped.
 	// TODO: This can still leak a Go routine. However we're exiting here anyway...
@@ -136,23 +128,23 @@ func (s *Scheduler) PingNetwork() error {
 }
 
 // readResultsQueue .
-func (s *Scheduler) readResultsQueue() {
+func (s *Scheduler) readResultsQueue(ctx context.Context) {
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-s.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
-		case <-s.SigShutdown():
+		case <-ctx.Done():
 			return
 		case elem, ok := <-s.resultsQueue.Consume():
 			if !ok {
 				return
 			}
-			s.handleResult(elem.(Result))
+			s.handleResult(ctx, elem.(Result))
 			if s.inPingQueue == 0 {
 				return
 			}
@@ -161,7 +153,7 @@ func (s *Scheduler) readResultsQueue() {
 }
 
 // handleResult takes a ping result and saves the latencies to the database.
-func (s *Scheduler) handleResult(cr Result) {
+func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	start := time.Now()
 	logEntry := log.WithFields(log.Fields{
 		"pingerID": cr.PingerID,
@@ -170,13 +162,13 @@ func (s *Scheduler) handleResult(cr Result) {
 	logEntry.Debugln("Handling ping result from pinger", cr.PingerID)
 	s.inPingQueue -= 1
 
-	txn, err := s.dbc.Handle().BeginTx(s.ServiceContext(), nil)
+	txn, err := s.dbc.Handle().BeginTx(ctx, nil)
 	if err != nil {
 		log.WithError(err).Warnln("Error starting txn")
 		return
 	}
 	for _, latency := range cr.PingLatencies {
-		if err := latency.Insert(s.ServiceContext(), s.dbc.Handle(), boil.Infer()); err != nil {
+		if err := latency.Insert(ctx, s.dbc.Handle(), boil.Infer()); err != nil {
 			log.WithError(err).Warnln("Error inserting latency")
 		}
 	}
@@ -190,19 +182,4 @@ func (s *Scheduler) handleResult(cr Result) {
 		"inPingQueue": s.inPingQueue,
 		"duration":    time.Since(start),
 	}).Infoln("Handled ping result from worker", cr.PingerID)
-}
-
-// shutdownPingers sends shutdown signals to all pingers and blocks until all have shut down.
-func (s *Scheduler) shutdownPingers() {
-	var wg sync.WaitGroup
-	s.pingers.Range(func(_, pinger interface{}) bool {
-		p := pinger.(*Pinger)
-		wg.Add(1)
-		go func(w *Pinger) {
-			w.Shutdown()
-			wg.Done()
-		}(p)
-		return true
-	})
-	wg.Wait()
 }

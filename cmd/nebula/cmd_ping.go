@@ -65,11 +65,5 @@ func PingAction(c *cli.Context) error {
 		return errors.Wrap(err, "creating new scheduler")
 	}
 
-	go func() {
-		// Nebula was asked to stop (e.g. SIGINT) -> tell the scheduler to stop
-		<-c.Context.Done()
-		s.Shutdown()
-	}()
-
-	return s.PingNetwork()
+	return s.PingNetwork(c.Context)
 }
