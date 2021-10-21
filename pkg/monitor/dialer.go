@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -15,54 +13,29 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 var dialerID = atomic.NewInt32(0)
 
-// Result captures data that is gathered from pinging a single peer.
-type Result struct {
-	DialerID string
-
-	// The dialed peer
-	Peer peer.AddrInfo
-
-	// If error is set the peer was not dialable
-	Error error
-
-	// The above error transferred to a known error
-	DialError string
-
-	// When was the dial started
-	DialStartTime time.Time
-
-	// When did this crawl end
-	DialEndTime time.Time
-}
-
-// DialDuration returns the time it took to dial the peer
-func (r *Result) DialDuration() time.Duration {
-	return r.DialEndTime.Sub(r.DialStartTime)
-}
-
 // Dialer encapsulates a libp2p host that dials peers.
 type Dialer struct {
-	*service.Service
-
+	id          string
 	host        host.Host
 	config      *config.Config
 	dialedPeers int
+	done        chan struct{}
 }
 
 // NewDialer initializes a new dialer based on the given configuration.
 func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
 	c := &Dialer{
-		Service: service.New(fmt.Sprintf("dialer-%02d", dialerID.Load())),
-		host:    h,
-		config:  conf,
+		id:     fmt.Sprintf("dialer-%02d", dialerID.Load()),
+		host:   h,
+		config: conf,
 	}
 	dialerID.Inc()
 
@@ -72,20 +45,18 @@ func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
 // StartDialing enters an endless loop and consumes dial jobs from the dial queue
 // and publishes its result on the results queue until it is told to stop or the
 // dial queue was closed.
-func (d *Dialer) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
-	d.ServiceStarted()
-	defer d.ServiceStopped()
-	ctx := d.ServiceContext()
-
+func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-d.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
+		case <-ctx.Done():
+			return
 		case elem, ok := <-dialQueue.Consume():
 			if !ok {
 				// The crawl queue was closed
@@ -93,8 +64,6 @@ func (d *Dialer) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 			}
 			result := d.handleDialJob(ctx, elem.(peer.AddrInfo))
 			resultsQueue.Push(result)
-		case <-d.SigShutdown():
-			return
 		}
 	}
 }
@@ -106,7 +75,7 @@ func (d *Dialer) StartDialing(dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
 func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
-		"dialerID":  d.Identifier(),
+		"dialerID":  d.id,
 		"targetID":  pi.ID.Pretty()[:16],
 		"dialCount": d.dialedPeers,
 	})
@@ -115,7 +84,7 @@ func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
 
 	// Initialize dial result
 	dr := Result{
-		DialerID:      d.Identifier(),
+		DialerID:      d.id,
 		Peer:          pi,
 		DialStartTime: time.Now(),
 	}
@@ -170,7 +139,7 @@ retryLoop:
 			logEntry.WithError(err).Debugf(errMsg)
 			select {
 			case <-time.After(sleepDur):
-			case <-d.SigShutdown():
+			case <-ctx.Done():
 				break retryLoop
 			}
 			continue retryLoop

@@ -109,6 +109,10 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// If we could successfully connect to the peer we actually crawl it.
 	if cr.Error == nil {
 
+		// Fetch all neighbors
+		cr.Neighbors, cr.Error = c.fetchNeighbors(ctx, pi)
+
+		// Extract information from peer store
 		ps := c.host.Peerstore()
 
 		// Extract agent
@@ -120,9 +124,6 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 		if protocols, err := ps.GetProtocols(pi.ID); err == nil {
 			cr.Protocols = protocols
 		}
-
-		// Fetch all neighbors
-		cr.Neighbors, cr.Error = c.fetchNeighbors(ctx, pi)
 	}
 
 	if cr.Error != nil {
@@ -137,6 +138,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// We've now crawled this peer, so increment
 	c.crawledPeers++
 
+	// Save the end time of this crawl
 	cr.CrawlEndTime = time.Now()
 
 	return cr
