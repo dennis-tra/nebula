@@ -53,9 +53,6 @@ type Scheduler struct {
 
 	// The queue that the dialers publish their dial results on
 	resultsQueue *queue.FIFO
-
-	// The list of dialer node references.
-	dialers sync.Map
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -84,7 +81,6 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		inDialQueue:  sync.Map{},
 		dialQueue:    queue.NewFIFO(),
 		resultsQueue: queue.NewFIFO(),
-		dialers:      sync.Map{},
 	}
 
 	return m, nil
@@ -96,13 +92,15 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	start := time.Now()
 
 	// Start all dialers
+	var dialers []*Dialer
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
-		w, err := NewDialer(s.host, s.config)
+		d, err := NewDialer(s.host, s.config)
 		if err != nil {
 			return errors.Wrap(err, "new dialer")
 		}
-		s.dialers.Store(i, w)
-		go w.StartDialing(ctx, s.dialQueue, s.resultsQueue)
+
+		dialers = append(dialers, d)
+		go d.StartDialing(ctx, s.dialQueue, s.resultsQueue)
 	}
 
 	// Async handle the results from dialers
@@ -110,6 +108,11 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 
 	// Monitor the database and schedule dial jobs
 	s.monitorDatabase(ctx)
+
+	for _, d := range dialers {
+		log.WithField("dialerId", d.id).Debugln("Waiting for dialer to stop")
+		<-d.done
+	}
 
 	log.WithFields(log.Fields{
 		"inDialQueue":     s.inDialQueueCount.Load(),

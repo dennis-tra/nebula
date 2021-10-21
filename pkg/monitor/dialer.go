@@ -36,6 +36,7 @@ func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
 		id:     fmt.Sprintf("dialer-%02d", dialerID.Load()),
 		host:   h,
 		config: conf,
+		done:   make(chan struct{}),
 	}
 	dialerID.Inc()
 
@@ -46,6 +47,7 @@ func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
 // and publishes its result on the results queue until it is told to stop or the
 // dial queue was closed.
 func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+	defer close(d.done)
 	for {
 		// Give the shutdown signal precedence
 		select {
