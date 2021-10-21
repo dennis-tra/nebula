@@ -120,20 +120,20 @@ func (s *Scheduler) StartExperiment(ctx context.Context) error {
 		s.measurement.content = content
 
 		// Start pinging the closest peers to the random content from above for provider records.
-		s.measurement.monitored, err = r.MonitorProviders(content) // mpeers = monitored peers
+		s.measurement.monitored, err = r.MonitorProviders(cancelCtx, content) // mpeers = monitored peers
 		if err != nil {
 			cancel()
 			return errors.Wrap(err, "monitor provider")
 		}
 
-		ctx, queryEvents := routing.RegisterForQueryEvents(ctx)
+		queryCtx, queryEvents := routing.RegisterForQueryEvents(cancelCtx)
 		go s.handleQueryEvents(queryEvents)
 
 		// Note start of experiment
 		s.measurement.startTime = time.Now()
 
 		// Provide the random content from above.
-		if err = p.Provide(ctx, content); err != nil {
+		if err = p.Provide(queryCtx, content); err != nil {
 			cancel()
 			return errors.Wrap(err, "provide content")
 		}
@@ -145,16 +145,11 @@ func (s *Scheduler) StartExperiment(ctx context.Context) error {
 		// If it times out stop them...
 		select {
 		case <-time.After(30 * time.Second):
-			r.Shutdown()
-		case <-r.SigDone():
+		case <-cancelCtx.Done():
 		}
 
 		// Stop reading events
 		cancel()
-
-		if err = r.Service.Reset(); err != nil {
-			return errors.Wrap(err, "resetting requester service")
-		}
 
 		if err = s.measurement.serialize(s.config.ProvideOutDir); err != nil {
 			return errors.Wrap(err, "serialize measurement")
