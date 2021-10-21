@@ -17,7 +17,7 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
-  - [`crawl`](#crawl) | [`monitor`](#monitor)
+  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`ping`](#ping) | [`resolve`](#resolve) | [`provide`](#provide)
 - [Install](#install)
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
@@ -49,7 +49,7 @@ See the command line help page below for configuration options:
 
 ```shell
 NAME:
-   nebula - A libp2p DHT crawler and monitor that exposes timely information about DHT networks.
+   nebula - A libp2p DHT crawler, monitor and measurement tool that exposes timely information about DHT networks.
 
 USAGE:
    nebula [global options] command [command options] [arguments...]
@@ -65,12 +65,13 @@ COMMANDS:
    monitor  Monitors the network by periodically dialing previously crawled peers.
    resolve  Resolves all multi addresses to their IP addresses and geo location information
    ping     Runs an ICMP latency measurement over the set of online peers of the most recent crawl
+   provide  Starts a DHT measurement experiment by providing and requesting random content.
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
    --debug                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
-   --log-level value        Set this flag to a value from 0 to 6. Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
-   --config FILE            Load configuration from FILE [$NEBULA_CONFIG_FILE]
+   --log-level value        Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
+   --config FILE             Load configuration from FILE [$NEBULA_CONFIG_FILE]
    --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
    --prom-port value        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
    --prom-host value        Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
@@ -147,14 +148,18 @@ The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` 
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
 
+### `ping`
+
+The ping command fetches all peers that were found online of the most recent successful crawl from the database and sends ten ICM pings to each host. The measured latencies are saved in the `latencies` table.
+
 ### `resolve`
 
 The resolve sub-command takes goes through all multi addresses in that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
 It further queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
 
-### `ping`
+### `provide`
 
-The ping command fetches all peers that were found online of the most recent successful crawl from the database and sends ten ICM pings to each host. The measured latencies are saved in the `latencies` table.
+**Experimental:** Starts a DHT measurement experiment by providing and requesting random content.
 
 ## Install
 
