@@ -25,7 +25,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/service"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -33,10 +32,6 @@ import (
 //                on a separate results queue. This results queue is consumed by this scheduler and further
 //                processed
 type Scheduler struct {
-	// Service represents an entity that runs in a separate go routine and where its lifecycle
-	// needs to be handled externally. This is true for this scheduler, so we're embedding it here.
-	*service.Service
-
 	// The libp2p node that's used to crawl the network. This one is also passed to all dialers.
 	host host.Host
 
@@ -83,7 +78,6 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	}
 
 	m := &Scheduler{
-		Service:      service.New("scheduler"),
 		host:         h,
 		dbc:          dbc,
 		config:       conf,
@@ -98,11 +92,8 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 
 // StartMonitoring starts the configured amount of dialers and fills
 // the dial queue with peers that are due to be dialed.
-func (s *Scheduler) StartMonitoring() error {
-	s.ServiceStarted()
-	defer s.ServiceStopped()
-
-	s.StartTime = time.Now()
+func (s *Scheduler) StartMonitoring(ctx context.Context) error {
+	start := time.Now()
 
 	// Start all dialers
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
@@ -111,21 +102,18 @@ func (s *Scheduler) StartMonitoring() error {
 			return errors.Wrap(err, "new dialer")
 		}
 		s.dialers.Store(i, w)
-		go w.StartDialing(s.dialQueue, s.resultsQueue)
+		go w.StartDialing(ctx, s.dialQueue, s.resultsQueue)
 	}
 
 	// Async handle the results from dialers
-	go s.readResultsQueue()
+	go s.readResultsQueue(ctx)
 
 	// Monitor the database and schedule dial jobs
-	s.monitorDatabase()
-
-	// release all resources
-	s.shutdownDialers()
+	s.monitorDatabase(ctx)
 
 	log.WithFields(log.Fields{
 		"inDialQueue":     s.inDialQueueCount.Load(),
-		"monitorDuration": time.Now().Sub(s.StartTime).String(),
+		"monitorDuration": time.Since(start),
 	}).Infoln("Finished monitoring")
 
 	return nil
@@ -133,25 +121,26 @@ func (s *Scheduler) StartMonitoring() error {
 
 // readResultsQueue listens for dial results on the resultsQueue and handles any
 // entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources.
-func (s *Scheduler) readResultsQueue() {
+func (s *Scheduler) readResultsQueue(ctx context.Context) {
 	for {
 		// Give the shutdown signal precedence
 		select {
-		case <-s.SigShutdown():
+		case <-ctx.Done():
 			return
 		default:
 		}
 
 		select {
 		case elem := <-s.resultsQueue.Consume():
-			s.handleResult(elem.(Result))
-		case <-s.SigShutdown():
+			s.handleResult(ctx, elem.(Result))
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Scheduler) handleResult(dr Result) {
+// handleResult takes the result of dialing a peer, logs general information and inserts this visit into the database.
+func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"dialerID": dr.DialerID,
 		"targetID": dr.Peer.ID.Pretty()[:16],
@@ -165,17 +154,17 @@ func (s *Scheduler) handleResult(dr Result) {
 		}
 	}
 	start := time.Now()
-	if err := s.insertRawVisit(s.ServiceContext(), dr); err != nil {
+	if err := s.insertRawVisit(ctx, dr); err != nil {
 		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
 
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
-	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
+	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
 
 	// Track dial errors for prometheus
 	if dr.Error != nil {
-		if ctx, err := tag.New(s.ServiceContext(), tag.Upsert(metrics.KeyError, dr.DialError)); err == nil {
+		if ctx, err := tag.New(ctx, tag.Upsert(metrics.KeyError, dr.DialError)); err == nil {
 			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
 		}
 	}
@@ -187,10 +176,10 @@ func (s *Scheduler) handleResult(dr Result) {
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
-func (s *Scheduler) monitorDatabase() {
+func (s *Scheduler) monitorDatabase(ctx context.Context) {
 	for {
 		log.Infof("Looking for sessions to check...")
-		sessions, err := s.dbc.FetchDueSessions(s.ServiceContext())
+		sessions, err := s.dbc.FetchDueSessions(ctx)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
@@ -198,7 +187,7 @@ func (s *Scheduler) monitorDatabase() {
 
 		// For every session schedule that it gets pushed into the dialQueue
 		for _, session := range sessions {
-			if err = s.scheduleDial(session); err != nil {
+			if err = s.scheduleDial(ctx, session); err != nil {
 				log.WithError(err).Warnln("Could not schedule dial")
 			}
 		}
@@ -207,13 +196,16 @@ func (s *Scheduler) monitorDatabase() {
 	TICK:
 		select {
 		case <-time.Tick(10 * time.Second):
-		case <-s.SigShutdown():
+			continue
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (s *Scheduler) scheduleDial(session *models.Session) error {
+// scheduleDial takes a session entity from the database constructs a peer.AddrInfo struct and feeds
+// it into the queue of peers-to-dial to be picked up by one of the dialers.
+func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) error {
 	// Parse peer ID from database
 	peerID, err := peer.Decode(session.R.Peer.MultiHash)
 	if err != nil {
@@ -236,7 +228,7 @@ func (s *Scheduler) scheduleDial(session *models.Session) error {
 	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
 		return nil
 	}
-	stats.Record(s.ServiceContext(), metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
+	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
 	// Schedule dial for peer
 	s.dialQueue.Push(pi)
@@ -264,19 +256,4 @@ func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
 	}
 
 	return s.dbc.InsertRawVisit(ctx, rv)
-}
-
-// shutdownDialers sends shutdown signals to all dialers and blocks until all have shut down.
-func (s *Scheduler) shutdownDialers() {
-	var wg sync.WaitGroup
-	s.dialers.Range(func(_, dialer interface{}) bool {
-		d := dialer.(*Dialer)
-		wg.Add(1)
-		go func(w *Dialer) {
-			w.Shutdown()
-			wg.Done()
-		}(d)
-		return true
-	})
-	wg.Wait()
 }
