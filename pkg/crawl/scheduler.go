@@ -162,7 +162,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	// Stop crawlers - blocking
 	crawlerCancel()
 	for _, c := range crawlers {
-		log.WithField("persisterID", "").Debugln("Waiting for crawler to stop")
+		log.WithField("persisterID", c.id).Debugln("Waiting for crawler to stop")
 		<-c.done
 	}
 
