@@ -18,6 +18,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 type Requester struct {
@@ -71,7 +72,7 @@ func NewRequester(ctx context.Context, conf *config.Config, ec chan<- Event) (*R
 func (r *Requester) Bootstrap(ctx context.Context) error {
 	logEntry := log.WithField("type", "requester")
 	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
-		logEntry.WithField("remoteID", bp.ID.Pretty()[:16]).Infoln("Connecting to bootstrap peer")
+		logEntry.WithField("remoteID", utils.FmtPeerID(bp.ID)).Infoln("Connecting to bootstrap peer")
 		if err := r.h.Connect(ctx, bp); err != nil {
 			return errors.Wrap(err, "connecting to bootstrap peer")
 		}
@@ -117,7 +118,7 @@ func (r *Requester) monitorPeer(ctx context.Context, c *Content, p peer.ID, wg *
 	defer wg.Done()
 	defer r.monitorCount.Dec()
 
-	logEntry := r.logEntry().WithField("remoteID", p.Pretty()[:16])
+	logEntry := r.logEntry().WithField("remoteID", utils.FmtPeerID(p))
 	logEntry.WithField("monitorCount", r.monitorCount.Load()).Infoln("Start monitoring peer")
 
 	for {

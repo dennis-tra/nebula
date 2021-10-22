@@ -19,6 +19,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prerelease>\w+)?\/(?P<commit>\w+)?`
@@ -319,7 +320,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
-		"targetID":   cr.Peer.ID.Pretty()[:16],
+		"targetID":   utils.FmtPeerID(cr.Peer.ID),
 		"isDialable": cr.Error == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
@@ -403,8 +404,17 @@ func (s *Scheduler) logSummary() {
 
 	log.WithFields(log.Fields{
 		"crawledPeers":    len(s.crawled),
-		"crawlDuration":   time.Now().Sub(s.crawlStart).String(), // TODO: crash on dry run
+		"crawlDuration":   time.Now().Sub(s.crawlStart).String(),
 		"dialablePeers":   len(s.crawled) - s.TotalErrors(),
 		"undialablePeers": s.TotalErrors(),
 	}).Infoln("Finished crawl")
+}
+
+// TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.
+func (s *Scheduler) TotalErrors() int {
+	sum := 0
+	for _, count := range s.errors {
+		sum += count
+	}
+	return sum
 }

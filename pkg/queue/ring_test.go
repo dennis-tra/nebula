@@ -9,7 +9,7 @@ import (
 func Test_ring(t *testing.T) {
 	size := int64(2)
 
-	ring := New(size)
+	ring := NewRing(size)
 	assert.EqualValues(t, 0, ring.tail)
 	assert.EqualValues(t, 0, ring.head)
 	assert.EqualValues(t, 0, ring.len)

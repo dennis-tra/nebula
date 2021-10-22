@@ -13,6 +13,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -157,7 +158,7 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	start := time.Now()
 	logEntry := log.WithFields(log.Fields{
 		"pingerID": cr.PingerID,
-		"targetID": cr.Peer.ID.Pretty()[:16],
+		"targetID": utils.FmtPeerID(cr.Peer.ID),
 	})
 	logEntry.Debugln("Handling ping result from pinger", cr.PingerID)
 	s.inPingQueue -= 1

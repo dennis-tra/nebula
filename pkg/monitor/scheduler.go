@@ -25,6 +25,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -146,7 +147,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"dialerID": dr.DialerID,
-		"targetID": dr.Peer.ID.Pretty()[:16],
+		"targetID": utils.FmtPeerID(dr.Peer.ID),
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {
@@ -214,7 +215,7 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) e
 	if err != nil {
 		return errors.Wrap(err, "decode peer ID")
 	}
-	logEntry := log.WithField("peerID", peerID.Pretty()[:16])
+	logEntry := log.WithField("peerID", utils.FmtPeerID(peerID))
 
 	// Parse multi addresses from database
 	pi := peer.AddrInfo{ID: peerID}
@@ -247,7 +248,7 @@ func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
 		DialDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.DialDuration().Seconds())),
 		Type:           models.VisitTypeDial,
 		PeerMultiHash:  cr.Peer.ID.Pretty(),
-		MultiAddresses: maddrsToAddrs(cr.Peer.Addrs),
+		MultiAddresses: utils.MaddrsToAddrs(cr.Peer.Addrs),
 	}
 	if cr.Error != nil {
 		rv.Error = null.StringFrom(cr.DialError)

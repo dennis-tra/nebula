@@ -21,6 +21,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 var crawlerID = atomic.NewInt32(0)
@@ -90,7 +91,7 @@ func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO, res
 func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.id,
-		"targetID":   pi.ID.Pretty()[:16],
+		"targetID":   utils.FmtPeerID(pi.ID),
 		"crawlCount": c.crawledPeers,
 	})
 	logEntry.Debugln("Crawling peer")
@@ -98,7 +99,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 
 	cr := Result{
 		CrawlerID:      c.id,
-		Peer:           filterPrivateMaddrs(pi),
+		Peer:           utils.FilterPrivateMaddrs(pi),
 		CrawlStartTime: time.Now(),
 	}
 
@@ -132,7 +133,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 
 	// Free connection resources
 	if err := c.host.Network().ClosePeer(pi.ID); err != nil {
-		log.WithError(err).WithField("targetID", pi.ID.Pretty()[:16]).Warnln("Could not close connection to peer")
+		log.WithError(err).WithField("targetID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
 	}
 
 	// We've now crawled this peer, so increment

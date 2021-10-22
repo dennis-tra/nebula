@@ -14,6 +14,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 var persisterID = atomic.NewInt32(0)
@@ -70,7 +71,7 @@ func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIF
 func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"persisterID": p.id,
-		"targetID":    cr.Peer.ID.Pretty()[:16],
+		"targetID":    utils.FmtPeerID(cr.Peer.ID),
 	})
 	logEntry.Debugln("Persisting peer")
 	defer logEntry.Debugln("Persisted peer")
@@ -100,7 +101,7 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 		CrawlDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.CrawlDuration().Seconds())),
 		PeerMultiHash:   cr.Peer.ID.Pretty(),
 		Protocols:       cr.Protocols,
-		MultiAddresses:  maddrsToAddrs(cr.Peer.Addrs),
+		MultiAddresses:  utils.MaddrsToAddrs(cr.Peer.Addrs),
 		Type:            models.VisitTypeCrawl,
 	}
 	if cr.Agent != "" {

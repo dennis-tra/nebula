@@ -10,7 +10,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	madns "github.com/multiformats/go-multiaddr-dns"
-	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
@@ -18,6 +17,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 var pingerID = atomic.NewInt32(0)
@@ -90,7 +90,7 @@ func (p *Pinger) StartPinging(ctx context.Context, measureQueue *queue.FIFO, res
 func (p *Pinger) handleMeasureJob(ctx context.Context, job Job) Result {
 	logEntry := log.WithFields(log.Fields{
 		"pingerID":  p.id,
-		"targetID":  job.pi.ID.Pretty()[:16],
+		"targetID":  utils.FmtPeerID(job.pi.ID),
 		"pingCount": p.pingedPeers,
 	})
 	logEntry.Debugln("Pinging peer")
@@ -112,7 +112,7 @@ func (p *Pinger) measureLatencies(ctx context.Context, job Job) []*models.Latenc
 	pi := job.pi
 
 	// Only consider publicly reachable multi-addresses
-	pi = filterPrivateMaddrs(pi)
+	pi = utils.FilterPrivateMaddrs(pi)
 
 	// Resolve DNS multi addresses to IP addresses (especially maddrs with the dnsaddr protocol)
 	pi.Addrs = resolveAddrs(ctx, pi)
@@ -209,24 +209,6 @@ func (p *Pinger) measureLatencies(ctx context.Context, job Job) []*models.Latenc
 	}
 
 	return latencies
-}
-
-// filterPrivateMaddrs strips private multiaddrs from the given peer address information.
-func filterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
-	filtered := peer.AddrInfo{
-		ID:    pi.ID,
-		Addrs: []ma.Multiaddr{},
-	}
-
-	// Just keep public multi addresses
-	for _, maddr := range pi.Addrs {
-		if manet.IsPrivateAddr(maddr) {
-			continue
-		}
-		filtered.Addrs = append(filtered.Addrs, maddr) // TODO: Strip relays?
-	}
-
-	return filtered
 }
 
 // resolveAddrs loops through the multi addresses of the given peer and recursively resolves

@@ -8,7 +8,7 @@ type FIFO struct {
 
 func NewFIFO() *FIFO {
 	fifo := &FIFO{
-		ring: New(1000),
+		ring: NewRing(1000),
 		in:   make(chan interface{}),
 		out:  make(chan interface{}),
 	}

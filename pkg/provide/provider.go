@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"bou.ke/monkey"
-
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -17,6 +16,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 type Provider struct {
@@ -87,7 +87,7 @@ func (p *Provider) logEntry() *log.Entry {
 
 func (p *Provider) Bootstrap(ctx context.Context) error {
 	for _, bp := range kaddht.GetDefaultBootstrapPeerAddrInfos() {
-		p.logEntry().WithField("remoteID", bp.ID.Pretty()[:16]).Infoln("Connecting to bootstrap peer")
+		p.logEntry().WithField("remoteID", utils.FmtPeerID(bp.ID)).Infoln("Connecting to bootstrap peer")
 		if err := p.h.Connect(ctx, bp); err != nil {
 			return errors.Wrap(err, "connecting to bootstrap peer")
 		}

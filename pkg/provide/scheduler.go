@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-
 	"github.com/libp2p/go-libp2p-core/routing"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/pkg/errors"
@@ -17,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -210,7 +210,7 @@ func (s *Scheduler) handleEvent(event Event) {
 		switch evt := event.(type) {
 		case *SendMessageStart:
 			if evt.Message.Type == pb.Message_ADD_PROVIDER {
-				log.WithField("remoteID", evt.RemoteID().Pretty()[:16]).Infoln("Adding provider record")
+				log.WithField("remoteID", utils.FmtPeerID(evt.RemoteID())).Infoln("Adding provider record")
 			}
 		}
 	case s.measurement.requesterID:

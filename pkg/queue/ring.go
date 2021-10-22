@@ -8,7 +8,7 @@ type ring struct {
 	len    int64
 }
 
-func New(size int64) *ring {
+func NewRing(size int64) *ring {
 	return &ring{
 		buffer: make([]interface{}, size),
 		head:   0,

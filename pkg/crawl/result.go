@@ -47,7 +47,7 @@ func (r *Result) CrawlDuration() time.Duration {
 	return r.CrawlEndTime.Sub(r.CrawlStartTime)
 }
 
-// ConnectDuration returns the time it took to connect to the peer.
+// ConnectDuration returns the time it took to connect to the peer. This includes dialing and the identity protocol.
 func (r *Result) ConnectDuration() time.Duration {
 	return r.ConnectEndTime.Sub(r.ConnectStartTime)
 }
