@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,6 +115,18 @@ func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextE
 		boil.Whitelist(models.AgentVersionColumns.UpdatedAt),
 		boil.Infer(),
 	)
+}
+
+func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, neighbors []peer.ID) error {
+	neighborMHashes := make([]string, len(neighbors))
+	for i, neighbor := range neighbors {
+		neighborMHashes[i] = neighbor.Pretty()
+	}
+	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3)", crawl.ID, peerID.Pretty(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ","))).Query(c.dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
 }
 
 func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {

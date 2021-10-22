@@ -38,6 +38,13 @@ var CrawlCommand = &cli.Command{
 			Usage:   "Don't persist anything to a database (you don't need a running DB)",
 			EnvVars: []string{"NEBULA_CRAWL_DRY_RUN"},
 		},
+		&cli.BoolFlag{
+			Name:        "neighbors",
+			Usage:       "Whether to persist all k-bucket entries of a particular peer at the end of a crawl.",
+			EnvVars:     []string{"NEBULA_CRAWL_NEIGHBORS"},
+			DefaultText: strconv.FormatBool(config.DefaultConfig.PersistNeighbors),
+			Value:       config.DefaultConfig.PersistNeighbors,
+		},
 	},
 }
 

@@ -91,7 +91,7 @@ func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO, res
 func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.id,
-		"targetID":   utils.FmtPeerID(pi.ID),
+		"remoteID":   utils.FmtPeerID(pi.ID),
 		"crawlCount": c.crawledPeers,
 	})
 	logEntry.Debugln("Crawling peer")
@@ -133,7 +133,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 
 	// Free connection resources
 	if err := c.host.Network().ClosePeer(pi.ID); err != nil {
-		log.WithError(err).WithField("targetID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
+		log.WithError(err).WithField("remoteID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
 	}
 
 	// We've now crawled this peer, so increment

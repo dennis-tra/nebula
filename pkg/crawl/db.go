@@ -2,7 +2,10 @@ package crawl
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -55,4 +58,33 @@ func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
 	}
 
 	return s.dbc.PersistCrawlProperties(ctx, s.crawl, pps)
+}
+
+// persistNeighbors fills the neighbors table with topology information
+func (s *Scheduler) persistNeighbors() {
+	if !s.config.PersistNeighbors {
+		return
+	}
+
+	log.Infoln("Persisting neighbor information...")
+
+	start := time.Now()
+	neighborsCount := 0
+	i := 0
+	for p, neighbors := range s.neighbors {
+		if i%100 == 0 && i > 0 {
+			log.Infof("Persisted %d peers and their neighbors", i)
+		}
+		i++
+		neighborsCount += len(neighbors)
+		if err := s.dbc.PersistNeighbors(s.crawl, p, neighbors); err != nil {
+			log.WithError(err).WithField("peerID", utils.FmtPeerID(p)).Warnln("Could not persist neighbors")
+		}
+	}
+	log.WithFields(log.Fields{
+		"duration":       time.Since(start),
+		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(s.neighbors))*1000),
+		"peers":          len(s.neighbors),
+		"totalNeighbors": neighborsCount,
+	}).Infoln("Finished persisting neighbor information")
 }

@@ -77,6 +77,9 @@ type Scheduler struct {
 
 	// A map of errors that happened during the crawl.
 	errors map[string]int
+
+	// A map that keeps track of all k-bucket entries of a particular peer.
+	neighbors map[peer.ID][]peer.ID
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -112,6 +115,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		agentVersion: map[string]int{},
 		protocols:    map[string]int{},
 		errors:       map[string]int{},
+		neighbors:    map[peer.ID][]peer.ID{},
 	}
 
 	return s, nil
@@ -122,6 +126,8 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 // nodes will be enriched by nodes we have seen in the past from the
 // database. It also starts the persisters
 func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo) error {
+	log.Infoln("Starting to crawl the network")
+
 	s.crawlStart = time.Now()
 
 	// Inserting a crawl row into the db so that we
@@ -199,6 +205,8 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	if err := s.persistCrawlProperties(context.Background()); err != nil {
 		return errors.Wrap(err, "persist crawl properties")
 	}
+
+	s.persistNeighbors()
 
 	return nil
 }
@@ -320,7 +328,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
-		"targetID":   utils.FmtPeerID(cr.Peer.ID),
+		"remoteID":   utils.FmtPeerID(cr.Peer.ID),
 		"isDialable": cr.Error == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
@@ -346,8 +354,14 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 
 	// Log error or schedule new crawls
 	if cr.Error == nil {
-		for _, pi := range cr.Neighbors {
+		neighbors := make([]peer.ID, len(cr.Neighbors))
+		for i, pi := range cr.Neighbors {
+			neighbors[i] = pi.ID
 			s.tryScheduleCrawl(ctx, pi)
+		}
+
+		if s.config.PersistNeighbors {
+			s.neighbors[cr.Peer.ID] = neighbors
 		}
 	} else {
 		// Count errors

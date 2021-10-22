@@ -71,7 +71,7 @@ func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIF
 func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"persisterID": p.id,
-		"targetID":    utils.FmtPeerID(cr.Peer.ID),
+		"remoteID":    utils.FmtPeerID(cr.Peer.ID),
 	})
 	logEntry.Debugln("Persisting peer")
 	defer logEntry.Debugln("Persisted peer")
