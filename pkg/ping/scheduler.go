@@ -128,7 +128,8 @@ func (s *Scheduler) PingNetwork(ctx context.Context) error {
 	return nil
 }
 
-// readResultsQueue .
+// readResultsQueue consumes elements from the results queue that were published by the pingers. This endless for
+// loop stops if the ping queue has no entries anymore or the context was cancelled.
 func (s *Scheduler) readResultsQueue(ctx context.Context) {
 	for {
 		// Give the shutdown signal precedence
