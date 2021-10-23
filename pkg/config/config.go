@@ -20,12 +20,6 @@ import (
 const (
 	// Prefix is used to determine the XDG config directory.
 	Prefix = "nebula"
-
-	// ContextKey represents the key under which the configuration
-	// is put in a regular context.Context. The loaded configuration
-	// is placed in the context and thus accessible everywhere where
-	// a context is passed.
-	ContextKey = "config"
 )
 
 // configFile contains the path suffix that's appended to
