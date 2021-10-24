@@ -21,9 +21,7 @@ CREATE TABLE neighbors
     PRIMARY KEY (crawl_id, peer_id)
 );
 
-CREATE INDEX idx_neighbors_peer_id ON neighbors (peer_id);
-
-
+-- upserts a peer database entry to receive an internal DB id for a given multi hash.
 CREATE FUNCTION peer_id_for_multi_hash(mhash varchar)
     RETURNS INT
     LANGUAGE plpgsql
