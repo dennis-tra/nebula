@@ -156,6 +156,7 @@ retryLoop:
 		if err := d.host.Network().ClosePeer(pi.ID); err != nil {
 			logEntry.WithError(err).Warnln("Could not close connection to peer")
 		}
+
 		break retryLoop
 	}
 
