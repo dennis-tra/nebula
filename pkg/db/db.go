@@ -162,6 +162,21 @@ RETURNING old_multi_addresses;
 	return oldMaddrs, rows.Close()
 }
 
+func UpsertLatency(dbh *sql.DB, peerID string, latency string) error {
+	insertSql := `INSERT INTO latency (peer_id, dial_attempts, avg_latency) 
+	VALUES ($1, $2, $3::interval)
+	ON CONFLICT (peer_id) DO UPDATE SET
+	avg_latency = (latency.avg_latency * latency.dial_attempts + EXCLUDED.avg_latency::interval) / (latency.dial_attempts + 1),
+	dial_attempts = latency.dial_attempts + 1
+	`
+	rows, err := queries.Raw(insertSql, peerID, 1, latency).Query(dbh)
+	if err != nil {
+		return err
+	}
+
+	return rows.Close()
+}
+
 func UpsertPeerWithAgent(dbh *sql.DB, peerID string, maddrs []ma.Multiaddr, agentVersion string, protocols []string) (types.StringArray, error) {
 	maddrStrs := make(types.StringArray, len(maddrs))
 	for i, maddr := range maddrs {

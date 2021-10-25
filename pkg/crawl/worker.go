@@ -24,6 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/service"
@@ -284,7 +285,11 @@ func InsertConnection(ctx context.Context, dbh *sql.DB, res Result) error {
 	if err != nil {
 		return err
 	}
-	return tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return db.UpsertLatency(dbh, res.Peer.ID.String(), latency)
 }
 
 func InsertNeighbour(ctx context.Context, dbh *sql.DB, res Result, startTime time.Time) error {
