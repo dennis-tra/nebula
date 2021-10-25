@@ -41,7 +41,8 @@ def get_latency_list(conn):
     latency_ms_list = []
     for location, latency_ms in cur.fetchall():
         if not location:
-            location = "Unknown"
+            location = "unknown"
         location_list.append(location)
         latency_ms_list.append(latency_ms)
+        # print(latency_ms, location)
     return location_list, latency_ms_list

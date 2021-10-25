@@ -2,8 +2,6 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_reliability, node_geolocation, node_latency
-from lib import node_time, node_classification, node_geolocation
-
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
