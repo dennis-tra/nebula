@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS latency
     dial_attempts         INT,
     -- Latency 
     avg_latency           INTERVAL,
+    -- location code      
+    location              VARCHAR(100),
 
     PRIMARY KEY (peer_id)
 );
