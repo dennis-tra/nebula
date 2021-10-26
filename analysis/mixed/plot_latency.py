@@ -28,5 +28,5 @@ for id, latency in latency_ms_list.items():
 
 ress = dict()
 for loc, latencies in res.items():
-    ress[loc] = sum(latencies) / len(latencies)
+    ress[loc] = (sum(latencies) / len(latencies), len(latencies))
 print(ress)
