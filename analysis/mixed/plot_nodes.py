@@ -23,4 +23,4 @@ plt.pie([len(off), len(on), len(dangle)],
         labels=["off nodes %d" % len(off), "on nodes %d" % len(on), "dangling nodes %d" % len(dangle)],
         autopct="%.1f%%")
 plt.title("Node classification from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
-plt.show()
+plt.savefig("./figs/node_classification.png")

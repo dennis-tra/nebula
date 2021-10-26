@@ -109,4 +109,4 @@ for _, agent in agents.items():
 axs[1, 0].pie(counts.values(), labels=counts.keys(), autopct="%.1f%%")
 axs[1, 0].set_title("Node go-ipfs-0.8.x pie chart")
 
-plt.show()
+plt.savefig("./figs/agent_version_for_all_nodes.png")

@@ -222,6 +222,7 @@ dist/
 ./nebula
 
 node_modules/
+regions/
 
 plot.png
 sessions.csv

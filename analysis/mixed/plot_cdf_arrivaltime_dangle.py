@@ -36,4 +36,4 @@ plt.legend()
 plt.title("Dangling nodes inter-arrival time cdf from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 
 # Finalize
-plt.show()
+plt.savefig("./figs/offtime_cdf_dangle.png")

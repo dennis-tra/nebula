@@ -40,4 +40,4 @@ for key in countsTrim.keys():
     labels.append("{}-{}".format(key, countsTrim[key]))
 plt.legend(patches, labels, loc="best")
 plt.title("All nodes geolocation info from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
-plt.show()
+plt.savefig("./figs/geolocation_for_all_nodes.png")

@@ -29,4 +29,4 @@ for _, cloud in clouds.items():
 plt.rc('font', size=8)
 plt.pie(counts.values(), labels=counts.keys(), autopct="%.1f%%")
 plt.title("Dangling nodes cloud info from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
-plt.show()
+plt.savefig("./figs/cloud_info_for_dangling_nodes.png")

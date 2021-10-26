@@ -29,4 +29,4 @@ for _, ping in pings.items():
 plt.rc('font', size=8)
 plt.pie(counts.values(), labels=counts.keys(), autopct="%.1f%%")
 plt.title("On nodes ping successful from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
-plt.show()
+plt.savefig("./figs/icmp_ping_nodes.png")

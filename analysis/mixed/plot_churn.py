@@ -44,4 +44,4 @@ plt.legend()
 plt.title("Session cdf from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 
 # Finalize
-plt.show()
+plt.savefig("./figs/network_churn.png")

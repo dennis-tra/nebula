@@ -32,17 +32,13 @@ def update_all_peers_latency(conn, locations):
 def get_latency_list(conn):
     cur = conn.cursor()
     cur.execute("""
-    select location, EXTRACT(millisecond FROM avg(avg_latency))
-    from latency 
-    group by location
-    order by 2
+    select peer_id, EXTRACT(millisecond FROM avg_latency)
+    from latency
     """)
-    location_list = []
-    latency_ms_list = []
-    for location, latency_ms in cur.fetchall():
-        if not location:
+    latency_ms_list = dict()
+    for id, latency_ms in cur.fetchall():
+        if not id:
             continue
-        location_list.append(location)
-        latency_ms_list.append(latency_ms)
+        latency_ms_list[id] = latency_ms
         # print(latency_ms, location)
-    return location_list, latency_ms_list
+    return latency_ms_list

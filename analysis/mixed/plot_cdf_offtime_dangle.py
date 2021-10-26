@@ -36,4 +36,4 @@ plt.legend()
 plt.title("Session offtime cdf from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 
 # Finalize
-plt.show()
+plt.savefig("./figs/total_offtime_cdf_dangle.png")

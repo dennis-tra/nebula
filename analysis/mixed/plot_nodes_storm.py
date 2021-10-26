@@ -61,4 +61,4 @@ plt.pie([offStorm, onStorm, dangleStorm],
         labels=["off nodes %d" % offStorm, "on nodes %d" % onStorm, "dangling nodes %d" % dangleStorm],
         autopct="%.1f%%")
 plt.title("Storm Nodes classification from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
-plt.show()
+plt.savefig("./figs/storm_node_classification.png")
