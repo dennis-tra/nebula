@@ -203,8 +203,6 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 		})
 	}
 	err = errg.Wait()
-	stats.Record(ctx,
-		metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))),
-	)
+	stats.Record(ctx, metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))))
 	return allNeighbors, err
 }
