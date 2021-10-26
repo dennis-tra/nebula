@@ -86,7 +86,6 @@ func main() {
 				Usage:       "Enable pprof profiling endpoint on given port",
 				EnvVars:     []string{"NEBULA_PPROF_PORT"},
 				DefaultText: "disabled",
-				Hidden:      true,
 			},
 			&cli.StringFlag{
 				Name:        "db-host",

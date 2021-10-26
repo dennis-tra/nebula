@@ -5,13 +5,17 @@ services:
     container_name: nebula_monitor
     restart: always
     user: nebula
-    entrypoint: ["./docker-entrypoint.sh", "nebula", "--prom-port=6667", "monitor"]
+    ports:
+      - "6100:6100"
+    entrypoint: ["./docker-entrypoint.sh", "nebula", "monitor"]
     environment:
       NEBULA_DATABASE_HOST: postgres
       NEBULA_DATABASE_PORT: 5432
       NEBULA_DATABASE_NAME: nebula
       NEBULA_DATABASE_USER: nebula
       NEBULA_DATABASE_PASSWORD: password # TODO: unsafe
+      NEBULA_PROMETHEUS_PORT: 6667
+      NEBULA_PPROF_PORT: 6100
     depends_on:
       postgres:
         condition: service_healthy
@@ -23,7 +27,7 @@ services:
     restart: always
     user: postgres
     ports:
-      - 5432:5432
+      - "5432:5432"
     volumes:
       - psql_data:/var/lib/postgresql/data
     healthcheck:
@@ -42,7 +46,7 @@ services:
     image: prom/prometheus:v2.28.0
     restart: always
     ports:
-      - 9090:9090
+      - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
