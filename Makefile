@@ -8,6 +8,9 @@ test:
 build:
 	go build -o dist/nebula cmd/nebula/*
 
+linux-build:
+	GOOS=linux GOARCH=amd64 go build -o dist/nebula cmd/nebula/*
+
 format:
 	gofumpt -w -l .
 
