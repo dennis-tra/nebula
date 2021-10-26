@@ -152,12 +152,12 @@ retryLoop:
 		dr.Error = nil
 		dr.DialError = ""
 
-		// Close established connection to prevent running out of FDs?
-		if err := d.host.Network().ClosePeer(pi.ID); err != nil {
-			logEntry.WithError(err).Warnln("Could not close connection to peer")
-		}
-
 		break retryLoop
+	}
+
+	// Close established connection to prevent running out of FDs?
+	if err := d.host.Network().ClosePeer(pi.ID); err != nil {
+		logEntry.WithError(err).Warnln("Could not close connection to peer")
 	}
 
 	dr.DialEndTime = time.Now()
