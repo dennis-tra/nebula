@@ -147,7 +147,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"dialerID": dr.DialerID,
-		"targetID": utils.FmtPeerID(dr.Peer.ID),
+		"remoteID": utils.FmtPeerID(dr.Peer.ID),
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {

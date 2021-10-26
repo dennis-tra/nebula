@@ -159,7 +159,7 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	start := time.Now()
 	logEntry := log.WithFields(log.Fields{
 		"pingerID": cr.PingerID,
-		"targetID": utils.FmtPeerID(cr.Peer.ID),
+		"remoteID": utils.FmtPeerID(cr.Peer.ID),
 	})
 	logEntry.Debugln("Handling ping result from pinger", cr.PingerID)
 	s.inPingQueue -= 1

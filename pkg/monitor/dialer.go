@@ -79,7 +79,7 @@ func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
 		"dialerID":  d.id,
-		"targetID":  utils.FmtPeerID(pi.ID),
+		"remoteID":  utils.FmtPeerID(pi.ID),
 		"dialCount": d.dialedPeers,
 	})
 	logEntry.Debugln("Dialing peer")

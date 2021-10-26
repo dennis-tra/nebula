@@ -90,7 +90,7 @@ func (p *Pinger) StartPinging(ctx context.Context, measureQueue *queue.FIFO, res
 func (p *Pinger) handleMeasureJob(ctx context.Context, job Job) Result {
 	logEntry := log.WithFields(log.Fields{
 		"pingerID":  p.id,
-		"targetID":  utils.FmtPeerID(job.pi.ID),
+		"remoteID":  utils.FmtPeerID(job.pi.ID),
 		"pingCount": p.pingedPeers,
 	})
 	logEntry.Debugln("Pinging peer")
