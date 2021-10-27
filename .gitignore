@@ -131,3 +131,5 @@ sessions_filecoin.csv
 
 analysis/provide/data
 analysis/provide/server
+
+**/.cache/
