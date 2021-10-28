@@ -56,6 +56,13 @@ class DBClient:
             password=self.config['password'],
         )
 
+    @cache("query")
+    def query(self, query):
+        print("Running custom query...")
+        cur = self.conn.cursor()
+        cur.execute(query)
+        return cur.fetchall()
+
     @cache("get_visited_peers_agent_versions")
     def get_visited_peers_agent_versions(self):
         """
