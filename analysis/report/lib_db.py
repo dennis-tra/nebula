@@ -63,6 +63,24 @@ class DBClient:
         cur.execute(query)
         return cur.fetchall()
 
+    @cache("get_peer_ids_for_agent_versions")
+    def get_peer_ids_for_agent_versions(self, agent_versions: list[str]):
+        print("Getting peer IDs for agent versions...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT v.peer_id
+            FROM visits v
+                     INNER JOIN agent_versions av on av.id = v.agent_version_id
+            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND v.created_at < date_trunc('week', NOW())
+              AND v.type = 'crawl'
+              AND v.error IS NULL
+              AND av.agent_version in ({",".join(f"'{av}'" for av in agent_versions)})
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
+
     @cache("get_visited_peers_agent_versions")
     def get_visited_peers_agent_versions(self):
         """
