@@ -15,6 +15,7 @@ toml = "^0.10.2"
 requests = "^2.26.0"
 netaddr = "^0.8.0"
 lxml = "^4.6.3"
+which-cloud = "^1.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.4"
