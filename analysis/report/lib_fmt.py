@@ -1,6 +1,6 @@
 from matplotlib import ticker
 
-thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%.0fk" % x / 1000)
+thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%dk" % int(x / 1000))
 
 
 def fmt_thousands(val: int) -> str:
