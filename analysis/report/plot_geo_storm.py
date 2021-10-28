@@ -3,7 +3,7 @@ from lib_db import DBClient
 from plot_geo import plot_geo
 
 client = DBClient()
-peer_ids = client.get_dangling_peer_ids()
+peer_ids = client.get_peer_ids_for_agent_versions(["storm"])
 results = client.query(
     f"""
     WITH cte AS (
@@ -31,4 +31,4 @@ results = client.query(
 )
 results_df = pd.DataFrame(results, columns=["Country", "Count"])
 
-plot_geo(results_df, "Dangling", 200)
+plot_geo(results_df, "'storm'", 15)

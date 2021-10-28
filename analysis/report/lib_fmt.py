@@ -1,6 +1,6 @@
 from matplotlib import ticker
 
-thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%dk" % int(x / 1000))
+thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%.0fk" % x / 1000)
 
 
 def fmt_thousands(val: int) -> str:
@@ -13,5 +13,9 @@ def fmt_percentage(total: int):
 
 def fmt_barplot(ax, values, total):
     ax.bar_label(ax.containers[0], list(map(fmt_percentage(total), values)))
-    if total > 2000:
+    if values.max() < 2000:
+        return
+    elif values.max() < 4500:
+        ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(lambda x, p: "%.1fk" % (x / 1000)))
+    else:
         ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
