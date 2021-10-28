@@ -18,7 +18,7 @@ online_peer_ids = set(client.get_online_peer_ids())
 offline_peer_ids = set(client.get_offline_peer_ids())
 all_entering_peer_ids = set(client.get_entering_peer_ids())
 all_leaving_peer_ids = set(client.get_leaving_peer_ids())
-dangling_peer_ids = all_entering_peer_ids.intersection(all_leaving_peer_ids)
+dangling_peer_ids = set(client.get_dangling_peer_ids())
 
 entering_peer_ids = all_entering_peer_ids.difference(all_leaving_peer_ids)
 leaving_peer_ids = all_leaving_peer_ids.difference(all_entering_peer_ids)
