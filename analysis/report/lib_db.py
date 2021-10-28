@@ -202,11 +202,11 @@ class DBClient:
         return [i for sub in cur.fetchall() for i in sub]
 
     @cache("get_dangling_peer_ids")
-    def get_dangling_peer_ids(self) -> set[int]:
+    def get_dangling_peer_ids(self):
         """
         get_dangling_peer_ids gets the **database** ids of all nodes that ended their online session
         during the last completed week and also came online again (possibly multiple times).
         """
         all_entering_peer_ids = set(self.get_entering_peer_ids())
         all_leaving_peer_ids = set(self.get_leaving_peer_ids())
-        return all_entering_peer_ids.intersection(all_leaving_peer_ids)
+        return list(all_entering_peer_ids.intersection(all_leaving_peer_ids))
