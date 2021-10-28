@@ -13,4 +13,5 @@ def fmt_percentage(total: int):
 
 def fmt_barplot(ax, values, total):
     ax.bar_label(ax.containers[0], list(map(fmt_percentage(total), values)))
-    ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
+    if total > 2000:
+        ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
