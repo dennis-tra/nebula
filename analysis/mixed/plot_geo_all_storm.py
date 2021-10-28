@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_agent, node_geolocation
+import os
+import psutil
 
 
 # Helper function to trim agent version
@@ -65,3 +67,4 @@ for key in countsTrim.keys():
 plt.legend(patches, labels, loc="best")
 plt.title("Storm nodes geolocation info from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 plt.savefig("./figs/geolocation_for_all_storm.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

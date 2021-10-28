@@ -3,6 +3,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_geolocation, node_correlation
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -38,3 +40,4 @@ axs[1].set_title("Correlation with night time")
 axs[1].set_xlabel("Correlation")
 axs[1].set_ylabel("Node counts")
 plt.savefig("./figs/dangling_nodes_hk_uptime_daytime_correlation.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

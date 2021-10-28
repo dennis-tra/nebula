@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_geolocation
+import os
+import psutil
 
 
 config = toml.load("./db.toml")['psql']
@@ -37,3 +39,4 @@ plt.rc('font', size=8)
 plt.pie(countsTrim.values(), labels=countsTrim.keys(), autopct="%.1f%%")
 plt.title("On nodes geolocation info from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 plt.savefig("./figs/geolocation_for_on_nodes.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

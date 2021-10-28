@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_agent
+import os
+import psutil
 
 
 # Helper function to trim agent version
@@ -110,3 +112,5 @@ axs[1, 0].pie(counts.values(), labels=counts.keys(), autopct="%.1f%%")
 axs[1, 0].set_title("Node go-ipfs-0.8.x pie chart")
 
 plt.savefig("./figs/agent_version_for_all_nodes.png")
+
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

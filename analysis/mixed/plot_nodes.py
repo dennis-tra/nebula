@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -24,3 +26,4 @@ plt.pie([len(off), len(on), len(dangle)],
         autopct="%.1f%%")
 plt.title("Node classification from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 plt.savefig("./figs/node_classification.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

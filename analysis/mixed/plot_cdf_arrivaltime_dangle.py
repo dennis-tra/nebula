@@ -3,6 +3,8 @@ import toml
 import matplotlib.pyplot as plt
 import numpy as np
 from lib import node_time, node_inter_arrival, node_classification
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -37,3 +39,4 @@ plt.title("Dangling nodes inter-arrival time cdf from %s to %s" % (start.replace
 
 # Finalize
 plt.savefig("./figs/offtime_cdf_dangle.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

@@ -3,6 +3,8 @@ import toml
 import matplotlib.pyplot as plt
 import numpy as np
 from lib import node_time, node_offtime, node_classification
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -37,3 +39,4 @@ plt.title("Session offtime cdf from %s to %s" % (start.replace(microsecond=0), e
 
 # Finalize
 plt.savefig("./figs/total_offtime_cdf_dangle.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

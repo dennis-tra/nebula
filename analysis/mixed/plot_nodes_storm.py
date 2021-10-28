@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_agent
+import os
+import psutil
 
 
 # Helper function to trim agent version
@@ -62,3 +64,4 @@ plt.pie([offStorm, onStorm, dangleStorm],
         autopct="%.1f%%")
 plt.title("Storm Nodes classification from %s to %s" % (start.replace(microsecond=0), end.replace(microsecond=0)))
 plt.savefig("./figs/storm_node_classification.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

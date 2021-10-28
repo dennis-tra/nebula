@@ -3,6 +3,8 @@ import toml
 import matplotlib.pyplot as plt
 import numpy as np
 from lib import node_time, node_uptime
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -45,3 +47,4 @@ plt.title("Session cdf from %s to %s" % (start.replace(microsecond=0), end.repla
 
 # Finalize
 plt.savefig("./figs/network_churn.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")

@@ -2,6 +2,8 @@ import psycopg2
 import toml
 import matplotlib.pyplot as plt
 from lib import node_time, node_classification, node_reliability
+import os
+import psutil
 
 config = toml.load("./db.toml")['psql']
 conn = psycopg2.connect(
@@ -23,3 +25,4 @@ plt.title("Dangling nodes reliabilities from %s to %s" % (start.replace(microsec
 plt.xlabel("Reliability in %")
 plt.ylabel("Node counts")
 plt.savefig("./figs/dangling_nodes_reliability.png")
+print("memory used:", psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2, "MB")
