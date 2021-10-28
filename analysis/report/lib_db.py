@@ -4,11 +4,40 @@ import json
 import psycopg2
 import datetime
 
+calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
+
+
+def cache(filename: str):
+    """
+    cache is a decorator that first checks the existence of a cache file before
+    resorting to actually query the database. It takes the cache file name
+    as a parameter. The cache files are scope by the calendar week as
+    all queries only look for the most recent completed week
+    """
+
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            cache_file = f'.cache/{filename}-{calendar_week}.json'
+            if os.path.isfile(cache_file):
+                print(f"Using cache file {cache_file} for {filename}...")
+                with open(cache_file, 'r') as f:
+                    return json.load(f)
+
+            result = func(*args, **kwargs)
+
+            with open(cache_file, 'w') as f:
+                json.dump(result, f)
+
+            return result
+
+        return wrapper
+
+    return decorator
+
 
 class DBClient:
     config = None
     conn = None
-    calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
 
     def __init__(self):
         print("Initializing database client...")
@@ -22,36 +51,7 @@ class DBClient:
             password=self.config['password'],
         )
 
-    def get_last_weeks_peer_ids(self):
-        """
-        get_last_weeks_peer_ids returns the set of peer IDs that were
-        visited during the most recent complete week (not the current
-        one). It returns a list of distinct **database** peer IDs.
-        """
-        print("Getting database peer IDs from last week...")
-        cache_file = '.cache/peer_ids-%s.json' % self.calendar_week
-        if os.path.isfile(cache_file):
-            print("Using peer ID cache...")
-            with open(cache_file, 'r') as f:
-                return json.load(f)
-
-        cur = self.conn.cursor()
-        cur.execute(
-            """
-            SELECT DISTINCT peer_id
-            FROM visits
-            WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND created_at < date_trunc('week', NOW())
-              AND error IS NULL
-            """
-        )
-        result = [i for sub in cur.fetchall() for i in sub]
-
-        with open(cache_file, 'w') as f:
-            json.dump(result, f)
-
-        return result
-
+    @cache("get_visited_peers_agent_versions")
     def get_visited_peers_agent_versions(self):
         """
         get_visited_peers_agent_versions gets the agent version
@@ -59,11 +59,6 @@ class DBClient:
         completed week.
         """
         print("Getting agent versions for visited peers...")
-        cache_file = '.cache/get_visited_peers_agent_versions-%s.json' % self.calendar_week
-        if os.path.isfile(cache_file):
-            print("Using cache...")
-            with open(cache_file, 'r') as f:
-                return json.load(f)
         cur = self.conn.cursor()
         cur.execute(
             """
@@ -78,23 +73,15 @@ class DBClient:
             ORDER BY count DESC
             """
         )
-        result = cur.fetchall()
-        with open(cache_file, 'w') as f:
-            json.dump(result, f)
-        return result
+        return cur.fetchall()
 
+    @cache("get_node_uptime")
     def get_node_uptime(self):
         """
         get_node_uptime gets the session uptimes of the last completed week.
         It returns the a list containing the uptime in seconds.
         """
         print("Getting node uptimes...")
-        cache_file = '.cache/get_node_uptime-%s.json' % self.calendar_week
-        if os.path.isfile(cache_file):
-            print("Using cache...")
-            with open(cache_file, 'r') as f:
-                return json.load(f)
-
         cur = self.conn.cursor()
         cur.execute(
             """
@@ -106,24 +93,120 @@ class DBClient:
               AND s.updated_at > date_trunc('week', NOW() - '1 week'::interval)
             """
         )
-        result = cur.fetchall()
-        with open(cache_file, 'w') as f:
-            json.dump(result, f)
-        return result
+        return cur.fetchall()
 
-    def get_on_nodes(self):
+    @cache("get_all_peer_ids")
+    def get_all_peer_ids(self):
         """
-        get_on_nodes gets the id of all nodes that haven't been seen offline in the last
-        completed week. They were seen online the whole time.
+        get_all_peer_ids returns the set of peer IDs that were
+        visited during the most recent complete week (not the current
+        one). It returns a list of distinct **database** peer IDs.
         """
+        print("Getting database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
             """
-            SELECT count(DISTINCT peer_id)
+            SELECT DISTINCT peer_id
+            FROM visits
+            WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND created_at < date_trunc('week', NOW())
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_online_peer_ids")
+    def get_online_peer_ids(self):
+        """
+        get_online_peer_ids gets the **database** ids of all nodes that haven't been seen offline in the last
+        completed week. They were seen online the whole time.
+        """
+        print("Getting online database peer IDs from last week...")
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT peer_id
             FROM sessions
-            WHERE created_at < date_trunc('week', NOW())
-              AND updated_at > date_trunc('week', NOW() - '1 week'::interval)
+            WHERE first_successful_dial < date_trunc('week', NOW() - '1 week'::interval)
               AND (first_failed_dial > date_trunc('week', NOW()) OR finished = false)
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_offline_peer_ids")
+    def get_offline_peer_ids(self):
+        """
+        get_offline_peer_ids gets the **database** ids of all nodes that haven't been seen online in the last
+        completed week. They were found in the DHT but were never reachable the whole time.
+        """
+        print("Getting offline database peer IDs from last week...")
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT v.peer_id
+            FROM visits v
+            WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND created_at < date_trunc('week', NOW())
+              AND v.peer_id NOT IN (
+                -- This subquery fetches all peers that have been
+                -- seen online in the given time interval. We check if there is at least
+                -- one visit without an error in the given time interval. Alternatively
+                -- we check if there is a visit with an associated session (also an
+                -- indication that the peer was online, but only if the first failed
+                -- dial of that peer was in the given time interval.
+                SELECT DISTINCT v.peer_id
+                FROM visits v
+                         LEFT JOIN sessions s ON v.session_id = s.id
+                WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
+                  AND v.created_at < date_trunc('week', NOW())
+                  AND (v.error IS NULL OR
+                       (v.session_id IS NOT NULL AND s.first_failed_dial > date_trunc('week', NOW() - '1 week'::interval)))
+            )
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_entering_peer_ids")
+    def get_entering_peer_ids(self):
+        """
+        get_entering_peer_ids gets the **database** ids of all nodes that started at least
+        one new session during the last completed week.
+        """
+        print("Getting entering database peer IDs from last week...")
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT peer_id
+            FROM sessions
+            WHERE first_successful_dial > date_trunc('week', NOW() - '1 week'::interval)
+              AND first_successful_dial < date_trunc('week', NOW())
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_leaving_peer_ids")
+    def get_leaving_peer_ids(self):
+        """
+        get_leaving_peer_ids gets the **database** ids of all nodes that ended a session
+        at least once during the last completed week.
+        """
+        print("Getting leaving database peer IDs from last week...")
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT DISTINCT peer_id
+            FROM sessions
+            WHERE first_failed_dial < date_trunc('week', NOW())
+              AND first_failed_dial > date_trunc('week', NOW() - '1 week'::interval)
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_dangling_peer_ids")
+    def get_dangling_peer_ids(self) -> set[int]:
+        """
+        get_dangling_peer_ids gets the **database** ids of all nodes that ended their online session
+        during the last completed week and also came online again (possibly multiple times).
+        """
+        all_entering_peer_ids = set(self.get_entering_peer_ids())
+        all_leaving_peer_ids = set(self.get_leaving_peer_ids())
+        return all_entering_peer_ids.intersection(all_leaving_peer_ids)
