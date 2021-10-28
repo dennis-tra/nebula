@@ -43,15 +43,18 @@ def go_ipfs_v08_version(agent_version):
     """
     Helper function to trim agent version of go-ipfs 0.8.x
     """
-    if "go-ipfs/0.8" not in agent_version:
+    if agent_version.startswith("/"):
+        agent_version = agent_version[1:]
+
+    if not agent_version.startswith("go-ipfs/0.8"):
         return None
-    elif "go-ipfs/0.8.0/" in agent_version:
+    elif agent_version == "go-ipfs/0.8.0/":
         return agent_version[8:]
-    elif "go-ipfs/0.8.0/16615d7" in agent_version:
+    elif agent_version == "go-ipfs/0.8.0/16615d7":
         return agent_version[8:]
-    elif "go-ipfs/0.8.0/ce693d7" in agent_version:
+    elif agent_version == "go-ipfs/0.8.0/ce693d7":
         return agent_version[8:]
-    elif "go-ipfs/0.8.0/48f94e2" in agent_version:
+    elif agent_version == "go-ipfs/0.8.0/48f94e2":
         return agent_version[8:]
     else:
         return "others"

@@ -2,7 +2,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from lib_plot import fmt_barplot
+from lib_fmt import fmt_barplot
 from lib_agent import agent_name, go_ipfs_version, go_ipfs_v08_version
 from lib_db import DBClient
 
@@ -37,8 +37,8 @@ go_ipfs_v08_versions_total = go_ipfs_v08_versions_df['count'].sum()
 
 # Plotting
 
-fig, (ax11, ax21, ax31) = plt.subplots(3, 1)  # rows, cols
-fig.set_size_inches(6, 12)
+fig, (ax11, ax21, ax31) = plt.subplots(1,3)  # rows, cols
+fig.set_size_inches(15, 5)
 
 sns.barplot(ax=ax11, x='agent_name', y='count', data=agent_names_df)
 fmt_barplot(ax11, agent_names_df["count"], agent_names_total)

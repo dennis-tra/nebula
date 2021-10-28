@@ -6,7 +6,6 @@ import datetime
 
 
 class DBClient:
-    __peer_id_cache_file = 'peer_ids-%s.json' % (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
     config = None
     conn = None
     calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
@@ -23,13 +22,6 @@ class DBClient:
             password=self.config['password'],
         )
 
-    def query(self, query):
-        print("Running query:")
-        print(query)
-        cur = self.conn.cursor()
-        cur.execute(query)
-        return cur.fetchall()
-
     def get_last_weeks_peer_ids(self):
         """
         get_last_weeks_peer_ids returns the set of peer IDs that were
@@ -37,10 +29,10 @@ class DBClient:
         one). It returns a list of distinct **database** peer IDs.
         """
         print("Getting database peer IDs from last week...")
-
-        if os.path.isfile(self.__peer_id_cache_file):
+        cache_file = '.cache/peer_ids-%s.json' % self.calendar_week
+        if os.path.isfile(cache_file):
             print("Using peer ID cache...")
-            with open(self.__peer_id_cache_file, 'r') as f:
+            with open(cache_file, 'r') as f:
                 return json.load(f)
 
         cur = self.conn.cursor()
@@ -55,7 +47,7 @@ class DBClient:
         )
         result = [i for sub in cur.fetchall() for i in sub]
 
-        with open(self.__peer_id_cache_file, 'w') as f:
+        with open(cache_file, 'w') as f:
             json.dump(result, f)
 
         return result
@@ -102,6 +94,7 @@ class DBClient:
             print("Using cache...")
             with open(cache_file, 'r') as f:
                 return json.load(f)
+
         cur = self.conn.cursor()
         cur.execute(
             """
@@ -117,3 +110,20 @@ class DBClient:
         with open(cache_file, 'w') as f:
             json.dump(result, f)
         return result
+
+    def get_on_nodes(self):
+        """
+        get_on_nodes gets the id of all nodes that haven't been seen offline in the last
+        completed week. They were seen online the whole time.
+        """
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT count(DISTINCT peer_id)
+            FROM sessions
+            WHERE created_at < date_trunc('week', NOW())
+              AND updated_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND (first_failed_dial > date_trunc('week', NOW()) OR finished = false)
+            """
+        )
+        return [i for sub in cur.fetchall() for i in sub]
