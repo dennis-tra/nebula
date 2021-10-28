@@ -3,6 +3,7 @@ import os
 import json
 import psycopg2
 import datetime
+import hashlib
 
 calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
 
@@ -18,6 +19,10 @@ def cache(filename: str):
     def decorator(func):
         def wrapper(*args, **kwargs):
             cache_file = f'.cache/{filename}-{calendar_week}.json'
+            if len(args) == 2:
+                digest = hashlib.sha256(str.encode(str(args[1]))).hexdigest()
+                cache_file = f'.cache/{filename}-{digest}.json'
+
             if os.path.isfile(cache_file):
                 print(f"Using cache file {cache_file} for {filename}...")
                 with open(cache_file, 'r') as f:
@@ -72,6 +77,32 @@ class DBClient:
             GROUP BY av.agent_version
             ORDER BY count DESC
             """
+        )
+        return cur.fetchall()
+
+    @cache("get_agent_versions_for_peer_ids")
+    def get_agent_versions_for_peer_ids(self, peer_ids):
+        """
+        get_visited_peers_agent_versions gets the agent version
+        counts of the peers that were visited during the last
+        completed week.
+        """
+        print(f"Getting agent versions for {len(peer_ids)} peers...")
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT av.agent_version, count(DISTINCT peer_id) "count"
+            FROM visits v
+            INNER JOIN agent_versions av on av.id = v.agent_version_id
+            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND v.created_at < date_trunc('week', NOW())
+              AND v.type = 'crawl'
+              AND v.error IS NULL
+              AND v.peer_id IN (%s)
+            GROUP BY av.agent_version
+            ORDER BY count DESC
+            """ % ','.join(['%s'] * len(peer_ids)),
+            tuple(peer_ids)
         )
         return cur.fetchall()
 
