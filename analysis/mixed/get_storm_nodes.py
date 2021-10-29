@@ -13,7 +13,6 @@ def trim_agent(agent):
     elif agent.startswith("hydra-booster"):
         return "hydra-booster"
     elif agent.startswith("storm"):
-        print(agent)
         return "storm"
     elif agent.startswith("ioi"):
         return "ioi"
