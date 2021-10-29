@@ -22,10 +22,10 @@ require (
 	github.com/libp2p/go-libp2p v0.14.3
 	github.com/libp2p/go-libp2p-asn-util v0.0.0-20210601180234-54e13735517a // indirect
 	github.com/libp2p/go-libp2p-core v0.8.6
+	github.com/libp2p/go-libp2p-discovery v0.5.1 // indirect
 	github.com/libp2p/go-libp2p-kad-dht v0.12.2
 	github.com/libp2p/go-libp2p-kbucket v0.4.7
 	github.com/libp2p/go-libp2p-protocol v0.1.0
-	github.com/libp2p/go-libp2p-pubsub v0.5.5
 	github.com/libp2p/go-libp2p-routing v0.1.0
 	github.com/libp2p/go-libp2p-swarm v0.5.3
 	github.com/libp2p/go-msgio v0.0.6
