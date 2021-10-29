@@ -182,6 +182,29 @@ One interesting thing is that among all seen nodes, there are 52.3% nodes runnin
 #### 2 CDF of off time for dangling nodes
 ![Graph](./analysis/mixed/figs/offtime_cdf_dangle.png)
 
+### Latency map
+We deployed a few nodes in different regions in AWS. We plotted a few graphs in different regions and they can be seen under `analysis/mixed/region-figs`. We also plotted a latency map as shown below.
+![Graph](./analysis/mixed/region-latencies/latency-map.png)
+If you would like to plot the same latency map. First of all, you need to download the latency data. For example,
+```
+cd analysis/mixed/
+python3 ./plot_latency > ./region-latencies/london.latency
+python3 plot_map.py
+```
+To deploy a few nodes in AWS. First of all, you need to make sure you have terraform cli and AWS cli installed, check https://learn.hashicorp.com/tutorials/terraform/install-cli and https://aws.amazon.com/cli/ for information on how to install on your machine.
+To check if you have them installed:
+```
+terraform version
+aws --version
+```
+Secondly, you need to configure aws with your credentials by run `aws configure`.
+Lastly, you are ready to spin up the nodes. For example, in order to spin up a node in london:
+```
+cd regions/london
+terraform init (Run only at first time)
+terraform apply
+```
+
 ### Conclusion
 - We have made some extensions to the original so it is able to collect some additional data to analyse the churn.
 - We created a list of python functions that interact directly with the database to collect useful data.
