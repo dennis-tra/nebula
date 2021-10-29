@@ -9,32 +9,36 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/friendsofgo/errors v0.9.2
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20190430165422-3e4dfb77656c // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/ipfs/go-cid v0.0.7
 	github.com/ipfs/go-ipns v0.1.0 // indirect
-	github.com/ipld/go-ipld-prime v0.10.0 // indirect
+	github.com/ipfs/go-log v1.0.5
+	github.com/ipld/go-ipld-prime v0.12.3 // indirect
 	github.com/kat-co/vala v0.0.0-20170210184112-42e1d8b61f12
 	github.com/klauspost/cpuid/v2 v2.0.6 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p v0.14.3
 	github.com/libp2p/go-libp2p-asn-util v0.0.0-20210601180234-54e13735517a // indirect
-	github.com/libp2p/go-libp2p-core v0.8.5
-	github.com/libp2p/go-libp2p-discovery v0.5.1 // indirect
+	github.com/libp2p/go-libp2p-core v0.8.6
 	github.com/libp2p/go-libp2p-kad-dht v0.12.2
 	github.com/libp2p/go-libp2p-kbucket v0.4.7
+	github.com/libp2p/go-libp2p-protocol v0.1.0
+	github.com/libp2p/go-libp2p-pubsub v0.5.5
+	github.com/libp2p/go-libp2p-routing v0.1.0
+	github.com/libp2p/go-libp2p-swarm v0.5.3
 	github.com/libp2p/go-msgio v0.0.6
 	github.com/miekg/dns v1.1.43 // indirect
 	github.com/multiformats/go-multiaddr v0.3.3
-	github.com/onsi/ginkgo v1.15.0 // indirect
-	github.com/onsi/gomega v1.10.5 // indirect
+	github.com/multiformats/go-multihash v0.0.15
 	github.com/pkg/errors v0.9.1
-	github.com/polydawn/refmt v0.0.0-20201211092308-30ac6d18308e // indirect
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/scriptkitty/go-libp2p-kad-dht v0.7.11
 	github.com/sirupsen/logrus v1.8.1
+	github.com/smartystreets/assertions v1.0.0 // indirect
 	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.7.0
 	github.com/urfave/cli/v2 v2.3.0
@@ -52,3 +56,5 @@ require (
 	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
+
+replace github.com/ipfs/go-bitswap => ../go-bitswap
