@@ -169,7 +169,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	// Stop crawlers - blocking
 	crawlerCancel()
 	for _, c := range crawlers {
-		log.WithField("persisterID", c.id).Debugln("Waiting for crawler to stop")
+		log.WithField("crawlerID", c.id).Debugln("Waiting for crawler to stop")
 		<-c.done
 	}
 
@@ -184,9 +184,15 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	s.persistQueue.DoneProducing()
 
 	// Wait for all persisters to finish
-	persistersCancel()
+	select {
+	case <-ctx.Done():
+		persistersCancel()
+		log.Infoln("Cancelling persister context as root context stopped") // e.g. ^C
+	default:
+		log.Infoln("Not cancelling persister context as we stopped organically") // limit or just finished
+	}
 	for _, p := range persisters {
-		log.WithField("persisterID", "").Debugln("Waiting for persister to stop")
+		log.WithField("persisterID", p.id).Infoln("Waiting for persister to stop")
 		<-p.done
 	}
 
