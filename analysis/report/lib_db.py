@@ -76,7 +76,7 @@ class DBClient:
               AND v.created_at < date_trunc('week', NOW())
               AND v.type = 'crawl'
               AND v.error IS NULL
-              AND av.agent_version in ({",".join(f"'{av}'" for av in agent_versions)})
+              AND av.agent_version LIKE ANY (array[{",".join(f"'%{av}%'" for av in agent_versions)}])
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
@@ -266,3 +266,23 @@ class DBClient:
         all_entering_peer_ids = set(self.get_entering_peer_ids())
         all_leaving_peer_ids = set(self.get_leaving_peer_ids())
         return list(all_entering_peer_ids.intersection(all_leaving_peer_ids))
+
+    @cache("get_inter_arrival_time")
+    def get_inter_arrival_time(self, peer_ids):
+        print("Getting inter arrival times from last week...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT s1.id,
+                   s1.peer_id,
+                   EXTRACT('epoch' FROM MIN(s2.created_at) - s1.created_at) AS diff_in_s
+            FROM sessions s1
+                     LEFT JOIN sessions s2 ON s1.peer_id = s2.peer_id AND s1.created_at < s2.created_at
+            WHERE s1.updated_at > date_trunc('week', NOW() - '1 week'::interval)
+              AND s1.created_at < date_trunc('week', NOW())
+              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({",".join(str(x) for x in peer_ids)})
+            GROUP BY s1.id, s1.peer_id
+            ORDER BY s1.created_at;
+            """
+        )
+        return cur.fetchall()
