@@ -20,23 +20,29 @@ results = client.query(
 
 results_df = pd.DataFrame(results, columns=["started_at", "crawled_peers", "dialable_peers", "undialable_peers"])
 results_df['started_at'] = pd.to_datetime(results_df['started_at'], unit='s')
+results_df["percentage_dialable"] = 100 * results_df["dialable_peers"] / results_df["crawled_peers"]
 
-fig, ax = plt.subplots(figsize=(12, 6))
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6))
 
-sns.lineplot(ax=ax, x=results_df["started_at"], y=results_df["crawled_peers"])
-sns.lineplot(ax=ax, x=results_df["started_at"], y=results_df["dialable_peers"])
-sns.lineplot(ax=ax, x=results_df["started_at"], y=results_df["undialable_peers"])
+sns.lineplot(ax=ax1, x=results_df["started_at"], y=results_df["crawled_peers"])
+sns.lineplot(ax=ax1, x=results_df["started_at"], y=results_df["dialable_peers"])
+sns.lineplot(ax=ax1, x=results_df["started_at"], y=results_df["undialable_peers"])
 
-ax.legend(loc='lower right', labels=["Total", "Dialable", "Undialable"])
+ax1.legend(loc='lower right', labels=["Total", "Dialable", "Undialable"])
 
-ax.xaxis.set_major_formatter(md.DateFormatter('%Y-%m-%d'))
-ax.set_ylim(0)
+ax1.xaxis.set_major_formatter(md.DateFormatter('%Y-%m-%d'))
+ax1.set_ylim(0)
 
-ax.set_xlabel("Time")
-ax.set_ylabel("Count")
+ax1.set_xlabel("Time (CEST)")
+ax1.set_ylabel("Count")
 
-ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
+ax1.get_yaxis().set_major_formatter(thousands_ticker_formatter)
 
-plt.title("CESTf")
+sns.lineplot(ax=ax2, x=results_df["started_at"], y=results_df["percentage_dialable"])
+ax2.xaxis.set_major_formatter(md.DateFormatter('%Y-%m-%d'))
+ax2.set_ylim(0, 100)
+ax2.set_xlabel("Time (CEST)")
+ax2.set_ylabel("Dialable Peers in %")
+
 plt.tight_layout()
 plt.show()
