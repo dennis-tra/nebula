@@ -222,7 +222,10 @@ dist/
 ./nebula
 
 node_modules/
-regions/
+*.sql
+.terraform*
+terraform*
+ip.txt
 
 plot.png
 sessions.csv
