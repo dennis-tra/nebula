@@ -22,4 +22,4 @@ results = client.query(
     """
 )
 
-plot_cloud(results, "Online")
+plot_cloud(results, "Online", "online")

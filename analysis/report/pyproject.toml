@@ -17,6 +17,7 @@ netaddr = "^0.8.0"
 lxml = "^4.6.3"
 which-cloud = "^1.0.2"
 geoip2 = "^4.4.0"
+Jinja2 = "^3.0.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.4"

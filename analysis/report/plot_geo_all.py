@@ -29,4 +29,4 @@ results = client.query(
 )
 results_df = pd.DataFrame(results, columns=["Country", "Count"])
 
-plot_geo(results_df, "All Visited", 300)
+plot_geo(results_df, "All Visited", 300, "all")

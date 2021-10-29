@@ -31,4 +31,4 @@ results = client.query(
 )
 results_df = pd.DataFrame(results, columns=["Country", "Count"])
 
-plot_geo(results_df, "'ioi'", 20)
+plot_geo(results_df, "'ioi'", 20, "ioi")

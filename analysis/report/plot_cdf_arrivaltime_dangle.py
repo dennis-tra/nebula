@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt, ticker
 
 from analysis.report.lib_agent import known_agents
 from analysis.report.lib_fmt import fmt_thousands
-from lib_db import DBClient
+from lib_db import DBClient, calendar_week
 
 sns.set_theme()
 
@@ -51,4 +51,5 @@ ax2.title.set_text(f"CDF of Inter Arrival Times by Agent")
 ax2.legend(loc='lower right', labels=labels)
 
 plt.tight_layout()
+plt.savefig(f"./plots-{calendar_week}/cdf-inter-arrival-dangling.png")
 plt.show()

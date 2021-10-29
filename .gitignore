@@ -133,3 +133,4 @@ analysis/provide/data
 analysis/provide/server
 
 **/.cache/
+**/plots-*/

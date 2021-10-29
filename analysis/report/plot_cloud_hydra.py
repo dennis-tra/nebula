@@ -22,4 +22,4 @@ results = client.query(
     """
 )
 
-plot_cloud(results, "'hydra-booster/0.7.4'")
+plot_cloud(results, "'hydra-booster/0.7.4'", "hydra")

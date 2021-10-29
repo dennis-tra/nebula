@@ -20,4 +20,4 @@ results = client.query(
     """
 )
 
-plot_cloud(results, "All")
+plot_cloud(results, "All", "all")
