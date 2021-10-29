@@ -1,11 +1,14 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+
+from lib_db import calendar_week
 from lib_fmt import fmt_thousands, fmt_barplot
 
 sns.set_theme()
 
-def plot_geo(data, classification, threshold):
+
+def plot_geo(data, classification, threshold, file_name):
     fig, ax = plt.subplots(figsize=(12, 6))
 
     # calculate the "other" countries
@@ -19,4 +22,5 @@ def plot_geo(data, classification, threshold):
 
     plt.title(f"Country Distribution of {classification} Peers (Total {fmt_thousands(data['Count'].sum())})")
 
+    plt.savefig(f"./plots-{calendar_week}/geo-{file_name}.png")
     plt.show()

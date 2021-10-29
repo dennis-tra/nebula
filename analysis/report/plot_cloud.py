@@ -2,13 +2,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from lib_db import calendar_week
 from lib_cloud import Cloud
 from lib_fmt import fmt_barplot, fmt_thousands
 
 sns.set_theme()
 
 
-def plot_cloud(data, classification):
+def plot_cloud(data, classification, file_name):
     cloud_client = Cloud()
 
     results_df = pd.DataFrame(data, columns=["ip_address"]).assign(
@@ -29,4 +30,5 @@ def plot_cloud(data, classification):
 
     plt.title(f"Cloud Platform Distribution of {classification} Peers (Total {fmt_thousands(results_df['count'].sum())})")
 
+    plt.savefig(f"./plots-{calendar_week}/cloud-{file_name}.png")
     plt.show()

@@ -5,4 +5,4 @@ client = DBClient()
 peer_ids = client.get_online_peer_ids()
 results = client.get_agent_versions_for_peer_ids(peer_ids)
 
-plot_agent(results)
+plot_agent(results, "online")

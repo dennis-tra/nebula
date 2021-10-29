@@ -3,8 +3,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt, ticker
 
 from lib_agent import agent_name, go_ipfs_v08_version, go_ipfs_version, known_agents
-from lib_db import DBClient
-from lib_fmt import thousands_ticker_formatter, fmt_thousands
+from lib_db import DBClient, calendar_week
+from lib_fmt import thousands_ticker_formatter
 
 sns.set_theme()
 
@@ -53,4 +53,6 @@ for idx, agent in enumerate(known_agents):
         ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
 
 plt.tight_layout()
+
+plt.savefig(f"./plots-{calendar_week}/crawl-properties.png")
 plt.show()

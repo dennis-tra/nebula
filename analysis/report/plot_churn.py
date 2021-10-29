@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import ticker
 from lib_agent import agent_name, known_agents, go_ipfs_version_mappings, go_ipfs_version
-from lib_db import DBClient
+from lib_db import DBClient, calendar_week
 from lib_fmt import fmt_thousands
 
 sns.set_theme()
@@ -57,4 +57,6 @@ configure_axis(ax3)
 
 fig.suptitle(f"Node Churn Rate (Total Sessions {fmt_thousands(len(df))})")
 fig.tight_layout()
+
+plt.savefig(f"./plots-{calendar_week}/crawl-churn.png")
 fig.show()

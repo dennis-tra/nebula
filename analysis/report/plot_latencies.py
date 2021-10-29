@@ -4,7 +4,7 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from lib_fmt import thousands_ticker_formatter
-from lib_db import DBClient
+from lib_db import DBClient, calendar_week
 
 sns.set_theme()
 
@@ -51,4 +51,6 @@ ax2.set_xlabel("Connect Duration in s")
 ax3.set_xlabel("Connect plus Crawl Duration in s")
 
 plt.tight_layout()
+
+plt.savefig(f"./plots-{calendar_week}/latencies.png")
 plt.show()

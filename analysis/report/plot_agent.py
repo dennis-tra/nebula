@@ -2,13 +2,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from lib_db import calendar_week
 from lib_fmt import fmt_barplot, fmt_thousands
 from lib_agent import agent_name, go_ipfs_version, go_ipfs_v08_version
 
 sns.set_theme()
 
 
-def plot_agent(results):
+def plot_agent(results, plot_name):
     results_df = pd.DataFrame(results, columns=['agent_version', 'count']).assign(
         agent_name=lambda df: df.agent_version.apply(agent_name),
         go_ipfs_version=lambda df: df.agent_version.apply(go_ipfs_version),
@@ -57,4 +58,5 @@ def plot_agent(results):
     ax31.set_ylabel("Count")
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f"./plots-{calendar_week}/agents-{plot_name}.png")
+    # plt.show()

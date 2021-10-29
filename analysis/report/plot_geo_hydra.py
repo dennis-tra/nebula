@@ -31,4 +31,4 @@ results = client.query(
 )
 results_df = pd.DataFrame(results, columns=["Country", "Count"])
 
-plot_geo(results_df, "'hydra-booster/0.7.4'", 15)
+plot_geo(results_df, "'hydra-booster/0.7.4'", 15, "hydra")

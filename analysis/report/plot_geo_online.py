@@ -31,4 +31,4 @@ results = client.query(
 )
 results_df = pd.DataFrame(results, columns=["Country", "Count"])
 
-plot_geo(results_df, "Online", 15)
+plot_geo(results_df, "Online", 15, "online")

@@ -22,4 +22,4 @@ results = client.query(
     """
 )
 
-plot_cloud(results, "'storm'")
+plot_cloud(results, "'storm'", "storm")
