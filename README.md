@@ -1,6 +1,17 @@
 # ⏱ IPFS Uptime Measurement Summary
 ### _Objective 3 as described in [here](https://docs.google.com/document/d/1ap6TVdI2AHAllt0cj_Zv7r_25bTA7k2zY873Dg-7r7Q/edit#)_
 
+## >>>>Summary for storm nodes analysis>>>>
+This section is a summary for storm nodes. If you want to know the crawling summary, please start from the next section.
+Storm node is a type of node that is built on top of libp2p. Storm nodes aim to attack unix systems. We built a monitor that can be used to interact with storm nodes cralwed. The way of interaction is that after we connected to storm nodes, we will try to keep letting them store a random provider record and fetch later. In order to run the monitor. Follow the instructions below:
+```
+cd analysis/mixed
+python3 get_storm_nodes.py
+cd ../../cmd/storm-monitor
+go run main.go
+```
+After the monitoring, we found out that most storm nodes participate in the DHT Network of IPFS. That is, they are willing to store and fetch provider record. Besides that, they seem to not have interactions with other nodes in IPFS. However, from this article [here](https://www.bitdefender.com/files/News/CaseStudies/study/376/Bitdefender-Whitepaper-IPStorm.pdf), storm nodes communicate using custom libp2p protocols between each other such as `sbpcp/1.0.0` and `sbptp/1.0.0`. These custom protocols have also been discovered by the crawler.
+
 ## Summary
 - We have made some extensions to the original [nebula crawler](https://github.com/dennis-tra/nebula-crawler) so it is able to collect some additional data to analyse the churn. The fork of the repository lives [here](https://github.com/wcgcyx/nebula-crawler).
 - We created a list of python functions that interact directly with the database to collect useful data.
