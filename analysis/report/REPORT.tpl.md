@@ -35,8 +35,8 @@ Newly discovered protocols:
 
 Node classification:
 
-- `dangling` - A peer that was seen going offline and online during the measurement period (potentially multiple times)
 - `offline` - A peer that was not seen online but found in the DHT during the measurement period (always offline)
+- `dangling` - A peer that was seen going offline and online during the measurement period (potentially multiple times)
 - `online` - A peer that was not seen offline at all during the measurement period (always online)
 - `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
 - `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then

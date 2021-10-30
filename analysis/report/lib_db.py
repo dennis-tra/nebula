@@ -5,11 +5,21 @@ import psycopg2
 import datetime
 import hashlib
 
-from typing import TypeVar
+from enum import Enum
+from typing import TypeVar, Callable
 
 T = TypeVar('T')
 
 calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
+
+
+class NodeClassification(Enum):
+    OFFLINE = "offline"
+    ONEOFF = "oneoff"
+    DANGLING = "dangling"
+    ONLINE = "online"
+    ENTERED = "entered"
+    LEFT = "left"
 
 
 def cache():
@@ -53,8 +63,9 @@ def cache():
 class DBClient:
     config = None
     conn = None
-    start: str = "date_trunc('week', NOW() - '1 week'::interval)"
-    end: str = "date_trunc('week', NOW())"
+    start = "date_trunc('week', NOW() - '1 week'::interval)"
+    end = "date_trunc('week', NOW())"
+    node_classification_funcs: dict[NodeClassification, Callable] = {}
 
     @staticmethod
     def __flatten(result: list[tuple[T]]) -> list[T]:
@@ -79,6 +90,15 @@ class DBClient:
             user=self.config['user'],
             password=self.config['password'],
         )
+
+        self.node_classification_funcs = {
+            NodeClassification.OFFLINE: self.get_offline_peer_ids,
+            NodeClassification.ONEOFF: self.get_oneoff_peer_ids,
+            NodeClassification.DANGLING: self.get_dangling_peer_ids,
+            NodeClassification.ONLINE: self.get_online_peer_ids,
+            NodeClassification.ENTERED: self.get_only_entering_peer_ids,
+            NodeClassification.LEFT: self.get_only_leaving_peer_ids,
+        }
 
     @cache()
     def query(self, query):
@@ -317,6 +337,11 @@ class DBClient:
 
     @cache()
     def get_agent_versions_for_peer_ids(self, peer_ids: list[int]):  #
+        """
+        get_agent_versions_for_peer_ids returns all agent versions with
+        a count of peers that were discovered with such an agent version
+        from the list of given peer_ids.
+        """
         print(f"Getting agent versions for {len(peer_ids)} peers...")
         cur = self.conn.cursor()
         cur.execute(
@@ -331,6 +356,88 @@ class DBClient:
               AND v.peer_id IN ({self.__fmt_list(peer_ids)})
             GROUP BY av.agent_version
             ORDER BY count DESC
+            """
+        )
+        return cur.fetchall()
+
+    @cache()
+    def get_crawls(self):  #
+        """
+        get_crawls returns information of all crawls in the
+        specified time interval.
+        """
+        print("Getting general crawl information...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT extract(epoch from started_at), crawled_peers, dialable_peers, undialable_peers
+            FROM crawls c
+            WHERE c.created_at > {self.start}
+              AND c.created_at < {self.end}
+            """
+        )
+        return cur.fetchall()
+
+    @cache()
+    def get_crawl_properties(self, threshold=10):  #
+        """
+        get_crawl_properties returns agent version distributions
+        of the crawls in the specified time interval.
+        """
+        print("Getting crawl properties...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT cp.crawl_id, EXTRACT('epoch' FROM c.started_at) started_at, av.agent_version, cp.count
+            FROM crawl_properties cp 
+                INNER JOIN agent_versions av ON cp.agent_version_id = av.id
+                INNER JOIN crawls c ON cp.crawl_id = c.id
+            WHERE cp.created_at > {self.start}
+              AND cp.created_at < {self.end}
+              AND cp.count > {threshold}
+            """
+        )
+        return cur.fetchall()
+
+    @cache()
+    def get_crawl_visit_durations(self):  #
+        """
+        get_crawl_visit_durations returns all durations for connecting
+        and crawling peers in the specified time interval.
+        """
+        print("Getting crawl visit durations...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT
+                EXTRACT('epoch' FROM v.connect_duration), 
+                EXTRACT('epoch' FROM v.crawl_duration)
+            FROM visits v
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
+              AND v.type = 'crawl'
+              AND v.error IS NULL
+            """
+        )
+        return cur.fetchall()
+
+    @cache()
+    def get_dial_visit_durations(self):  #
+        """
+        get_dial_visit_durations returns all durations for
+        dialing peers in the specified time interval.
+        """
+        print("Getting dial visit durations...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT
+                EXTRACT('epoch' FROM v.dial_duration)
+            FROM visits v
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
+              AND v.type = 'dial'
+              AND v.error IS NULL
             """
         )
         return cur.fetchall()
@@ -361,7 +468,7 @@ class DBClient:
         get_inter_arrival_time returns the times between two sessions of the
         same peer.
         """
-        print(f"Getting inter arrival times for {len(peer_ids)}...")
+        print(f"Getting inter arrival times for {len(peer_ids)} peers...")
         cur = self.conn.cursor()
         cur.execute(
             f"""

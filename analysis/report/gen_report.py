@@ -10,55 +10,55 @@ calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalenda
 
 client = DBClient()
 crawl_count = client.query(
-    """
+    f"""
     SELECT count(*)
     FROM crawls c
-    WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-      AND created_at < date_trunc('week', NOW())
+    WHERE created_at > {client.start}
+      AND created_at < {client.end}
     """
 )
 
 visit_count = client.query(
-    """
+    f"""
     SELECT count(*)
     FROM visits v
-    WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-      AND created_at < date_trunc('week', NOW())
+    WHERE created_at > {client.start}
+      AND created_at < {client.end}
     """
 )
 
 peer_id_count = client.query(
-    """
+    f"""
     SELECT count(DISTINCT peer_id)
     FROM visits v
-    WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-      AND created_at < date_trunc('week', NOW())
+    WHERE created_at > {client.start}
+      AND created_at < {client.end}
     """
 )
 
 new_agent_versions = client.query(
-    """
+    f"""
     SELECT EXTRACT('epoch' FROM av.created_at), av.agent_version
     FROM agent_versions av
-    WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-      AND created_at < date_trunc('week', NOW())
+    WHERE created_at > {client.start}
+      AND created_at < {client.end}
     ORDER BY av.created_at
     """
 )
 
-new_agent_versions = [f"`{av[1]}` ({dt.utcfromtimestamp(av[0]).strftime('%Y-%m-%d %H:%M:%S')})" for av in new_agent_versions]
+new_agent_versions = [f"`{av[1]}` ({dt.utcfromtimestamp(av[0]).strftime('%Y-%m-%d %H:%M:%S')})" for av in
+                      new_agent_versions]
 
 new_protocols = client.query(
-    """
+    f"""
     SELECT EXTRACT('epoch' FROM p.created_at), p.protocol
     FROM protocols p
-    WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-      AND created_at < date_trunc('week', NOW())
+    WHERE created_at > {client.start}
+      AND created_at < {client.end}
     ORDER BY p.created_at
     """
 )
 new_protocols = [f"`{p[1]}` ({dt.utcfromtimestamp(p[0]).strftime('%Y-%m-%d %H:%M:%S')})" for p in new_protocols]
-
 
 loader = jinja2.FileSystemLoader(searchpath="./")
 env = jinja2.Environment(loader=loader)
