@@ -5,10 +5,14 @@ import psycopg2
 import datetime
 import hashlib
 
+from typing import TypeVar
+
+T = TypeVar('T')
+
 calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
 
 
-def cache(filename: str):
+def cache():
     """
     cache is a decorator that first checks the existence of a cache file before
     resorting to actually query the database. It takes the cache file name
@@ -18,6 +22,8 @@ def cache(filename: str):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
+
+            filename = func.__name__
 
             if not os.path.isdir(".cache"):
                 os.mkdir(".cache")
@@ -50,6 +56,14 @@ class DBClient:
     start: str = "date_trunc('week', NOW() - '1 week'::interval)"
     end: str = "date_trunc('week', NOW())"
 
+    @staticmethod
+    def __flatten(result: list[tuple[T]]) -> list[T]:
+        """
+        flatten turns a list of 1d tuples like [(1,), (2,)] into
+        a list like [1, 2]
+        """
+        return [i for sub in result for i in sub]
+
     def __init__(self):
         print("Initializing database client...")
 
@@ -62,16 +76,195 @@ class DBClient:
             password=self.config['password'],
         )
 
-    @cache("query")
+    @cache()
     def query(self, query):
         print("Running custom query...")
         cur = self.conn.cursor()
         cur.execute(query)
         return cur.fetchall()
 
-    @cache("get_peer_ids_for_agent_versions")
-    def get_peer_ids_for_agent_versions(self, agent_versions: list[str]):
-        print("Getting peer IDs for agent versions...")
+    @cache()
+    def get_all_peer_ids(self) -> list[int]:  #
+        """
+        get_all_peer_ids returns the set of **database** peer IDs
+        that were visited during the specified time interval.
+        """
+        print("Getting all visited database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT peer_id
+            FROM visits
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_online_peer_ids(self) -> list[int]:  #
+        """
+        get_online_peer_ids returns the set of **database** peer IDs of
+        all nodes that haven't been seen offline in the specified time
+        interval. They were seen online the whole time.
+        """
+        print("Getting online database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT peer_id
+            FROM sessions
+            WHERE first_successful_dial < {self.start}
+              AND (first_failed_dial > {self.end} OR finished = false)
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_offline_peer_ids(self) -> list[int]:  #
+        """
+        get_offline_peer_ids returns the set of **database** peer IDs of
+        all nodes that were visited in the specified time interval but
+        never have been seen online (never dialable). E.g., they could
+        have been found in the DHT but were never reachable or an active
+        session from before the time interval overlaps into this time interval
+        but the associated peer could never be contact in this time interval.
+        """
+        print("Getting offline database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT v.peer_id
+            FROM visits v
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
+              AND v.peer_id NOT IN (
+                -- This subquery fetches all peers that have been
+                -- seen online in the given time interval. We check if there is at least
+                -- one visit without an error in the given time interval.
+                SELECT DISTINCT v.peer_id
+                FROM visits v
+                         LEFT JOIN sessions s ON v.session_id = s.id
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                  AND v.error IS NULL
+            )
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_all_entering_peer_ids(self) -> list[int]:  #
+        """
+        get_all_entering_peer_ids returns the set **database** peer IDs of
+        all nodes that started at least one new session during the
+        specified time interval. This set can overlap with the set of
+        leaving peer IDs from get_all_leaving_peer_ids.
+        """
+        print("Getting entering database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT peer_id
+            FROM sessions
+            WHERE first_successful_dial > {self.start}
+              AND first_successful_dial < {self.end}
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    def get_only_entering_peer_ids(self) -> list[int]:  #
+        """
+        get_only_entering_peer_ids returns the set **database** peer IDs of
+        all nodes that were offline at the beginning of the specified time
+        interval, then started only one new session and then didn't go
+        offline until the end of the time interval.
+        """
+        print("Getting only entering database peer IDs in specified time interval...")
+        return list(set(self.get_all_entering_peer_ids()).difference(set(self.get_all_leaving_peer_ids())))
+
+    @cache()
+    def get_all_leaving_peer_ids(self) -> list[int]:  #
+        """
+        get_all_leaving_peer_ids returns the set of **database** peer IDs of
+        all nodes that ended a session at least once during the specified
+        time interval. This set can overlap with the set of
+        leaving peer IDs from get_all_entering_peer_ids.
+        """
+        print("Getting leaving database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT DISTINCT peer_id
+            FROM sessions
+            WHERE first_failed_dial < {self.end}
+              AND first_failed_dial > {self.start}
+              AND last_successful_dial > {self.start}
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    def get_only_leaving_peer_ids(self) -> list[int]:  #
+        """
+        get_only_leaving_peer_ids returns the set **database** peer IDs of
+        all nodes that were online at the beginning of the specified time
+        interval, then ended their session (went offline) and then didn't come
+        back online until the end of the time interval.
+        """
+        print("Getting only leaving database peer IDs in specified time interval...")
+        return list(set(self.get_all_leaving_peer_ids()).difference(set(self.get_all_entering_peer_ids())))
+
+    def get_ephemeral_peer_ids(self) -> list[int]:  #
+        """
+        get_ephemeral_peer_ids returns the set of **database** peer IDs that
+        entered the network but also left the network in the specified time
+        interval. This may have happened multiple times.
+        """
+        print("Getting ephemeral database peer IDs in specified time interval...")
+        return list(set(self.get_all_entering_peer_ids()).intersection(set(self.get_all_leaving_peer_ids())))
+
+    def get_dangling_peer_ids(self) -> list[int]:  #
+        """
+        get_dangling_peer_ids returns the set of **database** peer IDs of
+        all nodes that ended their online session during the specified time
+        interval and also came online again (possibly multiple times).
+        """
+        print("Getting dangling database peer IDs in specified time interval...")
+        return list(set(self.get_ephemeral_peer_ids()) - set(self.get_oneoff_peer_ids()))
+
+    @cache()
+    def get_oneoff_peer_ids(self) -> list[int]:  #
+        """
+        get_oneoff_peer_ids returns the set of **database** peer IDs that
+        are associated with only one session in the specified time interval.
+        This only includes sessions that completely lie within this interval,
+        e.g., sessions that started before the beginning of the interval and
+        ended within are excluded.
+        """
+        print("Getting one off database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT peer_id
+            FROM sessions
+            WHERE created_at < {self.end}
+              AND updated_at > {self.start}
+              AND peer_id IN ({",".join(str(x) for x in self.get_ephemeral_peer_ids())})
+            GROUP BY peer_id
+            HAVING count(id) = 1
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    def get_all_agent_versions(self) -> list[str]:  #
+        print("Getting all agent versions...")
+        cur = self.conn.cursor()
+        cur.execute("SELECT agent_version FROM agent_versions ORDER BY created_at")
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_peer_ids_for_agent_versions(self, agent_versions: list[str]):  #
+        print(f"Getting database peer IDs for {agent_versions} agent versions...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
@@ -85,20 +278,9 @@ class DBClient:
               AND av.agent_version LIKE ANY (array[{",".join(f"'%{av}%'" for av in agent_versions)}])
             """
         )
-        return [i for sub in cur.fetchall() for i in sub]
+        return DBClient.__flatten(cur.fetchall())
 
-    def get_all_agent_versions(self) -> list[str]:
-        print("Getting all agent versions...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT av.agent_version
-            FROM agent_versions av
-            """
-        )
-        return [item[0] for item in cur.fetchall()]
-
-    @cache("get_visited_peers_agent_versions")
+    @cache()
     def get_visited_peers_agent_versions(self):
         """
         get_visited_peers_agent_versions gets the agent version
@@ -122,7 +304,7 @@ class DBClient:
         )
         return cur.fetchall()
 
-    @cache("get_agent_versions_for_peer_ids")
+    @cache()
     def get_agent_versions_for_peer_ids(self, peer_ids):
         print(f"Getting agent versions for {len(peer_ids)} peers...")
         cur = self.conn.cursor()
@@ -142,7 +324,7 @@ class DBClient:
         )
         return cur.fetchall()
 
-    @cache("get_node_uptime")
+    @cache()
     def get_node_uptime(self):
         """
         get_node_uptime gets the session uptimes of the last completed week.
@@ -162,146 +344,7 @@ class DBClient:
         )
         return cur.fetchall()
 
-    @cache("get_all_peer_ids")
-    def get_all_peer_ids(self):
-        """
-        get_all_peer_ids returns the set of peer IDs that were
-        visited during the most recent complete week (not the current
-        one). It returns a list of distinct **database** peer IDs.
-        """
-        print("Getting database peer IDs from last week...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT DISTINCT peer_id
-            FROM visits
-            WHERE created_at > {self.start}
-              AND created_at < {self.end}
-            """
-        )
-        return [i for sub in cur.fetchall() for i in sub]
-
-    @cache("get_online_peer_ids")
-    def get_online_peer_ids(self):
-        """
-        get_online_peer_ids gets the **database** ids of all nodes that haven't been seen offline in the last
-        completed week. They were seen online the whole time.
-        """
-        print("Getting online database peer IDs from last week...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT DISTINCT peer_id
-            FROM sessions
-            WHERE first_successful_dial < {self.start}
-              AND (first_failed_dial > {self.end} OR finished = false)
-            """
-        )
-        return [i for sub in cur.fetchall() for i in sub]
-
-    @cache("get_offline_peer_ids")
-    def get_offline_peer_ids(self):
-        """
-        get_offline_peer_ids gets the **database** ids of all nodes that haven't been seen online in the last
-        completed week. They were found in the DHT but were never reachable the whole time.
-        """
-        print("Getting offline database peer IDs from last week...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT DISTINCT v.peer_id
-            FROM visits v
-            WHERE created_at > {self.start}
-              AND created_at < {self.end}
-              AND v.peer_id NOT IN (
-                -- This subquery fetches all peers that have been
-                -- seen online in the given time interval. We check if there is at least
-                -- one visit without an error in the given time interval. Alternatively
-                -- we check if there is a visit with an associated session (also an
-                -- indication that the peer was online, but only if the first failed
-                -- dial of that peer was in the given time interval.
-                SELECT DISTINCT v.peer_id
-                FROM visits v
-                         LEFT JOIN sessions s ON v.session_id = s.id
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                  AND (v.error IS NULL OR
-                       (v.session_id IS NOT NULL AND s.first_failed_dial > {self.start}))
-            )
-            """
-        )
-        return [i for sub in cur.fetchall() for i in sub]
-
-    @cache("get_entering_peer_ids")
-    def get_entering_peer_ids(self):
-        """
-        get_entering_peer_ids gets the **database** ids of all nodes that started at least
-        one new session during the last completed week.
-        """
-        print("Getting entering database peer IDs from last week...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT DISTINCT peer_id
-            FROM sessions
-            WHERE first_successful_dial > {self.start}
-              AND first_successful_dial < {self.end}
-            """
-        )
-        return [i for sub in cur.fetchall() for i in sub]
-
-    @cache("get_leaving_peer_ids")
-    def get_leaving_peer_ids(self):
-        """
-        get_leaving_peer_ids gets the **database** ids of all nodes that ended a session
-        at least once during the last completed week.
-        """
-        print("Getting leaving database peer IDs from last week...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT DISTINCT peer_id
-            FROM sessions
-            WHERE first_failed_dial < {self.end}
-              AND first_failed_dial > {self.start}
-            """
-        )
-        return [i for sub in cur.fetchall() for i in sub]
-
-    @cache("get_ephemeral_peer_ids")
-    def get_ephemeral_peer_ids(self):
-        return list(set(self.get_entering_peer_ids()) & set(self.get_leaving_peer_ids()))
-
-    @cache("get_dangling_peer_ids")
-    def get_dangling_peer_ids(self):
-        """
-        get_dangling_peer_ids gets the **database** ids of all nodes that ended their online session
-        during the last completed week and also came online again (possibly multiple times).
-        """
-        return list(set(self.get_ephemeral_peer_ids()) - set(self.get_oneoff_peer_ids()))
-
-    @cache("get_oneoff_peer_ids")
-    def get_oneoff_peer_ids(self):
-        """
-        get_oneoff_peer_ids returns all **database** peer IDs that are
-        associated with only one session in the specified time interval.
-        """
-        print("Getting one off peer IDs from list...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT peer_id
-            FROM sessions
-            WHERE created_at < {self.end}
-              AND updated_at > {self.start}
-              AND peer_id IN ({",".join(str(x) for x in self.get_ephemeral_peer_ids())})
-            GROUP BY peer_id
-            HAVING count(id) = 1
-            """
-        )
-        return [i[0] for i in cur.fetchall()]
-
-    @cache("get_inter_arrival_time")
+    @cache()
     def get_inter_arrival_time(self, peer_ids):
         print("Getting inter arrival times from last week...")
         cur = self.conn.cursor()
@@ -321,7 +364,7 @@ class DBClient:
         )
         return cur.fetchall()
 
-    @cache("get_ip_addresses_for_peer_ids")
+    @cache()
     def get_ip_addresses_for_peer_ids(self, peer_ids):
         print("Getting ip addresses for peer IDs...")
         cur = self.conn.cursor()
@@ -345,7 +388,7 @@ class DBClient:
         )
         return cur.fetchall()
 
-    @cache("get_country_distribution_for_peer_ids")
+    @cache()
     def get_country_distribution_for_peer_ids(self, peer_ids):
         print("Getting country distribution for peer IDs...")
         cur = self.conn.cursor()
