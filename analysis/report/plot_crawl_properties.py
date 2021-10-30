@@ -1,5 +1,6 @@
 import pandas as pd
 import seaborn as sns
+import lib_plot
 from matplotlib import pyplot as plt, ticker
 
 from lib_agent import agent_name, go_ipfs_v08_version, go_ipfs_version, known_agents
@@ -28,22 +29,26 @@ results_df = pd.DataFrame(results, columns=['crawl_id', 'started_at', 'agent_ver
 )
 results_df['started_at'] = pd.to_datetime(results_df['started_at'], unit='s')
 
-fig, axs = plt.subplots(len(known_agents), 1, figsize=(12, len(known_agents)*3), sharex=True)
+grouped_df = results_df \
+    .groupby(by=['crawl_id', 'started_at', 'agent_name'], as_index=False) \
+    .sum() \
+    .sort_values('count', ascending=False)
 
+fig, axs = plt.subplots(1, 2, figsize=(15, 5), sharex=True)
+
+labels = []
 for idx, agent in enumerate(known_agents):
-    ax = axs[idx]
-
-    grouped_df = results_df \
-        .groupby(by=['crawl_id', 'started_at', 'agent_name'], as_index=False) \
-        .sum() \
-        .sort_values('count', ascending=False)
+    if idx == 0:
+        ax = axs[0]
+        ax.set_ylim(0, grouped_df[grouped_df['agent_name'] == agent]['count'].max()*1.1)
+    else:
+        ax = axs[1]
+        labels += [agent]
 
     values = grouped_df[grouped_df['agent_name'] == agent]['count']
     sns.lineplot(ax=ax, x=grouped_df['started_at'], y=values)
-    ax.set_ylim(0)
     ax.set_xlabel("Time (CEST)")
     ax.set_ylabel("Count")
-    ax.title.set_text(f"Dialable peers with agent '{agent}'")
 
     if values.max() < 2000:
         pass
@@ -52,7 +57,11 @@ for idx, agent in enumerate(known_agents):
     else:
         ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
 
-plt.tight_layout()
+axs[0].legend(loc="lower left", labels=[known_agents[0]])
+axs[1].legend(loc="upper left", labels=labels)
 
-plt.savefig(f"./plots-{calendar_week}/crawl-properties.png")
+fig.suptitle(f"Dialable Peers by Agent")
+
+plt.tight_layout()
+lib_plot.savefig("crawl-properties")
 plt.show()

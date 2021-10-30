@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt, ticker
 
+from analysis.report import lib_plot
 from analysis.report.lib_agent import known_agents
 from analysis.report.lib_fmt import fmt_thousands
 from lib_db import DBClient, calendar_week
@@ -18,7 +19,7 @@ results_df = results_df.assign(
     diff_in_h=results_df.diff_in_s.apply(lambda x: x / 3600),
 )
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6), sharey=True)
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5), sharey=True)
 
 sns.ecdfplot(ax=ax1, x="diff_in_h", data=results_df)
 
@@ -51,5 +52,5 @@ ax2.title.set_text(f"CDF of Inter Arrival Times by Agent")
 ax2.legend(loc='lower right', labels=labels)
 
 plt.tight_layout()
-plt.savefig(f"./plots-{calendar_week}/cdf-inter-arrival-dangling.png")
+lib_plot.savefig("cdf-inter-arrival-dangling")
 plt.show()

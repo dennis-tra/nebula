@@ -2,7 +2,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 import matplotlib.dates as md
-
+import lib_plot
 from lib_db import DBClient, calendar_week
 from lib_fmt import thousands_ticker_formatter
 
@@ -22,7 +22,7 @@ results_df = pd.DataFrame(results, columns=["started_at", "crawled_peers", "dial
 results_df['started_at'] = pd.to_datetime(results_df['started_at'], unit='s')
 results_df["percentage_dialable"] = 100 * results_df["dialable_peers"] / results_df["crawled_peers"]
 
-fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
 
 sns.lineplot(ax=ax1, x=results_df["started_at"], y=results_df["crawled_peers"])
 sns.lineplot(ax=ax1, x=results_df["started_at"], y=results_df["dialable_peers"])
@@ -45,5 +45,5 @@ ax2.set_xlabel("Time (CEST)")
 ax2.set_ylabel("Dialable Peers in %")
 
 plt.tight_layout()
-plt.savefig(f"./plots-{calendar_week}/crawl-overview.png")
-# plt.show()
+lib_plot.savefig("crawl-overview.png")
+plt.show()

@@ -11,8 +11,7 @@ The measurements were conducted on the following machine:
 - `Country` - `Germany`
 - `City` - `Nuremberg`
 
-The following results show measurement data that was collected in the calendar week {{ calendar_week }} from {{
-measurment_start }} to {{ measurment_end }} in {{ year }}.
+The following results show measurement data that was collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
 
 - Number of crawls {{ crawl_count }}
 - Number of visits {{ visit_count }}
@@ -22,14 +21,12 @@ measurment_start }} to {{ measurment_end }} in {{ year }}.
 
 Newly discovered agent versions:
 {% for av in new_agent_versions %}
-
 - {{ av }}{% endfor %}
 
 ### Protocols
 
 Newly discovered protocols:
 {% for p in new_protocols %}
-
 - {{ p }}{% endfor %}
 
 ### Classification
@@ -39,10 +36,10 @@ Newly discovered protocols:
 Node classification:
 
 - `dangling` - A peer that was seen going offline and online during the measurement period (potentially multiple times)
-- `online` - A peer that was not seen offline at all during the measurement period (always online)
 - `offline` - A peer that was not seen online but found in the DHT during the measurement period (always offline)
-- `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
+- `online` - A peer that was not seen offline at all during the measurement period (always online)
 - `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
+- `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
 
 
 ### Crawl Time Series

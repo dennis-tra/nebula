@@ -2,13 +2,19 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from lib_db import calendar_week
+import lib_plot
+from lib_db import DBClient
 from lib_fmt import fmt_thousands, fmt_barplot
 
 sns.set_theme()
 
+client = DBClient()
 
-def plot_geo(data, classification, threshold, file_name):
+
+def plot_geo(peer_ids, classification, threshold, file_name):
+    results = client.get_country_distribution_for_peer_ids(peer_ids)
+    data = pd.DataFrame(results, columns=["Country", "Count"])
+
     fig, ax = plt.subplots(figsize=(12, 6))
 
     # calculate the "other" countries
@@ -22,5 +28,24 @@ def plot_geo(data, classification, threshold, file_name):
 
     plt.title(f"Country Distribution of {classification} Peers (Total {fmt_thousands(data['Count'].sum())})")
 
-    plt.savefig(f"./plots-{calendar_week}/geo-{file_name}.png")
+    lib_plot.savefig(f"geo-{file_name}")
     plt.show()
+
+
+peer_ids = client.get_dangling_peer_ids()
+plot_geo(peer_ids, "Dangling", 200, "dangling")
+
+peer_ids = client.get_offline_peer_ids()
+plot_geo(peer_ids, "Offline", 200, "offline")
+
+peer_ids = client.get_online_peer_ids()
+plot_geo(peer_ids, "Online", 15, "online")
+
+peer_ids = client.get_peer_ids_for_agent_versions(["hydra-booster/0.7.4"])
+plot_geo(peer_ids, "'hydra-booster/0.7.4'", 15, "hydra")
+
+peer_ids = client.get_peer_ids_for_agent_versions(["ioi"])
+plot_geo(peer_ids, "'ioi'", 20, "ioi")
+
+peer_ids = client.get_peer_ids_for_agent_versions(["storm"])
+plot_geo(peer_ids, "'storm'", 15, "storm")

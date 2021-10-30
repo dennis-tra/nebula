@@ -12,6 +12,7 @@ class Cloud:
     do_prefixes = set()
 
     def __init__(self):
+        print("Initializing cloud client...")
         # AWS - Amazon Web Services
         aws_url = 'https://ip-ranges.amazonaws.com/ip-ranges.json'
         aws_ips = requests.get(aws_url, allow_redirects=True).json()

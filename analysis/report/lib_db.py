@@ -18,6 +18,10 @@ def cache(filename: str):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
+
+            if not os.path.isdir(".cache"):
+                os.mkdir(".cache")
+
             cache_file = f'.cache/{filename}-{calendar_week}.json'
             if len(args) == 2:
                 digest = hashlib.sha256(str.encode(str(args[1]))).hexdigest()
@@ -43,6 +47,8 @@ def cache(filename: str):
 class DBClient:
     config = None
     conn = None
+    start: str = "date_trunc('week', NOW() - '1 week'::interval)"
+    end: str = "date_trunc('week', NOW())"
 
     def __init__(self):
         print("Initializing database client...")
@@ -72,14 +78,25 @@ class DBClient:
             SELECT DISTINCT v.peer_id
             FROM visits v
                      INNER JOIN agent_versions av on av.id = v.agent_version_id
-            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND v.created_at < date_trunc('week', NOW())
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
               AND v.type = 'crawl'
               AND v.error IS NULL
               AND av.agent_version LIKE ANY (array[{",".join(f"'%{av}%'" for av in agent_versions)}])
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
+
+    def get_all_agent_versions(self) -> list[str]:
+        print("Getting all agent versions...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT av.agent_version
+            FROM agent_versions av
+            """
+        )
+        return [item[0] for item in cur.fetchall()]
 
     @cache("get_visited_peers_agent_versions")
     def get_visited_peers_agent_versions(self):
@@ -91,12 +108,12 @@ class DBClient:
         print("Getting agent versions for visited peers...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT av.agent_version, count(DISTINCT peer_id) "count"
             FROM visits v
             INNER JOIN agent_versions av on av.id = v.agent_version_id
-            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND v.created_at < date_trunc('week', NOW())
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
               AND v.type = 'crawl'
               AND v.error IS NULL
             GROUP BY av.agent_version
@@ -107,27 +124,21 @@ class DBClient:
 
     @cache("get_agent_versions_for_peer_ids")
     def get_agent_versions_for_peer_ids(self, peer_ids):
-        """
-        get_visited_peers_agent_versions gets the agent version
-        counts of the peers that were visited during the last
-        completed week.
-        """
         print(f"Getting agent versions for {len(peer_ids)} peers...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT av.agent_version, count(DISTINCT peer_id) "count"
             FROM visits v
             INNER JOIN agent_versions av on av.id = v.agent_version_id
-            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND v.created_at < date_trunc('week', NOW())
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
               AND v.type = 'crawl'
               AND v.error IS NULL
-              AND v.peer_id IN (%s)
+              AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
             GROUP BY av.agent_version
             ORDER BY count DESC
-            """ % ','.join(['%s'] * len(peer_ids)),
-            tuple(peer_ids)
+            """
         )
         return cur.fetchall()
 
@@ -140,13 +151,13 @@ class DBClient:
         print("Getting node uptimes...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT EXTRACT(EPOCH FROM min_duration), av.agent_version
             FROM sessions s
             INNER JOIN peers p on s.peer_id = p.id
             INNER JOIN agent_versions av on p.agent_version_id = av.id
-            WHERE s.created_at < date_trunc('week', NOW())
-              AND s.updated_at > date_trunc('week', NOW() - '1 week'::interval)
+            WHERE s.created_at < {self.end}
+              AND s.updated_at > {self.start}
             """
         )
         return cur.fetchall()
@@ -161,11 +172,11 @@ class DBClient:
         print("Getting database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT DISTINCT peer_id
             FROM visits
-            WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND created_at < date_trunc('week', NOW())
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
@@ -179,11 +190,11 @@ class DBClient:
         print("Getting online database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_successful_dial < date_trunc('week', NOW() - '1 week'::interval)
-              AND (first_failed_dial > date_trunc('week', NOW()) OR finished = false)
+            WHERE first_successful_dial < {self.start}
+              AND (first_failed_dial > {self.end} OR finished = false)
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
@@ -197,11 +208,11 @@ class DBClient:
         print("Getting offline database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT DISTINCT v.peer_id
             FROM visits v
-            WHERE created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND created_at < date_trunc('week', NOW())
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
               AND v.peer_id NOT IN (
                 -- This subquery fetches all peers that have been
                 -- seen online in the given time interval. We check if there is at least
@@ -212,10 +223,10 @@ class DBClient:
                 SELECT DISTINCT v.peer_id
                 FROM visits v
                          LEFT JOIN sessions s ON v.session_id = s.id
-                WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-                  AND v.created_at < date_trunc('week', NOW())
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
                   AND (v.error IS NULL OR
-                       (v.session_id IS NOT NULL AND s.first_failed_dial > date_trunc('week', NOW() - '1 week'::interval)))
+                       (v.session_id IS NOT NULL AND s.first_failed_dial > {self.start}))
             )
             """
         )
@@ -230,11 +241,11 @@ class DBClient:
         print("Getting entering database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_successful_dial > date_trunc('week', NOW() - '1 week'::interval)
-              AND first_successful_dial < date_trunc('week', NOW())
+            WHERE first_successful_dial > {self.start}
+              AND first_successful_dial < {self.end}
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
@@ -248,14 +259,18 @@ class DBClient:
         print("Getting leaving database peer IDs from last week...")
         cur = self.conn.cursor()
         cur.execute(
-            """
+            f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_failed_dial < date_trunc('week', NOW())
-              AND first_failed_dial > date_trunc('week', NOW() - '1 week'::interval)
+            WHERE first_failed_dial < {self.end}
+              AND first_failed_dial > {self.start}
             """
         )
         return [i for sub in cur.fetchall() for i in sub]
+
+    @cache("get_ephemeral_peer_ids")
+    def get_ephemeral_peer_ids(self):
+        return list(set(self.get_entering_peer_ids()) & set(self.get_leaving_peer_ids()))
 
     @cache("get_dangling_peer_ids")
     def get_dangling_peer_ids(self):
@@ -263,9 +278,28 @@ class DBClient:
         get_dangling_peer_ids gets the **database** ids of all nodes that ended their online session
         during the last completed week and also came online again (possibly multiple times).
         """
-        all_entering_peer_ids = set(self.get_entering_peer_ids())
-        all_leaving_peer_ids = set(self.get_leaving_peer_ids())
-        return list(all_entering_peer_ids.intersection(all_leaving_peer_ids))
+        return list(set(self.get_ephemeral_peer_ids()) - set(self.get_oneoff_peer_ids()))
+
+    @cache("get_oneoff_peer_ids")
+    def get_oneoff_peer_ids(self):
+        """
+        get_oneoff_peer_ids returns all **database** peer IDs that are
+        associated with only one session in the specified time interval.
+        """
+        print("Getting one off peer IDs from list...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT peer_id
+            FROM sessions
+            WHERE created_at < {self.end}
+              AND updated_at > {self.start}
+              AND peer_id IN ({",".join(str(x) for x in self.get_ephemeral_peer_ids())})
+            GROUP BY peer_id
+            HAVING count(id) = 1
+            """
+        )
+        return [i[0] for i in cur.fetchall()]
 
     @cache("get_inter_arrival_time")
     def get_inter_arrival_time(self, peer_ids):
@@ -278,11 +312,66 @@ class DBClient:
                    EXTRACT('epoch' FROM MIN(s2.created_at) - s1.created_at) AS diff_in_s
             FROM sessions s1
                      LEFT JOIN sessions s2 ON s1.peer_id = s2.peer_id AND s1.created_at < s2.created_at
-            WHERE s1.updated_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND s1.created_at < date_trunc('week', NOW())
+            WHERE s1.updated_at > {self.start}
+              AND s1.created_at < {self.end}
               AND s2.created_at IS NOT NULL AND s1.peer_id IN ({",".join(str(x) for x in peer_ids)})
             GROUP BY s1.id, s1.peer_id
             ORDER BY s1.created_at;
+            """
+        )
+        return cur.fetchall()
+
+    @cache("get_ip_addresses_for_peer_ids")
+    def get_ip_addresses_for_peer_ids(self, peer_ids):
+        print("Getting ip addresses for peer IDs...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (
+                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+                FROM visits v
+                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                  AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
+                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+            )
+            SELECT DISTINCT ia.address
+            FROM multi_addresses ma
+                    INNER JOIN cte ON cte.multi_address_id = ma.id
+                    INNER JOIN multi_addresses_x_ip_addresses maxia on ma.id = maxia.multi_address_id
+                    INNER JOIN ip_addresses ia ON maxia.ip_address_id = ia.id
+            """
+        )
+        return cur.fetchall()
+
+    @cache("get_country_distribution_for_peer_ids")
+    def get_country_distribution_for_peer_ids(self, peer_ids):
+        print("Getting country distribution for peer IDs...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (
+                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+                FROM visits v
+                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                  AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
+                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+            ),
+                 cte2 AS (
+                     SELECT cte.peer_id, array_agg(DISTINCT ia.country) countries, array_agg(DISTINCT ia.address) ip_addresses
+                     FROM multi_addresses ma
+                              INNER JOIN cte ON cte.multi_address_id = ma.id
+                              INNER JOIN multi_addresses_x_ip_addresses maxia on ma.id = maxia.multi_address_id
+                              INNER JOIN ip_addresses ia ON maxia.ip_address_id = ia.id
+                     GROUP BY cte.peer_id
+                 )
+            SELECT unnest(cte2.countries) country, count(cte2.peer_id) count
+            FROM cte2
+            GROUP BY unnest(cte2.countries)
+            ORDER BY count DESC
             """
         )
         return cur.fetchall()

@@ -2,11 +2,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from lib_db import calendar_week
+import lib_plot
+from lib_db import DBClient
 from lib_fmt import fmt_barplot, fmt_thousands
 from lib_agent import agent_name, go_ipfs_version, go_ipfs_v08_version
 
 sns.set_theme()
+
+client = DBClient()
 
 
 def plot_agent(results, plot_name):
@@ -36,8 +39,7 @@ def plot_agent(results, plot_name):
 
     # Plotting
 
-    fig, (ax11, ax21, ax31) = plt.subplots(1, 3)  # rows, cols
-    fig.set_size_inches(15, 5)
+    fig, (ax11, ax21, ax31) = plt.subplots(1, 3, figsize=(15, 5))  # rows, cols
 
     sns.barplot(ax=ax11, x='agent_name', y='count', data=agent_names_df)
     fmt_barplot(ax11, agent_names_df["count"], agent_names_total)
@@ -58,5 +60,17 @@ def plot_agent(results, plot_name):
     ax31.set_ylabel("Count")
 
     plt.tight_layout()
-    plt.savefig(f"./plots-{calendar_week}/agents-{plot_name}.png")
-    # plt.show()
+    lib_plot.savefig(f"agents-{plot_name}")
+    plt.show()
+
+
+results = client.get_visited_peers_agent_versions()
+plot_agent(results, "all")
+
+peer_ids = client.get_dangling_peer_ids()
+results = client.get_agent_versions_for_peer_ids(peer_ids)
+plot_agent(results, "dangling")
+
+peer_ids = client.get_online_peer_ids()
+results = client.get_agent_versions_for_peer_ids(peer_ids)
+plot_agent(results, "online")

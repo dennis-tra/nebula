@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from matplotlib import ticker
+
+import lib_plot
 from lib_agent import agent_name, known_agents, go_ipfs_version_mappings, go_ipfs_version
-from lib_db import DBClient, calendar_week
+from lib_db import DBClient
 from lib_fmt import fmt_thousands
 
 sns.set_theme()
@@ -28,8 +30,7 @@ def configure_axis(ax):
     ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(lambda x, p: "%d" % int(x * 100)))
 
 
-fig, (ax1, ax2, ax3) = plt.subplots(1, 3)  # rows, cols
-fig.set_size_inches(15, 5)
+fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))  # rows, cols
 
 sns.ecdfplot(ax=ax1, x="uptime_in_h", data=df)
 ax1.legend(loc='lower right', labels=[f"all ({fmt_thousands(len(df))})"])
@@ -56,7 +57,7 @@ ax3.legend(loc='lower right', labels=go_ipfs_version_labels)
 configure_axis(ax3)
 
 fig.suptitle(f"Node Churn Rate (Total Sessions {fmt_thousands(len(df))})")
-fig.tight_layout()
 
-plt.savefig(f"./plots-{calendar_week}/crawl-churn.png")
+fig.tight_layout()
+lib_plot.savefig("crawl-churn")
 fig.show()
