@@ -90,6 +90,16 @@ class TestDBClient(unittest.TestCase):
         # TODO: there is a minor bug in the time calculation of session start/ends. When that's fixed:
         # self.assertEqual(left_peer_ids, only_leaving_peer_ids)
 
+    def test_agent_version_queries(self):
+        agent_version_distribution = self.client.get_agent_versions_distribution()
+        agent_version = agent_version_distribution[0][0]
+        agent_version_count = agent_version_distribution[0][1]
+        peer_ids_by_agent_version = self.client.get_peer_ids_for_agent_versions([agent_version])
+        self.assertEqual(agent_version_count, len(peer_ids_by_agent_version))
+
+        agent_versions_for_peer_ids = self.client.get_agent_versions_for_peer_ids(peer_ids_by_agent_version)
+        self.assertEqual(agent_versions_for_peer_ids[0][1], agent_version_count) # we only queried for peers with one agent
+
 
 def test_flatten(self):
     flattened = DBClient._DBClient__flatten([(1,), (2,)])

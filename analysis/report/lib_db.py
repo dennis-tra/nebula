@@ -64,6 +64,10 @@ class DBClient:
         """
         return [i for sub in result for i in sub]
 
+    @staticmethod
+    def __fmt_list(items: list[T]) -> str:
+        return ",".join(str(elem) for elem in items)
+
     def __init__(self):
         print("Initializing database client...")
 
@@ -249,7 +253,7 @@ class DBClient:
             FROM sessions
             WHERE created_at < {self.end}
               AND updated_at > {self.start}
-              AND peer_id IN ({",".join(str(x) for x in self.get_ephemeral_peer_ids())})
+              AND peer_id IN ({self.__fmt_list(self.get_ephemeral_peer_ids())})
             GROUP BY peer_id
             HAVING count(id) = 1
             """
@@ -257,6 +261,10 @@ class DBClient:
         return DBClient.__flatten(cur.fetchall())
 
     def get_all_agent_versions(self) -> list[str]:  #
+        """
+        get_all_agent_versions returns all ever discovered agent versions
+        ordered by their discovery date.
+        """
         print("Getting all agent versions...")
         cur = self.conn.cursor()
         cur.execute("SELECT agent_version FROM agent_versions ORDER BY created_at")
@@ -264,6 +272,10 @@ class DBClient:
 
     @cache()
     def get_peer_ids_for_agent_versions(self, agent_versions: list[str]):  #
+        """
+        get_peer_ids_for_agent_versions returns the set of **database** peer IDs
+        that reported at least one agent version in the given list.
+        """
         print(f"Getting database peer IDs for {agent_versions} agent versions...")
         cur = self.conn.cursor()
         cur.execute(
@@ -281,13 +293,12 @@ class DBClient:
         return DBClient.__flatten(cur.fetchall())
 
     @cache()
-    def get_visited_peers_agent_versions(self):
+    def get_agent_versions_distribution(self) -> list[tuple[str, int]]:  #
         """
-        get_visited_peers_agent_versions gets the agent version
-        counts of the peers that were visited during the last
-        completed week.
+        get_agent_versions_distribution returns all agent versions with
+        a count of peers that were discovered with such an agent version.
         """
-        print("Getting agent versions for visited peers...")
+        print("Getting agent versions distribution...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
@@ -305,7 +316,7 @@ class DBClient:
         return cur.fetchall()
 
     @cache()
-    def get_agent_versions_for_peer_ids(self, peer_ids):
+    def get_agent_versions_for_peer_ids(self, peer_ids: list[int]):  #
         print(f"Getting agent versions for {len(peer_ids)} peers...")
         cur = self.conn.cursor()
         cur.execute(
@@ -317,7 +328,7 @@ class DBClient:
               AND v.created_at < {self.end}
               AND v.type = 'crawl'
               AND v.error IS NULL
-              AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
+              AND v.peer_id IN ({self.__fmt_list(peer_ids)})
             GROUP BY av.agent_version
             ORDER BY count DESC
             """
@@ -346,7 +357,11 @@ class DBClient:
 
     @cache()
     def get_inter_arrival_time(self, peer_ids):
-        print("Getting inter arrival times from last week...")
+        """
+        get_inter_arrival_time returns the times between two sessions of the
+        same peer.
+        """
+        print(f"Getting inter arrival times for {len(peer_ids)}...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
@@ -357,7 +372,7 @@ class DBClient:
                      LEFT JOIN sessions s2 ON s1.peer_id = s2.peer_id AND s1.created_at < s2.created_at
             WHERE s1.updated_at > {self.start}
               AND s1.created_at < {self.end}
-              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({",".join(str(x) for x in peer_ids)})
+              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({self.__fmt_list(peer_ids)})
             GROUP BY s1.id, s1.peer_id
             ORDER BY s1.created_at;
             """
@@ -376,7 +391,7 @@ class DBClient:
                          INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
                 WHERE v.created_at > {self.start}
                   AND v.created_at < {self.end}
-                  AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
+                  AND v.peer_id IN ({self.__fmt_list(peer_ids)})
                 GROUP BY v.peer_id, unnest(mas.multi_address_ids)
             )
             SELECT DISTINCT ia.address
@@ -400,7 +415,7 @@ class DBClient:
                          INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
                 WHERE v.created_at > {self.start}
                   AND v.created_at < {self.end}
-                  AND v.peer_id IN ({",".join(str(x) for x in peer_ids)})
+                  AND v.peer_id IN ({self.__fmt_list(peer_ids)})
                 GROUP BY v.peer_id, unnest(mas.multi_address_ids)
             ),
                  cte2 AS (
