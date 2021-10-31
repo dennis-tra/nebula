@@ -98,12 +98,42 @@ class TestDBClient(unittest.TestCase):
         self.assertEqual(agent_version_count, len(peer_ids_by_agent_version))
 
         agent_versions_for_peer_ids = self.client.get_agent_versions_for_peer_ids(peer_ids_by_agent_version)
-        self.assertEqual(agent_versions_for_peer_ids[0][1], agent_version_count) # we only queried for peers with one agent
+        self.assertEqual(agent_versions_for_peer_ids[0][1],
+                         agent_version_count)  # we only queried for peers with one agent
 
+    def test_geo_integrity(self):
+        import pandas as pd
 
-def test_flatten(self):
-    flattened = DBClient._DBClient__flatten([(1,), (2,)])
-    self.assertListEqual(flattened, [1, 2])
+        all_peer_ids = set(self.client.get_all_peer_ids())
+
+        no_public_ip_peer_ids = set(self.client.get_no_public_ip_peer_ids())
+        self.assertTrue(no_public_ip_peer_ids.issubset(all_peer_ids))
+
+        countries = self.client.get_countries()
+        countries_peer_ids = set(pd.DataFrame(countries, columns=["peer_id", "country"])["peer_id"].unique())
+        self.assertTrue(countries_peer_ids.issubset(all_peer_ids))
+        self.assertTrue(countries_peer_ids.isdisjoint(no_public_ip_peer_ids))
+
+        countries_with_relays = self.client.get_countries_with_relays()
+        countries_with_relays_peer_ids = set(
+            pd.DataFrame(countries_with_relays, columns=["peer_id", "country"])["peer_id"].unique())
+        self.assertTrue(countries_with_relays_peer_ids.issubset(all_peer_ids))
+        self.assertTrue(countries_with_relays_peer_ids.isdisjoint(no_public_ip_peer_ids))
+        self.assertTrue(countries_peer_ids.issubset(countries_with_relays_peer_ids))
+
+        unresolved_peer_ids = set(self.client.get_unresolved_peer_ids())
+        self.assertTrue(unresolved_peer_ids.issubset(all_peer_ids))
+        self.assertTrue(unresolved_peer_ids.isdisjoint(no_public_ip_peer_ids))
+        self.assertTrue(unresolved_peer_ids.isdisjoint(countries_peer_ids))
+        self.assertTrue(unresolved_peer_ids.isdisjoint(countries_with_relays_peer_ids))
+
+        calculated_all = no_public_ip_peer_ids | countries_peer_ids | countries_with_relays_peer_ids | unresolved_peer_ids
+
+        self.assertEqual(all_peer_ids, calculated_all)
+
+    def test_flatten(self):
+        flattened = DBClient._DBClient__flatten([(1,), (2,)])
+        self.assertListEqual(flattened, [1, 2])
 
 
 if __name__ == '__main__':

@@ -4,6 +4,7 @@ import json
 import psycopg2
 import datetime
 import hashlib
+import pandas as pd
 
 from enum import Enum
 from typing import TypeVar, Callable
@@ -20,6 +21,13 @@ class NodeClassification(Enum):
     ONLINE = "online"
     ENTERED = "entered"
     LEFT = "left"
+
+
+class IPResolutionClassification(Enum):
+    RESOLVED = "resolved"
+    UNRESOLVED = "unresolved"
+    NO_PUBLIC_IP = "no public ip"
+    RELAY_ONLY = "relay_only"
 
 
 def cache():
@@ -511,32 +519,136 @@ class DBClient:
         return cur.fetchall()
 
     @cache()
-    def get_country_distribution_for_peer_ids(self, peer_ids):
-        print("Getting country distribution for peer IDs...")
+    def get_no_public_ip_peer_ids(self) -> list[int]:  #
+        """
+        get_no_public_ip_peer_ids returns the set of **database** peer IDs that
+        didn't have a public IP address throughout the specified time interval.
+        Still don't know how this is possible...
+        """
+        print("Getting database peer IDs with no public IP in specified time interval...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            WITH cte AS (
+            SELECT DISTINCT peer_id 
+            FROM visits v
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
+              AND v.multi_addresses_set_id IS NULL
+              AND peer_id NOT IN (
+                SELECT DISTINCT peer_id from visits v
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                  AND v.multi_addresses_set_id IS NOT NULL
+                );
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_unresolved_peer_ids(self) -> list[int]:  #
+        """
+        get_unresolved_peer_ids returns the set of **database** peer IDs that
+        had a public IP address but weren't or couldn't be resolved to an IP address.
+        """
+        print("Getting unresolved database peer IDs in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH peer_maddrs AS (
                 SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
                 FROM visits v
                          INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
                 WHERE v.created_at > {self.start}
                   AND v.created_at < {self.end}
-                  AND v.peer_id IN ({self.__fmt_list(peer_ids)})
                 GROUP BY v.peer_id, unnest(mas.multi_address_ids)
-            ),
-                 cte2 AS (
-                     SELECT cte.peer_id, array_agg(DISTINCT ia.country) countries, array_agg(DISTINCT ia.address) ip_addresses
-                     FROM multi_addresses ma
-                              INNER JOIN cte ON cte.multi_address_id = ma.id
-                              INNER JOIN multi_addresses_x_ip_addresses maxia on ma.id = maxia.multi_address_id
-                              INNER JOIN ip_addresses ia ON maxia.ip_address_id = ia.id
-                     GROUP BY cte.peer_id
-                 )
-            SELECT unnest(cte2.countries) country, count(cte2.peer_id) count
-            FROM cte2
-            GROUP BY unnest(cte2.countries)
-            ORDER BY count DESC
+            ), peer_maddrs_resolved AS (
+                SELECT pm.peer_id, maxia.multi_address_id
+                FROM peer_maddrs pm
+                         LEFT JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
+                GROUP BY pm.peer_id, maxia.multi_address_id
+            )
+            SELECT DISTINCT peer_id
+            FROM peer_maddrs_resolved
+            WHERE peer_id NOT IN (
+                SELECT DISTINCT peer_id
+                FROM peer_maddrs_resolved
+                WHERE multi_address_id IS NOT NULL
+            )
+            """
+        )
+        return DBClient.__flatten(cur.fetchall())
+
+    @cache()
+    def get_countries(self):
+        """
+        get_countries returns a list of peer IDs and their corresponding countries if they happened
+        to have an IP address in in the specified time interval. Each peer ID can be associated
+        to many multi addresses which in turn are associated to many IP addresses. Often, the
+        number of associated ip addresses is smaller than the number of multi addresses as many
+        multi addresses only differ in the protocol being used. Even if there are multiple IP
+        addresses associated the number of different countries they are belonging to is often
+        smaller than the number of IP addresses as well.
+        This method EXCLUDES peers that were only reachable via circuit relays.
+        """
+        print("Getting countries information (without relays)...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH peer_maddrs AS (
+                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+                FROM visits v
+                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+            )
+            SELECT pm.peer_id, ia.country
+            FROM multi_addresses ma
+                     INNER JOIN peer_maddrs pm ON pm.multi_address_id = ma.id
+                     INNER JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
+                     INNER JOIN ip_addresses ia on maxia.ip_address_id = ia.id
+            WHERE ma.maddr NOT LIKE '%p2p-circuit%'
+            GROUP BY pm.peer_id, ia.country
             """
         )
         return cur.fetchall()
+
+    @cache()
+    def get_countries_with_relays(self):
+        """
+        get_countries_with_relays returns a list of peer IDs and their corresponding countries if they happened
+        to have an IP address in in the specified time interval. Each peer ID can be associated
+        to many multi addresses which in turn are associated to many IP addresses. Often, the
+        number of associated ip addresses is smaller than the number of multi addresses as many
+        multi addresses only differ in the protocol being used. Even if there are multiple IP
+        addresses associated the number of different countries they are belonging to is often
+        smaller than the number of IP addresses as well.
+        This method INCLUDES peers that were only reachable via circuit relays.
+        """
+        print("Getting countries information (with relays)...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH peer_maddrs AS (
+                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+                FROM visits v
+                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
+                WHERE v.created_at > {self.start}
+                  AND v.created_at < {self.end}
+                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+            )
+            SELECT pm.peer_id, ia.country
+            FROM multi_addresses ma
+                     INNER JOIN peer_maddrs pm ON pm.multi_address_id = ma.id
+                     INNER JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
+                     INNER JOIN ip_addresses ia on maxia.ip_address_id = ia.id
+            GROUP BY pm.peer_id, ia.country
+            """
+        )
+        return cur.fetchall()
+
+    def get_country_distribution_for_peer_ids(self, peer_ids):
+        data = pd.DataFrame(self.get_countries(), columns=["peer_id", "country"])
+        data = data[data["peer_id"].isin(peer_ids)]
+        data = data.groupby(by="country", as_index=False).count().sort_values('peer_id', ascending=False)
+        return data.rename(columns={'country': 'Country', 'peer_id': 'Count'})

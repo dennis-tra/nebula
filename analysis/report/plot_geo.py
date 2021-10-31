@@ -6,46 +6,51 @@ import lib_plot
 from lib_db import DBClient
 from lib_fmt import fmt_thousands, fmt_barplot
 
-sns.set_theme()
 
-client = DBClient()
+def main():
+    sns.set_theme()
 
+    client = DBClient()
 
-def plot_geo(peer_ids, classification, threshold, file_name):
-    results = client.get_country_distribution_for_peer_ids(peer_ids)
-    data = pd.DataFrame(results, columns=["Country", "Count"])
+    all_peer_ids = client.get_all_peer_ids()
+    unresolved_peer_ids = client.get_unresolved_peer_ids()
+    no_public_ip_peer_ids = client.get_no_public_ip_peer_ids()
 
-    fig, ax = plt.subplots(figsize=(12, 6))
+    countries = pd.DataFrame(client.get_countries(), columns=["peer_id", "country"])
+    resolved_peer_ids = set(countries["peer_id"].unique())
 
-    # calculate the "other" countries
-    granular_df = data[data["Count"] > threshold]
-    others_df = data[data["Count"] <= threshold]
-    others_sum_df = pd.DataFrame([["other", others_df["Count"].sum()]], columns=["Country", "Count"])
-    all_df = granular_df.append(others_sum_df)
+    countries_with_relays = pd.DataFrame(client.get_countries_with_relays(), columns=["peer_id", "country"])
+    resolved_with_relays_peer_ids = set(countries_with_relays["peer_id"].unique())
 
-    sns.barplot(ax=ax, x="Country", y="Count", data=all_df)
-    fmt_barplot(ax, all_df["Count"], all_df["Count"].sum())
+    relay_only_peer_ids = resolved_with_relays_peer_ids - resolved_peer_ids
 
-    plt.title(f"Country Distribution of {classification} Peers (Total {fmt_thousands(data['Count'].sum())})")
+    data = pd.DataFrame.from_dict({
+        'Classification': [
+            "resolved",
+            "unresolved",
+            "no public ip",
+            "relay only"
+        ],
+        'Count': [
+            len(resolved_peer_ids),
+            len(unresolved_peer_ids),
+            len(no_public_ip_peer_ids),
+            len(relay_only_peer_ids)
+        ]
+    })
 
-    lib_plot.savefig(f"geo-{file_name}")
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    sns.barplot(ax=ax, x="Classification", y="Count", data=data)
+    fmt_barplot(ax, data["Count"], data["Count"].sum())
+
+    assert data['Count'].sum() == len(all_peer_ids)
+
+    plt.title(f"Peer ID to IP Address Resolution Classification (Total {fmt_thousands(data['Count'].sum())})")
+
+    lib_plot.savefig(f"geo-new")
     plt.show()
 
 
-peer_ids = client.get_dangling_peer_ids()
-plot_geo(peer_ids, "Dangling", 200, "dangling")
-
-peer_ids = client.get_offline_peer_ids()
-plot_geo(peer_ids, "Offline", 200, "offline")
-
-peer_ids = client.get_online_peer_ids()
-plot_geo(peer_ids, "Online", 15, "online")
-
-peer_ids = client.get_peer_ids_for_agent_versions(["hydra-booster/0.7.4"])
-plot_geo(peer_ids, "'hydra-booster/0.7.4'", 15, "hydra")
-
-peer_ids = client.get_peer_ids_for_agent_versions(["ioi"])
-plot_geo(peer_ids, "'ioi'", 20, "ioi")
-
-peer_ids = client.get_peer_ids_for_agent_versions(["storm"])
-plot_geo(peer_ids, "'storm'", 15, "storm")
+if __name__ == '__main__':
+    main()
