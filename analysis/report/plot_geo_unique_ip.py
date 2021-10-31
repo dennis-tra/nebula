@@ -47,7 +47,7 @@ def main():
     plt.title(f"Country Distribution of Unique IP Addresses (Total {fmt_thousands(data['Count'].sum())})")
 
     plt.tight_layout()
-    lib_plot.savefig(f"geo-all")
+    lib_plot.savefig(f"geo-unique-ip")
     plt.show()
 
 

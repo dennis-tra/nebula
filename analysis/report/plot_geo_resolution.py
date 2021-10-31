@@ -48,7 +48,7 @@ def main():
 
     plt.title(f"Peer ID to IP Address Resolution Classification (Total {fmt_thousands(data['Count'].sum())})")
 
-    lib_plot.savefig(f"geo-new")
+    lib_plot.savefig(f"geo-resolution")
     plt.show()
 
 

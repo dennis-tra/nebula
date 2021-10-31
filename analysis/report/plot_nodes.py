@@ -21,7 +21,7 @@ def main():
 
     all_peer_ids = client.get_all_peer_ids()
 
-    fig, (ax) = plt.subplots(figsize=(8, 5))
+    fig, (ax) = plt.subplots(figsize=(10, 5))
 
     sns.barplot(ax=ax, x=list(data.keys()), y=list(data.values()))
     ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
@@ -31,7 +31,6 @@ def main():
     ax.set_ylabel("Count")
 
     plt.tight_layout()
-
     plt.savefig(f"./plots-{calendar_week}/nodes.png")
     plt.show()
 

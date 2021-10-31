@@ -46,7 +46,7 @@ def main():
 
     plt.suptitle(f"Country Distributions by Node Classification")
     plt.tight_layout()
-    lib_plot.savefig(f"geo-classes")
+    lib_plot.savefig(f"geo-node-classification")
     plt.show()
 
 

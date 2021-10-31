@@ -13,9 +13,10 @@ The measurements were conducted on the following machine:
 
 The following results show measurement data that was collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
 
-- Number of crawls {{ crawl_count }}
-- Number of visits {{ visit_count }}
-- Number of unique peer IDs visited {{ peer_id_count }}
+- Number of crawls `{{ crawl_count }}`
+- Number of visits `{{ visit_count }}` ([what is a visit?](#terminology))
+- Number of unique peer IDs visited `{{ peer_id_count }}`
+- Number of unique IP addresses found `{{ ip_address_count }}`
 
 ### Agent Versions
 
@@ -35,20 +36,22 @@ Newly discovered protocols:
 
 Node classification:
 
-- `offline` - A peer that was not seen online but found in the DHT during the measurement period (always offline)
-- `dangling` - A peer that was seen going offline and online during the measurement period (potentially multiple times)
+- `offline` - A peer that was never seen online during the measurement period (always offline) but found in the DHT
+- `dangling` - A peer that was seen going offline and online multiple times during the measurement period
+- `oneoff` - A peer that was seen coming online and then going offline **only once** during the measurement period
 - `online` - A peer that was not seen offline at all during the measurement period (always online)
 - `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
 - `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
 
+### Top 10 Rotating Hosts
+
+| IP-Address    | Country | Unique Peer IDs | Agent Versions |
+|:------------- |:------- | ---------------:|:-------------- |{% for trh in top_rotating_hosts %}
+| {{ trh[0] }} | {{ trh[1] }} | {{ trh[2] }} | {{ trh[3] }} |{% endfor %}
 
 ### Crawl Time Series
 
 ![](./plots-{{ calendar_week }}/crawl-overview.png)
-
-The top graph shows the number of dialable and undialable peers for each individual crawl. Further it shows the sum of both as `Total`.
-
-The bottom graph shows the percentage of dialable peers in each crawl (`Dialable` / `Total`)
 
 #### By Agent Version (selection)
 
@@ -68,62 +71,71 @@ The bottom graph shows the percentage of dialable peers in each crawl (`Dialable
 
 ![](./plots-{{ calendar_week }}/agents-all.png)
 
-These graphs show the agent version distribution that was observed during crawling the network. The number next to `Total` indicates the number of successful `crawl` visits that contribute to the distribution. 
+Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
 
 ### Dangling Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-dangling.png)
 
-These graphs show the agent version distribution that was observed during crawling the network of only the dangling nodes. The number next to `Total` indicates the number of successful `crawl` visits that contribute to the distribution. 
+Includes all peers that were seen going offline and online multiple times during the measurement.
 
 ### Online Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-online.png)
 
-These graphs show the agent version distribution that was observed during crawling the network of the nodes that were online the whole measurement period (very stable peers). The number next to `Total` indicates the number of successful `crawl` visits that contribute to the distribution. 
+Includes all peers that were not seen offline at all during the measurement period (always online).
+
+### Oneoff Nodes Only
+
+![](./plots-{{ calendar_week }}/agents-oneoff.png)
+
+Includes all peers that were seen coming online and then going offline **only once** during the measurement period
+
+### Entered Nodes Only
+
+![](./plots-{{ calendar_week }}/agents-entered.png)
+
+Includes all peers that were offline at the beginning of the measurement period but appeared within and didn't go offline since then.
 
 ## Geo location
 
-### All
+### Resolution Statistics
 
-![](./plots-{{ calendar_week }}/geo-all.png)
+![](./plots-{{ calendar_week }}/geo-resolution.png)
 
-Geo locations of all visited peers.
+Resolution Classification:
 
-### Unique
+- `resolved` - The number of peer IDs that could be resolved to at least one IP address (excludes peers that are only reachable via circuit-relays)
+- `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
+- `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
+- `relay` - The number of peer IDs that were only reachable by circuit relays
 
-![](./plots-{{ calendar_week }}/geo-unique.png)
+### Unique IP Addresses
 
-This graph shows the country distribution of all seen unique IP addresses during the measurement period.
+![](./plots-{{ calendar_week }}/geo-unique-ip.png)
 
 ### Classification
 
-#### Online
+![](./plots-{{ calendar_week }}/geo-node-classification.png)
 
-![](./plots-{{ calendar_week }}/geo-online.png)
+### Agents
 
-#### Offline
-
-![](./plots-{{ calendar_week }}/geo-offline.png)
-
-#### Dangling
-
-![](./plots-{{ calendar_week }}/geo-dangling.png)
+![](./plots-{{ calendar_week }}/geo-agents.png)
 
 
-### Agent Version
+## Latencies
 
-#### Hydra
+### Overall
 
-![](./plots-{{ calendar_week }}/geo-hydra.png)
+![](./plots-{{ calendar_week }}/latencies.png)
 
-#### ioi
+`Connect` measures the time it takes for the `libp2p` `host.Connect` call to return.
 
-![](./plots-{{ calendar_week }}/geo-ioi.png)
+`Connect plus Crawl` includes the time of dialing, connecting and crawling the peer. `Crawling` means the time it takes for the FIND_NODE RPCs to resolve. Nebula is sending 15 of those with increasing common prefix lengths (CPLs) to the remote peer in parallel. 
 
-#### storm
+### By Continent
 
-![](./plots-{{ calendar_week }}/geo-storm.png)
+![](./plots-{{ calendar_week }}/geo-dial-latency-distribution.png)
 
 ## Cloud
 
@@ -162,17 +174,38 @@ The number next to `Total` indicates the number of unique IP addresses that went
 ![](./plots-{{ calendar_week }}/cloud-storm.png)
 
 
-## Latencies
+## Terminology
 
-### Overall
+- `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer the following data is saved:
+    ```sql
+    id               SERIAL
+    peer_id          SERIAL      NOT NULL -- this is now the internal database ID (not the peerID)
+    crawl_id         INT                  -- can be null if this peer was visited from the monitoring task
+    session_id       INT                  
+    dial_duration    INTERVAL             -- The time it took to dial the peer or until an error occurred (NULL for crawl visits)
+    connect_duration INTERVAL             -- The time it took to connect with the peer or until an error occurred (NULL for monitoring visits)
+    crawl_duration   INTERVAL             -- The time it took to crawl the peer also if an error occurred (NULL for monitoring visits)
+    updated_at       TIMESTAMPTZ NOT NULL 
+    created_at       TIMESTAMPTZ NOT NULL 
+    type             visit_type  NOT NULL -- either `dial` or `crawl`
+    error            dial_error
+    protocols_set_id INT                  -- a foreign key to the protocol set that this peer supported at this visit (NULL for monitoring visits as peers are just dialed)
+    agent_version_id INT                  -- a foreign key to the peers agent version at this visit (NULL for monitoring visits as peers are just dialed)
+    multi_addresses_set_id INT            -- a foreign key to the multi address set that was used to connect/dial for this visit
+    ```
 
-![](./plots-{{ calendar_week }}/latencies.png)
+### Node classification:
 
-`Connect` measures the time it takes for the `libp2p` `host.Connect` call to return. This involves several hand shakes under the hood (includes the dial duration as well).
+- `offline` - A peer that was never seen online during the measurement period (always offline) but found in the DHT
+- `dangling` - A peer that was seen going offline and online multiple times during the measurement period
+- `oneoff` - A peer that was seen coming online and then going offline only once during the measurement period multiple times
+- `online` - A peer that was not seen offline at all during the measurement period (always online)
+- `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
+- `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
 
-`Connect plus Crawl` includes the time of dialing, connecting (as explained above) and crawling the peer. `Crawling` means the time it takes for the FIND_NODE RPCs to resolve. Nebula is sending 15 of those with increasing common prefix lengths (CPLs) to the remote peer in parallel. 
+### IP Resolution Classification:
 
-### By Continent
-
-![](./plots-{{ calendar_week }}/geo-dial-latency-distribution.png)
-
+- `resolved` - The number of peer IDs that could be resolved to at least one IP address (excludes peers that are only reachable by circuit-relays)
+- `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
+- `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
+- `relay` - The number of peer IDs that were only reachable by circuit relays
