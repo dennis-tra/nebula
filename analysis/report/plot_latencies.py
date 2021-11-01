@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
+from analysis.report import lib_plot
 from lib_fmt import thousands_ticker_formatter
 from lib_db import DBClient, calendar_week
 
@@ -32,8 +33,7 @@ def main():
     ax3.set_xlabel("Connect plus Crawl Duration in s")
 
     plt.tight_layout()
-
-    plt.savefig(f"./plots-{calendar_week}/latencies.png")
+    lib_plot.savefig("latencies")
     plt.show()
 
 

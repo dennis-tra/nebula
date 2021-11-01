@@ -18,6 +18,8 @@ The following results show measurement data that was collected in calendar week 
 - Number of unique peer IDs visited `{{ peer_id_count }}`
 - Number of unique IP addresses found `{{ ip_address_count }}`
 
+Timestamps are in UTC if not mentioned otherwise.
+
 ### Agent Versions
 
 Newly discovered agent versions:

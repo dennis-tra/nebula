@@ -43,8 +43,8 @@ ip_address_count = client.query(
         FROM visits v
                  INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
                  LEFT OUTER JOIN agent_versions av on av.id = v.agent_version_id
-        WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-          AND v.created_at < date_trunc('week', NOW())
+        WHERE v.created_at > {client.start}
+          AND v.created_at < {client.end}
         GROUP BY v.peer_id, unnest(mas.multi_address_ids)
     )
     SELECT count(DISTINCT ia.address)
