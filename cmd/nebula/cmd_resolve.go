@@ -127,7 +127,11 @@ func ResolveAction(c *cli.Context) error {
 					IPAddressID:    ipaddr.ID,
 					ResolvedAt:     resolutionTime,
 				}
-				if err := association.Insert(c.Context, dbh, boil.Infer()); err != nil {
+				if err := association.Upsert(c.Context, dbh, false, []string{
+					models.MultiAddressesXIPAddressColumns.MultiAddressID,
+					models.MultiAddressesXIPAddressColumns.ResolvedAt,
+					models.MultiAddressesXIPAddressColumns.IPAddressID,
+				}, boil.None(), boil.Infer()); err != nil {
 					log.WithError(err).Warnln("Could not add ip address %s to db multi address", ipaddr)
 					continue
 				}
