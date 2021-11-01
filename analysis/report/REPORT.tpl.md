@@ -156,8 +156,13 @@ The number next to `Total` indicates the number of unique IP addresses that went
 ![](./plots-{{ calendar_week }}/cloud-agents.png)
 
 
+## Top Updating Peers
 
+> `AV` = `Agent Version`
 
+| Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
+|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for trh in top_updating_hosts %}
+| `{{ tuh[0][:16] }}` | `{{ tuh[1] }}` | {{ tuh[2] }}  | `{{ tuh[3] }}` | {{ tuh[4] }} |{% endfor %}
 
 
 

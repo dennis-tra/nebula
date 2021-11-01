@@ -102,6 +102,95 @@ top_rotating_hosts = client.query(
     """
 )
 
+top_updating_hosts = client.query(
+    f"""
+    WITH multi_av_peer_ids AS (
+        SELECT v.peer_id
+        FROM visits v
+        WHERE v.created_at > {client.start}
+          AND v.created_at < {client.end}
+        GROUP BY v.peer_id
+        HAVING count(DISTINCT v.agent_version_id) > 1
+    ),
+         ASDF AS (
+             SELECT v.peer_id,
+                    LAG(av.agent_version, 1) OVER (
+                        PARTITION BY v.peer_id
+                        ORDER BY v.visit_ended_at
+                        ) previous_agent_version,
+                    av.agent_version,
+                    v.visit_ended_at
+             FROM visits v
+                      INNER JOIN agent_versions av on av.id = v.agent_version_id
+             WHERE v.created_at > {client.start}
+               AND v.created_at < {client.end}
+               AND v.peer_id IN (SELECT * FROM multi_av_peer_ids)
+             ORDER BY v.visit_ended_at
+         )
+    SELECT p.multi_hash,
+           av.agent_version                       final_agent_version,
+           count(ASDF.previous_agent_version)     transition_count,
+           array_agg(DISTINCT ASDF.agent_version) distinct_agent_versions,
+           count(DISTINCT ASDF.agent_version)     distinct_agent_versions_count,
+           (array_agg(ASDF.previous_agent_version))[:5]
+    FROM ASDF
+             INNER JOIN peers p ON ASDF.peer_id = p.id
+             LEFT OUTER JOIN agent_versions av on p.agent_version_id = av.id
+    WHERE ASDF.agent_version != ASDF.previous_agent_version
+    GROUP BY p.id, av.agent_version
+    ORDER BY count(ASDF.previous_agent_version) DESC
+    LIMIT 10
+    """
+)
+
+from plot_agent import main as plot_agent
+from plot_cdf_arrivaltime_dangle import main as plot_cdf_arrivaltime_dangle
+from plot_churn import main as plot_churn
+from plot_cloud import main as plot_cloud
+from plot_cloud_agents import main as plot_cloud_agents
+from plot_cloud_classification import main as plot_cloud_classification
+from plot_crawl import main as plot_crawl
+from plot_crawl_properties import main as plot_crawl_properties
+from plot_geo_agents import main as plot_geo_agents
+from plot_geo_classification import main as plot_geo_classification
+from plot_geo_resolution import main as plot_geo_resolution
+from plot_geo_unique_ip import main as plot_geo_unique_ip
+from plot_latencies import main as plot_latencies
+from plot_latencies_geo import main as plot_latencies_geo
+from plot_nodes import main as plot_nodes
+
+# started 16:25
+print("Running plot_agent...")
+plot_agent()
+print("Running plot_cdf_arrivaltime_dangle...")
+plot_cdf_arrivaltime_dangle()
+print("Running plot_churn...")
+plot_churn()
+print("Running plot_cloud...")
+plot_cloud()
+print("Running plot_cloud_agents...")
+plot_cloud_agents()
+print("Running plot_cloud_classification...")
+plot_cloud_classification()
+print("Running plot_crawl...")
+plot_crawl()
+print("Running plot_crawl_properties...")
+plot_crawl_properties()
+print("Running plot_geo_agents...")
+plot_geo_agents()
+print("Running plot_geo_classification...")
+plot_geo_classification()
+print("Running plot_geo_resolution...")
+plot_geo_resolution()
+print("Running plot_geo_unique_ip...")
+plot_geo_unique_ip()
+print("Running plot_latencies...")
+plot_latencies()
+print("Running plot_latencies_geo...")
+plot_latencies_geo()
+print("Running plot_nodes...")
+plot_nodes()
+
 loader = jinja2.FileSystemLoader(searchpath="./")
 env = jinja2.Environment(loader=loader)
 template = env.get_template("REPORT.tpl.md")
@@ -117,6 +206,7 @@ outputText = template.render(
     new_protocols=new_protocols,
     top_rotating_hosts=top_rotating_hosts,
     ip_address_count=fmt_thousands(ip_address_count[0][0]),
+    top_updating_hosts=top_updating_hosts,
 )
 
 with open(f"report-{calendar_week}.md", "w") as f:
