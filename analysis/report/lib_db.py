@@ -48,7 +48,12 @@ def cache():
 
             cache_file = f'.cache/{filename}-{calendar_week}.json'
             if len(args) == 2:
-                digest = hashlib.sha256(str.encode(str(calendar_week)+str(args[1]))).hexdigest()
+                client: DBClient = args[0]
+                hash_str = str(calendar_week) + \
+                           str(client.start) + \
+                           str(client.end) + \
+                           str(args[1])
+                digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
                 cache_file = f'.cache/{filename}-{digest}.json'
 
             if os.path.isfile(cache_file):
