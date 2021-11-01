@@ -38,6 +38,7 @@ def main():
             len(relay_only_peer_ids)
         ]
     })
+    data = data.sort_values('Count', ascending=False)
 
     fig, ax = plt.subplots(figsize=(10, 5))
 

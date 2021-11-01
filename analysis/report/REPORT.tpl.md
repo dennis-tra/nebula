@@ -149,31 +149,16 @@ The number next to `Total` indicates the number of unique IP addresses that went
 
 ### Classification
 
-#### Offline
+![](./plots-{{ calendar_week }}/cloud-classification.png)
 
-![](./plots-{{ calendar_week }}/cloud-offline.png)
+### Agents
 
-#### Online
+![](./plots-{{ calendar_week }}/cloud-agents.png)
 
-![](./plots-{{ calendar_week }}/cloud-online.png)
 
-#### Dangling
 
-![](./plots-{{ calendar_week }}/cloud-dangling.png)
 
-### Agent Version
 
-#### Hydra
-
-![](./plots-{{ calendar_week }}/cloud-hydra.png)
-
-#### ioi
-
-![](./plots-{{ calendar_week }}/cloud-ioi.png)
-
-#### storm
-
-![](./plots-{{ calendar_week }}/cloud-storm.png)
 
 
 ## Terminology

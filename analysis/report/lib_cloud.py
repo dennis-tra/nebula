@@ -64,16 +64,16 @@ class Cloud:
         shift = 0
         while val > 0:
             if val in self.aws_prefixes:
-                return "aws"
+                return "AWS"
             elif val in self.azure_prefixes:
-                return "azure"
+                return "Azure"
             elif val in self.gcp_prefixes:
-                return "gcp"
+                return "GCP"
             elif val in self.oci_prefixes:
-                return "oci"
+                return "OCI"
             elif val in self.do_prefixes:
-                return "do"
+                return "DO"
             val = val & (~(1 << shift))
             shift += 1
 
-        return "unknown"
+        return "n.a."
