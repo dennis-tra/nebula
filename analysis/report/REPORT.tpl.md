@@ -165,26 +165,9 @@ The number next to `Total` indicates the number of unique IP addresses that went
 | `{{ tuh[0][:16] }}` | `{{ tuh[1] }}` | {{ tuh[2] }}  | `{{ tuh[3] }}` | {{ tuh[4] }} |{% endfor %}
 
 
-
 ## Terminology
 
-- `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer the following data is saved:
-    ```sql
-    id               SERIAL
-    peer_id          SERIAL      NOT NULL -- this is now the internal database ID (not the peerID)
-    crawl_id         INT                  -- can be null if this peer was visited from the monitoring task
-    session_id       INT                  
-    dial_duration    INTERVAL             -- The time it took to dial the peer or until an error occurred (NULL for crawl visits)
-    connect_duration INTERVAL             -- The time it took to connect with the peer or until an error occurred (NULL for monitoring visits)
-    crawl_duration   INTERVAL             -- The time it took to crawl the peer also if an error occurred (NULL for monitoring visits)
-    updated_at       TIMESTAMPTZ NOT NULL 
-    created_at       TIMESTAMPTZ NOT NULL 
-    type             visit_type  NOT NULL -- either `dial` or `crawl`
-    error            dial_error
-    protocols_set_id INT                  -- a foreign key to the protocol set that this peer supported at this visit (NULL for monitoring visits as peers are just dialed)
-    agent_version_id INT                  -- a foreign key to the peers agent version at this visit (NULL for monitoring visits as peers are just dialed)
-    multi_addresses_set_id INT            -- a foreign key to the multi address set that was used to connect/dial for this visit
-    ```
+- `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur. 
 
 ### Node classification:
 
@@ -201,3 +184,11 @@ The number next to `Total` indicates the number of unique IP addresses that went
 - `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
 - `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
 - `relay` - The number of peer IDs that were only reachable by circuit relays
+
+### Cloud Providers
+
+- `AWS` - Amazon Web Services
+- `GCP` - Google Cloud Platform
+- `Azure` - Microsoft Azure
+- `DO` - Digital Ocean
+- `OCI` - Oracle Cloud Infrastructure
