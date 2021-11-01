@@ -43,7 +43,7 @@ def main():
     plt.suptitle(f"Cloud Platform Distribution by Agent Version")
 
     plt.tight_layout()
-    lib_plot.savefig(f"cloud-agent")
+    lib_plot.savefig(f"cloud-agents")
     plt.show()
 
 

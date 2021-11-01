@@ -14,15 +14,15 @@ def main():
 
     client = DBClient()
     dial_results = client.query(
-        """
+        f"""
         WITH cte AS (
             SELECT v.id,
                    EXTRACT('epoch' FROM v.dial_duration) dial_duration,
                    unnest(mas.multi_address_ids)         multi_address_id
             FROM visits v
                      INNER JOIN multi_addresses_sets mas on v.multi_addresses_set_id = mas.id
-            WHERE v.created_at > date_trunc('week', NOW() - '1 week'::interval)
-              AND v.created_at < date_trunc('week', NOW())
+            WHERE v.created_at > {client.start}
+              AND v.created_at < {client.end}
               AND v.type = 'dial'
               AND v.error IS NULL
         )

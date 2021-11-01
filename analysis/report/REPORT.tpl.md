@@ -137,7 +137,7 @@ Resolution Classification:
 
 ### By Continent
 
-![](./plots-{{ calendar_week }}/geo-dial-latency-distribution.png)
+![](./plots-{{ calendar_week }}/latencies-geo.png)
 
 ## Cloud
 
@@ -158,12 +158,15 @@ The number next to `Total` indicates the number of unique IP addresses that went
 
 ## Top Updating Peers
 
-> `AV` = `Agent Version`
-
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
-|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for trh in top_updating_hosts %}
-| `{{ tuh[0][:16] }}` | `{{ tuh[1] }}` | {{ tuh[2] }}  | `{{ tuh[3] }}` | {{ tuh[4] }} |{% endfor %}
+|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_hosts %}
+| `{{ tuh[0][:16] }}...` | `{{ tuh[1] }}` | {{ tuh[2] }}  | {{ '<br/>'.join(tuh[3]) }} | {{ tuh[4] }} |{% endfor %}
 
+> `AV` = `Agent Version`
+ 
+- `# Final AV` - The last agent version that was observed in this measurement period
+- `# Transitions` - How often did this particular peer change its agent version
+- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times)
 
 ## Terminology
 
