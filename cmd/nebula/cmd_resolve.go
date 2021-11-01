@@ -28,6 +28,13 @@ var ResolveCommand = &cli.Command{
 			DefaultText: "100",
 			Value:       100,
 		},
+		&cli.BoolFlag{
+			Name:        "unresolved",
+			Usage:       "Whether to only resolve the yet unresolved multi addresses",
+			EnvVars:     []string{"NEBULA_RESOLVE_UNRESOLVED"},
+			DefaultText: "false",
+			Value:       false,
+		},
 	},
 }
 
@@ -71,7 +78,11 @@ func ResolveAction(c *cli.Context) error {
 
 		var err error
 		var dbmaddrs models.MultiAddressSlice
-		dbmaddrs, err = dbc.FetchMultiAddresses(c.Context, offset, limit)
+		if c.Bool("unresolved") {
+			dbmaddrs, err = dbc.FetchUnresolvedMultiAddresses(c.Context, offset, limit)
+		} else {
+			dbmaddrs, err = dbc.FetchMultiAddresses(c.Context, offset, limit)
+		}
 		if err != nil {
 			return errors.Wrap(err, "fetching multi addresses")
 		}

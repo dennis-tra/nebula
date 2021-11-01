@@ -257,17 +257,12 @@ func (c *Client) FetchMultiAddresses(ctx context.Context, offset int, limit int)
 }
 
 func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, offset int, limit int) (models.MultiAddressSlice, error) {
-	b := models.MultiAddressSlice{}
-	err := queries.Raw(`
-SELECT *
-FROM multi_addresses ma
-WHERE NOT EXISTS(
-        SELECT
-        FROM multi_addresses_x_ip_addresses maxia
-        WHERE ma.id = maxia.multi_address_id
-    )
-LIMIT $1 OFFSET $2`, limit, offset).Bind(ctx, c.dbh, &b)
-	return b, err
+	return models.MultiAddresses(
+		qm.LeftOuterJoin(models.TableNames.MultiAddressesXIPAddresses+" maxia on maxia."+models.MultiAddressesXIPAddressColumns.MultiAddressID+" = "+models.TableNames.MultiAddresses+".id"),
+		qm.Where("maxia."+models.MultiAddressesXIPAddressColumns.MultiAddressID+" IS NULL"),
+		qm.Offset(offset),
+		qm.Limit(limit),
+	).All(ctx, c.dbh)
 }
 
 func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
