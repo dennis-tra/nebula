@@ -40,7 +40,7 @@ def main():
     ax2.set_ylabel("Dialable Peers in %")
 
     plt.tight_layout()
-    lib_plot.savefig("crawl-overview.png")
+    lib_plot.savefig("crawl-overview")
     plt.show()
 
 
