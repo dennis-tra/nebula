@@ -43,6 +43,13 @@ You can configure how the crawl works and the DB. The [docker compose file](http
 | NEBULA_NOT_TRUNCATE_CONNECTIONS | Flag indicates whether this cralwer should truncate previous connections. If set to 0, every time it runs it will truncate pervious connections. |
 Note that every crawl will produce roughly 350MB neighbours data and 15MB connections data so it is recommended to truncate both data to limit DB growth.
 
+## System requirement
+The plotting script in theory should not consume more than 500MB of memory. However, if you decide to run the docker-compose and script locally at the same time, it is recommended you run the script with the following specs:
+
+CPU: 6-Core 2.6GHz or better
+
+Memory: 16GB Ram or more
+
 ## Quick Data Analysis
 To quickly generate some graphs, you will need Python 3, if you don't have Python 3 installed, checkout [here](https://www.python.org/).
 ```
