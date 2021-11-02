@@ -56,6 +56,11 @@ func main() {
 
 	res := make(map[int]int)
 	resLock := &sync.RWMutex{}
+
+	resP := make([]time.Duration, 0)
+	resR := make([]time.Duration, 0)
+	timeLock := &sync.RWMutex{}
+
 	scanner := bufio.NewScanner(file)
 	i := 0
 	var wg sync.WaitGroup
@@ -105,6 +110,7 @@ func main() {
 				seed := make([]byte, 32)
 				rand.Read(seed)
 				randomRoot, _ := pref.Sum(seed)
+				t0 := time.Now()
 				err = msger.PutProvider(ctx, id, randomRoot.Hash(), h)
 				if err != nil {
 					resLock.Lock()
@@ -113,7 +119,9 @@ func main() {
 					fmt.Printf("Routine %v \t| fail to put provider record after %v successful attempts: %v\n", i, j, strings.ReplaceAll(err.Error(), "\n", " "))
 					return
 				}
+				t1 := time.Now()
 				time.Sleep(1 * time.Second)
+				t2 := time.Now()
 				pvds1, _, err := msger.GetProviders(ctx, id, randomRoot.Hash())
 				if err != nil {
 					resLock.Lock()
@@ -122,6 +130,7 @@ func main() {
 					fmt.Printf("Routine %v \t| fail to fetch provider record after %v successful attempts: %v\n", i, j, strings.ReplaceAll(err.Error(), "\n", " "))
 					return
 				}
+				t3 := time.Now()
 				if len(pvds1) == 0 {
 					resLock.Lock()
 					defer resLock.Unlock()
@@ -139,10 +148,17 @@ func main() {
 					}
 				}
 				j++
-				fmt.Printf("Routine %v \t| successful put/fetch provider record total %v successful attempts\n", i, j)
+				fmt.Printf("Routine %v \t| successful put/fetch provider record total %v successful attempts, time taken in publish %v in fetch %v\n", i, j, t1.Sub(t0), t3.Sub(t2))
 				resLock.Lock()
 				res[i] = j
 				resLock.Unlock()
+				timeLock.Lock()
+				resP = append(resP, t1.Sub(t0))
+				resR = append(resR, t3.Sub(t2))
+				timeLock.Unlock()
+				if j >= 500 {
+					return
+				}
 				time.Sleep(1 * time.Second)
 			}
 		}(pi, i)
@@ -161,6 +177,25 @@ func main() {
 			sum += success
 		}
 		fmt.Printf("Average success count: %v\n", float64(sum)/float64(len(res)))
+		out, err := os.Create("../../analysis/mixed/storm.time")
+		if err != nil {
+			fmt.Println(strings.ReplaceAll(err.Error(), "\n", " "))
+			return
+		}
+		defer out.Close()
+		timeLock.RLock()
+		defer timeLock.RUnlock()
+		w := bufio.NewWriter(out)
+		w.Write([]byte("publish\n"))
+		for _, t := range resP {
+			w.Write([]byte(t.String()))
+			w.Write([]byte("\n"))
+		}
+		w.Write([]byte("fetch\n"))
+		for _, t := range resR {
+			w.Write([]byte(t.String()))
+			w.Write([]byte("\n"))
+		}
 		panic("monitoring cancelled")
 	}()
 	wg.Wait()
@@ -171,5 +206,24 @@ func main() {
 		sum += success
 	}
 	fmt.Printf("Average success count: %v\n", float64(sum)/float64(len(res)))
+	out, err := os.Create("../../analysis/mixed/storm.time")
+	if err != nil {
+		fmt.Println(strings.ReplaceAll(err.Error(), "\n", " "))
+		return
+	}
+	defer out.Close()
+	timeLock.RLock()
+	defer timeLock.RUnlock()
+	w := bufio.NewWriter(out)
+	w.Write([]byte("publish\n"))
+	for _, t := range resP {
+		w.Write([]byte(t.String()))
+		w.Write([]byte("\n"))
+	}
+	w.Write([]byte("fetch\n"))
+	for _, t := range resR {
+		w.Write([]byte(t.String()))
+		w.Write([]byte("\n"))
+	}
 	return
 }
