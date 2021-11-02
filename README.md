@@ -12,6 +12,30 @@ go run main.go
 ```
 After the monitoring, we found out that most storm nodes participate in the DHT Network of IPFS. That is, they are willing to store and fetch provider record. Besides that, they seem to not have interactions with other nodes in IPFS. However, from this article [here](https://www.bitdefender.com/files/News/CaseStudies/study/376/Bitdefender-Whitepaper-IPStorm.pdf), storm nodes communicate using custom libp2p protocols between each other such as `sbpcp/1.0.0` and `sbptp/1.0.0`. These custom protocols have also been discovered by the crawler.
 
+We also plotted the response time for the storm nodes. We recorded the response time for putting a provider record and the response time for fetching a provider record. As shown below.
+
+This is the response time for putting a provider record to the storm nodes.
+
+![Graph](./analysis/mixed/figs/storm_put_response_time.png)
+
+We exlude outliers and below is what we got.
+
+![Graph](./analysis/mixed/figs/storm_put_response_time_trim.png)
+
+We also plotted the response time for fetching a provider record from the storm nodes.
+
+![Graph](./analysis/mixed/figs/storm_fetch_response_time.png)
+
+We exlude outliers and below is what we got.
+
+![Graph](./analysis/mixed/figs/storm_fetch_response_time_trim.png)
+
+If you want to plot the same figures. After you run the `go run main.go`, follow the instructions below:
+```
+cd ../../analysis/mixed
+python3 plot_storm_response_time.py
+```
+
 ## Summary
 - We have made some extensions to the original [nebula crawler](https://github.com/dennis-tra/nebula-crawler) so it is able to collect some additional data to analyse the churn. The fork of the repository lives [here](https://github.com/wcgcyx/nebula-crawler).
 - We created a list of python functions that interact directly with the database to collect useful data.
