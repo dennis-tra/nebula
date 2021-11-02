@@ -185,6 +185,8 @@ One interesting thing is that among all seen nodes, there are 52.3% nodes runnin
 ### Latency map
 We deployed a few nodes in different regions in AWS. We plotted a few graphs in different regions and they can be seen under `analysis/mixed/region-figs`. We also plotted a latency map as shown below.
 ![Graph](./analysis/mixed/region-latencies/latency-map.png)
+Every line has 9 possible colors: dark green, green, yellow, orange, sandy brown, orange red, red, dark red, maroon. Dark green is used if the latency between these two points is less than 10% of the max latency of all data. Similarly, for green, it is 10% - 20%. Yellow (20% - 30%). Orange (30% - 40%). Sandy brown (40% - 50%). Orange read (50% - 60%). Red (60% - 70%). Dark red (70% - 80%). Maroon (80%-100%). You can easily modify the line color by chaning lines at [here](https://github.com/wcgcyx/nebula-crawler/blob/812f33515342321461e39b17ac02a91858926e14/analysis/mixed/plot_map.py#L16-L50).
+
 If you would like to plot the same latency map. First of all, you need to download the latency data. For example,
 ```
 cd analysis/mixed/
