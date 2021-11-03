@@ -45,13 +45,12 @@ def cache():
 
             if not os.path.isdir(".cache"):
                 os.mkdir(".cache")
-
             client: DBClient = args[0]
             hash_str = str(calendar_week) + \
                        str(client.start) + \
                        str(client.end) + \
                        str(client.config) + \
-                       str(args)
+                       str(args[1:])
             digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
             cache_file = f'.cache/{filename}-{digest}.json'
 
@@ -88,7 +87,7 @@ class DBClient:
         return [i for sub in result for i in sub]
 
     @staticmethod
-    def __fmt_list(items: list[T]) -> str:
+    def fmt_list(items: list[T]) -> str:
         return ",".join(str(elem) for elem in items)
 
     def __init__(self):
@@ -285,7 +284,7 @@ class DBClient:
             FROM sessions
             WHERE created_at < {self.end}
               AND updated_at > {self.start}
-              AND peer_id IN ({self.__fmt_list(self.get_ephemeral_peer_ids())})
+              AND peer_id IN ({self.fmt_list(self.get_ephemeral_peer_ids())})
             GROUP BY peer_id
             HAVING count(id) = 1
             """
@@ -365,7 +364,7 @@ class DBClient:
               AND v.created_at < {self.end}
               AND v.type = 'crawl'
               AND v.error IS NULL
-              AND v.peer_id IN ({self.__fmt_list(peer_ids)})
+              AND v.peer_id IN ({self.fmt_list(peer_ids)})
             GROUP BY av.agent_version
             ORDER BY count DESC
             """
@@ -491,7 +490,7 @@ class DBClient:
                      LEFT JOIN sessions s2 ON s1.peer_id = s2.peer_id AND s1.created_at < s2.created_at
             WHERE s1.updated_at > {self.start}
               AND s1.created_at < {self.end}
-              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({self.__fmt_list(peer_ids)})
+              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({self.fmt_list(peer_ids)})
             GROUP BY s1.id, s1.peer_id
             ORDER BY s1.created_at;
             """
@@ -510,7 +509,7 @@ class DBClient:
                          INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
                 WHERE v.created_at > {self.start}
                   AND v.created_at < {self.end}
-                  AND v.peer_id IN ({self.__fmt_list(peer_ids)})
+                  AND v.peer_id IN ({self.fmt_list(peer_ids)})
                 GROUP BY v.peer_id, unnest(mas.multi_address_ids)
             )
             SELECT DISTINCT ia.address

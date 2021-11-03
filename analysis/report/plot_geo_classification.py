@@ -10,10 +10,8 @@ from lib_fmt import fmt_thousands, fmt_barplot
 def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-
     country_distributions = {}
-    thresholds = {
+    thresholds_ipfs = {
         NodeClassification.OFFLINE: 300,
         NodeClassification.ONEOFF: 300,
         NodeClassification.DANGLING: 500,
@@ -22,9 +20,20 @@ def main(db_client: DBClient):
         NodeClassification.LEFT: 15,
     }
 
+    thresholds_filecoin = {
+        NodeClassification.OFFLINE: 10,
+        NodeClassification.ONEOFF: 5,
+        NodeClassification.DANGLING: 12,
+        NodeClassification.ONLINE: 10,
+        NodeClassification.ENTERED: 5,
+        NodeClassification.LEFT: 5,
+    }
+
+    thresholds = thresholds_ipfs
+
     for node_class in NodeClassification:
-        peer_ids = client.node_classification_funcs[node_class]()
-        country_distributions[node_class] = client.get_country_distribution_for_peer_ids(peer_ids)
+        peer_ids = db_client.node_classification_funcs[node_class]()
+        country_distributions[node_class] = db_client.get_country_distribution_for_peer_ids(peer_ids)
 
     fig, axs = plt.subplots(2, 3, figsize=(15, 8))
 

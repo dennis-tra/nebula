@@ -27,7 +27,7 @@ def main(db_client: DBClient):
     ax.set_ylabel("Count")
 
     plt.tight_layout()
-    lib_plot.savefig("nodes")
+    lib_plot.savefig("node_classifications")
     plt.show()
 
 

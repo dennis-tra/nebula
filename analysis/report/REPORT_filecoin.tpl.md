@@ -20,12 +20,6 @@ The following results show measurement data that was collected in calendar week 
 
 Timestamps are in UTC if not mentioned otherwise.
 
-### Agent Versions
-
-Newly discovered agent versions:
-{% for av in new_agent_versions %}
-- {{ av }}{% endfor %}
-
 ### Protocols
 
 Newly discovered protocols:
@@ -44,12 +38,6 @@ Node classification:
 - `online` - A peer that was not seen offline at all during the measurement period (always online)
 - `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
 - `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
-
-### Top 10 Rotating Hosts
-
-| IP-Address    | Country | Unique Peer IDs | Agent Versions |
-|:------------- |:------- | ---------------:|:-------------- |{% for trh in top_rotating_hosts %}
-| {{ trh[0] }} | {{ trh[1] }} | {{ trh[2] }} | {{ trh[3] }} |{% endfor %}
 
 ### Crawl Time Series
 
@@ -139,35 +127,6 @@ Resolution Classification:
 
 ![](./plots-{{ calendar_week }}/latencies-geo.png)
 
-## Cloud
-
-The number next to `Total` indicates the number of unique IP addresses that went into this calculation.
-
-### All
-
-![](./plots-{{ calendar_week }}/cloud-all.png)
-
-### Classification
-
-![](./plots-{{ calendar_week }}/cloud-classification.png)
-
-### Agents
-
-![](./plots-{{ calendar_week }}/cloud-agents.png)
-
-
-## Top Updating Peers
-
-| Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
-|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_hosts %}
-| `{{ tuh[0][:16] }}...` | `{{ tuh[1] }}` | {{ tuh[2] }}  | {{ '<br/>'.join(tuh[3]) }} | {{ tuh[4] }} |{% endfor %}
-
-> `AV` = `Agent Version`
- 
-- `# Final AV` - The last agent version that was observed in this measurement period
-- `# Transitions` - How often did this particular peer change its agent version
-- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times)
-
 ## Terminology
 
 - `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur. 
@@ -187,11 +146,3 @@ The number next to `Total` indicates the number of unique IP addresses that went
 - `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
 - `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
 - `relay` - The number of peer IDs that were only reachable by circuit relays
-
-### Cloud Providers
-
-- `AWS` - Amazon Web Services
-- `GCP` - Google Cloud Platform
-- `Azure` - Microsoft Azure
-- `DO` - Digital Ocean
-- `OCI` - Oracle Cloud Infrastructure

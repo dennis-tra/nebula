@@ -7,7 +7,7 @@ from lib_fmt import fmt_barplot, fmt_thousands
 from lib_db import DBClient
 
 
-def main(db_client: DBClient):
+def main(db_client: DBClient, threshold=500):
     sns.set_theme()
 
     results = db_client.query(
@@ -32,8 +32,8 @@ def main(db_client: DBClient):
 
     data = pd.DataFrame(results, columns=["Country", "Count"])
     # calculate the "other" countries
-    granular_df = data[data["Count"] > 500]
-    others_df = data[data["Count"] <= 500]
+    granular_df = data[data["Count"] > threshold]
+    others_df = data[data["Count"] <= threshold]
     others_sum_df = pd.DataFrame([["other", others_df["Count"].sum()]], columns=["Country", "Count"])
     all_df = granular_df.append(others_sum_df)
 
