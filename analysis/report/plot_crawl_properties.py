@@ -8,11 +8,10 @@ from lib_db import DBClient
 from lib_fmt import thousands_ticker_formatter
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-    results = client.get_crawl_properties()
+    results = db_client.get_crawl_properties()
 
     results_df = pd.DataFrame(results, columns=['crawl_id', 'started_at', 'agent_version', 'count']).assign(
         agent_name=lambda df: df.agent_version.apply(agent_name),
@@ -60,4 +59,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

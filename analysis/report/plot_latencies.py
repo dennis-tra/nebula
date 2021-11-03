@@ -5,15 +5,14 @@ from matplotlib import pyplot as plt
 
 from analysis.report import lib_plot
 from lib_fmt import thousands_ticker_formatter
-from lib_db import DBClient, calendar_week
+from lib_db import DBClient
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-    crawl_results = client.get_crawl_visit_durations()
-    dial_results = client.get_dial_visit_durations()
+    crawl_results = db_client.get_crawl_visit_durations()
+    dial_results = db_client.get_dial_visit_durations()
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(12, 4))
 
@@ -38,4 +37,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

@@ -8,10 +8,8 @@ from lib_fmt import fmt_barplot, fmt_thousands
 from lib_agent import agent_name, go_ipfs_version, go_ipfs_v08_version
 
 
-def main():
+def main(client: DBClient):
     sns.set_theme()
-
-    client = DBClient()
 
     def plot_agent(results, plot_name):
         results_df = pd.DataFrame(results, columns=['agent_version', 'count']).assign(
@@ -81,4 +79,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    client = DBClient()
+    main(client)

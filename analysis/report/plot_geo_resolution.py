@@ -7,19 +7,17 @@ from lib_db import DBClient
 from lib_fmt import fmt_thousands, fmt_barplot
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
+    all_peer_ids = db_client.get_all_peer_ids()
+    unresolved_peer_ids = db_client.get_unresolved_peer_ids()
+    no_public_ip_peer_ids = db_client.get_no_public_ip_peer_ids()
 
-    all_peer_ids = client.get_all_peer_ids()
-    unresolved_peer_ids = client.get_unresolved_peer_ids()
-    no_public_ip_peer_ids = client.get_no_public_ip_peer_ids()
-
-    countries = pd.DataFrame(client.get_countries(), columns=["peer_id", "country"])
+    countries = pd.DataFrame(db_client.get_countries(), columns=["peer_id", "country"])
     resolved_peer_ids = set(countries["peer_id"].unique())
 
-    countries_with_relays = pd.DataFrame(client.get_countries_with_relays(), columns=["peer_id", "country"])
+    countries_with_relays = pd.DataFrame(db_client.get_countries_with_relays(), columns=["peer_id", "country"])
     resolved_with_relays_peer_ids = set(countries_with_relays["peer_id"].unique())
 
     relay_only_peer_ids = resolved_with_relays_peer_ids - resolved_peer_ids
@@ -54,4 +52,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

@@ -6,20 +6,18 @@ from lib_db import DBClient, NodeClassification, calendar_week
 from lib_fmt import fmt_thousands, thousands_ticker_formatter, fmt_percentage
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
-
-    client = DBClient()
 
     data = OrderedDict()
     for node_class in NodeClassification:
-        get_peer_ids = client.node_classification_funcs[node_class]
+        get_peer_ids = db_client.node_classification_funcs[node_class]
         data[node_class.value] = len(get_peer_ids())
 
     # order dict by count decreasing
     data = OrderedDict(reversed(sorted(data.items(), key=lambda item: item[1])))
 
-    all_peer_ids = client.get_all_peer_ids()
+    all_peer_ids = db_client.get_all_peer_ids()
 
     fig, (ax) = plt.subplots(figsize=(10, 5))
 
@@ -36,4 +34,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

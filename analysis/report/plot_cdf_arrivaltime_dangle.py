@@ -6,13 +6,12 @@ from matplotlib import pyplot as plt, ticker
 from analysis.report import lib_plot
 from analysis.report.lib_agent import known_agents
 from analysis.report.lib_fmt import fmt_thousands
-from lib_db import DBClient, calendar_week
+from lib_db import DBClient
 
 
-def main():
+def main(client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
     peer_ids = client.get_dangling_peer_ids()
     arrivals = client.get_inter_arrival_time(peer_ids)
 
@@ -59,4 +58,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    client = DBClient()
+    main(client)

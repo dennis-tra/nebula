@@ -8,20 +8,17 @@ from lib_cloud import Cloud
 from lib_fmt import fmt_barplot, fmt_thousands
 
 
-def main():
+def main(db_client: DBClient, cloud_client: Cloud):
     sns.set_theme()
 
-    client = DBClient()
-    cloud_client = Cloud()
-
-    results = client.query(
+    results = db_client.query(
         f"""
         WITH cte AS (
             SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
             FROM visits v
                      INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-            WHERE v.created_at > {client.start}
-              AND v.created_at < {client.end}
+            WHERE v.created_at > {db_client.start}
+              AND v.created_at < {db_client.end}
             GROUP BY v.peer_id, unnest(mas.multi_address_ids)
         )
         SELECT DISTINCT ia.address
@@ -53,4 +50,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    client = DBClient()
+    cloud_client = Cloud()
+    main(client, cloud_client)

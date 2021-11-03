@@ -7,7 +7,7 @@ from lib_db import DBClient, NodeClassification
 from lib_fmt import fmt_thousands, fmt_barplot
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
     client = DBClient()
@@ -51,4 +51,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

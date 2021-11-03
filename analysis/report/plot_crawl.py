@@ -7,11 +7,10 @@ from lib_db import DBClient
 from lib_fmt import thousands_ticker_formatter
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-    results = client.get_crawls()
+    results = db_client.get_crawls()
 
     results_df = pd.DataFrame(results, columns=["started_at", "crawled_peers", "dialable_peers", "undialable_peers"])
     results_df['started_at'] = pd.to_datetime(results_df['started_at'], unit='s')
@@ -45,4 +44,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

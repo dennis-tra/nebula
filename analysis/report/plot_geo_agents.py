@@ -8,10 +8,8 @@ from lib_db import DBClient
 from lib_fmt import fmt_thousands, fmt_barplot
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
-
-    client = DBClient()
 
     country_distributions = {}
     thresholds = {
@@ -22,8 +20,8 @@ def main():
     }
 
     for agent in known_agents:
-        peer_ids = set(client.get_peer_ids_for_agent_versions([agent]))
-        country_distributions[agent] = client.get_country_distribution_for_peer_ids(peer_ids)
+        peer_ids = set(db_client.get_peer_ids_for_agent_versions([agent]))
+        country_distributions[agent] = db_client.get_country_distribution_for_peer_ids(peer_ids)
 
     fig, axs = plt.subplots(2, 2, figsize=(15, 9))
     for idx, agent in enumerate(country_distributions):
@@ -48,4 +46,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

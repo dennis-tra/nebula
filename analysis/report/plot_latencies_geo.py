@@ -9,11 +9,10 @@ from lib_fmt import thousands_ticker_formatter, fmt_thousands
 from lib_db import DBClient
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-    dial_results = client.query(
+    dial_results = db_client.query(
         f"""
         WITH cte AS (
             SELECT v.id,
@@ -21,8 +20,8 @@ def main():
                    unnest(mas.multi_address_ids)         multi_address_id
             FROM visits v
                      INNER JOIN multi_addresses_sets mas on v.multi_addresses_set_id = mas.id
-            WHERE v.created_at > {client.start}
-              AND v.created_at < {client.end}
+            WHERE v.created_at > {db_client.start}
+              AND v.created_at < {db_client.end}
               AND v.type = 'dial'
               AND v.error IS NULL
         )
@@ -84,4 +83,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

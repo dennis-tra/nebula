@@ -7,18 +7,17 @@ from lib_fmt import fmt_barplot, fmt_thousands
 from lib_db import DBClient
 
 
-def main():
+def main(db_client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
-    results = client.query(
+    results = db_client.query(
         f"""
         WITH cte AS (
             SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
             FROM visits v
                      INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-            WHERE v.created_at > {client.start}
-              AND v.created_at < {client.end}
+            WHERE v.created_at > {db_client.start}
+              AND v.created_at < {db_client.end}
             GROUP BY v.peer_id, unnest(mas.multi_address_ids)
         )
         SELECT ia.country, count(DISTINCT ia.address) count
@@ -52,4 +51,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    main(db_client)

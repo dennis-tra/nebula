@@ -10,10 +10,9 @@ from lib_db import DBClient
 from lib_fmt import fmt_thousands
 
 
-def main():
+def main(client: DBClient):
     sns.set_theme()
 
-    client = DBClient()
     results = client.get_node_uptime()
 
     df = pd.DataFrame(results, columns=['uptime_in_s', 'agent_version'])
@@ -64,4 +63,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    client = DBClient()
+    main(client)

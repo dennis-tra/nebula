@@ -8,16 +8,13 @@ from lib_cloud import Cloud
 from lib_fmt import fmt_barplot, fmt_thousands
 
 
-def main():
+def main(db_client: DBClient, cloud_client: Cloud):
     sns.set_theme()
-
-    client = DBClient()
-    cloud_client = Cloud()
 
     ip_addresses = {}
     for node_class in NodeClassification:
-        peer_ids = client.node_classification_funcs[node_class]()
-        ip_addresses[node_class] = client.get_ip_addresses_for_peer_ids(peer_ids)
+        peer_ids = db_client.node_classification_funcs[node_class]()
+        ip_addresses[node_class] = db_client.get_ip_addresses_for_peer_ids(peer_ids)
 
     fig, axs = plt.subplots(2, 3, figsize=(15, 8))
 
@@ -46,4 +43,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    cloud_client = Cloud()
+    main(db_client, cloud_client)

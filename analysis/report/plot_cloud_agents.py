@@ -1,4 +1,3 @@
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -10,16 +9,13 @@ from lib_cloud import Cloud
 from lib_fmt import fmt_barplot, fmt_thousands
 
 
-def main():
+def main(db_client: DBClient, cloud_client: Cloud):
     sns.set_theme()
-
-    client = DBClient()
-    cloud_client = Cloud()
 
     ip_addresses = {}
     for agent in known_agents:
-        peer_ids = set(client.get_peer_ids_for_agent_versions([agent]))
-        ip_addresses[agent] = client.get_ip_addresses_for_peer_ids(peer_ids)
+        peer_ids = set(db_client.get_peer_ids_for_agent_versions([agent]))
+        ip_addresses[agent] = db_client.get_ip_addresses_for_peer_ids(peer_ids)
 
     fig, axs = plt.subplots(2, 2, figsize=(15, 9))
 
@@ -48,4 +44,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    db_client = DBClient()
+    cloud_client = Cloud()
+    main(db_client, cloud_client)

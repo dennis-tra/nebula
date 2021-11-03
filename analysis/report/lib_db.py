@@ -46,15 +46,13 @@ def cache():
             if not os.path.isdir(".cache"):
                 os.mkdir(".cache")
 
-            cache_file = f'.cache/{filename}-{calendar_week}.json'
-            if len(args) == 2:
-                client: DBClient = args[0]
-                hash_str = str(calendar_week) + \
-                           str(client.start) + \
-                           str(client.end) + \
-                           str(args[1])
-                digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
-                cache_file = f'.cache/{filename}-{digest}.json'
+            client: DBClient = args[0]
+            hash_str = str(calendar_week) + \
+                       str(client.start) + \
+                       str(client.end) + \
+                       str(args)
+            digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
+            cache_file = f'.cache/{filename}-{digest}.json'
 
             if os.path.isfile(cache_file):
                 print(f"Using cache file {cache_file} for {filename}...")
@@ -78,7 +76,7 @@ class DBClient:
     conn = None
     start = "date_trunc('week', NOW() - '1 week'::interval)"
     end = "date_trunc('week', NOW())"
-    node_classification_funcs: dict[NodeClassification, Callable] = {}
+    node_classification_funcs = {}
 
     @staticmethod
     def __flatten(result: list[tuple[T]]) -> list[T]:
