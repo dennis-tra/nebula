@@ -7,7 +7,7 @@ import hashlib
 import pandas as pd
 
 from enum import Enum
-from typing import TypeVar, Callable
+from typing import TypeVar
 
 T = TypeVar('T')
 
@@ -50,6 +50,7 @@ def cache():
             hash_str = str(calendar_week) + \
                        str(client.start) + \
                        str(client.end) + \
+                       str(client.config) + \
                        str(args)
             digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
             cache_file = f'.cache/{filename}-{digest}.json'

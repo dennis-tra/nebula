@@ -42,16 +42,9 @@ def main(db_client: DBClient):
             except:
                 return None
 
-        def determine_country(address):
-            try:
-                return geoipreader.country(address).country.iso_code
-            except:
-                return None
-
         print(f"Assigning Continents {len(dial_results_df)}")
         dial_results_df = dial_results_df.assign(
             continent=lambda df: df.ip_address.apply(determine_continent),
-            # country=lambda df: df.ip_address.apply(determine_country),
         )
 
         continents = ["EU", "NA", "AS", "SA", "OC"]
