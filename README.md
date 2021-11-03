@@ -33,7 +33,9 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 
 ## Project Status
 
-The crawler is successfully visiting and following all reachable nodes in the IPFS and Filecoin networks. However, the project is still very young and thus has its sharp edges here and there. Most importantly, the gathered numbers about the IPFS network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
+The crawler is used for a couple of academic project, and I'm running it since July '21 continuously.
+
+The gathered numbers about the IPFS network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
 
 ## Usage
 
@@ -348,6 +350,7 @@ There is a top-level `analysis` folder that contains various scripts to help und
 - [`geoip`](./analysis/geoip) - Uses a [Maxmind](https://maxmind.com) database to map IP addresses to country ISO codes and plots the results.
 - [`churn`](./analysis/churn) - Uses a `sessions` database dump to construct a CDF of peer session lengths.
 - [`mixed`](./analysis/mixed) - Multiple plotting scripts for various metrics of interest. See [wcgcyx/nebula-crawler](https://github.com/wcgcyx/nebula-crawler) for plots as I have just copied the scripts from there.
+- [`report`](./analysis/report) - A semi-automated set of scripts to generate the reports for [dennis-tra/nebula-crawler-reports](https://github.com/dennis-tra/nebula-crawler-reports)
 - More to come...
 
 ## Related Efforts
