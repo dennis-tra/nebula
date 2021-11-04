@@ -361,7 +361,7 @@ There is a top-level `analysis` folder that contains various scripts to help und
 
 ## Contributing
 
-Feel free to dive in! [Open an issue](https://github.com/dennis-tra/nebula/issues/new) or submit PRs.
+Feel free to dive in! [Open an issue](https://github.com/dennis-tra/nebula-crawler/issues/new) or submit PRs.
 
 ## Support
 
