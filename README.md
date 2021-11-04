@@ -17,7 +17,7 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
-  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`ping`](#ping) | [`resolve`](#resolve) | [`provide`](#provide)
+  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`ping`](#ping) | [`resolve`](#resolve)
 - [Install](#install)
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
@@ -158,10 +158,6 @@ The ping command fetches all peers that were found online of the most recent suc
 
 The resolve sub-command takes goes through all multi addresses in that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
 It further queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
-
-### `provide`
-
-**Experimental:** Starts a DHT measurement experiment by providing and requesting random content.
 
 ## Install
 
