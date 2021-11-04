@@ -176,7 +176,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 	}
 
 	allNeighborsLk := sync.RWMutex{}
-	var allNeighbors []peer.AddrInfo
+	allNeighbors := map[peer.ID]peer.AddrInfo{}
 
 	errg := errgroup.Group{}
 	for i := uint(0); i <= 15; i++ { // 15 is maximum
@@ -196,13 +196,18 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 			allNeighborsLk.Lock()
 			defer allNeighborsLk.Unlock()
 			for _, n := range neighbors {
-				allNeighbors = append(allNeighbors, *n)
+				allNeighbors[n.ID] = *n
 			}
-
 			return nil
 		})
 	}
 	err = errg.Wait()
 	stats.Record(ctx, metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))))
-	return allNeighbors, err
+
+	var allNeighborsList []peer.AddrInfo
+	for _, n := range allNeighbors {
+		allNeighborsList = append(allNeighborsList, n)
+	}
+
+	return allNeighborsList, err
 }
