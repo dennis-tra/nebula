@@ -31,22 +31,6 @@ for line in list(open("./storm.time")):
 # Generate graphs
 plt.rc('font', size=8)
 plt.rcParams["figure.figsize"] = (10,6)
-# Overall pvd latency
-plt.clf()
-plt.hist(list(pvd), bins=20, density=False)
-plt.title("Storm nodes put provider record response time")
-plt.xlabel("Response time (ms)")
-plt.ylabel("Count")
-plt.savefig("./figs/storm_put_response_time.png")
-# Overall pvd latency trim
-trim = list(pvd)
-trim = [x for x in trim if x <= 1]
-plt.clf()
-plt.hist(trim, bins=100, density=False)
-plt.title("Storm nodes put provider record response time (Trimmed)")
-plt.xlabel("Response time (ms)")
-plt.ylabel("Count")
-plt.savefig("./figs/storm_put_response_time_trim.png")
 # Overall ret latency
 plt.clf()
 plt.hist(list(ret), bins=20, density=False)
