@@ -39,7 +39,6 @@ require (
 	github.com/prometheus/common v0.29.0 // indirect
 	github.com/prometheus/statsd_exporter v0.21.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/scriptkitty/go-libp2p-kad-dht v0.7.11
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.7.0

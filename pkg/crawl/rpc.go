@@ -11,7 +11,6 @@ import (
 	kadmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-msgio/protoio"
-	"github.com/scriptkitty/go-libp2p-kad-dht/metrics"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 )
@@ -96,6 +95,6 @@ func (ms *msgSender) SendMessage(ctx context.Context, p peer.ID, pmes *pb.Messag
 		return err
 	}
 
-	stats.Record(ctx, metrics.SentBytes.M(int64(pmes.Size())))
+	stats.Record(ctx, kadmetrics.SentBytes.M(int64(pmes.Size())))
 	return nil
 }
