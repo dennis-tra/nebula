@@ -1,0 +1,8 @@
+{
+  "BootstrapPeers": [ {{ item.bootstrap_peers  | map('to_json') | join(', ') }} ],
+  "DatabaseName": "nebula_{{ item.name }}",
+  "DatabasePassword": "{{ item.db_password }}",
+  "DatabaseUser": "nebula_{{ item.name }}",
+  "DatabaseHost": "postgres",
+  "Protocols": [ {{ item.protocols  | map('to_json') | join(', ') }} ]
+}

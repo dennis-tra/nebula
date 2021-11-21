@@ -1,0 +1,41 @@
+---
+- name: Creating docker directory
+  file:
+    path: /home/{{ remote_user_name }}/docker
+    state: directory
+    owner: "{{ remote_user_name }}"
+    group: "{{ remote_user_name }}"
+
+- name: Copying docker-compose.yml
+  template:
+    src: "{{ item }}"
+    dest: /home/{{ remote_user_name }}/docker/{{ item }}
+    owner: "{{ remote_user_name }}"
+    group: "{{ remote_user_name }}"
+  with_items:
+    - docker-compose.yml
+    - postgres.init.sql
+    - prometheus.yml
+    - docker-entrypoint.sh
+    - grafana-dashboards.yml
+    - grafana-datasources.yml
+
+- name: Create and start services
+  docker_compose:
+    project_src: /home/{{ remote_user_name }}/docker
+
+- name: Copying crawl configuration files
+  template:
+    src: "nebula.config.json"
+    dest: /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json
+    owner: "{{ remote_user_name }}"
+    group: "{{ remote_user_name }}"
+  with_items: "{{ networks }}"
+
+- name: Adding crawl cron jobs
+  cron:
+    name: "crawl {{ item.name }}"
+    minute: "{{ item.crawl_cron_minutes }}"
+    job: "docker run --name nebula_crawl_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json crawl --neighbors"
+  with_items: "{{ networks }}"
+

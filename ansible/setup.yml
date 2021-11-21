@@ -1,0 +1,14 @@
+---
+- name: Setup Nebula
+  hosts: all
+  vars_files:
+    - ansible.vault
+  vars_prompt:
+    - name: ssh_public_key
+      prompt: "Please paste your SSH public key(s) [~/.ssh/id_rsa.pub] for password-less admin access"
+      private: no
+
+  roles:
+    - { role: "setup", tags: "setup" }
+    - { role: "ssh", tags: "ssh" }
+    - { role: "docker", tags: "docker" }
