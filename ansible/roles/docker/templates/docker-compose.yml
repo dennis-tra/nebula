@@ -17,8 +17,6 @@ services:
       NEBULA_DATABASE_PASSWORD: "{{ network.db_password }}"
       NEBULA_PROMETHEUS_PORT: "{{ network.prom_port }}"
       NEBULA_PPROF_PORT: "{{ network.pprof_port }}"
-      NEBULA_PROTOCOLS: "{{ ','.join(network.protocols) }}"
-      NEBULA_BOOTSTRAP_PEERS: "{{ ','.join(network.bootstrap_peers) }}"
     depends_on:
       postgres:
         condition: service_healthy

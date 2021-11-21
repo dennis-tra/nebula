@@ -20,10 +20,6 @@
     - grafana-dashboards.yml
     - grafana-datasources.yml
 
-- name: Create and start services
-  docker_compose:
-    project_src: /home/{{ remote_user_name }}/docker
-
 - name: Copying crawl configuration files
   template:
     src: "nebula.config.json"
@@ -36,6 +32,6 @@
   cron:
     name: "crawl {{ item.name }}"
     minute: "{{ item.crawl_cron_minutes }}"
-    job: "docker run --name nebula_crawl_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json crawl --neighbors"
+    job: "docker run --rm --name nebula_crawl_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json crawl --neighbors"
   with_items: "{{ networks }}"
 

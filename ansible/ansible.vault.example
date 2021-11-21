@@ -7,7 +7,7 @@ db_user: nebula
 db_password: <GENERATE PASSWORD>
 db_name: nebula
 
-docker_image: dennis-tra/nebula-crawler
+docker_image: dennistra/nebula-crawler
 docker_tag: latest
 
 networks:

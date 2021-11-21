@@ -1,0 +1,9 @@
+---
+- name: Updating Nebula
+  hosts: all
+  vars_files:
+    - ansible.vault
+  become_user: "{{ remote_user_name }}"
+  roles:
+    - { role: "docker", tags: "docker" }
+    - { role: "update", tags: "update" }
