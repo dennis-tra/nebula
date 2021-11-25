@@ -18,74 +18,65 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/queries/qmhelper"
+	"github.com/volatiletech/sqlboiler/v4/types"
 	"github.com/volatiletech/strmangle"
 )
 
 // Neighbor is an object representing the database table.
 type Neighbor struct {
-	ID         int `boil:"id" json:"id" toml:"id" yaml:"id"`
-	CrawlID    int `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
-	PeerID     int `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
-	NeighborID int `boil:"neighbor_id" json:"neighbor_id" toml:"neighbor_id" yaml:"neighbor_id"`
+	CrawlID     int              `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
+	PeerID      int              `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
+	NeighborIds types.Int64Array `boil:"neighbor_ids" json:"neighbor_ids,omitempty" toml:"neighbor_ids" yaml:"neighbor_ids,omitempty"`
 
 	R *neighborR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L neighborL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var NeighborColumns = struct {
-	ID         string
-	CrawlID    string
-	PeerID     string
-	NeighborID string
+	CrawlID     string
+	PeerID      string
+	NeighborIds string
 }{
-	ID:         "id",
-	CrawlID:    "crawl_id",
-	PeerID:     "peer_id",
-	NeighborID: "neighbor_id",
+	CrawlID:     "crawl_id",
+	PeerID:      "peer_id",
+	NeighborIds: "neighbor_ids",
 }
 
 var NeighborTableColumns = struct {
-	ID         string
-	CrawlID    string
-	PeerID     string
-	NeighborID string
+	CrawlID     string
+	PeerID      string
+	NeighborIds string
 }{
-	ID:         "neighbors.id",
-	CrawlID:    "neighbors.crawl_id",
-	PeerID:     "neighbors.peer_id",
-	NeighborID: "neighbors.neighbor_id",
+	CrawlID:     "neighbors.crawl_id",
+	PeerID:      "neighbors.peer_id",
+	NeighborIds: "neighbors.neighbor_ids",
 }
 
 // Generated where
 
 var NeighborWhere = struct {
-	ID         whereHelperint
-	CrawlID    whereHelperint
-	PeerID     whereHelperint
-	NeighborID whereHelperint
+	CrawlID     whereHelperint
+	PeerID      whereHelperint
+	NeighborIds whereHelpertypes_Int64Array
 }{
-	ID:         whereHelperint{field: "\"neighbors\".\"id\""},
-	CrawlID:    whereHelperint{field: "\"neighbors\".\"crawl_id\""},
-	PeerID:     whereHelperint{field: "\"neighbors\".\"peer_id\""},
-	NeighborID: whereHelperint{field: "\"neighbors\".\"neighbor_id\""},
+	CrawlID:     whereHelperint{field: "\"neighbors\".\"crawl_id\""},
+	PeerID:      whereHelperint{field: "\"neighbors\".\"peer_id\""},
+	NeighborIds: whereHelpertypes_Int64Array{field: "\"neighbors\".\"neighbor_ids\""},
 }
 
 // NeighborRels is where relationship names are stored.
 var NeighborRels = struct {
-	Crawl    string
-	Neighbor string
-	Peer     string
+	Crawl string
+	Peer  string
 }{
-	Crawl:    "Crawl",
-	Neighbor: "Neighbor",
-	Peer:     "Peer",
+	Crawl: "Crawl",
+	Peer:  "Peer",
 }
 
 // neighborR is where relationships are stored.
 type neighborR struct {
-	Crawl    *Crawl `boil:"Crawl" json:"Crawl" toml:"Crawl" yaml:"Crawl"`
-	Neighbor *Peer  `boil:"Neighbor" json:"Neighbor" toml:"Neighbor" yaml:"Neighbor"`
-	Peer     *Peer  `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
+	Crawl *Crawl `boil:"Crawl" json:"Crawl" toml:"Crawl" yaml:"Crawl"`
+	Peer  *Peer  `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
 }
 
 // NewStruct creates a new relationship struct
@@ -97,10 +88,10 @@ func (*neighborR) NewStruct() *neighborR {
 type neighborL struct{}
 
 var (
-	neighborAllColumns            = []string{"id", "crawl_id", "peer_id", "neighbor_id"}
-	neighborColumnsWithoutDefault = []string{}
-	neighborColumnsWithDefault    = []string{"id", "crawl_id", "peer_id", "neighbor_id"}
-	neighborPrimaryKeyColumns     = []string{"id"}
+	neighborAllColumns            = []string{"crawl_id", "peer_id", "neighbor_ids"}
+	neighborColumnsWithoutDefault = []string{"crawl_id", "peer_id", "neighbor_ids"}
+	neighborColumnsWithDefault    = []string{}
+	neighborPrimaryKeyColumns     = []string{"crawl_id", "peer_id"}
 )
 
 type (
@@ -392,20 +383,6 @@ func (o *Neighbor) Crawl(mods ...qm.QueryMod) crawlQuery {
 	return query
 }
 
-// Neighbor pointed to by the foreign key.
-func (o *Neighbor) Neighbor(mods ...qm.QueryMod) peerQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.NeighborID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	query := Peers(queryMods...)
-	queries.SetFrom(query.Query, "\"peers\"")
-
-	return query
-}
-
 // Peer pointed to by the foreign key.
 func (o *Neighbor) Peer(mods ...qm.QueryMod) peerQuery {
 	queryMods := []qm.QueryMod{
@@ -516,110 +493,6 @@ func (neighborL) LoadCrawl(ctx context.Context, e boil.ContextExecutor, singular
 					foreign.R = &crawlR{}
 				}
 				foreign.R.Neighbors = append(foreign.R.Neighbors, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// LoadNeighbor allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (neighborL) LoadNeighbor(ctx context.Context, e boil.ContextExecutor, singular bool, maybeNeighbor interface{}, mods queries.Applicator) error {
-	var slice []*Neighbor
-	var object *Neighbor
-
-	if singular {
-		object = maybeNeighbor.(*Neighbor)
-	} else {
-		slice = *maybeNeighbor.(*[]*Neighbor)
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &neighborR{}
-		}
-		args = append(args, object.NeighborID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &neighborR{}
-			}
-
-			for _, a := range args {
-				if a == obj.NeighborID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.NeighborID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`peers`),
-		qm.WhereIn(`peers.id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Peer")
-	}
-
-	var resultSlice []*Peer
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for peers")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
-	}
-
-	if len(neighborAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Neighbor = foreign
-		if foreign.R == nil {
-			foreign.R = &peerR{}
-		}
-		foreign.R.NeighborNeighbors = append(foreign.R.NeighborNeighbors, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.NeighborID == foreign.ID {
-				local.R.Neighbor = foreign
-				if foreign.R == nil {
-					foreign.R = &peerR{}
-				}
-				foreign.R.NeighborNeighbors = append(foreign.R.NeighborNeighbors, local)
 				break
 			}
 		}
@@ -748,7 +621,7 @@ func (o *Neighbor) SetCrawl(ctx context.Context, exec boil.ContextExecutor, inse
 		strmangle.SetParamNames("\"", "\"", 1, []string{"crawl_id"}),
 		strmangle.WhereClause("\"", "\"", 2, neighborPrimaryKeyColumns),
 	)
-	values := []interface{}{related.ID, o.ID}
+	values := []interface{}{related.ID, o.CrawlID, o.PeerID}
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -779,53 +652,6 @@ func (o *Neighbor) SetCrawl(ctx context.Context, exec boil.ContextExecutor, inse
 	return nil
 }
 
-// SetNeighbor of the neighbor to the related item.
-// Sets o.R.Neighbor to related.
-// Adds o to related.R.NeighborNeighbors.
-func (o *Neighbor) SetNeighbor(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"neighbors\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"neighbor_id"}),
-		strmangle.WhereClause("\"", "\"", 2, neighborPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, updateQuery)
-		fmt.Fprintln(writer, values)
-	}
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.NeighborID = related.ID
-	if o.R == nil {
-		o.R = &neighborR{
-			Neighbor: related,
-		}
-	} else {
-		o.R.Neighbor = related
-	}
-
-	if related.R == nil {
-		related.R = &peerR{
-			NeighborNeighbors: NeighborSlice{o},
-		}
-	} else {
-		related.R.NeighborNeighbors = append(related.R.NeighborNeighbors, o)
-	}
-
-	return nil
-}
-
 // SetPeer of the neighbor to the related item.
 // Sets o.R.Peer to related.
 // Adds o to related.R.Neighbors.
@@ -842,7 +668,7 @@ func (o *Neighbor) SetPeer(ctx context.Context, exec boil.ContextExecutor, inser
 		strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
 		strmangle.WhereClause("\"", "\"", 2, neighborPrimaryKeyColumns),
 	)
-	values := []interface{}{related.ID, o.ID}
+	values := []interface{}{related.ID, o.CrawlID, o.PeerID}
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -881,7 +707,7 @@ func Neighbors(mods ...qm.QueryMod) neighborQuery {
 
 // FindNeighbor retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindNeighbor(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*Neighbor, error) {
+func FindNeighbor(ctx context.Context, exec boil.ContextExecutor, crawlID int, peerID int, selectCols ...string) (*Neighbor, error) {
 	neighborObj := &Neighbor{}
 
 	sel := "*"
@@ -889,10 +715,10 @@ func FindNeighbor(ctx context.Context, exec boil.ContextExecutor, iD int, select
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"neighbors\" where \"id\"=$1", sel,
+		"select %s from \"neighbors\" where \"crawl_id\"=$1 AND \"peer_id\"=$2", sel,
 	)
 
-	q := queries.Raw(query, iD)
+	q := queries.Raw(query, crawlID, peerID)
 
 	err := q.Bind(ctx, exec, neighborObj)
 	if err != nil {
@@ -1243,7 +1069,7 @@ func (o *Neighbor) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), neighborPrimaryKeyMapping)
-	sql := "DELETE FROM \"neighbors\" WHERE \"id\"=$1"
+	sql := "DELETE FROM \"neighbors\" WHERE \"crawl_id\"=$1 AND \"peer_id\"=$2"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1340,7 +1166,7 @@ func (o NeighborSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Neighbor) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindNeighbor(ctx, exec, o.ID)
+	ret, err := FindNeighbor(ctx, exec, o.CrawlID, o.PeerID)
 	if err != nil {
 		return err
 	}
@@ -1379,16 +1205,16 @@ func (o *NeighborSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 }
 
 // NeighborExists checks if the Neighbor row exists.
-func NeighborExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
+func NeighborExists(ctx context.Context, exec boil.ContextExecutor, crawlID int, peerID int) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"neighbors\" where \"id\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"neighbors\" where \"crawl_id\"=$1 AND \"peer_id\"=$2 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, iD)
+		fmt.Fprintln(writer, crawlID, peerID)
 	}
-	row := exec.QueryRowContext(ctx, sql, iD)
+	row := exec.QueryRowContext(ctx, sql, crawlID, peerID)
 
 	err := row.Scan(&exists)
 	if err != nil {

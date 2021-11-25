@@ -2,7 +2,6 @@ package crawl
 
 import (
 	"context"
-	"regexp"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -21,10 +20,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
-
-const agentVersionRegexPattern = `\/?go-ipfs\/(?P<core>\d+\.\d+\.\d+)-?(?P<prerelease>\w+)?\/(?P<commit>\w+)?`
-
-var agentVersionRegex = regexp.MustCompile(agentVersionRegexPattern)
 
 // The Scheduler handles the scheduling and managing of
 //   a) crawlers - They consume a queue of peer address information, visit them and publish their results
@@ -133,7 +128,14 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	if err := s.initCrawl(ctx); err != nil {
+	err := s.initCrawl(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Fetch known agent versions and protocols
+	avs, protocols, err := s.fetchCacheData(ctx)
+	if err != nil {
 		return err
 	}
 
@@ -145,7 +147,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	defer crawlerCancel()
 
 	// Start all persisters
-	persisters, persistersCancel, err := s.startPersisters(ctx)
+	persisters, persistersCancel, err := s.startPersisters(ctx, avs, protocols)
 	if err != nil {
 		return err
 	}
@@ -244,6 +246,7 @@ func (s *Scheduler) initCrawl(ctx context.Context) error {
 		return nil
 	}
 
+	log.Infoln("Initializing crawl...")
 	crawl, err := s.dbc.InitCrawl(ctx)
 	if err != nil {
 		return errors.Wrap(err, "creating crawl in db")
@@ -252,6 +255,31 @@ func (s *Scheduler) initCrawl(ctx context.Context) error {
 	s.crawlStart = crawl.StartedAt
 
 	return nil
+}
+
+// fetchCacheData fetches all known agent versions and protocols from the database.
+func (s *Scheduler) fetchCacheData(ctx context.Context) (map[string]*models.AgentVersion, map[string]*models.Protocol, error) {
+	if s.dbc == nil {
+		return map[string]*models.AgentVersion{}, map[string]*models.Protocol{}, nil
+	}
+
+	// Fetch all known agent version from the database and pass it to the persisters so that
+	// the resulting raw_visit can already contain the corresponding database ids for the agent version.
+	log.Infoln("Caching agent versions from database...")
+	avs, err := s.dbc.GetAllAgentVersions(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "getting all agent versions")
+	}
+
+	// Fetch all known protocols from the database and pass it to the persisters so that
+	// the resulting raw_visit can already contain the corresponding database ids for the protocols.
+	log.Infoln("Caching protocols from database...")
+	protocols, err := s.dbc.GetAllProtocols(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "getting all protocols")
+	}
+
+	return avs, protocols, nil
 }
 
 // startCrawlers initializes Crawler structs and instructs them to read the crawlQueue to _start crawling_.
@@ -275,7 +303,8 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Canc
 
 // startPersisters initializes Persister structs and instructs them to read the persistQueue to _start persisting_.
 // The returned cancelFunc can be used to stop the persisters from reading from the persistQueue and "shut down".
-func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.CancelFunc, error) {
+func (s *Scheduler) startPersisters(ctx context.Context, avs map[string]*models.AgentVersion, protocols map[string]*models.Protocol) ([]*Persister, context.CancelFunc, error) {
+	// Create dedicated context for the persisters
 	persistersCtx, persistersCancel := context.WithCancel(ctx)
 	if s.dbc == nil {
 		return []*Persister{}, persistersCancel, nil
@@ -283,7 +312,7 @@ func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.
 
 	var persisters []*Persister
 	for i := 0; i < 10; i++ {
-		p, err := NewPersister(s.dbc, s.config, s.crawl)
+		p, err := NewPersister(s.dbc, s.config, s.crawl, avs, protocols)
 		if err != nil {
 			persistersCancel()
 			return nil, nil, errors.Wrap(err, "new persister")

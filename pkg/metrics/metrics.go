@@ -78,16 +78,20 @@ var (
 
 // Measures
 var (
-	CrawlConnectsCount      = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
-	MonitorDialCount        = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
-	CrawlConnectErrorsCount = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
-	MonitorDialErrorsCount  = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
-	FetchedNeighborsCount   = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
-	CrawledPeersCount       = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
-	CrawledUpsertDuration   = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
-	PeersToCrawlCount       = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
-	PeersToDialCount        = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
-	PeersToDialErrorsCount  = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
+	CrawlConnectsCount         = stats.Float64("crawl_connects_count", "Number of connection establishment attempts during crawl", stats.UnitDimensionless)
+	MonitorDialCount           = stats.Float64("monitor_dials_count", "Number of dial attempts during monitoring", stats.UnitDimensionless)
+	CrawlConnectErrorsCount    = stats.Float64("crawl_connect_errors_count", "Number of successful connection establishment errors during crawl", stats.UnitDimensionless)
+	MonitorDialErrorsCount     = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
+	FetchedNeighborsCount      = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
+	CrawledPeersCount          = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
+	CrawledUpsertDuration      = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
+	PeersToCrawlCount          = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
+	PeersToDialCount           = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
+	PeersToDialErrorsCount     = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
+	AgentVersionCacheHitCount  = stats.Float64("agent_version_cache_hit_count", "Number of agent version cache hits", stats.UnitDimensionless)
+	AgentVersionCacheMissCount = stats.Float64("agent_version_cache_miss_count", "Number of agent version cache misses", stats.UnitDimensionless)
+	ProtocolCacheHitCount      = stats.Float64("protocol_cache_hit_count", "Number of protocol cache hits", stats.UnitDimensionless)
+	ProtocolCacheMissCount     = stats.Float64("protocol_cache_miss_count", "Number of protocol cache misses", stats.UnitDimensionless)
 )
 
 // Views
@@ -134,6 +138,22 @@ var (
 		TagKeys:     []tag.Key{KeyError},
 		Aggregation: view.Count(),
 	}
+	AgentVersionCacheHitCountView = &view.View{
+		Measure:     AgentVersionCacheHitCount,
+		Aggregation: view.Count(),
+	}
+	AgentVersionCacheMissCountView = &view.View{
+		Measure:     AgentVersionCacheMissCount,
+		Aggregation: view.Count(),
+	}
+	ProtocolCacheHitCountView = &view.View{
+		Measure:     ProtocolCacheHitCount,
+		Aggregation: view.Count(),
+	}
+	ProtocolCacheMissCountView = &view.View{
+		Measure:     ProtocolCacheMissCount,
+		Aggregation: view.Count(),
+	}
 )
 
 // DefaultCrawlViews with all views in it.
@@ -152,4 +172,8 @@ var DefaultMonitorViews = []*view.View{
 	MonitorDialsCountView,
 	MonitorDialErrorsCountView,
 	PeersToDialErrorsCountView,
+	AgentVersionCacheHitCountView,
+	AgentVersionCacheMissCountView,
+	ProtocolCacheHitCountView,
+	ProtocolCacheMissCountView,
 }

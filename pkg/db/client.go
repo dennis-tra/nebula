@@ -76,6 +76,8 @@ func (c *Client) InsertRawVisit(ctx context.Context, re *models.RawVisit) error 
 	return re.Insert(ctx, c.dbh, boil.Infer())
 }
 
+// InitCrawl inserts a crawl instance in the database in the state `started`.
+// This is done to receive a database ID that all subsequent database entities can be linked to.
 func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	crawl := &models.Crawl{
 		State:     models.CrawlStateStarted,
@@ -84,16 +86,54 @@ func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	return crawl, crawl.Insert(ctx, c.dbh, boil.Infer())
 }
 
+// UpdateCrawl takes the crawl model an updates it in the database.
 func (c *Client) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
 	_, err := crawl.Update(ctx, c.dbh, boil.Infer())
 	return err
+}
+
+// GetAllAgentVersions fetches all rows from the agent_versions table and returns a map that's indexed
+// by the agent version string.
+func (c *Client) GetAllAgentVersions(ctx context.Context) (map[string]*models.AgentVersion, error) {
+	avs, err := models.AgentVersions().All(ctx, c.dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	avMap := map[string]*models.AgentVersion{}
+	for _, av := range avs {
+		avMap[av.AgentVersion] = av
+	}
+
+	return avMap, nil
+}
+
+// GetAllProtocols fetches all rows from the protocols table and returns a map that's indexed
+// by the protocol string.
+func (c *Client) GetAllProtocols(ctx context.Context) (map[string]*models.Protocol, error) {
+	ps, err := models.Protocols().All(ctx, c.dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	pMap := map[string]*models.Protocol{}
+	for _, p := range ps {
+		pMap[p.Protocol] = p
+	}
+
+	return pMap, nil
 }
 
 func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*models.Protocol, error) {
 	c.propLk.Lock()
 	defer c.propLk.Unlock()
 
-	p := &models.Protocol{
+	p, err := models.Protocols(qm.Where(models.ProtocolColumns.Protocol+" = ?", protocol)).One(ctx, c.dbh)
+	if err == nil {
+		return p, nil
+	}
+
+	p = &models.Protocol{
 		Protocol: protocol,
 	}
 	return p, p.Upsert(ctx, exec, true,
@@ -107,7 +147,12 @@ func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextE
 	c.propLk.Lock()
 	defer c.propLk.Unlock()
 
-	av := &models.AgentVersion{
+	av, err := models.AgentVersions(qm.Where(models.AgentVersionColumns.AgentVersion+" = ?", agentVersion)).One(ctx, c.dbh)
+	if err == nil {
+		return av, nil
+	}
+
+	av = &models.AgentVersion{
 		AgentVersion: agentVersion,
 	}
 	return av, av.Upsert(ctx, exec, true,
@@ -283,22 +328,4 @@ func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
 		pi.Addrs = append(pi.Addrs, maddr)
 	}
 	return pi, nil
-}
-
-func (c *Client) DeletePreviousRawVisits(ctx context.Context) error {
-	// Get most recent successful crawl
-	crawl, err := models.Crawls(
-		qm.OrderBy(models.CrawlColumns.FinishedAt+" DESC"),
-		qm.Limit(1),
-	).One(ctx, c.dbh)
-	if err != nil {
-		return err
-	}
-
-	// Delete all raw visits of that crawl
-	deleted, err := models.RawVisits(
-		qm.Where(models.RawVisitColumns.CreatedAt+" < ?", crawl.StartedAt),
-	).DeleteAll(ctx, c.dbh)
-	log.Debugf("Deleted %d previous obsolete raw_visit rows", deleted)
-	return err
 }

@@ -896,7 +896,7 @@ func testProtocolsSelect(t *testing.T) {
 }
 
 var (
-	protocolDBTypes = map[string]string{`ID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Protocol`: `character varying`}
+	protocolDBTypes = map[string]string{`ID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Protocol`: `text`}
 	_               = bytes.MinRead
 )
 

@@ -865,7 +865,7 @@ func (o *Crawl) AddNeighbors(ctx context.Context, exec boil.ContextExecutor, ins
 				strmangle.SetParamNames("\"", "\"", 1, []string{"crawl_id"}),
 				strmangle.WhereClause("\"", "\"", 2, neighborPrimaryKeyColumns),
 			)
-			values := []interface{}{o.ID, rel.ID}
+			values := []interface{}{o.ID, rel.CrawlID, rel.PeerID}
 
 			if boil.IsDebug(ctx) {
 				writer := boil.DebugWriterFrom(ctx)

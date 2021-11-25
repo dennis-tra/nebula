@@ -677,7 +677,7 @@ func testLatenciesSelect(t *testing.T) {
 }
 
 var (
-	latencyDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `PingLatencySAvg`: `double precision`, `PingLatencySSTD`: `double precision`, `PingLatencySMin`: `double precision`, `PingLatencySMax`: `double precision`, `PingPacketsSent`: `integer`, `PingPacketsRecv`: `integer`, `PingPacketsDupl`: `integer`, `PingPacketLoss`: `double precision`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Address`: `character varying`}
+	latencyDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `PingLatencySAvg`: `double precision`, `PingLatencySSTD`: `double precision`, `PingLatencySMin`: `double precision`, `PingLatencySMax`: `double precision`, `PingPacketsSent`: `integer`, `PingPacketsRecv`: `integer`, `PingPacketsDupl`: `integer`, `PingPacketLoss`: `double precision`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Address`: `text`}
 	_              = bytes.MinRead
 )
 

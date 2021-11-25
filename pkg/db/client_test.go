@@ -17,7 +17,7 @@ import (
 func setupTest(t *testing.T) (context.Context, *Client, func()) {
 	ctx := context.Background()
 
-	dbh, err := sql.Open("postgres", "dbname=nebula user=nebula password=password sslmode=disable")
+	dbh, err := sql.Open("postgres", "dbname=nebula_test user=nebula_test password=password sslmode=disable")
 	require.NoError(t, err)
 
 	client := &Client{
@@ -41,6 +41,12 @@ func clearDatabase(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	if _, err := models.Crawls().DeleteAll(ctx, db); err != nil {
+		return err
+	}
+	if _, err := models.AgentVersions().DeleteAll(ctx, db); err != nil {
+		return err
+	}
+	if _, err := models.Protocols().DeleteAll(ctx, db); err != nil {
 		return err
 	}
 	return nil
@@ -133,4 +139,78 @@ func TestClient_QueryBootstrapPeers(t *testing.T) {
 	peers, err := client.QueryBootstrapPeers(ctx, 10)
 	require.NoError(t, err)
 	assert.Len(t, peers, 0)
+}
+
+func TestClient_GetAllAgentVersions(t *testing.T) {
+	ctx, client, teardown := setupTest(t)
+	defer teardown()
+
+	avs, err := client.GetAllAgentVersions(ctx)
+	require.NoError(t, err)
+	assert.Len(t, avs, 0)
+
+	testAvStr1 := "test-agent-version-1"
+	testAvStr2 := "test-agent-version-2"
+	testAvStr3 := "test-agent-version-3"
+
+	av1 := models.AgentVersion{AgentVersion: testAvStr1}
+	require.NoError(t, av1.Insert(ctx, client.dbh, boil.Infer()))
+
+	avs, err = client.GetAllAgentVersions(ctx)
+	require.NoError(t, err)
+	assert.Len(t, avs, 1)
+	assert.Equal(t, avs[testAvStr1].AgentVersion, testAvStr1)
+	assert.NotZero(t, avs[testAvStr1].ID)
+
+	av2 := models.AgentVersion{AgentVersion: testAvStr2}
+	require.NoError(t, av2.Insert(ctx, client.dbh, boil.Infer()))
+	av3 := models.AgentVersion{AgentVersion: testAvStr3}
+	require.NoError(t, av3.Insert(ctx, client.dbh, boil.Infer()))
+
+	avs, err = client.GetAllAgentVersions(ctx)
+	require.NoError(t, err)
+	assert.Len(t, avs, 3)
+	assert.Equal(t, avs[testAvStr1].AgentVersion, testAvStr1)
+	assert.Equal(t, avs[testAvStr2].AgentVersion, testAvStr2)
+	assert.Equal(t, avs[testAvStr3].AgentVersion, testAvStr3)
+	assert.NotZero(t, avs[testAvStr1].ID)
+	assert.NotZero(t, avs[testAvStr2].ID)
+	assert.NotZero(t, avs[testAvStr3].ID)
+}
+
+func TestClient_GetProtocols(t *testing.T) {
+	ctx, client, teardown := setupTest(t)
+	defer teardown()
+
+	protocols, err := client.GetAllProtocols(ctx)
+	require.NoError(t, err)
+	assert.Len(t, protocols, 0)
+
+	testProtStr1 := "test-protocol-1"
+	testProtStr2 := "test-protocol-2"
+	testProtStr3 := "test-protocol-3"
+
+	prot1 := models.Protocol{Protocol: testProtStr1}
+	require.NoError(t, prot1.Insert(ctx, client.dbh, boil.Infer()))
+
+	protocols, err = client.GetAllProtocols(ctx)
+	require.NoError(t, err)
+	assert.Len(t, protocols, 1)
+	assert.Equal(t, protocols[testProtStr1].Protocol, testProtStr1)
+	assert.NotZero(t, protocols[testProtStr1].ID)
+
+	prot2 := models.Protocol{Protocol: testProtStr2}
+	require.NoError(t, prot2.Insert(ctx, client.dbh, boil.Infer()))
+	prot3 := models.Protocol{Protocol: testProtStr3}
+	require.NoError(t, prot3.Insert(ctx, client.dbh, boil.Infer()))
+
+	protocols, err = client.GetAllProtocols(ctx)
+	require.NoError(t, err)
+	assert.Len(t, protocols, 3)
+	assert.Equal(t, protocols[testProtStr1].Protocol, testProtStr1)
+	assert.Equal(t, protocols[testProtStr2].Protocol, testProtStr2)
+	assert.Equal(t, protocols[testProtStr3].Protocol, testProtStr3)
+	assert.NotZero(t, protocols[testProtStr1].ID)
+	assert.NotZero(t, protocols[testProtStr2].ID)
+	assert.NotZero(t, protocols[testProtStr3].ID)
 }

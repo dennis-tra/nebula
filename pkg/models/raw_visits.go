@@ -40,6 +40,8 @@ type RawVisit struct {
 	Error           null.String       `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
 	ErrorMessage    null.String       `boil:"error_message" json:"error_message,omitempty" toml:"error_message" yaml:"error_message,omitempty"`
 	CreatedAt       time.Time         `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	AgentVersionID  null.Int          `boil:"agent_version_id" json:"agent_version_id,omitempty" toml:"agent_version_id" yaml:"agent_version_id,omitempty"`
+	ProtocolIds     types.Int64Array  `boil:"protocol_ids" json:"protocol_ids,omitempty" toml:"protocol_ids" yaml:"protocol_ids,omitempty"`
 
 	R *rawVisitR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L rawVisitL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -61,6 +63,8 @@ var RawVisitColumns = struct {
 	Error           string
 	ErrorMessage    string
 	CreatedAt       string
+	AgentVersionID  string
+	ProtocolIds     string
 }{
 	ID:              "id",
 	CrawlID:         "crawl_id",
@@ -77,6 +81,8 @@ var RawVisitColumns = struct {
 	Error:           "error",
 	ErrorMessage:    "error_message",
 	CreatedAt:       "created_at",
+	AgentVersionID:  "agent_version_id",
+	ProtocolIds:     "protocol_ids",
 }
 
 var RawVisitTableColumns = struct {
@@ -95,6 +101,8 @@ var RawVisitTableColumns = struct {
 	Error           string
 	ErrorMessage    string
 	CreatedAt       string
+	AgentVersionID  string
+	ProtocolIds     string
 }{
 	ID:              "raw_visits.id",
 	CrawlID:         "raw_visits.crawl_id",
@@ -111,6 +119,8 @@ var RawVisitTableColumns = struct {
 	Error:           "raw_visits.error",
 	ErrorMessage:    "raw_visits.error_message",
 	CreatedAt:       "raw_visits.created_at",
+	AgentVersionID:  "raw_visits.agent_version_id",
+	ProtocolIds:     "raw_visits.protocol_ids",
 }
 
 // Generated where
@@ -156,6 +166,8 @@ var RawVisitWhere = struct {
 	Error           whereHelpernull_String
 	ErrorMessage    whereHelpernull_String
 	CreatedAt       whereHelpertime_Time
+	AgentVersionID  whereHelpernull_Int
+	ProtocolIds     whereHelpertypes_Int64Array
 }{
 	ID:              whereHelperint{field: "\"raw_visits\".\"id\""},
 	CrawlID:         whereHelpernull_Int{field: "\"raw_visits\".\"crawl_id\""},
@@ -172,6 +184,8 @@ var RawVisitWhere = struct {
 	Error:           whereHelpernull_String{field: "\"raw_visits\".\"error\""},
 	ErrorMessage:    whereHelpernull_String{field: "\"raw_visits\".\"error_message\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"raw_visits\".\"created_at\""},
+	AgentVersionID:  whereHelpernull_Int{field: "\"raw_visits\".\"agent_version_id\""},
+	ProtocolIds:     whereHelpertypes_Int64Array{field: "\"raw_visits\".\"protocol_ids\""},
 }
 
 // RawVisitRels is where relationship names are stored.
@@ -191,8 +205,8 @@ func (*rawVisitR) NewStruct() *rawVisitR {
 type rawVisitL struct{}
 
 var (
-	rawVisitAllColumns            = []string{"id", "crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "error", "error_message", "created_at"}
-	rawVisitColumnsWithoutDefault = []string{"crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "error", "error_message", "created_at"}
+	rawVisitAllColumns            = []string{"id", "crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "error", "error_message", "created_at", "agent_version_id", "protocol_ids"}
+	rawVisitColumnsWithoutDefault = []string{"crawl_id", "visit_started_at", "visit_ended_at", "dial_duration", "connect_duration", "crawl_duration", "type", "agent_version", "peer_multi_hash", "protocols", "multi_addresses", "error", "error_message", "created_at", "agent_version_id", "protocol_ids"}
 	rawVisitColumnsWithDefault    = []string{"id"}
 	rawVisitPrimaryKeyColumns     = []string{"id"}
 )

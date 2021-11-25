@@ -8,10 +8,13 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/types"
+	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
@@ -27,18 +30,24 @@ type Persister struct {
 	crawl          *models.Crawl
 	persistedPeers int
 	done           chan struct{}
+	agentVersions  map[string]*models.AgentVersion
+	protocols      map[string]*models.Protocol
 }
 
 // NewPersister initializes a new persister based on the given configuration.
-func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Persister, error) {
+func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl, avs map[string]*models.AgentVersion, prot map[string]*models.Protocol) (*Persister, error) {
 	p := &Persister{
-		id:     fmt.Sprintf("crawler-%02d", crawlerID.Inc()),
-		config: conf,
-		dbc:    dbc,
-		crawl:  crawl,
-		done:   make(chan struct{}),
+		id:             fmt.Sprintf("persister-%02d", persisterID.Inc()),
+		config:         conf,
+		dbc:            dbc,
+		crawl:          crawl,
+		persistedPeers: 0,
+		done:           make(chan struct{}),
+		agentVersions:  avs,
+		protocols:      prot,
 	}
 	persisterID.Inc()
+
 	return p, nil
 }
 
@@ -91,8 +100,33 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 		Infoln("Persisted result from worker", cr.CrawlerID)
 }
 
+func (p *Persister) agentVersionID(agent string) *int {
+	av, found := p.agentVersions[agent]
+	if !found {
+		return nil
+	}
+	id := av.ID
+	return &id
+}
+
+func (p *Persister) parseProtocols(ctx context.Context, protocols []string) (types.StringArray, types.Int64Array) {
+	var protocolStrs []string
+	var protocolIDs []int64
+	for _, protocol := range protocols {
+		if p, found := p.protocols[protocol]; found {
+			stats.Record(ctx, metrics.ProtocolCacheHitCount.M(1))
+			protocolIDs = append(protocolIDs, int64(p.ID))
+		} else {
+			stats.Record(ctx, metrics.ProtocolCacheMissCount.M(1))
+			protocolStrs = append(protocolStrs, protocol)
+		}
+	}
+	return protocolStrs, protocolIDs
+}
+
 // insertRawVisit builds up a raw_visit database entry.
 func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
+	protocolStrs, protocolIDs := p.parseProtocols(ctx, cr.Protocols)
 	rv := &models.RawVisit{
 		CrawlID:         null.IntFrom(p.crawl.ID),
 		VisitStartedAt:  cr.CrawlStartTime,
@@ -100,12 +134,20 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 		ConnectDuration: null.StringFrom(fmt.Sprintf("%f seconds", cr.ConnectDuration().Seconds())),
 		CrawlDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.CrawlDuration().Seconds())),
 		PeerMultiHash:   cr.Peer.ID.Pretty(),
-		Protocols:       cr.Protocols,
+		Protocols:       protocolStrs,
+		ProtocolIds:     protocolIDs,
 		MultiAddresses:  utils.MaddrsToAddrs(cr.Peer.Addrs),
 		Type:            models.VisitTypeCrawl,
 	}
 	if cr.Agent != "" {
-		rv.AgentVersion = null.StringFrom(cr.Agent)
+		avID := p.agentVersionID(cr.Agent)
+		if avID != nil {
+			stats.Record(ctx, metrics.AgentVersionCacheHitCount.M(1))
+			rv.AgentVersionID = null.IntFromPtr(avID)
+		} else {
+			stats.Record(ctx, metrics.AgentVersionCacheMissCount.M(1))
+			rv.AgentVersion = null.StringFrom(cr.Agent)
+		}
 	}
 	if cr.Error != nil {
 		rv.Error = null.StringFrom(cr.DialError)

@@ -1552,7 +1552,7 @@ func testAgentVersionsSelect(t *testing.T) {
 }
 
 var (
-	agentVersionDBTypes = map[string]string{`ID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `AgentVersion`: `character varying`}
+	agentVersionDBTypes = map[string]string{`ID`: `integer`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `AgentVersion`: `text`}
 	_                   = bytes.MinRead
 )
 

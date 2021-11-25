@@ -75,7 +75,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		return nil, err
 	}
 
-	m := &Scheduler{
+	s := &Scheduler{
 		host:         h,
 		dbc:          dbc,
 		config:       conf,
@@ -84,7 +84,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		resultsQueue: queue.NewFIFO(),
 	}
 
-	return m, nil
+	return s, nil
 }
 
 // StartMonitoring starts the configured amount of dialers and fills
@@ -250,13 +250,10 @@ func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
 		PeerMultiHash:  cr.Peer.ID.Pretty(),
 		MultiAddresses: utils.MaddrsToAddrs(cr.Peer.Addrs),
 	}
+
 	if cr.Error != nil {
 		rv.Error = null.StringFrom(cr.DialError)
-		if len(cr.Error.Error()) > 255 {
-			rv.ErrorMessage = null.StringFrom(cr.Error.Error()[:255])
-		} else {
-			rv.ErrorMessage = null.StringFrom(cr.Error.Error())
-		}
+		rv.ErrorMessage = null.StringFrom(cr.Error.Error())
 	}
 
 	return s.dbc.InsertRawVisit(ctx, rv)

@@ -42,19 +42,13 @@ func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
 	// Extract full and core agent versions. Core agent versions are just strings like 0.8.0 or 0.5.0
 	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
 	avFull := map[string]int{}
-	avCore := map[string]int{}
 	for version, count := range s.agentVersion {
 		avFull[version] += count
-		matches := agentVersionRegex.FindStringSubmatch(version)
-		if matches != nil {
-			avCore[matches[1]] += count
-		}
 	}
 	pps := map[string]map[string]int{
-		"agent_version":      avFull,
-		"agent_version_core": avCore, // TODO: Not used currently
-		"protocol":           s.protocols,
-		"error":              s.errors,
+		"agent_version": avFull,
+		"protocol":      s.protocols,
+		"error":         s.errors,
 	}
 
 	return s.dbc.PersistCrawlProperties(ctx, s.crawl, pps)
