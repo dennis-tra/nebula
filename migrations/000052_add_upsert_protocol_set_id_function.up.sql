@@ -11,7 +11,7 @@ BEGIN
     -- filter duplicates and nulls from array and sort it ID ascending
     SELECT array(SELECT DISTINCT unnest(new_protocol_ids) WHERE 1 IS NOT NULL ORDER BY 1) INTO insert_protocol_set_ids;
 
-    IF insert_protocol_set_ids IS NULL OR array_length(insert_protocol_set_ids, 1) = 0 THEN
+    IF insert_protocol_set_ids IS NULL OR array_length(insert_protocol_set_ids, 1) IS NULL THEN
         RETURN NULL;
     END IF;
 

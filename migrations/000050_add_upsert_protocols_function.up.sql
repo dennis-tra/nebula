@@ -9,7 +9,7 @@ $upsert_protocols$
 DECLARE
     upserted_protocol_ids INT[];
 BEGIN
-    IF new_protocols IS NULL OR array_length(new_protocols, 1) = 0 THEN
+    IF new_protocols IS NULL OR array_length(new_protocols, 1) IS NULL THEN
         RETURN NULL;
     END IF;
 
@@ -28,7 +28,6 @@ BEGIN
     SELECT sort(array_agg(id))
     FROM protocols
     WHERE protocol = ANY (new_protocols)
-    GROUP BY id
     INTO upserted_protocol_ids;
 
     RETURN upserted_protocol_ids;
@@ -36,4 +35,3 @@ END;
 $upsert_protocols$ LANGUAGE plpgsql;
 
 COMMIT;
-
