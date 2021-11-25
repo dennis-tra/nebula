@@ -136,3 +136,4 @@ analysis/provide/server
 **/plots-*/
 
 **/*.vault
+**/ansible.cfg
