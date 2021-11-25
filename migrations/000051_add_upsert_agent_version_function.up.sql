@@ -21,7 +21,8 @@ BEGIN
     INSERT
     INTO agent_versions (agent_version, created_at, updated_at)
     SELECT insert_agent_versions.new_av, new_created_at, new_created_at
-    FROM insert_agent_versions;
+    FROM insert_agent_versions
+    ON CONFLICT DO NOTHING;
 
     SELECT id FROM agent_versions av WHERE av.agent_version = new_agent_version INTO agent_version_id;
 

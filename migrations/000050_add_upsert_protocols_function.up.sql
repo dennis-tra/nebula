@@ -23,7 +23,8 @@ BEGIN
     SELECT new_protocol,
            new_created_at,
            new_created_at
-    FROM insert_protocols;
+    FROM insert_protocols
+    ON CONFLICT DO NOTHING;
 
     SELECT sort(array_agg(id))
     FROM protocols
