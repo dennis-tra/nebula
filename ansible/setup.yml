@@ -1,23 +1,13 @@
 ---
 - name: Setup Nebula Host
   hosts: all
+  become: true
   vars_files:
     - ansible.vault
-  vars_prompt:
-    - name: ssh_public_key
-      prompt: "Please paste your SSH public key(s) [~/.ssh/id_rsa.pub] for password-less admin access"
-      private: no
-      default: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDBmEBOMiwbINECo9x6pwQB5+NkOgkVM9MrXeYHT+BHPBUWkNbM6uMALlQM0Rszx5Di3/xGdmyBB9szmXMpJUCzTK+0sFW/0lZRYBYGvJz257Xe0/tT6FFRHhPknrttjVqucXtj9nT81nBPwU0op1hpPOeYv3eUoh46pv8w0vJwB4FMqknQw3v6zhUrMzzG0zUgXCmSb2p6yuqVXcPwH5GtY3NSBAfNNR7BJ88LTqkrXlb77kUbtRhgZHy5QxAyo6cmgyfTAYYj0HHOjZjNYAa/CyJVF6lXb753oYQdKlDmO7KnTUAi7GDL6gQPYmlbhvmHjTORfzoGI9+dw0T219SeDFop1vgAu1pOdBUUr8cO+3yqE1NdyJTAOiKvHpJbJsEQgnPubf875QBy1s+A4ftjX2b0tGVmKGr+aV8EuDQPNM+aRwPtWMOKTBWX1NfHhsekRo1/FZtpBEh0rH57P9qpkgEVzoewTExghdm47TbkZOn5cDUYA+enlnswboE8stMTLQt4HhXOX2nf0EQJFHhx2R9z1DU1BiD5a+3kBHbphzJCn+MzuX6btMczNBZKTlHzmTbYFUmQ5JD4RhWcAsCBWd5lvkFkT5A6+WxeMePbTDhTJLdOuK/GKcIwyAHR1yLMZ+CDlCudOb5YfEwiOs3nIG4jC9U2JiUltSNYiH2tbw== dennis.trautwein@originstamp.com
-
   tasks:
     - name: Setting timezone to Europe/Berlin
       timezone:
         name: Europe/Berlin
-
-    - name: Changing root password
-      user:
-        name: root
-        password: "{{ root_password | password_hash('sha512') }}"
 
     - name: Disabling admin group sudo permissions
       lineinfile:
@@ -35,7 +25,6 @@
     - name: Adding {{ remote_user_name }} and assign it to groups sudo and docker
       user:
         name: "{{ remote_user_name }}"
-        password: "{{ remote_user_password | password_hash('sha512') }}"
         groups: sudo,docker
         shell: /bin/zsh
         append: yes
@@ -82,6 +71,17 @@
           - 'docker-compose'
         state: present
 
+    - name: Use docker-cn registry mirror
+      lineinfile:
+        dest: /etc/docker/daemon.json
+        line: '{ "registry-mirrors": ["https://registry.docker-cn.com"] }'
+        state: present
+        backup: yes
+      when: use_docker_mirror
+
+    - name: Reset current SSH connection to re-evaluate group membership
+      meta: reset_connection
+
     - name: Enabling UFW logging
       ufw:
         logging: "on"
@@ -104,12 +104,6 @@
     - name: Enabling UFW
       ufw:
         state: enabled
-
-    - name: Deploying SSH Public Key
-      authorized_key:
-        user: "{{ remote_user_name }}"
-        key: "{{ ssh_public_key }}"
-        state: present
 
     - name: Enabling Public Key Authentication
       lineinfile:
