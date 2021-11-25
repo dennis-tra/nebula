@@ -140,7 +140,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	}
 
 	// Start all crawlers
-	crawlers, crawlerCancel, err := s.startCrawlers(ctx)
+	crawlers, crawlerCtx, crawlerCancel, err := s.startCrawlers(ctx)
 	if err != nil {
 		return err
 	}
@@ -206,7 +206,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	}
 
 	// Persist the crawl results
-	if err := s.updateCrawl(context.Background(), len(s.inCrawlQueue) == 0); err != nil {
+	if err := s.updateCrawl(context.Background(), crawlerCtx, len(s.inCrawlQueue) == 0); err != nil {
 		return errors.Wrap(err, "persist crawl")
 	}
 
@@ -284,7 +284,7 @@ func (s *Scheduler) fetchCacheData(ctx context.Context) (map[string]*models.Agen
 
 // startCrawlers initializes Crawler structs and instructs them to read the crawlQueue to _start crawling_.
 // The returned cancelFunc can be used to stop the crawlers from reading from the crawlQueue and "shut down".
-func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.CancelFunc, error) {
+func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Context, context.CancelFunc, error) {
 	crawlerCtx, crawlerCancel := context.WithCancel(ctx)
 
 	var crawlers []*Crawler
@@ -292,13 +292,13 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Canc
 		c, err := NewCrawler(s.host, s.config)
 		if err != nil {
 			crawlerCancel()
-			return nil, nil, errors.Wrap(err, "new crawler")
+			return nil, nil, nil, errors.Wrap(err, "new crawler")
 		}
 		crawlers = append(crawlers, c)
 		go c.StartCrawling(crawlerCtx, s.crawlQueue, s.resultsQueue)
 	}
 
-	return crawlers, crawlerCancel, nil
+	return crawlers, crawlerCtx, crawlerCancel, nil
 }
 
 // startPersisters initializes Persister structs and instructs them to read the persistQueue to _start persisting_.
