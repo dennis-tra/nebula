@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
-
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // updateCrawl writes crawl statistics to the database
