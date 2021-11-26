@@ -14,7 +14,7 @@
     group: "{{ remote_user_name }}"
   with_items:
     - docker-compose.yml
-    - postgres.init.sql
+    - postgres.init.sh
     - prometheus.yml
     - docker-entrypoint.sh
     - grafana-dashboards.yml

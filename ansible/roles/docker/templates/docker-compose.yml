@@ -32,7 +32,7 @@ services:
       - "5432:5432"
     volumes:
       - psql_data:/var/lib/postgresql/data
-      - "./postgres.init.sql:/docker-entrypoint-initdb.d/postgres.init.sql"
+      - "./postgres.init.sh:/docker-entrypoint-initdb.d/postgres.init.sh"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nebula"]
       interval: 10s
