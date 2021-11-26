@@ -3,7 +3,10 @@
   hosts: all
   vars_files:
     - ansible.vault
+  vars:
+    ansible_user: "{{ remote_user_name }}"
   become_user: "{{ remote_user_name }}"
   roles:
     - { role: "docker", tags: "docker" }
     - { role: "deploy", tags: "deploy" }
+    - { role: "cron", tags: "cron" }

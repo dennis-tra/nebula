@@ -3,8 +3,6 @@ root_password: <GENERATE PASSWORD>
 remote_user_name: nebula
 remote_user_password: <GENERATE PASSWORD>
 
-ssh_public_key: <ADD_PUBLIC_KEY>
-
 db_user: nebula
 db_password: <GENERATE PASSWORD>
 db_name: nebula

@@ -1,0 +1,15 @@
+- name: Creating log directories
+  file:
+    path: /home/{{ remote_user_name }}/logs/{{ item.name }}
+    state: directory
+    owner: "{{ remote_user_name }}"
+    group: "{{ remote_user_name }}"
+  with_items: "{{ networks }}"
+
+- name: Adding crawl cron jobs
+  cron:
+    name: "crawl {{ item.name }}"
+    minute: "{{ item.crawl_cron_minutes }}"
+    job: 'docker run --rm --name nebula_crawl_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula -a stdout -a stderr {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json crawl --neighbors 2> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-crawl-stderr.log 1> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-crawl-stderr.log'
+  with_items: "{{ networks }}"
+
