@@ -5,6 +5,7 @@
     - ansible.vault
   vars:
     ansible_user: "{{ remote_user_name }}"
+    ansible_sudo_pass: "{{ remote_user_password }}"
   become: true
   tasks:
     - name: Setting timezone to Europe/Berlin
@@ -23,15 +24,6 @@
       group:
         name: docker
         state: present
-
-    - name: Adding {{ remote_user_name }} and assign it to groups sudo and docker
-      user:
-        name: "{{ remote_user_name }}"
-        groups: sudo,docker
-        shell: /bin/zsh
-        append: yes
-        state: present
-        createhome: yes
 
     - name: Adding Docker GPG apt Key
       apt_key:
@@ -72,6 +64,15 @@
           - 'docker'
           - 'docker-compose'
         state: present
+
+    - name: Adding {{ remote_user_name }} to groups sudo and docker and change shell to zsh
+      user:
+        name: "{{ remote_user_name }}"
+        groups: sudo,docker
+        shell: /bin/zsh
+        append: yes
+        state: present
+        createhome: yes
 
     - name: Touch a file, using symbolic modes to set the permissions (equivalent to 0644)
       file:

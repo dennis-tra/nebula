@@ -7,7 +7,7 @@
     - ansible.vault
   vars_prompt:
     - name: ssh_public_key
-      prompt: "Please paste your SSH public key(s) [~/.ssh/id_rsa.pub] for user {{ remote_user_name }}"
+      prompt: "Please paste your SSH public key(s) [~/.ssh/id_rsa.pub] for the user {{ remote_user_name }}"
       private: no
   tasks:
     - name: Changing root password
@@ -20,7 +20,7 @@
         name: "{{ remote_user_name }}"
         password: "{{ remote_user_password | password_hash('sha512') }}"
         groups: sudo
-        shell: /bin/zsh
+        shell: /bin/bash
         append: yes
         state: present
         createhome: yes
@@ -34,7 +34,7 @@
     - name: Enabling Public Key Authentication
       lineinfile:
         dest: /etc/ssh/sshd_config
-        regexp: '^(#\s*)?PubkeyAuthentication\s+no'
+        regexp: '^(#\s*)?PubkeyAuthentication'
         line: "PubkeyAuthentication yes"
         state: present
         backup: yes

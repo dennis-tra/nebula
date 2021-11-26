@@ -21,7 +21,7 @@ The configuration parameters have comments close to them.
 
 By editing items under the `networks` key you can add and remove networks that will be crawled and monitored.
 
-## Preparing Host VM 
+## `root.yml` - Preparing Host VM 
 
 If you rented a VM and have root access then run this command first:
 
@@ -31,15 +31,15 @@ ansible-playbook -i ansible.cfg root.yml
 
 This script will change the password of the `root` user, add new user to the `sudo` group and enable public key authentication.
 
-## Setting Up Host VM
+## `setup.yml` - Setting Up Host VM
+
+This script assumes that on the remote system exists a user name `{{ remote_user_name }}` (see `ansible.vault.example`) that has sudo rights.
 
 ```shell
 ansible-playbook -i ansible.cfg setup.yml
 ```
 
-In China:
-
-`/etc/docker/daemon.json`:
+If your node is in China set `use_docker_mirror` to true in your `ansible.cfg`. This will add the following JSON to `/etc/docker/daemon.json`:
 
 ```json
 {
@@ -48,8 +48,9 @@ In China:
   ]
 }
 ```
-and run instead:
+
+## `deploy.yml` - Deploying the Docker  Containers
 
 ```shell
-ansible-playbook --ask-sudo-pass -i ansible.cfg setup.yml --extra-vars "use_docker_mirror=true"
+ansible-playbook -i ansible.cfg deploy.yml
 ```
