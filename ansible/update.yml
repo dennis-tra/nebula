@@ -8,5 +8,5 @@
   become_user: "{{ remote_user_name }}"
   roles:
     - { role: "docker", tags: "docker" }
-    - { role: "update", tags: "update" }
     - { role: "cron", tags: "cron" }
+    - { role: "restart", tags: "restart" }

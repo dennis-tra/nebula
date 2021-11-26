@@ -1,8 +1,3 @@
-
-- name: Create all databases and users
-  command:
-    cmd: docker run --rm --network nebula -e PGPASSWORD={{ db_password }} -v "/home/{{ remote_user_name }}/docker/postgres.init.sh:/postgres.init.sh" postgres:13 /postgres.init.sh
-
 - name: Restarting Grafana
   docker_compose:
     state: present
