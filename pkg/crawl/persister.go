@@ -149,13 +149,9 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 			rv.AgentVersion = null.StringFrom(cr.Agent)
 		}
 	}
-	if cr.Error != nil {
-		rv.Error = null.StringFrom(cr.DialError)
-		if len(cr.Error.Error()) > 255 {
-			rv.ErrorMessage = null.StringFrom(cr.Error.Error()[:255])
-		} else {
-			rv.ErrorMessage = null.StringFrom(cr.Error.Error())
-		}
+	if cr.ConnectError != nil {
+		rv.Error = null.StringFrom(cr.ConnectErrorStr)
+		rv.ErrorMessage = null.StringFrom(cr.ConnectError.Error())
 	}
 
 	return p.dbc.InsertRawVisit(ctx, rv)

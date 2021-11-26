@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"contrib.go.opencensus.io/integrations/ocsql"
 	_ "github.com/lib/pq"
@@ -162,12 +163,14 @@ func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextE
 	)
 }
 
-func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, neighbors []peer.ID) error {
+func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, errorBits uint16, neighbors []peer.ID) error {
 	neighborMHashes := make([]string, len(neighbors))
 	for i, neighbor := range neighbors {
 		neighborMHashes[i] = neighbor.Pretty()
 	}
-	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3)", crawl.ID, peerID.Pretty(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ","))).Query(c.dbh)
+	// postgres does not support unsigned integers. So we interpret the uint16 as an int16
+	bitMask := *(*int16)(unsafe.Pointer(&errorBits))
+	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)", crawl.ID, peerID.Pretty(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")), bitMask).Query(c.dbh)
 	if err != nil {
 		return err
 	}

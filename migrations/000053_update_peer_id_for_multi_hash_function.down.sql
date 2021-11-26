@@ -1,5 +1,7 @@
 BEGIN;
 
+ALTER TABLE neighbors DROP COLUMN error_bits;
+
 DROP FUNCTION peer_id_for_multi_hash;
 DROP FUNCTION insert_neighbors;
 

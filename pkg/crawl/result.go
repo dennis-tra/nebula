@@ -15,7 +15,7 @@ type Result struct {
 	Peer peer.AddrInfo
 
 	// The neighbors of the crawled peer
-	Neighbors []peer.AddrInfo
+	RoutingTable *RoutingTable
 
 	// The agent version of the crawled peer
 	Agent string
@@ -23,11 +23,14 @@ type Result struct {
 	// The protocols the peer supports
 	Protocols []string
 
-	// Any error that has occurred during the crawl
-	Error error
+	// Any error that has occurred when connecting to the peer
+	ConnectError error
 
 	// The above error transferred to a known error
-	DialError string
+	ConnectErrorStr string
+
+	// Any error that has occurred during fetching neighbor information
+	CrawlError error
 
 	// When was the crawl started
 	CrawlStartTime time.Time

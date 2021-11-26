@@ -101,17 +101,18 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 		CrawlerID:      c.id,
 		Peer:           utils.FilterPrivateMaddrs(pi),
 		CrawlStartTime: time.Now(),
+		RoutingTable:   &RoutingTable{PeerID: pi.ID},
 	}
 
 	cr.ConnectStartTime = time.Now()
-	cr.Error = c.connect(ctx, cr.Peer) // use filtered addr list
+	cr.ConnectError = c.connect(ctx, cr.Peer) // use filtered addr list
 	cr.ConnectEndTime = time.Now()
 
 	// If we could successfully connect to the peer we actually crawl it.
-	if cr.Error == nil {
+	if cr.ConnectError == nil {
 
 		// Fetch all neighbors
-		cr.Neighbors, cr.Error = c.fetchNeighbors(ctx, pi)
+		cr.RoutingTable, cr.CrawlError = c.fetchNeighbors(ctx, pi)
 
 		// Extract information from peer store
 		ps := c.host.Peerstore()
@@ -127,8 +128,8 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 		}
 	}
 
-	if cr.Error != nil {
-		cr.DialError = db.DialError(cr.Error)
+	if cr.ConnectError != nil {
+		cr.ConnectErrorStr = db.DialError(cr.ConnectError)
 	}
 
 	// Free connection resources
@@ -169,7 +170,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
 // of 15 random peer IDs with increasing common prefix lengths (CPL). The returned peers are streamed
 // to the results channel.
-func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.AddrInfo, error) {
+func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*RoutingTable, error) {
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
 		return nil, err
@@ -178,6 +179,12 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 	allNeighborsLk := sync.RWMutex{}
 	allNeighbors := map[peer.ID]peer.AddrInfo{}
 
+	// errorBits tracks at which CPL errors have occurred.
+	// 0000 0000 0000 0000 - No error
+	// 0000 0000 0000 0001 - An error has occurred at CPL 0
+	// 1000 0000 0000 0001 - An error has occurred at CPL 0 and 15
+	errorBits := atomic.NewUint32(0)
+
 	errg := errgroup.Group{}
 	for i := uint(0); i <= 15; i++ { // 15 is maximum
 		count := i // Copy value
@@ -185,11 +192,13 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 			// Generate a peer with the given common prefix length
 			rpi, err := rt.GenRandPeerID(count)
 			if err != nil {
+				errorBits.Add(1 << count)
 				return errors.Wrapf(err, "generating random peer ID with CPL %d", count)
 			}
 
 			neighbors, err := c.pm.GetClosestPeers(ctx, pi.ID, rpi)
 			if err != nil {
+				errorBits.Add(1 << count)
 				return errors.Wrapf(err, "getting closest peer with CPL %d", count)
 			}
 
@@ -204,10 +213,16 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) ([]peer.
 	err = errg.Wait()
 	stats.Record(ctx, metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))))
 
-	var allNeighborsList []peer.AddrInfo
-	for _, n := range allNeighbors {
-		allNeighborsList = append(allNeighborsList, n)
+	routingTable := &RoutingTable{
+		PeerID:    pi.ID,
+		Neighbors: []peer.AddrInfo{},
+		ErrorBits: uint16(errorBits.Load()),
+		Error:     err,
 	}
 
-	return allNeighborsList, err
+	for _, n := range allNeighbors {
+		routingTable.Neighbors = append(routingTable.Neighbors, n)
+	}
+
+	return routingTable, err
 }

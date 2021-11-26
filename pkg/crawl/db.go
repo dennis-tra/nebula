@@ -65,20 +65,20 @@ func (s *Scheduler) persistNeighbors() {
 	start := time.Now()
 	neighborsCount := 0
 	i := 0
-	for p, neighbors := range s.neighbors {
+	for p, routingTable := range s.routingTables {
 		if i%100 == 0 && i > 0 {
 			log.Infof("Persisted %d peers and their neighbors", i)
 		}
 		i++
-		neighborsCount += len(neighbors)
-		if err := s.dbc.PersistNeighbors(s.crawl, p, neighbors); err != nil {
+		neighborsCount += len(routingTable.Neighbors)
+		if err := s.dbc.PersistNeighbors(s.crawl, p, routingTable.ErrorBits, routingTable.PeerIDs()); err != nil {
 			log.WithError(err).WithField("peerID", utils.FmtPeerID(p)).Warnln("Could not persist neighbors")
 		}
 	}
 	log.WithFields(log.Fields{
 		"duration":       time.Since(start),
-		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(s.neighbors))*1000),
-		"peers":          len(s.neighbors),
+		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(s.routingTables))*1000),
+		"peers":          len(s.routingTables),
 		"totalNeighbors": neighborsCount,
 	}).Infoln("Finished persisting neighbor information")
 }

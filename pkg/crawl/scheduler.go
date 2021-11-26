@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
@@ -74,7 +75,7 @@ type Scheduler struct {
 	errors map[string]int
 
 	// A map that keeps track of all k-bucket entries of a particular peer.
-	neighbors map[peer.ID][]peer.ID
+	routingTables map[peer.ID]*RoutingTable
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -99,18 +100,18 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	}
 
 	s := &Scheduler{
-		host:         h,
-		dbc:          dbc,
-		config:       conf,
-		inCrawlQueue: map[peer.ID]peer.AddrInfo{},
-		crawled:      map[peer.ID]peer.AddrInfo{},
-		crawlQueue:   queue.NewFIFO(),
-		resultsQueue: queue.NewFIFO(),
-		persistQueue: queue.NewFIFO(),
-		agentVersion: map[string]int{},
-		protocols:    map[string]int{},
-		errors:       map[string]int{},
-		neighbors:    map[peer.ID][]peer.ID{},
+		host:          h,
+		dbc:           dbc,
+		config:        conf,
+		inCrawlQueue:  map[peer.ID]peer.AddrInfo{},
+		crawled:       map[peer.ID]peer.AddrInfo{},
+		crawlQueue:    queue.NewFIFO(),
+		resultsQueue:  queue.NewFIFO(),
+		persistQueue:  queue.NewFIFO(),
+		agentVersion:  map[string]int{},
+		protocols:     map[string]int{},
+		errors:        map[string]int{},
+		routingTables: map[peer.ID]*RoutingTable{},
 	}
 
 	return s, nil
@@ -364,7 +365,7 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
 		"remoteID":   utils.FmtPeerID(cr.Peer.ID),
-		"isDialable": cr.Error == nil,
+		"isDialable": cr.ConnectError == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
 
@@ -387,24 +388,28 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 		s.protocols[p] += 1
 	}
 
-	// Log error or schedule new crawls
-	if cr.Error == nil {
-		neighbors := make([]peer.ID, len(cr.Neighbors))
-		for i, pi := range cr.Neighbors {
-			neighbors[i] = pi.ID
-			s.tryScheduleCrawl(ctx, pi)
-		}
+	// Schedule crawls of all found neighbors.
+	// If the connection to the peer failed: cr.RoutingTable will be null -> no problem
+	// If the crawl (fetching neighbors) failed: cr.RoutingTable can be partially filled if some queries succeeded
+	// That's why we don't check the error here.
+	for _, rt := range cr.RoutingTable.Neighbors {
+		s.tryScheduleCrawl(ctx, rt)
+	}
 
-		if s.config.PersistNeighbors {
-			s.neighbors[cr.Peer.ID] = neighbors
+	if cr.ConnectError == nil {
+		// Only track the neighbors if we were actually able to connect to the peer. Otherwise, we would track
+		// an empty routing table of that peer. Only track the routing table in the neighbors table if at least
+		// one FIND_NODE RPC succeeded.
+		if s.config.PersistNeighbors && cr.RoutingTable.ErrorBits < math.MaxUint16 {
+			s.routingTables[cr.Peer.ID] = cr.RoutingTable
 		}
-	} else {
-		// Count errors
-		s.errors[cr.DialError] += 1
-		if cr.DialError == models.DialErrorUnknown {
-			logEntry = logEntry.WithError(cr.Error)
+	} else if cr.ConnectError != nil {
+		// Log and count errors
+		s.errors[cr.ConnectErrorStr] += 1
+		if cr.ConnectErrorStr == models.DialErrorUnknown {
+			logEntry = logEntry.WithError(cr.ConnectError)
 		} else {
-			logEntry = logEntry.WithField("dialErr", cr.DialError)
+			logEntry = logEntry.WithField("dialErr", cr.ConnectErrorStr)
 		}
 	}
 
@@ -466,4 +471,28 @@ func (s *Scheduler) TotalErrors() int {
 		sum += count
 	}
 	return sum
+}
+
+// RoutingTable captures the routing table information and crawl error of a particular peer
+type RoutingTable struct {
+	// PeerID is the peer whose neighbors (routing table entries) are in the array below.
+	PeerID peer.ID
+	// The peers that are in the routing table of the above peer
+	Neighbors []peer.AddrInfo
+	// First error that has occurred during crawling that peer
+	Error error
+	// Little Endian representation of at which CPLs errors occurred during neighbors fetches.
+	// errorBits tracks at which CPL errors have occurred.
+	// 0000 0000 0000 0000 - No error
+	// 0000 0000 0000 0001 - An error has occurred at CPL 0
+	// 1000 0000 0000 0001 - An error has occurred at CPL 0 and 15
+	ErrorBits uint16
+}
+
+func (rt *RoutingTable) PeerIDs() []peer.ID {
+	peerIDs := make([]peer.ID, len(rt.Neighbors))
+	for i, neighbor := range rt.Neighbors {
+		peerIDs[i] = neighbor.ID
+	}
+	return peerIDs
 }

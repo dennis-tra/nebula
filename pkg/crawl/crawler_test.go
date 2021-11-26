@@ -64,12 +64,12 @@ func TestCrawler_handleCrawlJob_unlinked(t *testing.T) {
 	}
 
 	result := crawler.handleCrawlJob(ctx, pi)
-	assert.Error(t, result.Error)
+	assert.Error(t, result.ConnectError)
 	assert.NotZero(t, result.CrawlStartTime)
 	assert.NotZero(t, result.CrawlEndTime)
 	assert.NotZero(t, result.ConnectStartTime)
 	assert.NotZero(t, result.ConnectEndTime)
 	assert.Zero(t, result.Agent)
-	assert.Nil(t, result.Neighbors)
+	assert.Nil(t, result.RoutingTable.Neighbors)
 	assert.Equal(t, pi, result.Peer)
 }
