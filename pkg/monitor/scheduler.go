@@ -70,7 +70,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		return nil, err
 	}
 
-	h, err := libp2p.New(libp2p.Identity(priv), libp2p.NoListenAddrs)
+	h, err := libp2p.New(libp2p.Identity(priv), libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
 	if err != nil {
 		return nil, err
 	}

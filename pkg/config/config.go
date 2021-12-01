@@ -51,6 +51,9 @@ var DefaultConfig = Config{
 
 // Config contains general user configuration.
 type Config struct {
+	// The version string of nebula
+	Version string `json:"-"`
+
 	// The path where the configuration file is located.
 	Path string `json:"-"`
 
@@ -222,6 +225,8 @@ func read(path string) (*Config, error) {
 
 // apply takes command line arguments and overwrites the respective configurations.
 func (c *Config) apply(ctx *cli.Context) {
+	c.Version = ctx.App.Version
+
 	if ctx.IsSet("workers") {
 		if ctx.Command.Name == "crawl" {
 			c.CrawlWorkerCount = ctx.Int("workers")
