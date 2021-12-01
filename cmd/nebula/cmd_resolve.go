@@ -28,13 +28,6 @@ var ResolveCommand = &cli.Command{
 			DefaultText: "100",
 			Value:       100,
 		},
-		&cli.BoolFlag{
-			Name:        "unresolved",
-			Usage:       "Whether to only resolve the yet unresolved multi addresses",
-			EnvVars:     []string{"NEBULA_RESOLVE_UNRESOLVED"},
-			DefaultText: "false",
-			Value:       false,
-		},
 	},
 }
 
@@ -64,7 +57,6 @@ func ResolveAction(c *cli.Context) error {
 		return err
 	}
 
-	offset := 0
 	limit := c.Int("batch-size")
 
 	// Track the beginning of the resolution and put it to every association
@@ -72,27 +64,28 @@ func ResolveAction(c *cli.Context) error {
 	// shifts in ip addresses behind e.g., dnsaddr multi addresses.
 	resolutionTime := time.Now()
 
+	// lastID tracks the highest ID of the set of fetched multi addresses. It could be that the last multi address
+	// in dbmaddrs below can't be resolved to a proper IP address. This means we would not add an entry in the
+	// multi_address_x_ip_address table. The next round we fetch all multi addresses where the id is larger then
+	// the maximum id in the multi_address_x_ip_address. Since we could not resolve and hence have not inserted
+	// the last multi address we fetch it again and try to resolve it again... basically and endless loop. So we
+	// keep track of the last ID and if they are equal we break out.
+	lastID := 0
+
 	// Start the main loop
 	for {
 		log.Infoln("Fetching multi addresses...")
-
-		var err error
-		var dbmaddrs models.MultiAddressSlice
-		if c.Bool("unresolved") {
-			dbmaddrs, err = dbc.FetchUnresolvedMultiAddresses(c.Context, offset, limit)
-		} else {
-			dbmaddrs, err = dbc.FetchMultiAddresses(c.Context, offset, limit)
-		}
+		dbmaddrs, err := dbc.FetchUnresolvedMultiAddresses(c.Context, limit)
 		if err != nil {
 			return errors.Wrap(err, "fetching multi addresses")
 		}
-		offset += limit
 		log.Infof("Fetched %d multi addresses", len(dbmaddrs))
 
 		// No new multi addresses to resolve
-		if len(dbmaddrs) == 0 {
+		if len(dbmaddrs) == 0 || lastID == dbmaddrs[len(dbmaddrs)-1].ID {
 			break
 		}
+		lastID = dbmaddrs[len(dbmaddrs)-1].ID
 
 		// Save the resolved IP addresses + their countries in a transaction
 		txn, err := dbh.BeginTx(c.Context, nil)

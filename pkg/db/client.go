@@ -297,18 +297,10 @@ func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, err
 	).All(ctx, c.dbh)
 }
 
-func (c *Client) FetchMultiAddresses(ctx context.Context, offset int, limit int) (models.MultiAddressSlice, error) {
+func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
 	return models.MultiAddresses(
-		qm.Offset(offset),
-		qm.Limit(limit),
-	).All(ctx, c.dbh)
-}
-
-func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, offset int, limit int) (models.MultiAddressSlice, error) {
-	return models.MultiAddresses(
-		qm.LeftOuterJoin(models.TableNames.MultiAddressesXIPAddresses+" maxia on maxia."+models.MultiAddressesXIPAddressColumns.MultiAddressID+" = "+models.TableNames.MultiAddresses+".id"),
-		qm.Where("maxia."+models.MultiAddressesXIPAddressColumns.MultiAddressID+" IS NULL"),
-		qm.Offset(offset),
+		qm.Where(models.MultiAddressColumns.ID+" > coalesce((SELECT max("+models.MultiAddressesXIPAddressColumns.MultiAddressID+") FROM "+models.TableNames.MultiAddressesXIPAddresses+"), 0)"),
+		qm.OrderBy(models.MultiAddressColumns.ID),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
 }
