@@ -7,10 +7,12 @@
 Add a line to the `ansible.cfg` file with IP-Address or host name of your VM under `hosts`:
 
 ```ini
-[root]
+[hosts]
+# hosts where you have SSH access to a user in the sudo group (the scripts expect the username to be nebula)
 123.456.123.456 ansible_connection=ssh ansible_user=nebula ansible_python_interpreter=/usr/bin/python3
 
-[nebula]
+[root]
+# hosts where you have SSH access to the root user
 123.456.123.456 ansible_connection=ssh ansible_user=nebula ansible_python_interpreter=/usr/bin/python3
 ```
 
