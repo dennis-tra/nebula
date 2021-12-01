@@ -13,6 +13,7 @@ docker_tag: sha-cf57801
 networks:
   - name: ipfs
     crawl_cron_minutes: "0,30"
+    resolve_cron_minutes: "4,34"
     db_password: <GENERATE PASSWORD>
     db_password_read: <GENERATE PASSWORD>
     prom_port: 7000
@@ -27,6 +28,7 @@ networks:
       - "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ"
   - name: polkadot
     crawl_cron_minutes: "5,35"
+    resolve_cron_minutes: "9,39"
     db_password: <GENERATE PASSWORD>
     db_password_read: <GENERATE PASSWORD>
     prom_port: 7002
@@ -44,6 +46,7 @@ networks:
       - "/dns/cc1-1.parity.tech/tcp/30333/p2p/12D3KooWFN2mhgpkJsDBuNuE5427AcDrsib8EoqGMZmkxWwx3Md4"
   - name: kusama
     crawl_cron_minutes: "10,40"
+    resolve_cron_minutes: "14,44"
     db_password: <GENERATE PASSWORD>
     db_password_read: <GENERATE PASSWORD>
     prom_port: 7003
@@ -62,6 +65,7 @@ networks:
       - "/dns/kusama-bootnode-1.paritytech.net/tcp/30333/p2p/12D3KooWQKqane1SqWJNWMQkbia9qiMWXkcHtAdfW5eVF8hbwEDw"
   - name: filecoin
     crawl_cron_minutes: "15,45"
+    resolve_cron_minutes: "19,49"
     db_password: My5gtACNcs2MUGsoFZX4iudnFZaYLT2tswlF4NEi
     db_password_read: ELWpWcMTKW0VsF8Oko8Q5ZwpMuQyJfniT1iimlT2
     prom_port: 7001

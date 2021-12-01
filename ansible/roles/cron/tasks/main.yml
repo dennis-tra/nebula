@@ -13,3 +13,10 @@
     job: 'docker run --rm --name nebula_crawl_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula -a stdout -a stderr {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json --log-level=3 crawl --neighbors 2> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-crawl-stderr.log 1> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-crawl-stderr.log'
   with_items: "{{ networks }}"
 
+- name: Adding resolve cron jobs
+  cron:
+    name: "resolve {{ item.name }}"
+    minute: "{{ item.resolve_cron_minutes }}"
+    job: 'docker run --rm --name nebula_resolve_{{ item.name }} -v /home/{{ remote_user_name }}/docker/nebula.config.{{ item.name }}.json:/nebula.config.{{ item.name }}.json --network nebula -a stdout -a stderr {{ docker_image }}:{{ docker_tag }} nebula --config /nebula.config.{{ item.name }}.json --log-level=3 resolve --batch-size=10000 2> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-resolve-stderr.log 1> /home/{{ remote_user_name }}/logs/{{ item.name }}/$(date "+\%H-\%M")-resolve-stderr.log'
+  with_items: "{{ networks }}"
+
