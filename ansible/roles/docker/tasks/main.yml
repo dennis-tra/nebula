@@ -19,6 +19,7 @@
     - docker-entrypoint.sh
     - grafana-dashboards.yml
     - grafana-datasources.yml
+    - grafana.ini
 
 - name: Copying crawl configuration files
   template:

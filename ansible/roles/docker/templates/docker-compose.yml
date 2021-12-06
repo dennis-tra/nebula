@@ -64,6 +64,7 @@ services:
     volumes:
       - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
+      - ./grafana.ini:/etc/grafana/grafana.ini
 #       - ./dashboards:/var/lib/grafana/dashboards
       - grafana_data:/var/lib/grafana
     networks:
