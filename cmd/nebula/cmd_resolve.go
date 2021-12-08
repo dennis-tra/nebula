@@ -94,7 +94,7 @@ func ResolveAction(c *cli.Context) error {
 		}
 
 		for _, dbmaddr := range dbmaddrs {
-			log.Infoln("Resolving", dbmaddr.Maddr)
+			log.Debugln("Resolving", dbmaddr.Maddr)
 			maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
 			if err != nil {
 				log.WithError(err).Warnln("Error parsing multi address")
