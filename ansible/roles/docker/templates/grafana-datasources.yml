@@ -2,7 +2,7 @@ apiVersion: 1
 datasources:
  - name: Nebula Prometheus
    type: prometheus
-   url: prometheus:9090
+   url: http://prometheus:9090
    isDefault: true
 {% for network in networks %}
  - name: Postgres Nebula {{ network.name }}
