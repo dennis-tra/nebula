@@ -14,10 +14,10 @@
       - prometheus
     project_src: /home/{{ remote_user_name }}/docker
 
-# - name: Restarting Nebula Monitors
-#   docker_compose:
-#     state: present
-#     restarted: true
-#     services: "nebula_monitor_{{ item.name }}"
-#     project_src: /home/{{ remote_user_name }}/docker
-#   with_items: "{{ networks }}"
+- name: Restarting Nebula Monitors
+  docker_compose:
+    state: present
+    restarted: true
+    services: "nebula_monitor_{{ item.name }}"
+    project_src: /home/{{ remote_user_name }}/docker
+  with_items: "{{ networks }}"
