@@ -8,7 +8,7 @@ db_password: <GENERATE PASSWORD>
 db_name: nebula
 
 docker_image: dennistra/nebula-crawler
-docker_tag: sha-cf57801
+docker_tag: sha-5e0b154
 
 networks:
   - name: ipfs

@@ -2,7 +2,7 @@ version: "3.9"
 services:
 {% for network in networks %}
   nebula_monitor_{{ network.name }}:
-    image: "{{ docker_image }}:{{ docker_tag}}"
+    image: "{{ docker_image }}:{{ docker_tag }}"
     container_name: nebula_monitor_{{ network.name }}
     restart: always
     user: nebula
