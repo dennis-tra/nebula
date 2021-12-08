@@ -57,7 +57,7 @@ services:
       nebula:
   grafana: # default - user: admin, pw: admin
     container_name: nebula_grafana
-    image: grafana/grafana:7.5.9
+    image: grafana/grafana:8.3.1
     restart: always
     ports:
       - "3000:3000"
