@@ -66,8 +66,8 @@ networks:
   - name: filecoin
     crawl_cron_minutes: "15,45"
     resolve_cron_minutes: "19,49"
-    db_password: My5gtACNcs2MUGsoFZX4iudnFZaYLT2tswlF4NEi
-    db_password_read: ELWpWcMTKW0VsF8Oko8Q5ZwpMuQyJfniT1iimlT2
+    db_password: <GENERATE PASSWORD>
+    db_password_read: <GENERATE PASSWORD>
     prom_port: 7001
     pprof_port: 6001
     protocols:
