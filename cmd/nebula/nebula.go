@@ -10,11 +10,12 @@ import (
 	"strings"
 	"syscall"
 
+	_ "net/http/pprof"
+
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	_ "net/http/pprof"
 )
 
 var (
@@ -121,6 +122,13 @@ func main() {
 				EnvVars:     []string{"NEBULA_DATABASE_USER"},
 				DefaultText: config.DefaultConfig.DatabaseUser,
 				Value:       config.DefaultConfig.DatabaseUser,
+			},
+			&cli.StringFlag{
+				Name:        "db-ssl",
+				Usage:       "The sslmode to use when connecting the the database",
+				EnvVars:     []string{"NEBULA_DATABASE_SSL"},
+				DefaultText: config.DefaultConfig.DatabaseSSL,
+				Value:       config.DefaultConfig.DatabaseSSL,
 			},
 			&cli.StringSliceFlag{
 				Name:        "protocols",

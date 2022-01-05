@@ -45,6 +45,7 @@ var DefaultConfig = Config{
 	DatabaseName:        "nebula",
 	DatabasePassword:    "password",
 	DatabaseUser:        "nebula",
+	DatabaseSSL:         "prefer",
 	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
 	RefreshRoutingTable: false,
 }
@@ -110,6 +111,9 @@ type Config struct {
 
 	// Determines the username with which we access the database.
 	DatabaseUser string
+
+	// Postgres SSL mode (should be one supported in https://www.postgresql.org/docs/current/libpq-ssl.html)
+	DatabaseSSL string
 
 	// The list of protocols that this crawler should look for.
 	Protocols []string
