@@ -47,12 +47,13 @@ func InitClient(conf *config.Config) (*Client, error) {
 
 	// Open database handle
 	srcName := fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=require",
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
 		conf.DatabaseHost,
 		conf.DatabasePort,
 		conf.DatabaseName,
 		conf.DatabaseUser,
 		conf.DatabasePassword,
+		conf.DatabaseSSL,
 	)
 	dbh, err := sql.Open(driverName, srcName)
 	if err != nil {
