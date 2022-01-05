@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   nebula_monitor:
-    image: dennis-tra/nebula-crawler:latest
+    image: coryschwartz/nebula-crawler:latest
     container_name: nebula_monitor
     restart: always
     user: nebula
@@ -14,6 +14,7 @@ services:
       NEBULA_DATABASE_NAME: nebula
       NEBULA_DATABASE_USER: nebula
       NEBULA_DATABASE_PASSWORD: password # TODO: unsafe
+      NEBULA_DATABASE_SSL: disable
       NEBULA_PROMETHEUS_PORT: 6667
       NEBULA_PPROF_PORT: 6100
     depends_on:
