@@ -277,6 +277,9 @@ func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("db-user") {
 		c.DatabaseUser = ctx.String("db-user")
 	}
+	if ctx.IsSet("db-ssl") {
+		c.DatabaseSSL = ctx.String("db-ssl")
+	}
 	if ctx.IsSet("protocols") {
 		c.Protocols = ctx.StringSlice("protocols")
 	}
