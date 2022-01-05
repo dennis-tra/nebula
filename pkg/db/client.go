@@ -47,7 +47,7 @@ func InitClient(conf *config.Config) (*Client, error) {
 
 	// Open database handle
 	srcName := fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=disable",
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=require",
 		conf.DatabaseHost,
 		conf.DatabasePort,
 		conf.DatabaseName,

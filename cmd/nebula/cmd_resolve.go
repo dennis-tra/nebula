@@ -121,7 +121,7 @@ func ResolveAction(c *cli.Context) error {
 					boil.Whitelist(models.IPAddressColumns.UpdatedAt), // need to update at least one field to retrieve the ID
 					boil.Infer(),
 				); err != nil {
-					log.WithError(err).Warnln("Could not upsert ip address %s", ipaddr)
+					log.WithError(err).Warnf("Could not upsert ip address %s\n", ipaddr.Address)
 					continue
 				}
 
@@ -136,7 +136,7 @@ func ResolveAction(c *cli.Context) error {
 					models.MultiAddressesXIPAddressColumns.ResolvedAt,
 					models.MultiAddressesXIPAddressColumns.IPAddressID,
 				}, boil.None(), boil.Infer()); err != nil {
-					log.WithError(err).Warnln("Could not add ip address %s to db multi address", ipaddr)
+					log.WithError(err).Warnf("Could not add ip address %s to db multi address\n", ipaddr.Address)
 					continue
 				}
 			}
