@@ -8,14 +8,20 @@
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
         "type": "dashboard"
       }
     ]
   },
   "editable": true,
-  "gnetId": null,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": 608,
   "links": [
     {
       "asDropdown": false,
@@ -74,7 +80,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "time_series",
@@ -151,7 +157,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "table",
@@ -244,7 +250,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "time_series",
@@ -321,7 +327,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "table",
@@ -431,11 +437,12 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version_core'\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  agent_version\nFROM crawl_properties cp INNER JOIN agent_versions a ON cp.agent_version_id = a.id\nWHERE\n  $__timeFilter(cp.updated_at) and\n  count > 100 and\n  position('go-ipfs' in agent_version)>0\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -534,12 +541,13 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count >= 100 AND\n  value != '' AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  agent_version,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN agent_versions a ON cp.agent_version_id = a.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  count > 100 AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -593,104 +601,6 @@
                 "100"
               ],
               "type": "expression"
-            }
-          ]
-        },
-        {
-          "format": "time_series",
-          "group": [
-            {
-              "params": [
-                "$__interval",
-                "none"
-              ],
-              "type": "time"
-            }
-          ],
-          "hide": false,
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  $__timeGroupAlias(cp.updated_at,$__interval),\n  sum(count) AS \"other\"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  count < 100 AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nGROUP BY 1\nORDER BY 1",
-          "refId": "B",
-          "select": [
-            [
-              {
-                "params": [
-                  "count"
-                ],
-                "type": "column"
-              },
-              {
-                "params": [
-                  "sum"
-                ],
-                "type": "aggregate"
-              },
-              {
-                "params": [
-                  "other"
-                ],
-                "type": "alias"
-              }
-            ]
-          ],
-          "table": "peer_properties",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamptz",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
-            },
-            {
-              "datatype": "varchar",
-              "name": "",
-              "params": [
-                "property",
-                "=",
-                "'agent_version'"
-              ],
-              "type": "expression"
-            },
-            {
-              "datatype": "int4",
-              "name": "",
-              "params": [
-                "count",
-                "<",
-                "100"
-              ],
-              "type": "expression"
-            }
-          ]
-        },
-        {
-          "format": "time_series",
-          "group": [],
-          "hide": false,
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  value,\n  count AS \" \"\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'agent_version' AND\n  value = '' AND\n  crawl_id = (SELECT id from crawls where state='succeeded' order by created_at desc limit 1)\nORDER BY 1",
-          "refId": "C",
-          "select": [
-            [
-              {
-                "params": [
-                  "ping_latency_s_avg"
-                ],
-                "type": "column"
-              }
-            ]
-          ],
-          "table": "latencies",
-          "timeColumn": "updated_at",
-          "timeColumnType": "timestamp",
-          "where": [
-            {
-              "name": "$__timeFilter",
-              "params": [],
-              "type": "macro"
             }
           ]
         }
@@ -747,11 +657,12 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'error'\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  undialable_peers,\n  dialable_peers\nFROM crawl_properties cp INNER JOIN crawls c ON cp.crawl_id = c.id\nWHERE\n  $__timeFilter(cp.updated_at)\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1014,11 +925,12 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'protocol' AND\n  count > 200\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  protocol\nFROM crawl_properties cp INNER JOIN protocols p ON cp.protocol_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  count > 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1220,7 +1132,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "description": "The length of the queue of peers that need to be dialed from the monitoring process.",
       "fieldConfig": {
         "defaults": {
@@ -1302,7 +1214,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "description": "How many peers does the monitoring process dial per second?\nHow many errors do occur per second?",
       "fieldConfig": {
         "defaults": {
@@ -1392,7 +1304,7 @@
       "type": "timeseries"
     },
     {
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "description": "Which type of errors do occur per second?",
       "fieldConfig": {
         "defaults": {
@@ -1548,12 +1460,13 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count > 10\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(agent_version, 35)\nFROM crawl_properties cp INNER JOIN agent_versions a ON cp.agent_version_id = a.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  agent_version NOT LIKE '%go-ipfs%' AND\n  count > 10\nORDER BY 1",
           "refId": "B",
           "select": [
             [
@@ -1681,12 +1594,13 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(value, 35)\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property LIKE 'agent_version%' AND\n  value NOT LIKE '%go-ipfs%' AND\n  count <= 10\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  left(agent_version, 35)\nFROM crawl_properties cp INNER JOIN agent_versions a ON cp.agent_version_id = a.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  agent_version NOT LIKE '%go-ipfs%' AND\n  count <= 10\nORDER BY 1",
           "refId": "B",
           "select": [
             [
@@ -1815,11 +1729,12 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  p.value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  p.property = 'error'\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  state\nFROM crawl_properties cp INNER JOIN crawls c ON cp.crawl_id = c.id\nWHERE\n  $__timeFilter(cp.updated_at) and\n  state = 'failed'\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -1943,11 +1858,12 @@
       },
       "targets": [
         {
+          "datasource": "Nebula Postgres",
           "format": "time_series",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  value\nFROM crawl_properties cp INNER JOIN properties p ON cp.property_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  property = 'protocol' AND\n  count <= 200\nORDER BY 1",
+          "rawSql": "SELECT\n  cp.updated_at AS \"time\",\n  count AS \" \",\n  protocol\nFROM crawl_properties cp INNER JOIN protocols p ON cp.protocol_id = p.id\nWHERE\n  $__timeFilter(cp.updated_at) AND\n  count <= 200\nORDER BY 1",
           "refId": "A",
           "select": [
             [
@@ -2010,7 +1926,7 @@
     },
     {
       "collapsed": false,
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -2023,7 +1939,7 @@
       "type": "row"
     },
     {
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2154,7 +2070,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "table",
@@ -2256,7 +2172,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "table",
@@ -2464,7 +2380,7 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.4",
+      "pluginVersion": "8.3.3",
       "targets": [
         {
           "format": "table",
@@ -2524,7 +2440,7 @@
       "type": "stat"
     },
     {
-      "datasource": null,
+      "datasource": "Nebula Postgres",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2930,7 +2846,7 @@
     }
   ],
   "refresh": false,
-  "schemaVersion": 30,
+  "schemaVersion": 34,
   "style": "dark",
   "tags": [],
   "templating": {
@@ -2944,5 +2860,6 @@
   "timezone": "",
   "title": "IPFS Dashboard",
   "uid": "Zhvb7kk7k",
-  "version": 93
+  "version": 1,
+  "weekStart": ""
 }
