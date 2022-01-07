@@ -27,7 +27,7 @@ mkdir reports
 # Generate report
 poetry run python ./gen_report.py || echo "Error generating reports. I'll publish what I got." && echo "could not generate the report today" > reports/report-error
 
-REPORTDIR=nimbus-$(date +"%y-%m-%d")
+REPORTDIR=nebula-$(date +"%y-%m-%d")
 mv reports "${REPORTDIR}"
 
 # Pin to IPFS
@@ -35,8 +35,8 @@ REPORTCID=$(ipfs --api="${IPFS}" add -Qr "${REPORTDIR}")
 echo "pinned report with CID ${REPORTCID}"
 
 # Copy to MFS
-ipfs --api="${IPFS}" files cp -p "/ipfs/${REPORTCID}" "/nimbus-reports/${REPORTDIR}"
-MFSHASH=$(ipfs --api="${IPFS}" files stat --hash "/nimbus-reports")
+ipfs --api="${IPFS}" files cp -p "/ipfs/${REPORTCID}" "/nebula-reports/${REPORTDIR}"
+MFSHASH=$(ipfs --api="${IPFS}" files stat --hash "/nebula-reports")
 
 # Publish to IPNS
 ipfs --api="${IPFS}" name publish "${MFSHASH}"
