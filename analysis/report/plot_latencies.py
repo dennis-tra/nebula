@@ -3,7 +3,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
-from analysis.report import lib_plot
+import lib_plot
 from lib_fmt import thousands_ticker_formatter
 from lib_db import DBClient
 

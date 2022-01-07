@@ -128,5 +128,5 @@ outputText = template.render(
     ip_address_count=fmt_thousands(ip_address_count[0][0]),
 )
 
-with open(f"report-{calendar_week}.md", "w") as f:
+with open(f"reports/report-{calendar_week}.md", "w") as f:
     f.write(outputText)
