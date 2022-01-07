@@ -35,7 +35,7 @@ REPORTCID=$(ipfs --api="${IPFS}" add -Qr "${REPORTDIR}")
 echo "pinned report with CID ${REPORTCID}"
 
 # Copy to MFS
-ipfs --api="${IPFS}" files cp "/ipfs/${REPORTCID}" "/nimbus-reports/${REPORTDIR}"
+ipfs --api="${IPFS}" files cp -p "/ipfs/${REPORTCID}" "/nimbus-reports/${REPORTDIR}"
 MFSHASH=$(ipfs --api="${IPFS}" files stat --hash "/nimbus-reports")
 
 # Publish to IPNS
