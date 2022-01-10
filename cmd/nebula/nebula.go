@@ -124,11 +124,11 @@ func main() {
 				Value:       config.DefaultConfig.DatabaseUser,
 			},
 			&cli.StringFlag{
-				Name:        "db-ssl",
+				Name:        "db-sslmode",
 				Usage:       "The sslmode to use when connecting the the database",
-				EnvVars:     []string{"NEBULA_DATABASE_SSL"},
-				DefaultText: config.DefaultConfig.DatabaseSSL,
-				Value:       config.DefaultConfig.DatabaseSSL,
+				EnvVars:     []string{"NEBULA_DATABASE_SSL_MODE"},
+				DefaultText: config.DefaultConfig.DatabaseSSLMode,
+				Value:       config.DefaultConfig.DatabaseSSLMode,
 			},
 			&cli.StringSliceFlag{
 				Name:        "protocols",
