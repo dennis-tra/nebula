@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   nebula_monitor:
-    image: coryschwartz/nebula-crawler:latest
+    image: dennis-tra/nebula-crawler:latest
     container_name: nebula_monitor
     restart: always
     user: nebula
