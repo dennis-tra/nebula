@@ -45,7 +45,7 @@ var DefaultConfig = Config{
 	DatabaseName:        "nebula",
 	DatabasePassword:    "password",
 	DatabaseUser:        "nebula",
-	DatabaseSSL:         "prefer",
+	DatabaseSSLMode:     "prefer",
 	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
 	RefreshRoutingTable: false,
 }
@@ -113,7 +113,7 @@ type Config struct {
 	DatabaseUser string
 
 	// Postgres SSL mode (should be one supported in https://www.postgresql.org/docs/current/libpq-ssl.html)
-	DatabaseSSL string
+	DatabaseSSLMode string
 
 	// The list of protocols that this crawler should look for.
 	Protocols []string
@@ -277,8 +277,8 @@ func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("db-user") {
 		c.DatabaseUser = ctx.String("db-user")
 	}
-	if ctx.IsSet("db-ssl") {
-		c.DatabaseSSL = ctx.String("db-ssl")
+	if ctx.IsSet("db-sslmode") {
+		c.DatabaseSSLMode = ctx.String("db-sslmode")
 	}
 	if ctx.IsSet("protocols") {
 		c.Protocols = ctx.StringSlice("protocols")
