@@ -14,7 +14,7 @@ services:
       NEBULA_DATABASE_NAME: nebula
       NEBULA_DATABASE_USER: nebula
       NEBULA_DATABASE_PASSWORD: password # TODO: unsafe
-      NEBULA_DATABASE_SSLMODE: disable
+      NEBULA_DATABASE_SSL_MODE: disable
       NEBULA_PROMETHEUS_PORT: 6667
       NEBULA_PPROF_PORT: 6100
     depends_on:

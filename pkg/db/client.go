@@ -53,7 +53,7 @@ func InitClient(conf *config.Config) (*Client, error) {
 		conf.DatabaseName,
 		conf.DatabaseUser,
 		conf.DatabasePassword,
-		conf.DatabaseSSL,
+		conf.DatabaseSSLMode,
 	)
 	dbh, err := sql.Open(driverName, srcName)
 	if err != nil {
