@@ -156,8 +156,8 @@ The ping command fetches all peers that were found online of the most recent suc
 
 ### `resolve`
 
-The resolve sub-command takes goes through all multi addresses in that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
-It further queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
+The resolve sub-command goes through all multi addresses that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to, e.g., the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
+Further, it queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
 
 ## Install
 
