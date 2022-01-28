@@ -4,11 +4,7 @@ from datetime import datetime as dt
 
 from lib_cloud import Cloud
 from lib_fmt import fmt_thousands
-from lib_db import DBClient
-
-today = dt.today()
-year = today.year
-calendar_week = today.isocalendar().week
+from lib_db import DBClient, calendar_week
 
 db_client = DBClient()
 cloud_client = Cloud()

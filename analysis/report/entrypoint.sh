@@ -25,7 +25,12 @@ fi
 mkdir reports
 
 # Generate report
-poetry run python ./gen_report.py || echo "Error generating reports. I'll publish what I got." && echo "could not generate the report today" > reports/report-error
+poetry run python ./gen_report.py 
+if [[ $? != 0 ]]
+then
+ echo "Error generating reports. I'll publish what I got."
+ echo "could not generate the report today. Check runner logs for details." > reports/report-error
+fi
 
 REPORTDIR=nebula-$(date +"%y-%m-%d")
 mv reports "${REPORTDIR}"
