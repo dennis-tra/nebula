@@ -7,6 +7,7 @@ ENV IPFS_API ""
 ENTRYPOINT ./entrypoint.sh
 COPY --from=ipfs /usr/local/bin/ipfs /usr/local/bin/ipfs
 WORKDIR /app
+RUN apt update && apt install -y markdown
 RUN pip install poetry==1.1.12
 COPY pyproject.toml .
 COPY poetry.lock .

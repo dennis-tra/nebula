@@ -4,7 +4,7 @@ from datetime import datetime as dt
 
 from lib_cloud import Cloud
 from lib_fmt import fmt_thousands
-from lib_db import DBClient, calendar_week
+from lib_db import DBClient, calendar_week, year
 
 db_client = DBClient()
 cloud_client = Cloud()

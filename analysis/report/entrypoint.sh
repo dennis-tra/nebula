@@ -32,6 +32,10 @@ then
  echo "could not generate the report today. Check runner logs for details." > reports/report-error
 fi
 
+# Make HTML page
+sleep 5
+markdown reports/report-*.md >reports/index.html
+
 REPORTDIR=nebula-$(date +"%y-%m-%d")
 mv reports "${REPORTDIR}"
 

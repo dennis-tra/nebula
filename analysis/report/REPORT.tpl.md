@@ -2,15 +2,6 @@
 
 ## General Information
 
-The measurements were conducted on the following machine:
-
-- `vCPU` - `4`
-- `RAM` - `8GB`
-- `Disk` - `160GB`
-- `Datacenter` - `nbg1-dc3`
-- `Country` - `Germany`
-- `City` - `Nuremberg`
-
 The following results show measurement data that was collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
 
 - Number of crawls `{{ crawl_count }}`
