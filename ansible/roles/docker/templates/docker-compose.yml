@@ -73,6 +73,11 @@ networks:
   nebula:
     name: nebula
 volumes:
-  psql_data: {}
+  psql_data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '{{ db_host_location }}'
   prometheus_data: {}
   grafana_data: {}
