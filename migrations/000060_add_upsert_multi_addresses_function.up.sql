@@ -11,7 +11,7 @@ BEGIN
     END IF;
 
     WITH insert_multi_addresses AS (
-        SELECT new_multi_addresses_table new_multi_address
+        SELECT DISTINCT new_multi_addresses_table new_multi_address
         FROM unnest(new_multi_addresses) new_multi_addresses_table
                  LEFT JOIN multi_addresses ma ON ma.maddr = new_multi_addresses_table
         WHERE ma.id IS NULL)
@@ -24,12 +24,12 @@ BEGIN
     ORDER BY new_multi_address
     ON CONFLICT DO NOTHING;
 
-    SELECT sort(array_agg(id))
+    SELECT sort(array_agg(DISTINCT id))
     FROM multi_addresses
     WHERE maddr = ANY (new_multi_addresses)
     INTO upserted_multi_address_ids;
 
     RETURN upserted_multi_address_ids;
-END;
+END
 $upsert_multi_addresses$ LANGUAGE plpgsql;
 

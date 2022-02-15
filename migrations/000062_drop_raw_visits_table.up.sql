@@ -46,7 +46,8 @@ BEGIN
     DELETE FROM peers_x_multi_addresses WHERE peer_id = upserted_peer_id;
     INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
     SELECT upserted_peer_id, ma.id
-    FROM (SELECT unnest(upserted_multi_address_ids) id) ma;
+    FROM (SELECT unnest(upserted_multi_address_ids) id) ma
+    ON CONFLICT DO NOTHING;
 
     SELECT upsert_session(upserted_peer_id, new_visit_ended_at, new_visit_started_at, new_error)
     INTO upserted_session_id;
