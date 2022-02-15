@@ -9,7 +9,12 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/volatiletech/sqlboiler/v4/types"
+
 	"contrib.go.opencensus.io/integrations/ocsql"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -19,9 +24,6 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 type Client struct {
@@ -74,10 +76,6 @@ func (c *Client) Handle() *sql.DB {
 	return c.dbh
 }
 
-func (c *Client) InsertRawVisit(ctx context.Context, re *models.RawVisit) error {
-	return re.Insert(ctx, c.dbh, boil.Infer())
-}
-
 // InitCrawl inserts a crawl instance in the database in the state `started`.
 // This is done to receive a database ID that all subsequent database entities can be linked to.
 func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
@@ -92,6 +90,85 @@ func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 func (c *Client) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
 	_, err := crawl.Update(ctx, c.dbh, boil.Infer())
 	return err
+}
+
+func (c *Client) PersistCrawlVisit(
+	crawlID int,
+	peerID peer.ID,
+	maddrs []ma.Multiaddr,
+	protocolStrs types.StringArray,
+	protocolIDs types.Int64Array,
+	agentVersion string,
+	agentVersionID int,
+	connectDuration time.Duration,
+	crawlDuration time.Duration,
+	visitStartedAt time.Time,
+	visitEndedAt time.Time,
+	errorStr string,
+) error {
+	maddrStrs := utils.MaddrsToAddrs(maddrs)
+
+	dbAgentVersionID := null.NewInt(agentVersionID, agentVersionID != 0)
+	dbAgentVersion := null.NewString(agentVersion, agentVersion != "" && !dbAgentVersionID.Valid)
+	dbConnectDuration := null.NewString(fmt.Sprintf("%f seconds", connectDuration.Seconds()), connectDuration != 0)
+	dbCrawlDuration := null.NewString(fmt.Sprintf("%f seconds", crawlDuration.Seconds()), crawlDuration != 0)
+	dbErrorStr := null.NewString(errorStr, errorStr != "")
+
+	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+		crawlID,
+		peerID.Pretty(),
+		types.StringArray(maddrStrs),
+		protocolStrs,
+		protocolIDs,
+		dbAgentVersion,
+		dbAgentVersionID,
+		nil,
+		dbConnectDuration,
+		dbCrawlDuration,
+		visitStartedAt,
+		visitEndedAt,
+		models.VisitTypeCrawl,
+		dbErrorStr,
+	).Query(c.dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
+func (c *Client) PersistDialVisit(
+	peerID peer.ID,
+	maddrs []ma.Multiaddr,
+	dialDuration time.Duration,
+	visitStartedAt time.Time,
+	visitEndedAt time.Time,
+	errorStr string,
+) error {
+	maddrStrs := utils.MaddrsToAddrs(maddrs)
+
+	dbDialDuration := null.NewString(fmt.Sprintf("%f seconds", dialDuration.Seconds()), dialDuration != 0)
+	dbErrorStr := null.NewString(errorStr, errorStr != "")
+
+	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+		nil,
+		peerID.Pretty(),
+		types.StringArray(maddrStrs),
+		nil,
+		nil,
+		nil,
+		nil,
+		dbDialDuration,
+		nil,
+		nil,
+		visitStartedAt,
+		visitEndedAt,
+		models.VisitTypeDial,
+		dbErrorStr,
+	).Query(c.dbh)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
 }
 
 // GetAllAgentVersions fetches all rows from the agent_versions table and returns a map that's indexed

@@ -24,17 +24,13 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("Neighbors", testNeighborsUpsert)
 
+	t.Run("PeerLogs", testPeerLogsUpsert)
+
 	t.Run("Peers", testPeersUpsert)
-
-	t.Run("PegasysConnections", testPegasysConnectionsUpsert)
-
-	t.Run("PegasysNeighbours", testPegasysNeighboursUpsert)
 
 	t.Run("Protocols", testProtocolsUpsert)
 
 	t.Run("ProtocolsSets", testProtocolsSetsUpsert)
-
-	t.Run("RawVisits", testRawVisitsUpsert)
 
 	t.Run("Sessions", testSessionsUpsert)
 

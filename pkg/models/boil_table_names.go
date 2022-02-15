@@ -13,13 +13,11 @@ var TableNames = struct {
 	MultiAddressesSets         string
 	MultiAddressesXIPAddresses string
 	Neighbors                  string
+	PeerLogs                   string
 	Peers                      string
 	PeersXMultiAddresses       string
-	PegasysConnections         string
-	PegasysNeighbours          string
 	Protocols                  string
 	ProtocolsSets              string
-	RawVisits                  string
 	Sessions                   string
 	Visits                     string
 }{
@@ -32,13 +30,11 @@ var TableNames = struct {
 	MultiAddressesSets:         "multi_addresses_sets",
 	MultiAddressesXIPAddresses: "multi_addresses_x_ip_addresses",
 	Neighbors:                  "neighbors",
+	PeerLogs:                   "peer_logs",
 	Peers:                      "peers",
 	PeersXMultiAddresses:       "peers_x_multi_addresses",
-	PegasysConnections:         "pegasys_connections",
-	PegasysNeighbours:          "pegasys_neighbours",
 	Protocols:                  "protocols",
 	ProtocolsSets:              "protocols_sets",
-	RawVisits:                  "raw_visits",
 	Sessions:                   "sessions",
 	Visits:                     "visits",
 }

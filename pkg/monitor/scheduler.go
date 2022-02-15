@@ -3,7 +3,6 @@ package monitor
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
@@ -158,7 +156,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 		}
 	}
 	start := time.Now()
-	if err := s.insertRawVisit(ctx, dr); err != nil {
+	if err := s.insertVisit(dr); err != nil {
 		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
 
@@ -241,20 +239,13 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) e
 }
 
 // insertRawVisit builds up a raw_visit database entry.
-func (s *Scheduler) insertRawVisit(ctx context.Context, cr Result) error {
-	rv := &models.RawVisit{
-		VisitStartedAt: cr.DialStartTime,
-		VisitEndedAt:   cr.DialEndTime,
-		DialDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.DialDuration().Seconds())),
-		Type:           models.VisitTypeDial,
-		PeerMultiHash:  cr.Peer.ID.Pretty(),
-		MultiAddresses: utils.MaddrsToAddrs(cr.Peer.Addrs),
-	}
-
-	if cr.Error != nil {
-		rv.Error = null.StringFrom(cr.DialError)
-		rv.ErrorMessage = null.StringFrom(cr.Error.Error())
-	}
-
-	return s.dbc.InsertRawVisit(ctx, rv)
+func (s *Scheduler) insertVisit(cr Result) error {
+	return s.dbc.PersistDialVisit(
+		cr.Peer.ID,
+		cr.Peer.Addrs,
+		cr.DialDuration(),
+		cr.DialStartTime,
+		cr.DialEndTime,
+		cr.DialError,
+	)
 }

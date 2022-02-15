@@ -91,6 +91,7 @@ var PeerRels = struct {
 	ProtocolsSet   string
 	Latencies      string
 	Neighbors      string
+	PeerLogs       string
 	MultiAddresses string
 	Sessions       string
 	Visits         string
@@ -99,6 +100,7 @@ var PeerRels = struct {
 	ProtocolsSet:   "ProtocolsSet",
 	Latencies:      "Latencies",
 	Neighbors:      "Neighbors",
+	PeerLogs:       "PeerLogs",
 	MultiAddresses: "MultiAddresses",
 	Sessions:       "Sessions",
 	Visits:         "Visits",
@@ -110,6 +112,7 @@ type peerR struct {
 	ProtocolsSet   *ProtocolsSet     `boil:"ProtocolsSet" json:"ProtocolsSet" toml:"ProtocolsSet" yaml:"ProtocolsSet"`
 	Latencies      LatencySlice      `boil:"Latencies" json:"Latencies" toml:"Latencies" yaml:"Latencies"`
 	Neighbors      NeighborSlice     `boil:"Neighbors" json:"Neighbors" toml:"Neighbors" yaml:"Neighbors"`
+	PeerLogs       PeerLogSlice      `boil:"PeerLogs" json:"PeerLogs" toml:"PeerLogs" yaml:"PeerLogs"`
 	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
 	Sessions       SessionSlice      `boil:"Sessions" json:"Sessions" toml:"Sessions" yaml:"Sessions"`
 	Visits         VisitSlice        `boil:"Visits" json:"Visits" toml:"Visits" yaml:"Visits"`
@@ -470,6 +473,27 @@ func (o *Peer) Neighbors(mods ...qm.QueryMod) neighborQuery {
 
 	if len(queries.GetSelect(query.Query)) == 0 {
 		queries.SetSelect(query.Query, []string{"\"neighbors\".*"})
+	}
+
+	return query
+}
+
+// PeerLogs retrieves all the peer_log's PeerLogs with an executor.
+func (o *Peer) PeerLogs(mods ...qm.QueryMod) peerLogQuery {
+	var queryMods []qm.QueryMod
+	if len(mods) != 0 {
+		queryMods = append(queryMods, mods...)
+	}
+
+	queryMods = append(queryMods,
+		qm.Where("\"peer_logs\".\"peer_id\"=?", o.ID),
+	)
+
+	query := PeerLogs(queryMods...)
+	queries.SetFrom(query.Query, "\"peer_logs\"")
+
+	if len(queries.GetSelect(query.Query)) == 0 {
+		queries.SetSelect(query.Query, []string{"\"peer_logs\".*"})
 	}
 
 	return query
@@ -941,6 +965,104 @@ func (peerL) LoadNeighbors(ctx context.Context, e boil.ContextExecutor, singular
 				local.R.Neighbors = append(local.R.Neighbors, foreign)
 				if foreign.R == nil {
 					foreign.R = &neighborR{}
+				}
+				foreign.R.Peer = local
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// LoadPeerLogs allows an eager lookup of values, cached into the
+// loaded structs of the objects. This is for a 1-M or N-M relationship.
+func (peerL) LoadPeerLogs(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
+	var slice []*Peer
+	var object *Peer
+
+	if singular {
+		object = maybePeer.(*Peer)
+	} else {
+		slice = *maybePeer.(*[]*Peer)
+	}
+
+	args := make([]interface{}, 0, 1)
+	if singular {
+		if object.R == nil {
+			object.R = &peerR{}
+		}
+		args = append(args, object.ID)
+	} else {
+	Outer:
+		for _, obj := range slice {
+			if obj.R == nil {
+				obj.R = &peerR{}
+			}
+
+			for _, a := range args {
+				if a == obj.ID {
+					continue Outer
+				}
+			}
+
+			args = append(args, obj.ID)
+		}
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query := NewQuery(
+		qm.From(`peer_logs`),
+		qm.WhereIn(`peer_logs.peer_id in ?`, args...),
+	)
+	if mods != nil {
+		mods.Apply(query)
+	}
+
+	results, err := query.QueryContext(ctx, e)
+	if err != nil {
+		return errors.Wrap(err, "failed to eager load peer_logs")
+	}
+
+	var resultSlice []*PeerLog
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice peer_logs")
+	}
+
+	if err = results.Close(); err != nil {
+		return errors.Wrap(err, "failed to close results in eager load on peer_logs")
+	}
+	if err = results.Err(); err != nil {
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peer_logs")
+	}
+
+	if len(peerLogAfterSelectHooks) != 0 {
+		for _, obj := range resultSlice {
+			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
+				return err
+			}
+		}
+	}
+	if singular {
+		object.R.PeerLogs = resultSlice
+		for _, foreign := range resultSlice {
+			if foreign.R == nil {
+				foreign.R = &peerLogR{}
+			}
+			foreign.R.Peer = object
+		}
+		return nil
+	}
+
+	for _, foreign := range resultSlice {
+		for _, local := range slice {
+			if local.ID == foreign.PeerID {
+				local.R.PeerLogs = append(local.R.PeerLogs, foreign)
+				if foreign.R == nil {
+					foreign.R = &peerLogR{}
 				}
 				foreign.R.Peer = local
 				break
@@ -1519,6 +1641,59 @@ func (o *Peer) AddNeighbors(ctx context.Context, exec boil.ContextExecutor, inse
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &neighborR{
+				Peer: o,
+			}
+		} else {
+			rel.R.Peer = o
+		}
+	}
+	return nil
+}
+
+// AddPeerLogs adds the given related objects to the existing relationships
+// of the peer, optionally inserting them as new records.
+// Appends related to o.R.PeerLogs.
+// Sets related.R.Peer appropriately.
+func (o *Peer) AddPeerLogs(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PeerLog) error {
+	var err error
+	for _, rel := range related {
+		if insert {
+			rel.PeerID = o.ID
+			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
+				return errors.Wrap(err, "failed to insert into foreign table")
+			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"peer_logs\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
+				strmangle.WhereClause("\"", "\"", 2, peerLogPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			rel.PeerID = o.ID
+		}
+	}
+
+	if o.R == nil {
+		o.R = &peerR{
+			PeerLogs: related,
+		}
+	} else {
+		o.R.PeerLogs = append(o.R.PeerLogs, related...)
+	}
+
+	for _, rel := range related {
+		if rel.R == nil {
+			rel.R = &peerLogR{
 				Peer: o,
 			}
 		} else {
