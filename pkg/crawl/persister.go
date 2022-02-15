@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/types"
 	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
@@ -100,13 +99,15 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 		Infoln("Persisted result from worker", cr.CrawlerID)
 }
 
-func (p *Persister) agentVersionID(agent string) *int {
+func (p *Persister) agentVersionID(ctx context.Context, agent string) int {
 	av, found := p.agentVersions[agent]
-	if !found {
-		return nil
+	if !found || av == nil {
+		stats.Record(ctx, metrics.AgentVersionCacheMissCount.M(1))
+		return 0
 	}
-	id := av.ID
-	return &id
+
+	stats.Record(ctx, metrics.AgentVersionCacheHitCount.M(1))
+	return av.ID
 }
 
 func (p *Persister) parseProtocols(ctx context.Context, protocols []string) (types.StringArray, types.Int64Array) {
@@ -127,32 +128,19 @@ func (p *Persister) parseProtocols(ctx context.Context, protocols []string) (typ
 // insertRawVisit builds up a raw_visit database entry.
 func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 	protocolStrs, protocolIDs := p.parseProtocols(ctx, cr.Protocols)
-	rv := &models.RawVisit{
-		CrawlID:         null.IntFrom(p.crawl.ID),
-		VisitStartedAt:  cr.CrawlStartTime,
-		VisitEndedAt:    cr.CrawlEndTime,
-		ConnectDuration: null.StringFrom(fmt.Sprintf("%f seconds", cr.ConnectDuration().Seconds())),
-		CrawlDuration:   null.StringFrom(fmt.Sprintf("%f seconds", cr.CrawlDuration().Seconds())),
-		PeerMultiHash:   cr.Peer.ID.Pretty(),
-		Protocols:       protocolStrs,
-		ProtocolIds:     protocolIDs,
-		MultiAddresses:  utils.MaddrsToAddrs(cr.Peer.Addrs),
-		Type:            models.VisitTypeCrawl,
-	}
-	if cr.Agent != "" {
-		avID := p.agentVersionID(cr.Agent)
-		if avID != nil {
-			stats.Record(ctx, metrics.AgentVersionCacheHitCount.M(1))
-			rv.AgentVersionID = null.IntFromPtr(avID)
-		} else {
-			stats.Record(ctx, metrics.AgentVersionCacheMissCount.M(1))
-			rv.AgentVersion = null.StringFrom(cr.Agent)
-		}
-	}
-	if cr.ConnectError != nil {
-		rv.Error = null.StringFrom(cr.ConnectErrorStr)
-		rv.ErrorMessage = null.StringFrom(cr.ConnectError.Error())
-	}
 
-	return p.dbc.InsertRawVisit(ctx, rv)
+	return p.dbc.PersistCrawlVisit(
+		p.crawl.ID,
+		cr.Peer.ID,
+		cr.Peer.Addrs,
+		protocolStrs,
+		protocolIDs,
+		cr.Agent,
+		p.agentVersionID(ctx, cr.Agent),
+		cr.ConnectDuration(),
+		cr.CrawlDuration(),
+		cr.CrawlStartTime,
+		cr.CrawlEndTime,
+		cr.ConnectErrorStr,
+	)
 }

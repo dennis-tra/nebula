@@ -45,7 +45,7 @@ var DefaultConfig = Config{
 	DatabaseName:        "nebula",
 	DatabasePassword:    "password",
 	DatabaseUser:        "nebula",
-	DatabaseSSLMode:     "prefer",
+	DatabaseSSLMode:     "disable",
 	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
 	RefreshRoutingTable: false,
 }
