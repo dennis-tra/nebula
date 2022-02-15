@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -28,6 +29,7 @@ type IPAddress struct {
 	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	Address   string    `boil:"address" json:"address" toml:"address" yaml:"address"`
 	Country   string    `boil:"country" json:"country" toml:"country" yaml:"country"`
+	Asn       null.Int  `boil:"asn" json:"asn,omitempty" toml:"asn" yaml:"asn,omitempty"`
 
 	R *ipAddressR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L ipAddressL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -39,12 +41,14 @@ var IPAddressColumns = struct {
 	CreatedAt string
 	Address   string
 	Country   string
+	Asn       string
 }{
 	ID:        "id",
 	UpdatedAt: "updated_at",
 	CreatedAt: "created_at",
 	Address:   "address",
 	Country:   "country",
+	Asn:       "asn",
 }
 
 var IPAddressTableColumns = struct {
@@ -53,12 +57,14 @@ var IPAddressTableColumns = struct {
 	CreatedAt string
 	Address   string
 	Country   string
+	Asn       string
 }{
 	ID:        "ip_addresses.id",
 	UpdatedAt: "ip_addresses.updated_at",
 	CreatedAt: "ip_addresses.created_at",
 	Address:   "ip_addresses.address",
 	Country:   "ip_addresses.country",
+	Asn:       "ip_addresses.asn",
 }
 
 // Generated where
@@ -69,12 +75,14 @@ var IPAddressWhere = struct {
 	CreatedAt whereHelpertime_Time
 	Address   whereHelperstring
 	Country   whereHelperstring
+	Asn       whereHelpernull_Int
 }{
 	ID:        whereHelperint{field: "\"ip_addresses\".\"id\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"ip_addresses\".\"updated_at\""},
 	CreatedAt: whereHelpertime_Time{field: "\"ip_addresses\".\"created_at\""},
 	Address:   whereHelperstring{field: "\"ip_addresses\".\"address\""},
 	Country:   whereHelperstring{field: "\"ip_addresses\".\"country\""},
+	Asn:       whereHelpernull_Int{field: "\"ip_addresses\".\"asn\""},
 }
 
 // IPAddressRels is where relationship names are stored.
@@ -98,8 +106,8 @@ func (*ipAddressR) NewStruct() *ipAddressR {
 type ipAddressL struct{}
 
 var (
-	ipAddressAllColumns            = []string{"id", "updated_at", "created_at", "address", "country"}
-	ipAddressColumnsWithoutDefault = []string{"updated_at", "created_at", "address", "country"}
+	ipAddressAllColumns            = []string{"id", "updated_at", "created_at", "address", "country", "asn"}
+	ipAddressColumnsWithoutDefault = []string{"updated_at", "created_at", "address", "country", "asn"}
 	ipAddressColumnsWithDefault    = []string{"id"}
 	ipAddressPrimaryKeyColumns     = []string{"id"}
 )

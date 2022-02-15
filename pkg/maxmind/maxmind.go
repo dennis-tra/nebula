@@ -16,57 +16,89 @@ import (
 //go:embed GeoLite2-Country.mmdb
 var geoLite2Country []byte
 
+//go:embed GeoLite2-ASN.mmdb
+var geoLite2ASN []byte
+
 type Client struct {
-	reader *geoip2.Reader
+	countryReader *geoip2.Reader
+	asnReader     *geoip2.Reader
 }
 
 // NewClient initializes a new maxmind database client from the embedded database
 func NewClient() (*Client, error) {
-	reader, err := geoip2.FromBytes(geoLite2Country)
+	countryReader, err := geoip2.FromBytes(geoLite2Country)
+	if err != nil {
+		return nil, errors.Wrap(err, "geoip from bytes")
+	}
+
+	asnReader, err := geoip2.FromBytes(geoLite2ASN)
 	if err != nil {
 		return nil, errors.Wrap(err, "geoip from bytes")
 	}
 
 	return &Client{
-		reader: reader,
+		countryReader: countryReader,
+		asnReader:     asnReader,
 	}, nil
 }
 
-// MaddrCountry resolve the give multi address to its corresponding
+type AddrInfo struct {
+	Country string
+	ASN     uint
+}
+
+// MaddrInfo resolve the give multi address to its corresponding
 // IP addresses (it could be multiple due to protocols like dnsaddr)
-// and returns a map of the form IP-address -> country ISO code.
-func (c *Client) MaddrCountry(ctx context.Context, maddr ma.Multiaddr) (map[string]string, error) {
+// and returns a map of the form IP-address -> Country ISO code.
+func (c *Client) MaddrInfo(ctx context.Context, maddr ma.Multiaddr) (map[string]*AddrInfo, error) {
 	resolved := resolveAddrs(ctx, maddr)
 	if len(resolved) == 0 {
 		return nil, fmt.Errorf("could not resolve multi address %s", maddr)
 	}
 
-	countries := map[string]string{}
+	infos := map[string]*AddrInfo{}
 	for _, addr := range resolved {
 		country, err := c.AddrCountry(addr)
 		if err != nil {
-			log.Debugln("could not derive country for address", addr)
+			log.Debugln("could not derive Country for address", addr)
 		}
-		countries[addr] = country
+		asn, _, err := c.AddrAS(addr)
+		if err != nil {
+			log.Debugln("could not derive Country for address", addr)
+		}
+		infos[addr] = &AddrInfo{Country: country, ASN: asn}
 	}
-	return countries, nil
+	return infos, nil
 }
 
-// AddrCountry takes an IP address string and tries to derive the country ISO code.
+// AddrCountry takes an IP address string and tries to derive the Country ISO code.
 func (c *Client) AddrCountry(addr string) (string, error) {
 	ip := net.ParseIP(addr)
 	if ip == nil {
 		return "", fmt.Errorf("invalid address %s", addr)
 	}
-	record, err := c.reader.Country(ip)
+	record, err := c.countryReader.Country(ip)
 	if err != nil {
 		return "", err
 	}
 	return record.Country.IsoCode, nil
 }
 
+// AddrAS takes an IP address string and tries to derive the Autonomous System Number
+func (c *Client) AddrAS(addr string) (uint, string, error) {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return 0, "", fmt.Errorf("invalid address %s", addr)
+	}
+	record, err := c.asnReader.ASN(ip)
+	if err != nil {
+		return 0, "", err
+	}
+	return record.AutonomousSystemNumber, record.AutonomousSystemOrganization, nil
+}
+
 func (c *Client) Close() error {
-	return c.reader.Close()
+	return c.countryReader.Close()
 }
 
 // resolveAddrs loops through the multi addresses of the given peer and recursively resolves

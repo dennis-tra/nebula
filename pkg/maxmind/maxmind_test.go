@@ -39,6 +39,35 @@ func TestClient_AddrCountry(t *testing.T) {
 	}
 }
 
+func TestClient_AddrASN(t *testing.T) {
+	client, err := NewClient()
+	require.NoError(t, err)
+
+	tests := []struct {
+		addr    string
+		wantASN uint
+		wantErr bool
+	}{
+		{addr: "invalid", wantASN: 0, wantErr: true},
+		{addr: "159.69.43.228", wantASN: 24940, wantErr: false},
+		{addr: "100.0.0.2", wantASN: 701, wantErr: false},
+		{addr: "111.250.198.94", wantASN: 3462, wantErr: false},
+		{addr: "130.188.225.47", wantASN: 565, wantErr: false},
+		{addr: "46.17.96.99", wantASN: 57043, wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s | asn: %d | err: %v", tt.addr, tt.wantASN, tt.wantErr), func(t *testing.T) {
+			asn, _, err := client.AddrAS(tt.addr)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantASN, asn)
+		})
+	}
+}
+
 func TestClient_MaddrCountry(t *testing.T) {
 	client, err := NewClient()
 	require.NoError(t, err)
@@ -59,7 +88,7 @@ func TestClient_MaddrCountry(t *testing.T) {
 			maddr, err := ma.NewMultiaddr(tt.addr)
 			require.NoError(t, err)
 
-			got, err := client.MaddrCountry(context.Background(), maddr)
+			got, err := client.MaddrInfo(context.Background(), maddr)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

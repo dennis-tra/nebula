@@ -7,6 +7,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -101,20 +102,20 @@ func ResolveAction(c *cli.Context) error {
 				continue
 			}
 
-			countries, err := mmc.MaddrCountry(c.Context, maddr)
+			addrInfos, err := mmc.MaddrInfo(c.Context, maddr)
 			if err != nil {
-				log.WithError(err).Warnln("Error deriving countries from maddr ", maddr)
+				log.WithError(err).Warnln("Error deriving address information from maddr ", maddr)
 				continue
 			}
 
 			// Due to dnsaddr protocols each multi address can point to multiple
 			// IP addresses each in a different country.
-			for addr, country := range countries {
-
-				// Save the IP address + country information
+			for addr, addrInfo := range addrInfos {
+				// Save the IP address + country information + asn information
 				ipaddr := &models.IPAddress{
 					Address: addr,
-					Country: country,
+					Country: addrInfo.Country,
+					Asn:     null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
 				}
 				if err := ipaddr.Upsert(c.Context, dbh, true,
 					[]string{models.IPAddressColumns.Address, models.IPAddressColumns.Country},
