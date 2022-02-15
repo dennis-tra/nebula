@@ -24,12 +24,13 @@ CREATE OR REPLACE FUNCTION insert_visit(
 $insert_visit$
 DECLARE
     upserted_protocol_ids           INT[];
+    upserted_protocols_set_id       INT;
     upserted_peer_id                INT;
     upserted_session_id             INT;
+    upserted_multi_address_ids      INT[];
     upserted_multi_addresses_set_id INT;
-    upserted_protocols_set_id       INT;
     upserted_agent_version_id       INT;
-    new_visit_id                       int;
+    new_visit_id                    int;
 BEGIN
 
     SELECT upsert_protocols(new_protocols, NOW()) INTO upserted_protocol_ids;
@@ -38,7 +39,14 @@ BEGIN
     SELECT upsert_peer(new_peer_multi_hash, coalesce(upserted_agent_version_id, new_agent_version_id),
                        upserted_protocols_set_id, NOW())
     INTO upserted_peer_id;
-    SELECT upsert_multi_addresses(upserted_peer_id, new_multi_addresses) INTO upserted_multi_addresses_set_id;
+
+    SELECT upsert_multi_addresses(new_multi_addresses) INTO upserted_multi_address_ids;
+    SELECT upsert_multi_addresses_set_id(upserted_multi_address_ids) INTO upserted_multi_addresses_set_id;
+
+    DELETE FROM peers_x_multi_addresses WHERE peer_id = upserted_peer_id;
+    INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
+    SELECT upserted_peer_id, ma.id
+    FROM (SELECT unnest(upserted_multi_address_ids) id) ma;
 
     SELECT upsert_session(upserted_peer_id, new_visit_ended_at, new_visit_started_at, new_error)
     INTO upserted_session_id;
