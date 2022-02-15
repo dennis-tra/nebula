@@ -777,7 +777,7 @@ func testNeighborsSelect(t *testing.T) {
 }
 
 var (
-	neighborDBTypes = map[string]string{`CrawlID`: `integer`, `PeerID`: `integer`, `NeighborIds`: `ARRAYinteger`}
+	neighborDBTypes = map[string]string{`CrawlID`: `integer`, `PeerID`: `integer`, `NeighborIds`: `ARRAYinteger`, `ErrorBits`: `smallint`}
 	_               = bytes.MinRead
 )
 

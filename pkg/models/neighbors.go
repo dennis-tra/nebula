@@ -27,6 +27,7 @@ type Neighbor struct {
 	CrawlID     int              `boil:"crawl_id" json:"crawl_id" toml:"crawl_id" yaml:"crawl_id"`
 	PeerID      int              `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	NeighborIds types.Int64Array `boil:"neighbor_ids" json:"neighbor_ids,omitempty" toml:"neighbor_ids" yaml:"neighbor_ids,omitempty"`
+	ErrorBits   int16            `boil:"error_bits" json:"error_bits" toml:"error_bits" yaml:"error_bits"`
 
 	R *neighborR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L neighborL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -36,32 +37,61 @@ var NeighborColumns = struct {
 	CrawlID     string
 	PeerID      string
 	NeighborIds string
+	ErrorBits   string
 }{
 	CrawlID:     "crawl_id",
 	PeerID:      "peer_id",
 	NeighborIds: "neighbor_ids",
+	ErrorBits:   "error_bits",
 }
 
 var NeighborTableColumns = struct {
 	CrawlID     string
 	PeerID      string
 	NeighborIds string
+	ErrorBits   string
 }{
 	CrawlID:     "neighbors.crawl_id",
 	PeerID:      "neighbors.peer_id",
 	NeighborIds: "neighbors.neighbor_ids",
+	ErrorBits:   "neighbors.error_bits",
 }
 
 // Generated where
+
+type whereHelperint16 struct{ field string }
+
+func (w whereHelperint16) EQ(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperint16) NEQ(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperint16) LT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperint16) LTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperint16) GT(x int16) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperint16) GTE(x int16) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+func (w whereHelperint16) IN(slice []int16) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
+}
+func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
+	values := make([]interface{}, 0, len(slice))
+	for _, value := range slice {
+		values = append(values, value)
+	}
+	return qm.WhereNotIn(fmt.Sprintf("%s NOT IN ?", w.field), values...)
+}
 
 var NeighborWhere = struct {
 	CrawlID     whereHelperint
 	PeerID      whereHelperint
 	NeighborIds whereHelpertypes_Int64Array
+	ErrorBits   whereHelperint16
 }{
 	CrawlID:     whereHelperint{field: "\"neighbors\".\"crawl_id\""},
 	PeerID:      whereHelperint{field: "\"neighbors\".\"peer_id\""},
 	NeighborIds: whereHelpertypes_Int64Array{field: "\"neighbors\".\"neighbor_ids\""},
+	ErrorBits:   whereHelperint16{field: "\"neighbors\".\"error_bits\""},
 }
 
 // NeighborRels is where relationship names are stored.
@@ -88,9 +118,9 @@ func (*neighborR) NewStruct() *neighborR {
 type neighborL struct{}
 
 var (
-	neighborAllColumns            = []string{"crawl_id", "peer_id", "neighbor_ids"}
+	neighborAllColumns            = []string{"crawl_id", "peer_id", "neighbor_ids", "error_bits"}
 	neighborColumnsWithoutDefault = []string{"crawl_id", "peer_id", "neighbor_ids"}
-	neighborColumnsWithDefault    = []string{}
+	neighborColumnsWithDefault    = []string{"error_bits"}
 	neighborPrimaryKeyColumns     = []string{"crawl_id", "peer_id"}
 )
 
