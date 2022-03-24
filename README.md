@@ -10,6 +10,8 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 
 🏆 _The crawler was awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 
+📊 A Demo Dashboard can be found [here](http://162.55.187.75:3000/d/CSQsORs7k/nebula)! 📊
+
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
 ## Table of Contents
