@@ -1,14 +1,57 @@
 # YAML 1.2
 ---
-authors:
-  -
-    family-names: Trautwein
-    given-names: Dennis
-cff-version: "1.1.0"
-license: "Apache-2.0"
-message: "If you cite this draft, please cite it using these metadata."
+cff-version: 1.2.0
+type: software
+title: "Nebula -- A crawler for networks based on the libp2p DHT implementation"
 repository-code: "https://github.com/dennis-tra/nebula-crawler"
 url: "https://github.com/dennis-tra/nebula-crawler"
-title: "Nebula -- A crawler for networks based on the libp2p DHT implementation"
-version: 2.0.4
-date-released: 2021-07-09
+message: >-
+  Please cite this software using the metadata from
+  'preferred-citation'.
+authors:
+  - given-names: Dennis
+    family-names: Trautwein
+    affiliation: Protocol Labs & University of Göttingen
+    orcid: 'https://orcid.org/0000-0002-8567-2353'
+preferred-citation:
+  title: "Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web"
+  type: conference-paper
+  authors:
+    - given-names: Dennis
+      family-names: Trautwein
+      affiliation: Protocol Labs & University of Göttingen
+      orcid: https://orcid.org/0000-0002-8567-2353
+    - given-names: Aravidh
+      family-names: Raman
+      affiliation: Telefonica Research
+    - given-names: Gareth
+      family-names: Tyson
+      affiliation: Hong Kong University of Science & Technology (GZ)
+    - given-names: Ignacio
+      family-names: Castro
+      affiliation: Queen Mary University of London
+    - given-names: Will
+      family-names: Scott
+      affiliation: Protocol Labs
+    - given-names: Moritz
+      family-names: Schubotz
+      affiliation: FIZ Karlsruhe – Leibniz Institute for Information Infrastructure
+    - given-names: Bela
+      family-names: Gipp
+      affiliation: University of Göttingen
+    - given-names: Yiannis
+      family-names: Psaras
+      affiliation: Protocol Labs
+  month: 8
+  year: 2022
+  publisher: ACM
+  conference:
+    name: "ACM SIGCOMM 2022 Conference (SIGCOMM '22)"
+    country: NL
+    city: Amsterdam
+    date-start: 2022-08-22
+    date-end: 2022-08-26
+  copyright: "© 2022 Copyright held by the owner/author(s)."
+  doi: "10.1145/3544216.3544232"
+  scope: "Cite this paper if you want to reference the general concepts of the software."
+  isbn: "978-1-4503-9420-8/22/08"
