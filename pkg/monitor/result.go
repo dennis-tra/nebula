@@ -3,7 +3,7 @@ package monitor
 import (
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 // Result captures data that is gathered from pinging a single peer.

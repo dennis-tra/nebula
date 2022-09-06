@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	swarm "github.com/libp2p/go-libp2p-swarm"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 )
 
 // KnownErrors contains a list of known errors. Property key + string to match for

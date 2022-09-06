@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -27,9 +27,10 @@ import (
 )
 
 // The Scheduler handles the scheduling and managing of
-//   a) dialers - They consume a queue of peer address information, visit them and publish their results
-//                on a separate results queue. This results queue is consumed by this scheduler and further
-//                processed
+//
+//	a) dialers - They consume a queue of peer address information, visit them and publish their results
+//	             on a separate results queue. This results queue is consumed by this scheduler and further
+//	             processed
 type Scheduler struct {
 	// The libp2p node that's used to crawl the network. This one is also passed to all dialers.
 	host host.Host

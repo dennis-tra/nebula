@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p/core/peer"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +47,7 @@ func TestCrawler_handleCrawlJob_unlinked(t *testing.T) {
 	utils.IDLength = 4
 
 	ctx := context.Background()
-	net := mocknet.New(ctx)
+	net := mocknet.New()
 
 	h, err := net.GenPeer()
 	require.NoError(t, err)

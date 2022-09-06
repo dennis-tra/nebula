@@ -17,9 +17,10 @@ import (
 )
 
 // The Scheduler handles the scheduling and managing of
-//   a) pingers - They consume a queue of peer address information, ping them and publish their results
-//                 on a separate results queue. This results queue is consumed by this scheduler and further
-//                 processed
+//
+//	a) pingers - They consume a queue of peer address information, ping them and publish their results
+//	              on a separate results queue. This results queue is consumed by this scheduler and further
+//	              processed
 type Scheduler struct {
 	// The database client
 	dbc *db.Client
