@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/adrg/xdg"
-	"github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -168,7 +168,7 @@ func (c *Config) Save() error {
 		}
 	}
 
-	return ioutil.WriteFile(c.Path, data, 0o744)
+	return os.WriteFile(c.Path, data, 0o744)
 }
 
 // ReachedCrawlLimit returns true if the crawl limit is configured (aka != 0) and the crawled peers exceed this limit.
