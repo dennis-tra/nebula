@@ -1,0 +1,30 @@
+BEGIN;
+
+-- Activate intarray extension for efficient array operations
+CREATE EXTENSION IF NOT EXISTS intarray;
+
+-- Since the set of protocols for a particular peer does not change very often in between crawls,
+-- this table holds particular sets of protocols which other tables can reference and save space.
+CREATE TABLE protocols_sets
+(
+    -- An internal unique id that identifies a unique set of protocols.
+    -- We could also just use the hash below but since protocol sets are
+    -- referenced many times having just a 4 byte instead of 32 byte ID
+    -- can make huge storage difference.
+    id           INT GENERATED ALWAYS AS IDENTITY,
+    -- The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).
+    protocol_ids INT[] NOT NULL,
+
+    -- Don't allow identical sets in the database
+    EXCLUDE USING GIST(protocol_ids WITH =),
+
+    PRIMARY KEY (id)
+);
+
+COMMENT ON TABLE protocols_sets IS ''
+    'Since the set of protocols for a particular peer does not change very often in between crawls,'
+    'this table holds particular sets of protocols which other tables can reference and save space.';
+COMMENT ON COLUMN protocols_sets.id IS 'An internal unique id that identifies a unique set of protocols.';
+COMMENT ON COLUMN protocols_sets.protocol_ids IS 'The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).';
+
+COMMIT;

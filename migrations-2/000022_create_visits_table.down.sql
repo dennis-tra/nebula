@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP TABLE IF EXISTS visits;
+DROP TYPE IF EXISTS visit_type;
+
+COMMIT;

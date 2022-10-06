@@ -182,6 +182,19 @@ func (c *Config) String() string {
 	return fmt.Sprintf("%s", data)
 }
 
+// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
+func (c *Config) DatabaseSourceName() string {
+	return fmt.Sprintf(
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
+		c.DatabaseHost,
+		c.DatabasePort,
+		c.DatabaseName,
+		c.DatabaseUser,
+		c.DatabasePassword,
+		c.DatabaseSSLMode,
+	)
+}
+
 // BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
 func (c *Config) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
 	var pis []peer.AddrInfo

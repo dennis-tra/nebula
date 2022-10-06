@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	lru "github.com/hashicorp/golang-lru"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ func InitClient(conf *config.Config) (*Client, error) {
 		"port": conf.DatabasePort,
 		"name": conf.DatabaseName,
 		"user": conf.DatabaseUser,
+		"ssl":  conf.DatabaseSSLMode,
 	}).Infoln("Initializing database client")
 
 	driverName, err := ocsql.Register("postgres")
@@ -48,16 +50,7 @@ func InitClient(conf *config.Config) (*Client, error) {
 	}
 
 	// Open database handle
-	srcName := fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
-		conf.DatabaseHost,
-		conf.DatabasePort,
-		conf.DatabaseName,
-		conf.DatabaseUser,
-		conf.DatabasePassword,
-		conf.DatabaseSSLMode,
-	)
-	dbh, err := sql.Open(driverName, srcName)
+	dbh, err := sql.Open(driverName, conf.DatabaseSourceName())
 	if err != nil {
 		return nil, errors.Wrap(err, "opening database")
 	}
@@ -67,16 +60,14 @@ func InitClient(conf *config.Config) (*Client, error) {
 		return nil, errors.Wrap(err, "pinging database")
 	}
 
-	return &Client{
-		dbh: dbh,
-	}, nil
+	return &Client{dbh: dbh}, nil
 }
 
 func (c *Client) Handle() *sql.DB {
 	return c.dbh
 }
 
-// InitCrawl inserts a crawl instance in the database in the state `started`.
+// InitCrawl inserts a crawl instance into the database in the state `started`.
 // This is done to receive a database ID that all subsequent database entities can be linked to.
 func (c *Client) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	crawl := &models.Crawl{
@@ -222,11 +213,28 @@ func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecu
 	)
 }
 
-func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (*models.AgentVersion, error) {
+type RepoAgentVersions struct {
+	dbc *sql.DB
+
+	cache *lru.Cache
+}
+
+func NewRepoAgentVersions(dbc *sql.DB, cacheSize int) (*RepoAgentVersions, error) {
+	cache, err := lru.New(cacheSize)
+	if err != nil {
+		return nil, err
+	}
+	return &RepoAgentVersions{
+		dbc:   dbc,
+		cache: cache,
+	}, nil
+}
+
+func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextTransactor, agentVersion string) (*models.AgentVersion, error) {
 	c.propLk.Lock()
 	defer c.propLk.Unlock()
 
-	av, err := models.AgentVersions(qm.Where(models.AgentVersionColumns.AgentVersion+" = ?", agentVersion)).One(ctx, c.dbh)
+	av, err := models.AgentVersions(models.AgentVersionWhere.AgentVersion.EQ(agentVersion)).One(ctx, c.dbh)
 	if err == nil {
 		return av, nil
 	}

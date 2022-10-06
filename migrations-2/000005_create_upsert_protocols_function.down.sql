@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS upsert_protocols;
+
+COMMIT;
