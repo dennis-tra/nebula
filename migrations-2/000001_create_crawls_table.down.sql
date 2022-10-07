@@ -1,6 +1,0 @@
-BEGIN;
-
-DROP TABLE IF EXISTS crawls;
-DROP TYPE IF EXISTS crawl_state;
-
-COMMIT;

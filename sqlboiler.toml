@@ -1,4 +1,4 @@
-output   = "pkg/models-2"
+output   = "pkg/models"
 wipe     = true
 
 [psql]

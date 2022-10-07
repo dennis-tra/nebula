@@ -34,9 +34,9 @@ models:
 	sqlboiler psql
 
 migrate-up:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations-2 up
+	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
 
 migrate-down:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations-2 down
+	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
 
 .PHONY: all clean test format tools models migrate-up migrate-down

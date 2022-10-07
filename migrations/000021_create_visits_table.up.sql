@@ -18,28 +18,28 @@ CREATE TABLE visits
     peer_id           INT         NOT NULL,
     -- In which crawl did we meet this peer (can be null if recorded during monitoring)
     crawl_id          INT,
-    -- The time it took to dial the peer or until an error occurred
-    dial_duration     INTERVAL,
-    -- The time it took to connect with the peer or until an error occurred
-    connect_duration  INTERVAL,
-    -- The time it took to crawl the peer also if an error occurred
-    crawl_duration    INTERVAL,
-
+    -- The agent version that this peer reported during this visit.
+    agent_version_id  INT,
+    -- The set of supported protocols that this peer reported.
+    protocols_set_id  INT,
+    -- The type of this visit (done here for column alignment)
+    type              visit_type  NOT NULL,
+    -- The error that happened for this visit.
+    error             dial_error,
     -- The time it took to connect with the peer
     visit_started_at  TIMESTAMPTZ NOT NULL,
     -- The time it took to connect with the peer
     visit_ended_at    TIMESTAMPTZ NOT NULL,
     -- When did this visit happen
     created_at        TIMESTAMPTZ NOT NULL,
-    -- The type of this visit (done here for column alignment)
-    type              visit_type  NOT NULL,
-    -- The error that happened for this visit.
-    error             dial_error,
-    -- The agent version that this peer reported during this visit.
-    agent_version_id  INT,
-    -- The set of supported protocols that this peer reported.
-    protocols_set_id  INT,
     -- All multi addresses of this peer.
+    -- The time it took to dial the peer or until an error occurred
+    dial_duration     INTERVAL,
+    -- The time it took to connect with the peer or until an error occurred
+    connect_duration  INTERVAL,
+    -- The time it took to crawl the peer also if an error occurred
+    crawl_duration    INTERVAL,
+    -- An array of all multi address IDs of the remote peer.
     multi_address_ids INT[],
 
     -- The peer ID should always point to an existing peer in the DB
