@@ -130,14 +130,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	err := s.initCrawl(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Fetch known agent versions and protocols
-	avs, protocols, err := s.fetchCacheData(ctx)
-	if err != nil {
+	if err := s.initCrawl(ctx); err != nil {
 		return err
 	}
 
@@ -149,7 +142,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	defer crawlerCancel()
 
 	// Start all persisters
-	persisters, persistersCancel, err := s.startPersisters(ctx, avs, protocols)
+	persisters, persistersCancel, err := s.startPersisters(ctx)
 	if err != nil {
 		return err
 	}
@@ -259,31 +252,6 @@ func (s *Scheduler) initCrawl(ctx context.Context) error {
 	return nil
 }
 
-// fetchCacheData fetches all known agent versions and protocols from the database.
-func (s *Scheduler) fetchCacheData(ctx context.Context) (map[string]*models.AgentVersion, map[string]*models.Protocol, error) {
-	if s.dbc == nil {
-		return map[string]*models.AgentVersion{}, map[string]*models.Protocol{}, nil
-	}
-
-	// Fetch all known agent version from the database and pass it to the persisters so that
-	// the resulting raw_visit can already contain the corresponding database ids for the agent version.
-	log.Infoln("Caching agent versions from database...")
-	avs, err := s.dbc.GetAllAgentVersions(ctx)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting all agent versions")
-	}
-
-	// Fetch all known protocols from the database and pass it to the persisters so that
-	// the resulting raw_visit can already contain the corresponding database ids for the protocols.
-	log.Infoln("Caching protocols from database...")
-	protocols, err := s.dbc.GetAllProtocols(ctx)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting all protocols")
-	}
-
-	return avs, protocols, nil
-}
-
 // startCrawlers initializes Crawler structs and instructs them to read the crawlQueue to _start crawling_.
 // The returned cancelFunc can be used to stop the crawlers from reading from the crawlQueue and "shut down".
 func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Context, context.CancelFunc, error) {
@@ -305,7 +273,7 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Cont
 
 // startPersisters initializes Persister structs and instructs them to read the persistQueue to _start persisting_.
 // The returned cancelFunc can be used to stop the persisters from reading from the persistQueue and "shut down".
-func (s *Scheduler) startPersisters(ctx context.Context, avs map[string]*models.AgentVersion, protocols map[string]*models.Protocol) ([]*Persister, context.CancelFunc, error) {
+func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.CancelFunc, error) {
 	// Create dedicated context for the persisters
 	persistersCtx, persistersCancel := context.WithCancel(ctx)
 	if s.dbc == nil {
@@ -314,7 +282,7 @@ func (s *Scheduler) startPersisters(ctx context.Context, avs map[string]*models.
 
 	var persisters []*Persister
 	for i := 0; i < 10; i++ {
-		p, err := NewPersister(s.dbc, s.config, s.crawl, avs, protocols)
+		p, err := NewPersister(s.dbc, s.config, s.crawl)
 		if err != nil {
 			persistersCancel()
 			return nil, nil, errors.Wrap(err, "new persister")

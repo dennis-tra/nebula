@@ -30,13 +30,16 @@ db-reset: migrate-down migrate-up models
 database:
 	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_local -e POSTGRES_DB=nebula postgres:14
 
+database-test:
+	docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password_test -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test postgres:14
+
 models:
 	sqlboiler psql
 
 migrate-up:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
+	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path pkg/db/migrations up
 
 migrate-down:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
+	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path pkg/db/migrations down
 
 .PHONY: all clean test format tools models migrate-up migrate-down

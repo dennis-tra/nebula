@@ -39,4 +39,48 @@ BEGIN
 END;
 $upsert_protocols$ LANGUAGE plpgsql;
 
+
+CREATE OR REPLACE FUNCTION upsert_protocol(
+    new_protocol TEXT,
+    new_created_at TIMESTAMPTZ DEFAULT NOW()
+) RETURNS INT AS
+$upsert_protocol$
+DECLARE
+    protocol_id  INT;
+    protocol_ret protocols%rowtype;
+BEGIN
+    new_protocol = TRIM(new_protocol);
+
+    IF new_protocol IS NULL OR new_protocol = '' THEN
+        RETURN NULL;
+    END IF;
+
+    SELECT *
+    FROM protocols av
+    WHERE av.protocol = new_protocol
+    INTO protocol_ret;
+
+    IF protocol_ret IS NOT NULL THEN
+        RETURN protocol_ret.id;
+    END IF;
+
+    INSERT INTO protocols (protocol, created_at)
+    VALUES (new_protocol, new_created_at)
+    ON CONFLICT DO NOTHING
+    RETURNING id INTO protocol_id;
+
+    IF protocol_id IS NOT NULL THEN
+        RETURN protocol_id;
+    END IF;
+
+    SELECT id
+    FROM protocols av
+    WHERE av.protocol = new_protocol
+    INTO protocol_id;
+
+    RETURN protocol_id;
+END
+$upsert_protocol$ LANGUAGE plpgsql;
+
+
 COMMIT;

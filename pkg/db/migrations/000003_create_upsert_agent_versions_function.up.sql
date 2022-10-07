@@ -1,7 +1,8 @@
 BEGIN;
 
 CREATE OR REPLACE FUNCTION upsert_agent_version(
-    new_agent_version TEXT
+    new_agent_version TEXT,
+    new_created_at TIMESTAMPTZ DEFAULT NOW()
 ) RETURNS INT AS
 $upsert_agent_version$
 DECLARE
@@ -19,15 +20,25 @@ BEGIN
     WHERE av.agent_version = new_agent_version
     INTO agent_version_ret;
 
-    IF agent_version_ret IS NULL THEN
-        INSERT INTO agent_versions (agent_version, created_at)
-        VALUES (new_agent_version, NOW())
-        RETURNING id INTO agent_version_id;
+    IF agent_version_ret IS NOT NULL THEN
+        RETURN agent_version_ret.id;
+    END IF;
 
+    INSERT INTO agent_versions (agent_version, created_at)
+    VALUES (new_agent_version, new_created_at)
+    ON CONFLICT DO NOTHING
+    RETURNING id INTO agent_version_id;
+
+    IF agent_version_id IS NOT NULL THEN
         RETURN agent_version_id;
     END IF;
 
-    RETURN agent_version_ret.id;
+    SELECT id
+    FROM agent_versions av
+    WHERE av.agent_version = new_agent_version
+    INTO agent_version_id;
+
+    RETURN agent_version_id;
 END
 $upsert_agent_version$ LANGUAGE plpgsql;
 

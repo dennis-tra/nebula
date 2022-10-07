@@ -41,7 +41,7 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Acquire database handle
-	dbc, err := db.InitClient(conf)
+	dbc, err := db.InitClient(c.Context, conf)
 	if err != nil {
 		return err
 	}

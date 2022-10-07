@@ -43,7 +43,7 @@ func ResolveAction(c *cli.Context) error {
 	}
 
 	// Initialize the database client
-	dbc, err := db.InitClient(conf)
+	dbc, err := db.InitClient(c.Context, conf)
 	if err != nil {
 		return err
 	}

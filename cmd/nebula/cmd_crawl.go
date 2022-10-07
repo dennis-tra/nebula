@@ -61,7 +61,7 @@ func CrawlAction(c *cli.Context) error {
 	// Acquire database handle
 	var dbc *db.Client
 	if !c.Bool("dry-run") {
-		if dbc, err = db.InitClient(conf); err != nil {
+		if dbc, err = db.InitClient(c.Context, conf); err != nil {
 			return err
 		}
 	}

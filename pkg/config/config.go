@@ -28,26 +28,28 @@ var configFile = filepath.Join(Prefix, "config.json")
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapPeers:      []string{}, // see init
-	DialTimeout:         time.Minute,
-	CrawlWorkerCount:    1000,
-	CrawlLimit:          0,
-	PersistNeighbors:    false,
-	PingLimit:           0,
-	PingWorkerCount:     1000,
-	MonitorWorkerCount:  1000,
-	MinPingInterval:     time.Second * 30,
-	PingIntervalFactor:  1.2,
-	PrometheusHost:      "0.0.0.0",
-	PrometheusPort:      6666,
-	DatabaseHost:        "0.0.0.0",
-	DatabasePort:        5432,
-	DatabaseName:        "nebula",
-	DatabasePassword:    "password",
-	DatabaseUser:        "nebula",
-	DatabaseSSLMode:     "disable",
-	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
-	RefreshRoutingTable: false,
+	BootstrapPeers:         []string{}, // see init
+	DialTimeout:            time.Minute,
+	CrawlWorkerCount:       1000,
+	CrawlLimit:             0,
+	PersistNeighbors:       false,
+	PingLimit:              0,
+	PingWorkerCount:        1000,
+	MonitorWorkerCount:     1000,
+	MinPingInterval:        time.Second * 30,
+	PingIntervalFactor:     1.2,
+	PrometheusHost:         "0.0.0.0",
+	PrometheusPort:         6666,
+	DatabaseHost:           "0.0.0.0",
+	DatabasePort:           5432,
+	DatabaseName:           "nebula",
+	DatabasePassword:       "password",
+	DatabaseUser:           "nebula",
+	DatabaseSSLMode:        "disable",
+	Protocols:              []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
+	RefreshRoutingTable:    false,
+	ProtocolsCacheSize:     100,
+	AgentVersionsCacheSize: 200,
 }
 
 // Config contains general user configuration.
@@ -126,6 +128,12 @@ type Config struct {
 
 	// The directory where the measurement files should be saved
 	ProvideOutDir string
+
+	// The cache size to hold protocols in memory to skip database queries.
+	ProtocolsCacheSize int
+
+	// The cache size to hold agent versions in memory to skip database queries.
+	AgentVersionsCacheSize int
 }
 
 func init() {
@@ -304,5 +312,11 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("out") {
 		c.ProvideOutDir = ctx.String("out")
+	}
+	if ctx.IsSet("protocols-cache-size") {
+		c.ProtocolsCacheSize = ctx.Int("protocols-cache-size")
+	}
+	if ctx.IsSet("agent-versions-cache-size") {
+		c.AgentVersionsCacheSize = ctx.Int("agent-versions-cache-size")
 	}
 }

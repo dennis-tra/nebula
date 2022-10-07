@@ -3,19 +3,22 @@ package db
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"go.opencensus.io/stats"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 	"unsafe"
 
-	"github.com/volatiletech/sqlboiler/v4/types"
-
 	"contrib.go.opencensus.io/integrations/ocsql"
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	lru "github.com/hashicorp/golang-lru"
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -25,17 +28,30 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"github.com/volatiletech/sqlboiler/v4/types"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
+//go:embed migrations
+var migrations embed.FS
+
 type Client struct {
+	ctx context.Context
+
 	// Database handler
 	dbh *sql.DB
 
-	// Holds database properties entities for caching
-	propLk sync.RWMutex
+	// protocols cache
+	protocols *lru.Cache
+
+	// protocols cache
+	agentVersions *lru.Cache
 }
 
-func InitClient(conf *config.Config) (*Client, error) {
+func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 	log.WithFields(log.Fields{
 		"host": conf.DatabaseHost,
 		"port": conf.DatabasePort,
@@ -60,11 +76,125 @@ func InitClient(conf *config.Config) (*Client, error) {
 		return nil, errors.Wrap(err, "pinging database")
 	}
 
-	return &Client{dbh: dbh}, nil
+	client := &Client{ctx: ctx, dbh: dbh}
+	client.applyMigrations(conf, dbh)
+
+	client.protocols, err = lru.New(conf.ProtocolsCacheSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "new protocol lru cache")
+	}
+
+	client.agentVersions, err = lru.New(conf.AgentVersionsCacheSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "new agent versions lru cache")
+	}
+
+	if err = client.fillProtocolsCache(ctx); err != nil {
+		return nil, errors.Wrap(err, "fill protocols cache")
+	}
+
+	if err = client.fillAgentVersionsCache(ctx); err != nil {
+		return nil, errors.Wrap(err, "fill agent versions cache")
+	}
+
+	// Ensure all appropriate partitions exist
+	client.ensurePartitions(ctx, time.Now())
+	client.ensurePartitions(ctx, time.Now().Add(24*time.Hour))
+
+	go func() {
+		for range time.NewTicker(24 * time.Hour).C {
+			client.ensurePartitions(ctx, time.Now().Add(12*time.Hour))
+		}
+	}()
+
+	return client, nil
 }
 
 func (c *Client) Handle() *sql.DB {
 	return c.dbh
+}
+
+func (c *Client) Close() error {
+	return c.dbh.Close()
+}
+
+func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
+	tmpDir, err := os.MkdirTemp("", "nebula-"+conf.Version)
+	if err != nil {
+		log.WithError(err).WithField("pattern", "nebula-"+conf.Version).Warnln("Could not create tmp directory for migrations")
+		return
+	}
+	defer func() {
+		if err = os.RemoveAll(tmpDir); err != nil {
+			log.WithError(err).WithField("tmpDir", tmpDir).Warnln("Could not clean up tmp directory")
+		}
+	}()
+	log.WithField("dir", tmpDir).Debugln("Created temporary directory")
+
+	err = fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, err error) error {
+		join := filepath.Join(tmpDir, path)
+		if d.IsDir() {
+			return os.MkdirAll(join, 0755)
+		}
+
+		data, err := migrations.ReadFile(path)
+		if err != nil {
+			return errors.Wrap(err, "read file")
+		}
+
+		err = os.WriteFile(join, data, 0644)
+		return err
+	})
+	if err != nil {
+		log.WithError(err).Warnln("Could not create migrations files")
+		return
+	}
+
+	// Apply migrations
+	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
+	if err != nil {
+		log.WithError(err).Warnln("Could not create driver instance")
+		return
+	}
+
+	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations"), conf.DatabaseName, driver)
+	if err != nil {
+		log.WithError(err).Warnln("Could not create migrate instance")
+		return
+	}
+
+	if err = m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.WithError(err).Warnln("Couldn't apply migrations")
+		return
+	}
+}
+
+func (c *Client) ensurePartitions(ctx context.Context, baseDate time.Time) {
+	lowerBound := time.Date(baseDate.Year(), baseDate.Month(), 1, 0, 0, 0, 0, baseDate.Location())
+	upperBound := lowerBound.AddDate(0, 1, 0)
+	lowerBound.Format("2006-01-02")
+
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS visits_%s_%s PARTITION OF visits FOR VALUES FROM ('%s') TO ('%s')",
+		lowerBound.Format("2006"),
+		lowerBound.Format("01"),
+		lowerBound.Format("2006-01-02"),
+		upperBound.Format("2006-01-02"),
+	)
+	_, err := c.dbh.ExecContext(ctx, query)
+	if err != nil {
+		log.WithError(err).WithField("query", query).Warnln("could not create visits partition")
+	}
+
+	query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS sessions_closed_%s_%s PARTITION OF sessions_closed FOR VALUES FROM ('%s') TO ('%s')",
+		lowerBound.Format("2006"),
+		lowerBound.Format("01"),
+		lowerBound.Format("2006-01-02"),
+		upperBound.Format("2006-01-02"),
+	)
+	_, err = c.dbh.ExecContext(ctx, query)
+	if err != nil {
+		log.WithError(err).WithField("query", query).Warnln("could not create sessions closed partition")
+	}
 }
 
 // InitCrawl inserts a crawl instance into the database in the state `started`.
@@ -88,9 +218,7 @@ func (c *Client) PersistCrawlVisit(
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
 	protocolStrs types.StringArray,
-	protocolIDs types.Int64Array,
 	agentVersion string,
-	agentVersionID int,
 	connectDuration time.Duration,
 	crawlDuration time.Duration,
 	visitStartedAt time.Time,
@@ -99,15 +227,18 @@ func (c *Client) PersistCrawlVisit(
 ) error {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
-	dbAgentVersionID := null.NewInt(agentVersionID, agentVersionID != 0)
-	dbAgentVersion := null.NewString(agentVersion, agentVersion != "" && !dbAgentVersionID.Valid)
+	protocolStrs, protocolIDs := c.parseProtocols(protocolStrs)
+	agentVersionID, found := c.AgentVersionID(agentVersion)
+
+	dbAgentVersionID := null.NewInt(agentVersionID, found)
+	dbAgentVersion := null.NewString(agentVersion, !dbAgentVersionID.Valid)
 	dbConnectDuration := null.NewString(fmt.Sprintf("%f seconds", connectDuration.Seconds()), connectDuration != 0)
 	dbCrawlDuration := null.NewString(fmt.Sprintf("%f seconds", crawlDuration.Seconds()), crawlDuration != 0)
 	dbErrorStr := null.NewString(errorStr, errorStr != "")
 
 	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
 		crawlID,
-		peerID.Pretty(),
+		peerID.String(),
 		types.StringArray(maddrStrs),
 		protocolStrs,
 		protocolIDs,
@@ -127,6 +258,127 @@ func (c *Client) PersistCrawlVisit(
 	return rows.Close()
 }
 
+func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (int, error) {
+	if id, found := c.ProtocolID(protocol); found {
+		return id, nil
+	}
+
+	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
+	if row.Err() != nil {
+		return 0, errors.Wrap(row.Err(), "unable to upsert protocol")
+	}
+
+	var protocolID *int
+	if err := row.Scan(&protocolID); err != nil {
+		return 0, errors.Wrap(err, "unable to scan result from upsert protocol")
+	}
+
+	if protocolID == nil {
+		return 0, fmt.Errorf("protocol not created")
+	}
+
+	c.protocols.Add(protocol, *protocolID)
+
+	return *protocolID, nil
+}
+
+// ProtocolID returns the protocol database id for the given string
+func (c *Client) ProtocolID(protocol string) (int, bool) {
+	val, ok := c.protocols.Get(protocol)
+	if !ok {
+		stats.Record(c.ctx, metrics.ProtocolCacheMissCount.M(1))
+		return 0, false
+	}
+	stats.Record(c.ctx, metrics.ProtocolCacheHitCount.M(1))
+	return val.(int), true
+}
+
+// fillProtocolsCache fetches all rows until protocol cache size from the protocols table and
+// initializes the DB clients protocols cache.
+func (c *Client) fillProtocolsCache(ctx context.Context) error {
+	if c.protocols.Len() == 0 {
+		return nil
+	}
+
+	prots, err := models.Protocols(qm.Limit(c.protocols.Len())).All(ctx, c.dbh)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range prots {
+		c.protocols.Add(p.Protocol, p.ID)
+	}
+
+	return nil
+}
+
+func (c *Client) parseProtocols(protocols []string) (types.StringArray, types.Int64Array) {
+	var protocolStrs []string
+	var protocolIDs []int64
+	for _, protocol := range protocols {
+		if protocolID, found := c.ProtocolID(protocol); found {
+			protocolIDs = append(protocolIDs, int64(protocolID))
+		} else {
+			protocolStrs = append(protocolStrs, protocol)
+		}
+	}
+	return protocolStrs, protocolIDs
+}
+
+func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (int, error) {
+	if id, found := c.AgentVersionID(agentVersion); found {
+		return id, nil
+	}
+
+	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
+	if row.Err() != nil {
+		return 0, errors.Wrap(row.Err(), "unable to upsert agent version")
+	}
+
+	var agentVersionID *int
+	if err := row.Scan(&agentVersionID); err != nil {
+		return 0, errors.Wrap(err, "unable to scan result from upsert agent version")
+	}
+
+	if agentVersionID == nil {
+		return 0, fmt.Errorf("agentVersion not created")
+	}
+
+	c.agentVersions.Add(agentVersion, *agentVersionID)
+
+	return *agentVersionID, nil
+}
+
+// AgentVersionID returns the agent version database id for the given string
+func (c *Client) AgentVersionID(agentVersion string) (int, bool) {
+	val, ok := c.agentVersions.Get(agentVersion)
+	if !ok {
+		stats.Record(c.ctx, metrics.AgentVersionCacheMissCount.M(1))
+		return 0, false
+	}
+	stats.Record(c.ctx, metrics.AgentVersionCacheHitCount.M(1))
+	return val.(int), true
+}
+
+// fillAgentVersionsCache fetches all rows until agent version cache size from the agent_versions table and
+// initializes the DB clients agent version cache.
+func (c *Client) fillAgentVersionsCache(ctx context.Context) error {
+	if c.agentVersions.Len() == 0 {
+		return nil
+	}
+
+	avs, err := models.AgentVersions(qm.Limit(c.agentVersions.Len())).All(ctx, c.dbh)
+	if err != nil {
+		return err
+	}
+
+	for _, av := range avs {
+		c.agentVersions.Add(av.AgentVersion, av.ID)
+	}
+
+	return nil
+}
+
 func (c *Client) PersistDialVisit(
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
@@ -142,7 +394,7 @@ func (c *Client) PersistDialVisit(
 
 	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
 		nil,
-		peerID.Pretty(),
+		peerID.String(),
 		types.StringArray(maddrStrs),
 		nil,
 		nil,
@@ -162,101 +414,14 @@ func (c *Client) PersistDialVisit(
 	return rows.Close()
 }
 
-// GetAllAgentVersions fetches all rows from the agent_versions table and returns a map that's indexed
-// by the agent version string.
-func (c *Client) GetAllAgentVersions(ctx context.Context) (map[string]*models.AgentVersion, error) {
-	avs, err := models.AgentVersions().All(ctx, c.dbh)
-	if err != nil {
-		return nil, err
-	}
-
-	avMap := map[string]*models.AgentVersion{}
-	for _, av := range avs {
-		avMap[av.AgentVersion] = av
-	}
-
-	return avMap, nil
-}
-
-// GetAllProtocols fetches all rows from the protocols table and returns a map that's indexed
-// by the protocol string.
-func (c *Client) GetAllProtocols(ctx context.Context) (map[string]*models.Protocol, error) {
-	ps, err := models.Protocols().All(ctx, c.dbh)
-	if err != nil {
-		return nil, err
-	}
-
-	pMap := map[string]*models.Protocol{}
-	for _, p := range ps {
-		pMap[p.Protocol] = p
-	}
-
-	return pMap, nil
-}
-
-func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*models.Protocol, error) {
-	c.propLk.Lock()
-	defer c.propLk.Unlock()
-
-	p, err := models.Protocols(qm.Where(models.ProtocolColumns.Protocol+" = ?", protocol)).One(ctx, c.dbh)
-	if err == nil {
-		return p, nil
-	}
-
-	p = &models.Protocol{
-		Protocol: protocol,
-	}
-	return p, p.Upsert(ctx, exec, true,
-		[]string{models.ProtocolColumns.Protocol},
-		boil.Whitelist(models.ProtocolColumns.UpdatedAt),
-		boil.Infer(),
-	)
-}
-
-type RepoAgentVersions struct {
-	dbc *sql.DB
-
-	cache *lru.Cache
-}
-
-func NewRepoAgentVersions(dbc *sql.DB, cacheSize int) (*RepoAgentVersions, error) {
-	cache, err := lru.New(cacheSize)
-	if err != nil {
-		return nil, err
-	}
-	return &RepoAgentVersions{
-		dbc:   dbc,
-		cache: cache,
-	}, nil
-}
-
-func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextTransactor, agentVersion string) (*models.AgentVersion, error) {
-	c.propLk.Lock()
-	defer c.propLk.Unlock()
-
-	av, err := models.AgentVersions(models.AgentVersionWhere.AgentVersion.EQ(agentVersion)).One(ctx, c.dbh)
-	if err == nil {
-		return av, nil
-	}
-
-	av = &models.AgentVersion{
-		AgentVersion: agentVersion,
-	}
-	return av, av.Upsert(ctx, exec, true,
-		[]string{models.AgentVersionColumns.AgentVersion},
-		boil.Whitelist(models.AgentVersionColumns.UpdatedAt),
-		boil.Infer(),
-	)
-}
-
 func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, errorBits uint16, neighbors []peer.ID) error {
 	neighborMHashes := make([]string, len(neighbors))
 	for i, neighbor := range neighbors {
-		neighborMHashes[i] = neighbor.Pretty()
+		neighborMHashes[i] = neighbor.String()
 	}
 	// postgres does not support unsigned integers. So we interpret the uint16 as an int16
 	bitMask := *(*int16)(unsafe.Pointer(&errorBits))
-	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)", crawl.ID, peerID.Pretty(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")), bitMask).Query(c.dbh)
+	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)", crawl.ID, peerID.String(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")), bitMask).Query(c.dbh)
 	if err != nil {
 		return err
 	}
@@ -268,6 +433,7 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 	if err != nil {
 		return errors.New("start peer property txn")
 	}
+	defer Rollback(txn)
 
 	for property, valuesMap := range properties {
 		for value, count := range valuesMap {
@@ -278,19 +444,28 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 			}
 
 			if property == "protocol" {
-				p, err := c.GetOrCreateProtocol(ctx, txn, value)
+				protocolID, err := c.GetOrCreateProtocol(ctx, txn, value)
 				if err != nil {
 					continue
 				}
-				cp.ProtocolID = null.IntFrom(p.ID)
+				cp.ProtocolID = null.IntFrom(protocolID)
 			} else if property == "agent_version" {
-				av, err := c.GetOrCreateAgentVersion(ctx, txn, value)
+				agentVersionID, err := c.GetOrCreateAgentVersion(ctx, txn, value)
 				if err != nil {
 					continue
 				}
-				cp.AgentVersionID = null.IntFrom(av.ID)
+				cp.AgentVersionID = null.IntFrom(agentVersionID)
 			} else if property == "error" {
 				cp.Error = null.StringFrom(value)
+			}
+
+			if cp.ProtocolID.IsZero() && cp.AgentVersionID.IsZero() && cp.Error.IsZero() {
+				log.WithFields(log.Fields{
+					"property": property,
+					"value":    value,
+					"count":    count,
+				}).Warnln("No crawl property set")
+				continue
 			}
 
 			if err := cp.Insert(ctx, txn, boil.Infer()); err != nil {
@@ -310,9 +485,8 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
 	peers, err := models.Peers(
 		qm.Load(models.PeerRels.MultiAddresses),
-		qm.InnerJoin("sessions s on s.peer_id = peers.id"),
-		qm.Where("s.finished = false"),
-		qm.OrderBy("s.updated_at"),
+		qm.InnerJoin("sessions_closed s on s.peer_id = peers.id"),
+		qm.OrderBy("s.created_at"),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
 	if err != nil {
@@ -348,65 +522,72 @@ func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.Add
 func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.PeerSlice, error) {
 	mhs := make([]interface{}, len(pis))
 	for i, pi := range pis {
-		mhs[i] = pi.ID.Pretty()
+		mhs[i] = pi.ID.String()
 	}
 	return models.Peers(qm.WhereIn(models.PeerColumns.MultiHash+" in ?", mhs...)).All(ctx, c.dbh)
 }
 
-func (c *Client) InsertLatencies(ctx context.Context, peer *models.Peer, latencies []*models.Latency) error {
-	txn, err := c.dbh.BeginTx(ctx, nil)
-	if err != nil {
-		return errors.Wrap(err, "create latencies txn")
+//func (c *Client) InsertLatencies(ctx context.Context, peer *models.Peer, latencies []*models.Latency) error {
+//	txn, err := c.dbh.BeginTx(ctx, nil)
+//	if err != nil {
+//		return errors.Wrap(err, "create latencies txn")
+//	}
+//
+//	for _, latency := range latencies {
+//		if err := latency.SetPeer(ctx, c.dbh, false, peer); err != nil {
+//			return errors.Wrap(err, "associating peer with latency")
+//		}
+//
+//		if err := latency.Insert(ctx, txn, boil.Infer()); err != nil {
+//			return errors.Wrap(err, "insert latency measurement")
+//		}
+//	}
+//
+//	if err = txn.Commit(); err != nil {
+//		return errors.Wrap(err, "commit latencies txn")
+//	}
+//	return nil
+//}
+
+//func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, error) {
+//	return models.Sessions(
+//		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
+//		qm.Load(models.SessionRels.Peer),
+//		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
+//	).All(ctx, c.dbh)
+//}
+//
+//func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
+//	return models.MultiAddresses(
+//		qm.Where(models.MultiAddressColumns.ID+" > coalesce((SELECT max("+models.MultiAddressesXIPAddressColumns.MultiAddressID+") FROM "+models.TableNames.MultiAddressesXIPAddresses+"), 0)"),
+//		qm.OrderBy(models.MultiAddressColumns.ID),
+//		qm.Limit(limit),
+//	).All(ctx, c.dbh)
+//}
+//
+//func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
+//	pi := peer.AddrInfo{
+//		Addrs: []ma.Multiaddr{},
+//	}
+//	peerID, err := peer.Decode(p.MultiHash)
+//	if err != nil {
+//		return pi, err
+//	}
+//	pi.ID = peerID
+//
+//	for _, dbmaddr := range p.R.MultiAddresses {
+//		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
+//		if err != nil {
+//			return pi, err
+//		}
+//		pi.Addrs = append(pi.Addrs, maddr)
+//	}
+//	return pi, nil
+//}
+
+// Rollback calls rollback on the given transaction and logs the potential error.
+func Rollback(txn *sql.Tx) {
+	if err := txn.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		log.WithError(err).Warnln("An error occurred when rolling back transaction")
 	}
-
-	for _, latency := range latencies {
-		if err := latency.SetPeer(ctx, c.dbh, false, peer); err != nil {
-			return errors.Wrap(err, "associating peer with latency")
-		}
-
-		if err := latency.Insert(ctx, txn, boil.Infer()); err != nil {
-			return errors.Wrap(err, "insert latency measurement")
-		}
-	}
-
-	if err = txn.Commit(); err != nil {
-		return errors.Wrap(err, "commit latencies txn")
-	}
-	return nil
-}
-
-func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, error) {
-	return models.Sessions(
-		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
-		qm.Load(models.SessionRels.Peer),
-		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
-	).All(ctx, c.dbh)
-}
-
-func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
-	return models.MultiAddresses(
-		qm.Where(models.MultiAddressColumns.ID+" > coalesce((SELECT max("+models.MultiAddressesXIPAddressColumns.MultiAddressID+") FROM "+models.TableNames.MultiAddressesXIPAddresses+"), 0)"),
-		qm.OrderBy(models.MultiAddressColumns.ID),
-		qm.Limit(limit),
-	).All(ctx, c.dbh)
-}
-
-func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
-	pi := peer.AddrInfo{
-		Addrs: []ma.Multiaddr{},
-	}
-	peerID, err := peer.Decode(p.MultiHash)
-	if err != nil {
-		return pi, err
-	}
-	pi.ID = peerID
-
-	for _, dbmaddr := range p.R.MultiAddresses {
-		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
-		if err != nil {
-			return pi, err
-		}
-		pi.Addrs = append(pi.Addrs, maddr)
-	}
-	return pi, nil
 }

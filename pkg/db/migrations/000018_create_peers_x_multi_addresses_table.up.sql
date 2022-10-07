@@ -15,8 +15,10 @@ CREATE TABLE peers_x_multi_addresses
     -- The maddr ID should always point to an existing multi address in the DB
     CONSTRAINT fk_peers_x_multi_addresses_multi_address_id FOREIGN KEY (multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,
 
-    PRIMARY KEY (peer_id)
+    PRIMARY KEY (peer_id, multi_address_id)
 );
+
+CREATE INDEX idx_peers_x_multi_addresses_peer_id ON peers_x_multi_addresses (peer_id);
 
 -- End the transaction
 COMMIT;

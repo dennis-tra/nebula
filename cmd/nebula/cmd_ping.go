@@ -46,7 +46,7 @@ func PingAction(c *cli.Context) error {
 		return err
 	}
 
-	dbc, err := db.InitClient(conf)
+	dbc, err := db.InitClient(c.Context, conf)
 	if err != nil {
 		return err
 	}

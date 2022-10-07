@@ -77,7 +77,4 @@ CREATE TABLE sessions_closed PARTITION OF sessions (
 
 CREATE INDEX idx_sessions_closed_created_at ON sessions_closed (created_at);
 
-CREATE TABLE sessions_closed_2022_10 PARTITION OF sessions_closed
-    FOR VALUES FROM ('2022-10-01') TO ('2022-11-01');
-
 COMMIT;
