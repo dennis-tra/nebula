@@ -18,8 +18,6 @@ CREATE TABLE visits
     peer_id           INT         NOT NULL,
     -- In which crawl did we meet this peer (can be null if recorded during monitoring)
     crawl_id          INT,
-    -- Which peer session did we update with this visit
-    session_id        INT,
     -- The time it took to dial the peer or until an error occurred
     dial_duration     INTERVAL,
     -- The time it took to connect with the peer or until an error occurred
@@ -49,8 +47,6 @@ CREATE TABLE visits
     -- The crawl ID should always point to an existing crawl in the DB
     CONSTRAINT fk_visits_crawl_id FOREIGN KEY (crawl_id) REFERENCES crawls (id) ON DELETE SET NULL,
     -- The session ID should always point to an existing session instance in the DB
-    CONSTRAINT fk_visits_session_id FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE SET NULL,
-    -- The agent version ID should always point to an existing agent version in the DB
     CONSTRAINT fk_visits_agent_version_id FOREIGN KEY (agent_version_id) REFERENCES agent_versions (id) ON DELETE SET NULL,
     -- The protocol set ID should always point to an existing protocol set in the DB
     CONSTRAINT fk_visits_protocols_set_id FOREIGN KEY (protocols_set_id) REFERENCES protocols_sets (id) ON DELETE SET NULL,
