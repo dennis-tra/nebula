@@ -13,7 +13,7 @@ $upsert_protocol_set_id$
         INSERT INTO protocols_sets (protocol_ids, hash)
         SELECT new_protocol_ids, hash
         WHERE NOT EXISTS (SELECT NULL FROM sel)
-        ON CONFLICT (protocol_ids) DO UPDATE
+        ON CONFLICT (hash) DO UPDATE
             SET protocol_ids = new_protocol_ids
         RETURNING id, protocol_ids
     )

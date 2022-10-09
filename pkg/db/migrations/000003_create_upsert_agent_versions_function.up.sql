@@ -12,7 +12,7 @@ $upsert_agent_version$
     ), ups AS (
         INSERT INTO agent_versions (agent_version, created_at)
         SELECT new_agent_version, new_created_at
-        WHERE NOT EXISTS (SELECT NULL FROM sel)
+        WHERE NOT EXISTS (SELECT NULL FROM sel) AND new_agent_version IS NOT NULL
         ON CONFLICT ON CONSTRAINT uq_agent_versions_agent_version DO UPDATE
             SET agent_version = new_agent_version
         RETURNING id, agent_version

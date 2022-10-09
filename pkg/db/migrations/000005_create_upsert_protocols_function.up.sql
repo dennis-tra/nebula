@@ -8,6 +8,7 @@ $upsert_protocols$
     WITH input AS (
         SELECT DISTINCT unnest AS protocol
         FROM UNNEST(new_protocols) unnest
+        WHERE unnest IS NOT NULL
     ), sel AS (-- select all existing protocols
         SELECT protocols.id, protocols.protocol
         FROM input
@@ -42,7 +43,7 @@ $upsert_protocol$
     ), ups AS (
         INSERT INTO protocols (protocol, created_at)
         SELECT new_protocol, new_created_at
-        WHERE NOT EXISTS (SELECT NULL FROM sel)
+        WHERE NOT EXISTS (SELECT NULL FROM sel AND new_protocol IS NOT NULL)
         ON CONFLICT ON CONSTRAINT uq_protocols_protocol DO UPDATE
             SET protocol = new_protocol
         RETURNING id, protocol

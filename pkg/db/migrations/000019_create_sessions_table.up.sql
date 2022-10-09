@@ -17,7 +17,7 @@ CREATE TABLE sessions
     -- Timestamp of the last time we were able to visit that peer.
     last_successful_visit   TIMESTAMPTZ   NOT NULL,
     -- Timestamp when we should start visiting this peer again.
-    next_visit_due_at   TIMESTAMPTZ,
+    next_visit_due_at       TIMESTAMPTZ,
     -- When did we notice that this peer is not reachable.
     first_failed_visit      TIMESTAMPTZ,
     -- When did we first notice that this peer is not reachable.

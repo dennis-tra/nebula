@@ -231,7 +231,7 @@ func (c *Client) PersistCrawlVisit(
 	agentVersionID, found := c.AgentVersionID(agentVersion)
 
 	dbAgentVersionID := null.NewInt(agentVersionID, found)
-	dbAgentVersion := null.NewString(agentVersion, !dbAgentVersionID.Valid)
+	dbAgentVersion := null.NewString(agentVersion, !dbAgentVersionID.Valid && agentVersion != "")
 	dbConnectDuration := null.NewString(fmt.Sprintf("%f seconds", connectDuration.Seconds()), connectDuration != 0)
 	dbCrawlDuration := null.NewString(fmt.Sprintf("%f seconds", crawlDuration.Seconds()), crawlDuration != 0)
 	dbErrorStr := null.NewString(errorStr, errorStr != "")

@@ -18,31 +18,50 @@ CREATE OR REPLACE FUNCTION insert_visit(
 ) RETURNS INT AS
 $insert_visit$
 DECLARE
-    upserted_protocol_ids      INT[];
-    upserted_protocols_set_id  INT;
-    upserted_peer_id           INT;
-    upserted_multi_address_ids INT[];
-    upserted_agent_version_id  INT;
     new_visit_id               int;
 BEGIN
 
-    SELECT upsert_protocols(new_protocols, new_visit_ended_at) INTO upserted_protocol_ids;
-    SELECT upsert_protocol_set_id(new_protocol_ids || upserted_protocol_ids) INTO upserted_protocols_set_id;
-    SELECT upsert_agent_version(new_agent_version, new_visit_ended_at) INTO upserted_agent_version_id;
-    SELECT upsert_peer(new_peer_multi_hash, coalesce(upserted_agent_version_id, new_agent_version_id),
-                       upserted_protocols_set_id, new_visit_ended_at)
-    INTO upserted_peer_id;
-
-    SELECT upsert_multi_addresses(new_multi_addresses) INTO upserted_multi_address_ids;
-
-    -- Update current list of advertised multi addresses of remote peer.
-    DELETE FROM peers_x_multi_addresses WHERE peer_id = upserted_peer_id;
-    INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
-    SELECT upserted_peer_id, ma.id
-    FROM (SELECT unnest(upserted_multi_address_ids) id) ma
-    ON CONFLICT DO NOTHING;
-
---     PERFORM upsert_session(upserted_peer_id, new_visit_ended_at, new_visit_started_at, new_error);
+    WITH all_protocol_ids AS (
+        SELECT id
+        FROM upsert_protocols(new_protocols, new_visit_ended_at)
+        UNION
+        SELECT id
+        FROM unnest(new_protocol_ids) id
+    ), upserted_protocol_ids AS (
+        SELECT array_agg(DISTINCT id) ids
+        FROM all_protocol_ids
+        ORDER BY 1
+    ), upserted_agent_version_id AS (
+        SELECT coalesce(upsert_agent_version(new_agent_version, new_visit_ended_at), new_agent_version_id) id
+    ), upserted_protocols_set_id AS (
+        SELECT upsert_protocol_set_id(upi.ids,sha256(upi.ids::TEXT::BYTEA)) id
+        FROM upserted_protocol_ids upi WHERE upi IS NOT NULL
+    ), upserted_peer_id AS (
+        SELECT upsert_peer(new_peer_multi_hash, (SELECT id FROM upserted_agent_version_id), (SELECT id FROM upserted_protocols_set_id), new_visit_ended_at) id
+    ), upserted_multi_addresses AS (
+        SELECT upsert_multi_addresses(new_multi_addresses) multi_address_id
+    ), multi_address_diff_table AS (
+        SELECT pxma.multi_address_id existing_id, uma.multi_address_id new_id
+        FROM peers_x_multi_addresses pxma
+            FULL OUTER JOIN upserted_multi_addresses uma ON uma.multi_address_id = pxma.multi_address_id
+        WHERE peer_id = (SELECT id FROM upserted_peer_id)
+    ), delete_multi_addresses AS (
+        DELETE FROM peers_x_multi_addresses pxma
+        WHERE peer_id = (SELECT id FROM upserted_peer_id)
+            AND NOT EXISTS (
+                SELECT FROM multi_address_diff_table madt
+                WHERE pxma.multi_address_id = madt.existing_id
+                  AND madt.new_id IS NULL
+            )
+    ), insert_multi_addresses AS (
+        INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
+        SELECT (SELECT id FROM upserted_peer_id), madf.new_id
+        FROM multi_address_diff_table madf
+        WHERE madf.existing_id IS NULL
+        ON CONFLICT DO NOTHING
+    ), upsert_session AS (
+        SELECT upsert_session((SELECT id FROM upserted_peer_id), new_visit_ended_at, new_visit_started_at, new_error)
+    )
 
     -- Now we're able to create the normalized visit instance
     INSERT
@@ -59,7 +78,7 @@ BEGIN
                  agent_version_id,
                  protocols_set_id,
                  multi_address_ids)
-    VALUES (upserted_peer_id,
+    SELECT (SELECT id FROM upserted_peer_id),
             new_crawl_id,
             new_dial_duration,
             new_connect_duration,
@@ -69,9 +88,9 @@ BEGIN
             NOW(),
             new_type,
             new_error,
-            coalesce(upserted_agent_version_id, new_agent_version_id),
-            upserted_protocols_set_id,
-            upserted_multi_address_ids)
+            (SELECT id FROM upserted_agent_version_id),
+            (SELECT id FROM upserted_protocols_set_id),
+            array_agg((SELECT multi_address_id FROM upserted_multi_addresses))
     RETURNING id INTO new_visit_id;
 
     RETURN new_visit_id;
