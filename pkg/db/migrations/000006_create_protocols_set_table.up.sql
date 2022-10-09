@@ -13,13 +13,16 @@ CREATE TABLE protocols_sets
     -- can make huge storage difference.
     id           INT GENERATED ALWAYS AS IDENTITY,
     -- The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).
-    protocol_ids INT[] NOT NULL,
+    protocol_ids INT[] NOT NULL CHECK ( array_length(protocol_ids, 1) IS NOT NULL ),
+    -- The hash digest of the sorted protocol ids to allow a unique constraint
+    hash         BYTEA NOT NULL,
 
-    -- Don't allow identical sets in the database
-    EXCLUDE USING GIST(protocol_ids WITH =),
+    CONSTRAINT uq_protocols_sets_hash UNIQUE (hash),
 
     PRIMARY KEY (id)
 );
+
+CREATE INDEX idx_protocols_sets_protocol_ids on protocols_sets USING GIST (protocol_ids);
 
 COMMENT ON TABLE protocols_sets IS ''
     'Since the set of protocols for a particular peer does not change very often in between crawls,'

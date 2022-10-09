@@ -10,10 +10,10 @@ CREATE TABLE peers
     -- The set of protocols that this peer currently supports (updated if changed).
     protocols_set_id INT,
     -- The peer ID in the form of Qm... or 12D3...
-    multi_hash       TEXT        NOT NULL,
+    multi_hash       TEXT        NOT NULL CHECK ( TRIM(multi_hash) != '' ),
 
     -- When were the multi addresses updated the last time.
-    updated_at       TIMESTAMPTZ NOT NULL,
+    updated_at       TIMESTAMPTZ NOT NULL CHECK ( updated_at >= created_at ),
     -- When was this peer instance created.
     -- This gives a pretty accurate idea of
     -- when this peer was seen the first time.

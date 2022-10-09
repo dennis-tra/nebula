@@ -9,24 +9,15 @@ $upsert_agent_version$
         SELECT id, agent_version
         FROM agent_versions
         WHERE agent_version = new_agent_version
-    ), ins AS (
-        INSERT INTO agent_versions (agent_version, created_at)
-        SELECT new_agent_version, new_created_at
-        WHERE NOT EXISTS (SELECT NULL FROM sel)
-        ON CONFLICT DO NOTHING
-        RETURNING id, agent_version
     ), ups AS (
         INSERT INTO agent_versions (agent_version, created_at)
         SELECT new_agent_version, new_created_at
         WHERE NOT EXISTS (SELECT NULL FROM sel)
-          AND NOT EXISTS (SELECT NULL FROM ins)
         ON CONFLICT ON CONSTRAINT uq_agent_versions_agent_version DO UPDATE
             SET agent_version = new_agent_version
         RETURNING id, agent_version
     )
     SELECT id FROM sel
-    UNION
-    SELECT id FROM ins
     UNION
     SELECT id FROM ups;
 $upsert_agent_version$ LANGUAGE sql;

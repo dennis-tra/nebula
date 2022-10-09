@@ -12,31 +12,18 @@ $upsert_protocols$
         SELECT protocols.id, protocols.protocol
         FROM input
         INNER JOIN protocols USING (protocol)
-    ), ins AS (-- insert all protocols that don't exist yet
+    ), ups AS (-- upsert all protocols that don't exist yet
         INSERT INTO protocols (protocol, created_at)
         SELECT input.protocol, new_created_at
         FROM input
             LEFT JOIN sel USING (protocol)
         WHERE sel.protocol IS NULL
         ORDER BY input.protocol
-        ON CONFLICT DO NOTHING
-        RETURNING id, protocol
-    ), ups AS (-- if in between the above two queries the missing protocols where inserted we do an upsert (should happen rarely)
-        INSERT INTO protocols (protocol, created_at)
-        SELECT input.protocol, new_created_at
-        FROM input
-            LEFT JOIN sel ON sel.protocol = input.protocol
-            LEFT JOIN ins ON ins.protocol = input.protocol
-        WHERE sel.protocol IS NULL
-          AND ins.protocol IS NULL
-        ORDER BY input.protocol
         ON CONFLICT ON CONSTRAINT uq_protocols_protocol DO UPDATE
             SET protocol = protocols.protocol
         RETURNING id, protocol
     )
     SELECT id FROM sel
-    UNION
-    SELECT id FROM ins
     UNION
     SELECT id FROM ups
     ORDER BY id;
@@ -52,24 +39,15 @@ $upsert_protocol$
         SELECT id, protocol
         FROM protocols
         WHERE protocol = new_protocol
-    ), ins AS (
-        INSERT INTO protocols (protocol, created_at)
-        SELECT new_protocol, new_created_at
-        WHERE NOT EXISTS (SELECT NULL FROM sel)
-        ON CONFLICT DO NOTHING
-        RETURNING id, protocol
     ), ups AS (
         INSERT INTO protocols (protocol, created_at)
         SELECT new_protocol, new_created_at
         WHERE NOT EXISTS (SELECT NULL FROM sel)
-          AND NOT EXISTS (SELECT NULL FROM ins)
         ON CONFLICT ON CONSTRAINT uq_protocols_protocol DO UPDATE
             SET protocol = new_protocol
         RETURNING id, protocol
     )
     SELECT id FROM sel
-    UNION
-    SELECT id FROM ins
     UNION
     SELECT id FROM ups;
 $upsert_protocol$ LANGUAGE sql;

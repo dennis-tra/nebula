@@ -18,15 +18,15 @@ CREATE TABLE ip_addresses
     -- When was this IP address created
     created_at       TIMESTAMPTZ NOT NULL,
     -- The country that this address belongs to in the form of a two to three letter country code
-    country          CHAR(2), -- make it not null so that the unique constraint applies IPs without country.
+    country          CHAR(2) CHECK ( TRIM(country) != '' ), -- make it not null so that the unique constraint applies IPs without country.
     -- The continent that this address belongs to in the form of a two letter code.
-    continent        CHAR(2),
+    continent        CHAR(2) CHECK ( TRIM(continent) != '' ),
     -- The IP address derived from the reference multi address.
     address          INET        NOT NULL,
 
 
     -- Only one address/multi_address_id combination should be allowed.
-    CONSTRAINT uq_address_country UNIQUE (multi_address_id, address),
+    CONSTRAINT uq_ip_addresses_multi_address_id_address UNIQUE (multi_address_id, address),
 
     -- The multi_address_id should reference the proper table row.
     CONSTRAINT fk_ip_addresses_multi_address_id FOREIGN KEY (multi_address_id) REFERENCES multi_addresses (id) ON DELETE CASCADE,

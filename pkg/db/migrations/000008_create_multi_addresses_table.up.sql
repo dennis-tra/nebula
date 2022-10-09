@@ -29,14 +29,14 @@ CREATE TABLE multi_addresses
     -- If this flag is true there are corresponding IP addresses.
     has_many_addrs BOOLEAN,
     -- The country that this multi address belongs to in the form of a two letter country code.
-    country        CHAR(2),
+    country        CHAR(2) CHECK ( TRIM(country) != '' ),
     -- The continent that this multi address belongs to in the form of a two letter code.
-    continent      CHAR(2),
+    continent      CHAR(2) CHECK ( TRIM(continent) != '' ),
     -- The multi address in the form of `/ip4/123.456.789.123/tcp/4001`.
-    maddr          TEXT        NOT NULL,
+    maddr          TEXT        NOT NULL CHECK ( TRIM(maddr) != '' ),
 
     -- When was this multi address updated the last time
-    updated_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL CHECK ( updated_at >= created_at ),
     -- When was this multi address created
     created_at     TIMESTAMPTZ NOT NULL,
 
