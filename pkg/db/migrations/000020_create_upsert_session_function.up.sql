@@ -12,7 +12,7 @@ $$
 BEGIN
     RETURN new_visited_at + LEAST(max_interval, GREATEST(min_interval, factor * (new_visited_at - last_visited_at)));
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE 'plpgsql' IMMUTABLE;
 
 
 CREATE OR REPLACE FUNCTION calc_max_failed_visits(
@@ -35,7 +35,7 @@ BEGIN
         RETURN 3;
     END IF;
 END;
-$$ LANGUAGE 'plpgsql';
+$$ LANGUAGE 'plpgsql' IMMUTABLE;
 
 CREATE OR REPLACE FUNCTION upsert_session(
     visit_peer_id INT,
@@ -60,7 +60,8 @@ BEGIN
             -- If there was no session object in the database but this
             -- visit was successful we create a new open sessions.
             INSERT INTO sessions_open (--
-                peer_id, first_successful_visit, last_successful_visit, next_visit_attempt_at, updated_at, created_at,
+                peer_id, first_successful_visit, last_successful_visit, next_visit_due_at, updated_at,
+                created_at,
                 successful_visits_count, state, recovered_count,
                 failed_visits_count)
             VALUES (visit_peer_id, new_visit_started_at, new_visit_ended_at,
@@ -81,17 +82,17 @@ BEGIN
         -- So we found an open session in the database and could
         -- again successfully connect to the peer. Update it:
         UPDATE sessions_open
-        SET state                   = 'open',                                    -- if the state was `pending` previously, we need to set it back to open
-            last_successful_visit   = new_visit_ended_at,
-            successful_visits_count = upserted_session.successful_visits_count + 1,
-            updated_at              = NOW(),
-            first_failed_visit      = NULL,
-            failed_visits_count     = 0,
-            finish_reason           = NULL,
-            recovered_count         = upserted_session.recovered_count +
-                                      (upserted_session.state = 'pending')::INT, -- if the state was `pending` this will yield `1` and thus increment the recovered_count
-            next_visit_attempt_at   = (SELECT calc_next_visit(new_visit_ended_at,
-                                                              upserted_session.last_successful_visit))
+        SET state                    = 'open',                                    -- if the state was `pending` previously, we need to set it back to open
+            last_successful_visit    = new_visit_ended_at,
+            successful_visits_count  = upserted_session.successful_visits_count + 1,
+            updated_at               = NOW(),
+            first_failed_visit       = NULL,
+            failed_visits_count      = 0,
+            finish_reason            = NULL,
+            recovered_count          = upserted_session.recovered_count +
+                                       (upserted_session.state = 'pending')::INT, -- if the state was `pending` this will yield `1` and thus increment the recovered_count
+            next_visit_due_at = (SELECT calc_next_visit(new_visit_ended_at,
+                                                               upserted_session.last_successful_visit))
         WHERE peer_id = visit_peer_id;
     ELSE
         SELECT calc_max_failed_visits(upserted_session.first_successful_visit, upserted_session.last_successful_visit)
@@ -101,36 +102,36 @@ BEGIN
         -- not connect to the remote peer. Update it:
         IF upserted_session.state = 'open' AND max_failed_visits > 0 THEN
             UPDATE sessions
-            SET state                 = 'pending',
-                first_failed_visit    = new_visit_ended_at,
-                last_failed_visit     = new_visit_ended_at,
-                failed_visits_count   = upserted_session.failed_visits_count + 1,
-                updated_at            = NOW(),
-                finish_reason         = new_error,
-                next_visit_attempt_at = new_visit_ended_at + max_failed_visits * '1m'::INTERVAL
+            SET state                    = 'pending',
+                first_failed_visit       = new_visit_ended_at,
+                last_failed_visit        = new_visit_ended_at,
+                failed_visits_count      = upserted_session.failed_visits_count + 1,
+                updated_at               = NOW(),
+                finish_reason            = new_error,
+                next_visit_due_at = new_visit_ended_at + max_failed_visits * '1m'::INTERVAL
             WHERE peer_id = visit_peer_id
               AND state = 'open';
         ELSIF upserted_session.state = 'pending' AND upserted_session.failed_visits_count < max_failed_visits THEN
             UPDATE sessions
-            SET last_failed_visit     = new_visit_ended_at,
-                failed_visits_count   = upserted_session.failed_visits_count + 1,
-                updated_at            = NOW(),
-                next_visit_attempt_at = (SELECT calc_next_visit(new_visit_ended_at,
-                                                                upserted_session.last_successful_visit))
+            SET last_failed_visit        = new_visit_ended_at,
+                failed_visits_count      = upserted_session.failed_visits_count + 1,
+                updated_at               = NOW(),
+                next_visit_due_at = (SELECT calc_next_visit(new_visit_ended_at,
+                                                                   upserted_session.last_successful_visit))
             WHERE peer_id = visit_peer_id
               AND state = 'pending';
         ELSE
             UPDATE sessions
-            SET state                 = 'closed',
-                first_failed_visit    = COALESCE(upserted_session.first_failed_visit, new_visit_ended_at),
-                last_failed_visit     = new_visit_ended_at,
-                failed_visits_count   = upserted_session.failed_visits_count + 1,
-                min_duration          = last_successful_visit - first_successful_visit,
-                max_duration          = COALESCE(upserted_session.first_failed_visit, new_visit_ended_at) -
-                                        first_successful_visit,
-                updated_at            = NOW(),
-                finish_reason         = COALESCE(upserted_session.finish_reason, new_error),
-                next_visit_attempt_at = NULL
+            SET state                    = 'closed',
+                first_failed_visit       = COALESCE(upserted_session.first_failed_visit, new_visit_ended_at),
+                last_failed_visit        = new_visit_ended_at,
+                failed_visits_count      = upserted_session.failed_visits_count + 1,
+                min_duration             = last_successful_visit - first_successful_visit,
+                max_duration             = COALESCE(upserted_session.first_failed_visit, new_visit_ended_at) -
+                                           first_successful_visit,
+                updated_at               = NOW(),
+                finish_reason            = COALESCE(upserted_session.finish_reason, new_error),
+                next_visit_due_at = NULL
             WHERE peer_id = visit_peer_id
               AND state != 'closed';
         END IF;

@@ -29,17 +29,17 @@ CREATE TABLE crawls
     -- Timestamp of when this crawl process started.
     started_at       TIMESTAMPTZ NOT NULL,
     -- Timestamp of when this crawl process finished.
-    finished_at      TIMESTAMPTZ,
+    finished_at      TIMESTAMPTZ CHECK ( finished_at > started_at ),
     -- Timestamp of when this crawl row was updated the last time.
-    updated_at       TIMESTAMPTZ NOT NULL,
+    updated_at       TIMESTAMPTZ NOT NULL CHECK ( updated_at >= created_at ),
     -- Timestamp of when this crawl instance was created which can slightly differ from the started_at timestamp.
     created_at       TIMESTAMPTZ NOT NULL,
     -- Number of _visited_ peers during this crawl.
-    crawled_peers    INTEGER,
+    crawled_peers    INTEGER CHECK ( crawled_peers = dialable_peers + undialable_peers ),
     -- Number of successfully dialed peers during this crawl.
-    dialable_peers   INTEGER,
+    dialable_peers   INTEGER CHECK ( dialable_peers >= 0 ),
     -- Number of peers that could not be reached during this crawl.
-    undialable_peers INTEGER,
+    undialable_peers INTEGER CHECK ( undialable_peers >= 0 ),
 
     PRIMARY KEY (id)
 );

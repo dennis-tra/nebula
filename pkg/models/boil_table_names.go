@@ -8,6 +8,7 @@ var TableNames = struct {
 	CrawlProperties      string
 	Crawls               string
 	IPAddresses          string
+	Latencies            string
 	MultiAddresses       string
 	Neighbors            string
 	PeerLogs             string
@@ -17,7 +18,6 @@ var TableNames = struct {
 	ProtocolsSets        string
 	Sessions             string
 	SessionsClosed       string
-	SessionsClosed202210 string
 	SessionsOpen         string
 	Visits               string
 }{
@@ -25,6 +25,7 @@ var TableNames = struct {
 	CrawlProperties:      "crawl_properties",
 	Crawls:               "crawls",
 	IPAddresses:          "ip_addresses",
+	Latencies:            "latencies",
 	MultiAddresses:       "multi_addresses",
 	Neighbors:            "neighbors",
 	PeerLogs:             "peer_logs",
@@ -34,7 +35,6 @@ var TableNames = struct {
 	ProtocolsSets:        "protocols_sets",
 	Sessions:             "sessions",
 	SessionsClosed:       "sessions_closed",
-	SessionsClosed202210: "sessions_closed_2022_10",
 	SessionsOpen:         "sessions_open",
 	Visits:               "visits",
 }

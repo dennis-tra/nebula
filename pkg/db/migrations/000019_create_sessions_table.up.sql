@@ -17,7 +17,7 @@ CREATE TABLE sessions
     -- Timestamp of the last time we were able to visit that peer.
     last_successful_visit   TIMESTAMPTZ   NOT NULL,
     -- Timestamp when we should start visiting this peer again.
-    next_visit_attempt_at   TIMESTAMPTZ,
+    next_visit_due_at   TIMESTAMPTZ,
     -- When did we notice that this peer is not reachable.
     first_failed_visit      TIMESTAMPTZ,
     -- When did we first notice that this peer is not reachable.
@@ -54,7 +54,7 @@ CREATE TABLE sessions
 
 CREATE TABLE sessions_open PARTITION OF sessions(
     id DEFAULT nextval('sessions_id_seq'),
-    next_visit_attempt_at NOT NULL
+    next_visit_due_at NOT NULL
     ) FOR VALUES IN ('open', 'pending') WITH (fillfactor = 90);
 -- we're doing lots of updates on this table so decrease fill factor.
 
@@ -62,7 +62,7 @@ CREATE TABLE sessions_open PARTITION OF sessions(
 CREATE UNIQUE INDEX uq_sessions_open_peer_id ON sessions_open (peer_id);
 
 -- Create index on visit attempt to efficiently query due sessions.
-CREATE INDEX idx_sessions_open_next_visit_attempt_at ON sessions_open (next_visit_attempt_at);
+CREATE INDEX idx_sessions_open_next_visit_due_at ON sessions_open (next_visit_due_at);
 
 -------------------------------------------------
 -- Create partition for closed sessions

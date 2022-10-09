@@ -182,7 +182,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 func (s *Scheduler) monitorDatabase(ctx context.Context) {
 	for {
 		log.Infof("Looking for sessions to check...")
-		sessions, err := s.dbc.FetchDueSessions(ctx)
+		sessions, err := s.dbc.FetchDueOpenSessions(ctx)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
@@ -208,7 +208,7 @@ func (s *Scheduler) monitorDatabase(ctx context.Context) {
 
 // scheduleDial takes a session entity from the database constructs a peer.AddrInfo struct and feeds
 // it into the queue of peers-to-dial to be picked up by one of the dialers.
-func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) error {
+func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOpen) error {
 	// Parse peer ID from database
 	peerID, err := peer.Decode(session.R.Peer.MultiHash)
 	if err != nil {

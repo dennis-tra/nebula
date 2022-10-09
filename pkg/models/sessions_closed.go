@@ -28,7 +28,7 @@ type SessionsClosed struct {
 	PeerID                int       `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	FirstSuccessfulVisit  time.Time `boil:"first_successful_visit" json:"first_successful_visit" toml:"first_successful_visit" yaml:"first_successful_visit"`
 	LastSuccessfulVisit   time.Time `boil:"last_successful_visit" json:"last_successful_visit" toml:"last_successful_visit" yaml:"last_successful_visit"`
-	NextVisitAttemptAt    null.Time `boil:"next_visit_attempt_at" json:"next_visit_attempt_at,omitempty" toml:"next_visit_attempt_at" yaml:"next_visit_attempt_at,omitempty"`
+	NextVisitDueAt        null.Time `boil:"next_visit_due_at" json:"next_visit_due_at,omitempty" toml:"next_visit_due_at" yaml:"next_visit_due_at,omitempty"`
 	FirstFailedVisit      time.Time `boil:"first_failed_visit" json:"first_failed_visit" toml:"first_failed_visit" yaml:"first_failed_visit"`
 	LastFailedVisit       time.Time `boil:"last_failed_visit" json:"last_failed_visit" toml:"last_failed_visit" yaml:"last_failed_visit"`
 	UpdatedAt             time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
@@ -50,7 +50,7 @@ var SessionsClosedColumns = struct {
 	PeerID                string
 	FirstSuccessfulVisit  string
 	LastSuccessfulVisit   string
-	NextVisitAttemptAt    string
+	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
 	UpdatedAt             string
@@ -67,7 +67,7 @@ var SessionsClosedColumns = struct {
 	PeerID:                "peer_id",
 	FirstSuccessfulVisit:  "first_successful_visit",
 	LastSuccessfulVisit:   "last_successful_visit",
-	NextVisitAttemptAt:    "next_visit_attempt_at",
+	NextVisitDueAt:        "next_visit_due_at",
 	FirstFailedVisit:      "first_failed_visit",
 	LastFailedVisit:       "last_failed_visit",
 	UpdatedAt:             "updated_at",
@@ -86,7 +86,7 @@ var SessionsClosedTableColumns = struct {
 	PeerID                string
 	FirstSuccessfulVisit  string
 	LastSuccessfulVisit   string
-	NextVisitAttemptAt    string
+	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
 	UpdatedAt             string
@@ -103,7 +103,7 @@ var SessionsClosedTableColumns = struct {
 	PeerID:                "sessions_closed.peer_id",
 	FirstSuccessfulVisit:  "sessions_closed.first_successful_visit",
 	LastSuccessfulVisit:   "sessions_closed.last_successful_visit",
-	NextVisitAttemptAt:    "sessions_closed.next_visit_attempt_at",
+	NextVisitDueAt:        "sessions_closed.next_visit_due_at",
 	FirstFailedVisit:      "sessions_closed.first_failed_visit",
 	LastFailedVisit:       "sessions_closed.last_failed_visit",
 	UpdatedAt:             "sessions_closed.updated_at",
@@ -124,7 +124,7 @@ var SessionsClosedWhere = struct {
 	PeerID                whereHelperint
 	FirstSuccessfulVisit  whereHelpertime_Time
 	LastSuccessfulVisit   whereHelpertime_Time
-	NextVisitAttemptAt    whereHelpernull_Time
+	NextVisitDueAt        whereHelpernull_Time
 	FirstFailedVisit      whereHelpertime_Time
 	LastFailedVisit       whereHelpertime_Time
 	UpdatedAt             whereHelpertime_Time
@@ -141,7 +141,7 @@ var SessionsClosedWhere = struct {
 	PeerID:                whereHelperint{field: "\"sessions_closed\".\"peer_id\""},
 	FirstSuccessfulVisit:  whereHelpertime_Time{field: "\"sessions_closed\".\"first_successful_visit\""},
 	LastSuccessfulVisit:   whereHelpertime_Time{field: "\"sessions_closed\".\"last_successful_visit\""},
-	NextVisitAttemptAt:    whereHelpernull_Time{field: "\"sessions_closed\".\"next_visit_attempt_at\""},
+	NextVisitDueAt:        whereHelpernull_Time{field: "\"sessions_closed\".\"next_visit_due_at\""},
 	FirstFailedVisit:      whereHelpertime_Time{field: "\"sessions_closed\".\"first_failed_visit\""},
 	LastFailedVisit:       whereHelpertime_Time{field: "\"sessions_closed\".\"last_failed_visit\""},
 	UpdatedAt:             whereHelpertime_Time{field: "\"sessions_closed\".\"updated_at\""},
@@ -172,10 +172,10 @@ func (*sessionsClosedR) NewStruct() *sessionsClosedR {
 type sessionsClosedL struct{}
 
 var (
-	sessionsClosedAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_attempt_at", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
+	sessionsClosedAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_due_at", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
 	sessionsClosedColumnsWithoutDefault = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
-	sessionsClosedColumnsWithDefault    = []string{"next_visit_attempt_at"}
-	sessionsClosedPrimaryKeyColumns     = []string{"id", "state", "last_failed_visit"}
+	sessionsClosedColumnsWithDefault    = []string{"next_visit_due_at"}
+	sessionsClosedPrimaryKeyColumns     = []string{"id", "state", "created_at"}
 	sessionsClosedGeneratedColumns      = []string{}
 )
 
@@ -470,7 +470,7 @@ func SessionsCloseds(mods ...qm.QueryMod) sessionsClosedQuery {
 
 // FindSessionsClosed retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastFailedVisit time.Time, selectCols ...string) (*SessionsClosed, error) {
+func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time, selectCols ...string) (*SessionsClosed, error) {
 	sessionsClosedObj := &SessionsClosed{}
 
 	sel := "*"
@@ -478,10 +478,10 @@ func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, 
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3", sel,
+		"select %s from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3", sel,
 	)
 
-	q := queries.Raw(query, iD, state, lastFailedVisit)
+	q := queries.Raw(query, iD, state, createdAt)
 
 	err := q.Bind(ctx, exec, sessionsClosedObj)
 	if err != nil {
@@ -857,7 +857,7 @@ func (o *SessionsClosed) Delete(ctx context.Context, exec boil.ContextExecutor) 
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), sessionsClosedPrimaryKeyMapping)
-	sql := "DELETE FROM \"sessions_closed\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3"
+	sql := "DELETE FROM \"sessions_closed\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -954,7 +954,7 @@ func (o SessionsClosedSlice) DeleteAll(ctx context.Context, exec boil.ContextExe
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *SessionsClosed) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindSessionsClosed(ctx, exec, o.ID, o.State, o.LastFailedVisit)
+	ret, err := FindSessionsClosed(ctx, exec, o.ID, o.State, o.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -993,16 +993,16 @@ func (o *SessionsClosedSlice) ReloadAll(ctx context.Context, exec boil.ContextEx
 }
 
 // SessionsClosedExists checks if the SessionsClosed row exists.
-func SessionsClosedExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastFailedVisit time.Time) (bool, error) {
+func SessionsClosedExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3 limit 1)"
+	sql := "select exists(select 1 from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, iD, state, lastFailedVisit)
+		fmt.Fprintln(writer, iD, state, createdAt)
 	}
-	row := exec.QueryRowContext(ctx, sql, iD, state, lastFailedVisit)
+	row := exec.QueryRowContext(ctx, sql, iD, state, createdAt)
 
 	err := row.Scan(&exists)
 	if err != nil {

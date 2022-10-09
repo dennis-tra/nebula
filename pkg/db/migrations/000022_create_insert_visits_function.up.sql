@@ -42,7 +42,7 @@ BEGIN
     FROM (SELECT unnest(upserted_multi_address_ids) id) ma
     ON CONFLICT DO NOTHING;
 
-    PERFORM upsert_session(upserted_peer_id, new_visit_ended_at, new_visit_started_at, new_error);
+--     PERFORM upsert_session(upserted_peer_id, new_visit_ended_at, new_visit_started_at, new_error);
 
     -- Now we're able to create the normalized visit instance
     INSERT

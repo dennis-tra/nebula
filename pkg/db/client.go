@@ -519,71 +519,34 @@ func (c *Client) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.Add
 	return pis, nil
 }
 
-func (c *Client) QueryPeers(ctx context.Context, pis []peer.AddrInfo) (models.PeerSlice, error) {
-	mhs := make([]interface{}, len(pis))
-	for i, pi := range pis {
-		mhs[i] = pi.ID.String()
-	}
-	return models.Peers(qm.WhereIn(models.PeerColumns.MultiHash+" in ?", mhs...)).All(ctx, c.dbh)
+// FetchDueOpenSessions fetches all open sessions from the database that are due.
+func (c *Client) FetchDueOpenSessions(ctx context.Context) (models.SessionsOpenSlice, error) {
+	return models.SessionsOpens(
+		models.SessionsOpenWhere.NextVisitDueAt.LT(time.Now()),
+		qm.Load(models.SessionsOpenRels.Peer),
+		qm.Load(qm.Rels(models.SessionsOpenRels.Peer, models.PeerRels.MultiAddresses)),
+	).All(ctx, c.dbh)
 }
 
-//func (c *Client) InsertLatencies(ctx context.Context, peer *models.Peer, latencies []*models.Latency) error {
-//	txn, err := c.dbh.BeginTx(ctx, nil)
-//	if err != nil {
-//		return errors.Wrap(err, "create latencies txn")
-//	}
-//
-//	for _, latency := range latencies {
-//		if err := latency.SetPeer(ctx, c.dbh, false, peer); err != nil {
-//			return errors.Wrap(err, "associating peer with latency")
-//		}
-//
-//		if err := latency.Insert(ctx, txn, boil.Infer()); err != nil {
-//			return errors.Wrap(err, "insert latency measurement")
-//		}
-//	}
-//
-//	if err = txn.Commit(); err != nil {
-//		return errors.Wrap(err, "commit latencies txn")
-//	}
-//	return nil
-//}
+func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
+	pi := peer.AddrInfo{
+		Addrs: []ma.Multiaddr{},
+	}
+	peerID, err := peer.Decode(p.MultiHash)
+	if err != nil {
+		return pi, err
+	}
+	pi.ID = peerID
 
-//func (c *Client) FetchDueSessions(ctx context.Context) (models.SessionSlice, error) {
-//	return models.Sessions(
-//		qm.Where("next_dial_attempt - NOW() < '10s'::interval"),
-//		qm.Load(models.SessionRels.Peer),
-//		qm.Load(qm.Rels(models.SessionRels.Peer, models.PeerRels.MultiAddresses)),
-//	).All(ctx, c.dbh)
-//}
-//
-//func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
-//	return models.MultiAddresses(
-//		qm.Where(models.MultiAddressColumns.ID+" > coalesce((SELECT max("+models.MultiAddressesXIPAddressColumns.MultiAddressID+") FROM "+models.TableNames.MultiAddressesXIPAddresses+"), 0)"),
-//		qm.OrderBy(models.MultiAddressColumns.ID),
-//		qm.Limit(limit),
-//	).All(ctx, c.dbh)
-//}
-//
-//func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
-//	pi := peer.AddrInfo{
-//		Addrs: []ma.Multiaddr{},
-//	}
-//	peerID, err := peer.Decode(p.MultiHash)
-//	if err != nil {
-//		return pi, err
-//	}
-//	pi.ID = peerID
-//
-//	for _, dbmaddr := range p.R.MultiAddresses {
-//		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
-//		if err != nil {
-//			return pi, err
-//		}
-//		pi.Addrs = append(pi.Addrs, maddr)
-//	}
-//	return pi, nil
-//}
+	for _, dbmaddr := range p.R.MultiAddresses {
+		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
+		if err != nil {
+			return pi, err
+		}
+		pi.Addrs = append(pi.Addrs, maddr)
+	}
+	return pi, nil
+}
 
 // Rollback calls rollback on the given transaction and logs the potential error.
 func Rollback(txn *sql.Tx) {

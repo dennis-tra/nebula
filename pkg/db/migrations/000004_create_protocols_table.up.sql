@@ -8,7 +8,7 @@ CREATE TABLE protocols
     -- Timestamp of when this protocol was seen the last time.
     created_at TIMESTAMPTZ NOT NULL,
     -- The full protocol string.
-    protocol   TEXT        NOT NULL,
+    protocol   TEXT        NOT NULL CHECK ( TRIM(protocol) != '' ),
 
     -- There should only be unique protocol strings in this table
     CONSTRAINT uq_protocols_protocol UNIQUE (protocol),

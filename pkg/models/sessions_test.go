@@ -149,7 +149,7 @@ func testSessionsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := SessionExists(ctx, tx, o.ID, o.State, o.LastFailedVisit)
+	e, err := SessionExists(ctx, tx, o.ID, o.State, o.CreatedAt)
 	if err != nil {
 		t.Errorf("Unable to check if Session exists: %s", err)
 	}
@@ -175,7 +175,7 @@ func testSessionsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	sessionFound, err := FindSession(ctx, tx, o.ID, o.State, o.LastFailedVisit)
+	sessionFound, err := FindSession(ctx, tx, o.ID, o.State, o.CreatedAt)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,7 +568,7 @@ func testSessionsSelect(t *testing.T) {
 }
 
 var (
-	sessionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `FirstSuccessfulVisit`: `timestamp with time zone`, `LastSuccessfulVisit`: `timestamp with time zone`, `NextVisitAttemptAt`: `timestamp with time zone`, `FirstFailedVisit`: `timestamp with time zone`, `LastFailedVisit`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `SuccessfulVisitsCount`: `integer`, `State`: `enum.session_state('open','pending','closed')`, `FailedVisitsCount`: `smallint`, `RecoveredCount`: `integer`, `FinishReason`: `enum.dial_error('unknown','io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`}
+	sessionDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `FirstSuccessfulVisit`: `timestamp with time zone`, `LastSuccessfulVisit`: `timestamp with time zone`, `NextVisitDueAt`: `timestamp with time zone`, `FirstFailedVisit`: `timestamp with time zone`, `LastFailedVisit`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `SuccessfulVisitsCount`: `integer`, `State`: `enum.session_state('open','pending','closed')`, `FailedVisitsCount`: `smallint`, `RecoveredCount`: `integer`, `FinishReason`: `enum.dial_error('unknown','io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`}
 	_              = bytes.MinRead
 )
 

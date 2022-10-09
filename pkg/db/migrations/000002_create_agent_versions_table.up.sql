@@ -8,7 +8,7 @@ CREATE TABLE agent_versions
     -- Timestamp of when this agent version was seen the last time.
     created_at    TIMESTAMPTZ NOT NULL,
     -- Agent version string as reported from the remote peer.
-    agent_version TEXT        NOT NULL,
+    agent_version TEXT        NOT NULL CHECK ( TRIM(agent_version) != '' ),
 
     -- There should only be unique agent version strings in this table.
     CONSTRAINT uq_agent_versions_agent_version UNIQUE (agent_version),

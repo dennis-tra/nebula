@@ -28,9 +28,9 @@ type Session struct {
 	PeerID                int         `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	FirstSuccessfulVisit  time.Time   `boil:"first_successful_visit" json:"first_successful_visit" toml:"first_successful_visit" yaml:"first_successful_visit"`
 	LastSuccessfulVisit   time.Time   `boil:"last_successful_visit" json:"last_successful_visit" toml:"last_successful_visit" yaml:"last_successful_visit"`
-	NextVisitAttemptAt    null.Time   `boil:"next_visit_attempt_at" json:"next_visit_attempt_at,omitempty" toml:"next_visit_attempt_at" yaml:"next_visit_attempt_at,omitempty"`
+	NextVisitDueAt        null.Time   `boil:"next_visit_due_at" json:"next_visit_due_at,omitempty" toml:"next_visit_due_at" yaml:"next_visit_due_at,omitempty"`
 	FirstFailedVisit      null.Time   `boil:"first_failed_visit" json:"first_failed_visit,omitempty" toml:"first_failed_visit" yaml:"first_failed_visit,omitempty"`
-	LastFailedVisit       time.Time   `boil:"last_failed_visit" json:"last_failed_visit" toml:"last_failed_visit" yaml:"last_failed_visit"`
+	LastFailedVisit       null.Time   `boil:"last_failed_visit" json:"last_failed_visit,omitempty" toml:"last_failed_visit" yaml:"last_failed_visit,omitempty"`
 	UpdatedAt             time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt             time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	MinDuration           null.String `boil:"min_duration" json:"min_duration,omitempty" toml:"min_duration" yaml:"min_duration,omitempty"`
@@ -50,7 +50,7 @@ var SessionColumns = struct {
 	PeerID                string
 	FirstSuccessfulVisit  string
 	LastSuccessfulVisit   string
-	NextVisitAttemptAt    string
+	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
 	UpdatedAt             string
@@ -67,7 +67,7 @@ var SessionColumns = struct {
 	PeerID:                "peer_id",
 	FirstSuccessfulVisit:  "first_successful_visit",
 	LastSuccessfulVisit:   "last_successful_visit",
-	NextVisitAttemptAt:    "next_visit_attempt_at",
+	NextVisitDueAt:        "next_visit_due_at",
 	FirstFailedVisit:      "first_failed_visit",
 	LastFailedVisit:       "last_failed_visit",
 	UpdatedAt:             "updated_at",
@@ -86,7 +86,7 @@ var SessionTableColumns = struct {
 	PeerID                string
 	FirstSuccessfulVisit  string
 	LastSuccessfulVisit   string
-	NextVisitAttemptAt    string
+	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
 	UpdatedAt             string
@@ -103,7 +103,7 @@ var SessionTableColumns = struct {
 	PeerID:                "sessions.peer_id",
 	FirstSuccessfulVisit:  "sessions.first_successful_visit",
 	LastSuccessfulVisit:   "sessions.last_successful_visit",
-	NextVisitAttemptAt:    "sessions.next_visit_attempt_at",
+	NextVisitDueAt:        "sessions.next_visit_due_at",
 	FirstFailedVisit:      "sessions.first_failed_visit",
 	LastFailedVisit:       "sessions.last_failed_visit",
 	UpdatedAt:             "sessions.updated_at",
@@ -124,9 +124,9 @@ var SessionWhere = struct {
 	PeerID                whereHelperint
 	FirstSuccessfulVisit  whereHelpertime_Time
 	LastSuccessfulVisit   whereHelpertime_Time
-	NextVisitAttemptAt    whereHelpernull_Time
+	NextVisitDueAt        whereHelpernull_Time
 	FirstFailedVisit      whereHelpernull_Time
-	LastFailedVisit       whereHelpertime_Time
+	LastFailedVisit       whereHelpernull_Time
 	UpdatedAt             whereHelpertime_Time
 	CreatedAt             whereHelpertime_Time
 	MinDuration           whereHelpernull_String
@@ -141,9 +141,9 @@ var SessionWhere = struct {
 	PeerID:                whereHelperint{field: "\"sessions\".\"peer_id\""},
 	FirstSuccessfulVisit:  whereHelpertime_Time{field: "\"sessions\".\"first_successful_visit\""},
 	LastSuccessfulVisit:   whereHelpertime_Time{field: "\"sessions\".\"last_successful_visit\""},
-	NextVisitAttemptAt:    whereHelpernull_Time{field: "\"sessions\".\"next_visit_attempt_at\""},
+	NextVisitDueAt:        whereHelpernull_Time{field: "\"sessions\".\"next_visit_due_at\""},
 	FirstFailedVisit:      whereHelpernull_Time{field: "\"sessions\".\"first_failed_visit\""},
-	LastFailedVisit:       whereHelpertime_Time{field: "\"sessions\".\"last_failed_visit\""},
+	LastFailedVisit:       whereHelpernull_Time{field: "\"sessions\".\"last_failed_visit\""},
 	UpdatedAt:             whereHelpertime_Time{field: "\"sessions\".\"updated_at\""},
 	CreatedAt:             whereHelpertime_Time{field: "\"sessions\".\"created_at\""},
 	MinDuration:           whereHelpernull_String{field: "\"sessions\".\"min_duration\""},
@@ -172,10 +172,10 @@ func (*sessionR) NewStruct() *sessionR {
 type sessionL struct{}
 
 var (
-	sessionAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_attempt_at", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
-	sessionColumnsWithoutDefault = []string{"peer_id", "first_successful_visit", "last_successful_visit", "last_failed_visit", "updated_at", "created_at", "successful_visits_count", "state", "failed_visits_count", "recovered_count"}
-	sessionColumnsWithDefault    = []string{"id", "next_visit_attempt_at", "first_failed_visit", "min_duration", "max_duration", "finish_reason"}
-	sessionPrimaryKeyColumns     = []string{"id", "state", "last_failed_visit"}
+	sessionAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_due_at", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
+	sessionColumnsWithoutDefault = []string{"peer_id", "first_successful_visit", "last_successful_visit", "updated_at", "created_at", "successful_visits_count", "state", "failed_visits_count", "recovered_count"}
+	sessionColumnsWithDefault    = []string{"id", "next_visit_due_at", "first_failed_visit", "last_failed_visit", "min_duration", "max_duration", "finish_reason"}
+	sessionPrimaryKeyColumns     = []string{"id", "state", "created_at"}
 	sessionGeneratedColumns      = []string{"id"}
 )
 
@@ -470,7 +470,7 @@ func Sessions(mods ...qm.QueryMod) sessionQuery {
 
 // FindSession retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindSession(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastFailedVisit time.Time, selectCols ...string) (*Session, error) {
+func FindSession(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time, selectCols ...string) (*Session, error) {
 	sessionObj := &Session{}
 
 	sel := "*"
@@ -478,10 +478,10 @@ func FindSession(ctx context.Context, exec boil.ContextExecutor, iD int, state s
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"sessions\" where \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3", sel,
+		"select %s from \"sessions\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3", sel,
 	)
 
-	q := queries.Raw(query, iD, state, lastFailedVisit)
+	q := queries.Raw(query, iD, state, createdAt)
 
 	err := q.Bind(ctx, exec, sessionObj)
 	if err != nil {
@@ -862,7 +862,7 @@ func (o *Session) Delete(ctx context.Context, exec boil.ContextExecutor) (int64,
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), sessionPrimaryKeyMapping)
-	sql := "DELETE FROM \"sessions\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3"
+	sql := "DELETE FROM \"sessions\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -959,7 +959,7 @@ func (o SessionSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) 
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *Session) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindSession(ctx, exec, o.ID, o.State, o.LastFailedVisit)
+	ret, err := FindSession(ctx, exec, o.ID, o.State, o.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -998,16 +998,16 @@ func (o *SessionSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor)
 }
 
 // SessionExists checks if the Session row exists.
-func SessionExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastFailedVisit time.Time) (bool, error) {
+func SessionExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"sessions\" where \"id\"=$1 AND \"state\"=$2 AND \"last_failed_visit\"=$3 limit 1)"
+	sql := "select exists(select 1 from \"sessions\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, iD, state, lastFailedVisit)
+		fmt.Fprintln(writer, iD, state, createdAt)
 	}
-	row := exec.QueryRowContext(ctx, sql, iD, state, lastFailedVisit)
+	row := exec.QueryRowContext(ctx, sql, iD, state, createdAt)
 
 	err := row.Scan(&exists)
 	if err != nil {

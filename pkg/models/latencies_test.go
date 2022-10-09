@@ -21,24 +21,24 @@ var (
 	_ = queries.Equal
 )
 
-func testSessionsOpens(t *testing.T) {
+func testLatencies(t *testing.T) {
 	t.Parallel()
 
-	query := SessionsOpens()
+	query := Latencies()
 
 	if query.Query == nil {
 		t.Error("expected a query, got nothing")
 	}
 }
 
-func testSessionsOpensDelete(t *testing.T) {
+func testLatenciesDelete(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -54,7 +54,7 @@ func testSessionsOpensDelete(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,14 +64,14 @@ func testSessionsOpensDelete(t *testing.T) {
 	}
 }
 
-func testSessionsOpensQueryDeleteAll(t *testing.T) {
+func testLatenciesQueryDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -81,13 +81,13 @@ func testSessionsOpensQueryDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	if rowsAff, err := SessionsOpens().DeleteAll(ctx, tx); err != nil {
+	if rowsAff, err := Latencies().DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,14 +97,14 @@ func testSessionsOpensQueryDeleteAll(t *testing.T) {
 	}
 }
 
-func testSessionsOpensSliceDeleteAll(t *testing.T) {
+func testLatenciesSliceDeleteAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -114,7 +114,7 @@ func testSessionsOpensSliceDeleteAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := SessionsOpenSlice{o}
+	slice := LatencySlice{o}
 
 	if rowsAff, err := slice.DeleteAll(ctx, tx); err != nil {
 		t.Error(err)
@@ -122,7 +122,7 @@ func testSessionsOpensSliceDeleteAll(t *testing.T) {
 		t.Error("should only have deleted one row, but affected:", rowsAff)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -132,14 +132,14 @@ func testSessionsOpensSliceDeleteAll(t *testing.T) {
 	}
 }
 
-func testSessionsOpensExists(t *testing.T) {
+func testLatenciesExists(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -149,23 +149,23 @@ func testSessionsOpensExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := SessionsOpenExists(ctx, tx, o.ID, o.State, o.CreatedAt)
+	e, err := LatencyExists(ctx, tx, o.ID)
 	if err != nil {
-		t.Errorf("Unable to check if SessionsOpen exists: %s", err)
+		t.Errorf("Unable to check if Latency exists: %s", err)
 	}
 	if !e {
-		t.Errorf("Expected SessionsOpenExists to return true, but got false.")
+		t.Errorf("Expected LatencyExists to return true, but got false.")
 	}
 }
 
-func testSessionsOpensFind(t *testing.T) {
+func testLatenciesFind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -175,24 +175,24 @@ func testSessionsOpensFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	sessionsOpenFound, err := FindSessionsOpen(ctx, tx, o.ID, o.State, o.CreatedAt)
+	latencyFound, err := FindLatency(ctx, tx, o.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if sessionsOpenFound == nil {
+	if latencyFound == nil {
 		t.Error("want a record, got nil")
 	}
 }
 
-func testSessionsOpensBind(t *testing.T) {
+func testLatenciesBind(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -202,19 +202,19 @@ func testSessionsOpensBind(t *testing.T) {
 		t.Error(err)
 	}
 
-	if err = SessionsOpens().Bind(ctx, tx, o); err != nil {
+	if err = Latencies().Bind(ctx, tx, o); err != nil {
 		t.Error(err)
 	}
 }
 
-func testSessionsOpensOne(t *testing.T) {
+func testLatenciesOne(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -224,38 +224,38 @@ func testSessionsOpensOne(t *testing.T) {
 		t.Error(err)
 	}
 
-	if x, err := SessionsOpens().One(ctx, tx); err != nil {
+	if x, err := Latencies().One(ctx, tx); err != nil {
 		t.Error(err)
 	} else if x == nil {
 		t.Error("expected to get a non nil record")
 	}
 }
 
-func testSessionsOpensAll(t *testing.T) {
+func testLatenciesAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	sessionsOpenOne := &SessionsOpen{}
-	sessionsOpenTwo := &SessionsOpen{}
-	if err = randomize.Struct(seed, sessionsOpenOne, sessionsOpenDBTypes, false, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	latencyOne := &Latency{}
+	latencyTwo := &Latency{}
+	if err = randomize.Struct(seed, latencyOne, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
-	if err = randomize.Struct(seed, sessionsOpenTwo, sessionsOpenDBTypes, false, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err = randomize.Struct(seed, latencyTwo, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = sessionsOpenOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = latencyOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = sessionsOpenTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = latencyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	slice, err := SessionsOpens().All(ctx, tx)
+	slice, err := Latencies().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -265,31 +265,31 @@ func testSessionsOpensAll(t *testing.T) {
 	}
 }
 
-func testSessionsOpensCount(t *testing.T) {
+func testLatenciesCount(t *testing.T) {
 	t.Parallel()
 
 	var err error
 	seed := randomize.NewSeed()
-	sessionsOpenOne := &SessionsOpen{}
-	sessionsOpenTwo := &SessionsOpen{}
-	if err = randomize.Struct(seed, sessionsOpenOne, sessionsOpenDBTypes, false, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	latencyOne := &Latency{}
+	latencyTwo := &Latency{}
+	if err = randomize.Struct(seed, latencyOne, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
-	if err = randomize.Struct(seed, sessionsOpenTwo, sessionsOpenDBTypes, false, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err = randomize.Struct(seed, latencyTwo, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = sessionsOpenOne.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = latencyOne.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
-	if err = sessionsOpenTwo.Insert(ctx, tx, boil.Infer()); err != nil {
+	if err = latencyTwo.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Error(err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,155 +299,155 @@ func testSessionsOpensCount(t *testing.T) {
 	}
 }
 
-func sessionsOpenBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyBeforeInsertHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyAfterInsertHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyAfterSelectHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyBeforeUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyAfterUpdateHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyBeforeDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyAfterDeleteHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyBeforeUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func sessionsOpenAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *SessionsOpen) error {
-	*o = SessionsOpen{}
+func latencyAfterUpsertHook(ctx context.Context, e boil.ContextExecutor, o *Latency) error {
+	*o = Latency{}
 	return nil
 }
 
-func testSessionsOpensHooks(t *testing.T) {
+func testLatenciesHooks(t *testing.T) {
 	t.Parallel()
 
 	var err error
 
 	ctx := context.Background()
-	empty := &SessionsOpen{}
-	o := &SessionsOpen{}
+	empty := &Latency{}
+	o := &Latency{}
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, false); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen object: %s", err)
+	if err = randomize.Struct(seed, o, latencyDBTypes, false); err != nil {
+		t.Errorf("Unable to randomize Latency object: %s", err)
 	}
 
-	AddSessionsOpenHook(boil.BeforeInsertHook, sessionsOpenBeforeInsertHook)
+	AddLatencyHook(boil.BeforeInsertHook, latencyBeforeInsertHook)
 	if err = o.doBeforeInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeInsertHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenBeforeInsertHooks = []SessionsOpenHook{}
+	latencyBeforeInsertHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.AfterInsertHook, sessionsOpenAfterInsertHook)
+	AddLatencyHook(boil.AfterInsertHook, latencyAfterInsertHook)
 	if err = o.doAfterInsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterInsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterInsertHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenAfterInsertHooks = []SessionsOpenHook{}
+	latencyAfterInsertHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.AfterSelectHook, sessionsOpenAfterSelectHook)
+	AddLatencyHook(boil.AfterSelectHook, latencyAfterSelectHook)
 	if err = o.doAfterSelectHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterSelectHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterSelectHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenAfterSelectHooks = []SessionsOpenHook{}
+	latencyAfterSelectHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.BeforeUpdateHook, sessionsOpenBeforeUpdateHook)
+	AddLatencyHook(boil.BeforeUpdateHook, latencyBeforeUpdateHook)
 	if err = o.doBeforeUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpdateHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenBeforeUpdateHooks = []SessionsOpenHook{}
+	latencyBeforeUpdateHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.AfterUpdateHook, sessionsOpenAfterUpdateHook)
+	AddLatencyHook(boil.AfterUpdateHook, latencyAfterUpdateHook)
 	if err = o.doAfterUpdateHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpdateHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpdateHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenAfterUpdateHooks = []SessionsOpenHook{}
+	latencyAfterUpdateHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.BeforeDeleteHook, sessionsOpenBeforeDeleteHook)
+	AddLatencyHook(boil.BeforeDeleteHook, latencyBeforeDeleteHook)
 	if err = o.doBeforeDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeDeleteHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenBeforeDeleteHooks = []SessionsOpenHook{}
+	latencyBeforeDeleteHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.AfterDeleteHook, sessionsOpenAfterDeleteHook)
+	AddLatencyHook(boil.AfterDeleteHook, latencyAfterDeleteHook)
 	if err = o.doAfterDeleteHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterDeleteHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterDeleteHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenAfterDeleteHooks = []SessionsOpenHook{}
+	latencyAfterDeleteHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.BeforeUpsertHook, sessionsOpenBeforeUpsertHook)
+	AddLatencyHook(boil.BeforeUpsertHook, latencyBeforeUpsertHook)
 	if err = o.doBeforeUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doBeforeUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected BeforeUpsertHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenBeforeUpsertHooks = []SessionsOpenHook{}
+	latencyBeforeUpsertHooks = []LatencyHook{}
 
-	AddSessionsOpenHook(boil.AfterUpsertHook, sessionsOpenAfterUpsertHook)
+	AddLatencyHook(boil.AfterUpsertHook, latencyAfterUpsertHook)
 	if err = o.doAfterUpsertHooks(ctx, nil); err != nil {
 		t.Errorf("Unable to execute doAfterUpsertHooks: %s", err)
 	}
 	if !reflect.DeepEqual(o, empty) {
 		t.Errorf("Expected AfterUpsertHook function to empty object, but got: %#v", o)
 	}
-	sessionsOpenAfterUpsertHooks = []SessionsOpenHook{}
+	latencyAfterUpsertHooks = []LatencyHook{}
 }
 
-func testSessionsOpensInsert(t *testing.T) {
+func testLatenciesInsert(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -457,7 +457,7 @@ func testSessionsOpensInsert(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,24 +467,24 @@ func testSessionsOpensInsert(t *testing.T) {
 	}
 }
 
-func testSessionsOpensInsertWhitelist(t *testing.T) {
+func testLatenciesInsertWhitelist(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
-	if err = o.Insert(ctx, tx, boil.Whitelist(sessionsOpenColumnsWithoutDefault...)); err != nil {
+	if err = o.Insert(ctx, tx, boil.Whitelist(latencyColumnsWithoutDefault...)); err != nil {
 		t.Error(err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -494,17 +494,17 @@ func testSessionsOpensInsertWhitelist(t *testing.T) {
 	}
 }
 
-func testSessionsOpenToOnePeerUsingPeer(t *testing.T) {
+func testLatencyToOnePeerUsingPeer(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var local SessionsOpen
+	var local Latency
 	var foreign Peer
 
 	seed := randomize.NewSeed()
-	if err := randomize.Struct(seed, &local, sessionsOpenDBTypes, false, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err := randomize.Struct(seed, &local, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 	if err := randomize.Struct(seed, &foreign, peerDBTypes, false, peerColumnsWithDefault...); err != nil {
 		t.Errorf("Unable to randomize Peer struct: %s", err)
@@ -528,8 +528,8 @@ func testSessionsOpenToOnePeerUsingPeer(t *testing.T) {
 		t.Errorf("want: %v, got %v", foreign.ID, check.ID)
 	}
 
-	slice := SessionsOpenSlice{&local}
-	if err = local.L.LoadPeer(ctx, tx, false, (*[]*SessionsOpen)(&slice), nil); err != nil {
+	slice := LatencySlice{&local}
+	if err = local.L.LoadPeer(ctx, tx, false, (*[]*Latency)(&slice), nil); err != nil {
 		t.Fatal(err)
 	}
 	if local.R.Peer == nil {
@@ -545,18 +545,18 @@ func testSessionsOpenToOnePeerUsingPeer(t *testing.T) {
 	}
 }
 
-func testSessionsOpenToOneSetOpPeerUsingPeer(t *testing.T) {
+func testLatencyToOneSetOpPeerUsingPeer(t *testing.T) {
 	var err error
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
-	var a SessionsOpen
+	var a Latency
 	var b, c Peer
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, sessionsOpenDBTypes, false, strmangle.SetComplement(sessionsOpenPrimaryKeyColumns, sessionsOpenColumnsWithoutDefault)...); err != nil {
+	if err = randomize.Struct(seed, &a, latencyDBTypes, false, strmangle.SetComplement(latencyPrimaryKeyColumns, latencyColumnsWithoutDefault)...); err != nil {
 		t.Fatal(err)
 	}
 	if err = randomize.Struct(seed, &b, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
@@ -583,7 +583,7 @@ func testSessionsOpenToOneSetOpPeerUsingPeer(t *testing.T) {
 			t.Error("relationship struct not set to correct value")
 		}
 
-		if x.R.SessionsOpen != &a {
+		if x.R.Latencies[0] != &a {
 			t.Error("failed to append to foreign relationship struct")
 		}
 		if a.PeerID != x.ID {
@@ -603,14 +603,14 @@ func testSessionsOpenToOneSetOpPeerUsingPeer(t *testing.T) {
 	}
 }
 
-func testSessionsOpensReload(t *testing.T) {
+func testLatenciesReload(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -625,14 +625,14 @@ func testSessionsOpensReload(t *testing.T) {
 	}
 }
 
-func testSessionsOpensReloadAll(t *testing.T) {
+func testLatenciesReloadAll(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -642,21 +642,21 @@ func testSessionsOpensReloadAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice := SessionsOpenSlice{o}
+	slice := LatencySlice{o}
 
 	if err = slice.ReloadAll(ctx, tx); err != nil {
 		t.Error(err)
 	}
 }
 
-func testSessionsOpensSelect(t *testing.T) {
+func testLatenciesSelect(t *testing.T) {
 	t.Parallel()
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -666,7 +666,7 @@ func testSessionsOpensSelect(t *testing.T) {
 		t.Error(err)
 	}
 
-	slice, err := SessionsOpens().All(ctx, tx)
+	slice, err := Latencies().All(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -677,25 +677,25 @@ func testSessionsOpensSelect(t *testing.T) {
 }
 
 var (
-	sessionsOpenDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `FirstSuccessfulVisit`: `timestamp with time zone`, `LastSuccessfulVisit`: `timestamp with time zone`, `NextVisitDueAt`: `timestamp with time zone`, `FirstFailedVisit`: `timestamp with time zone`, `LastFailedVisit`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `SuccessfulVisitsCount`: `integer`, `State`: `enum.session_state('open','pending','closed')`, `FailedVisitsCount`: `smallint`, `RecoveredCount`: `integer`, `FinishReason`: `enum.dial_error('unknown','io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`}
-	_                   = bytes.MinRead
+	latencyDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `PingLatencySAvg`: `double precision`, `PingLatencySSTD`: `double precision`, `PingLatencySMin`: `double precision`, `PingLatencySMax`: `double precision`, `PingPacketsSent`: `integer`, `PingPacketsRecv`: `integer`, `PingPacketsDupl`: `integer`, `PingPacketLoss`: `double precision`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `Address`: `inet`}
+	_              = bytes.MinRead
 )
 
-func testSessionsOpensUpdate(t *testing.T) {
+func testLatenciesUpdate(t *testing.T) {
 	t.Parallel()
 
-	if 0 == len(sessionsOpenPrimaryKeyColumns) {
+	if 0 == len(latencyPrimaryKeyColumns) {
 		t.Skip("Skipping table with no primary key columns")
 	}
-	if len(sessionsOpenAllColumns) == len(sessionsOpenPrimaryKeyColumns) {
+	if len(latencyAllColumns) == len(latencyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -705,7 +705,7 @@ func testSessionsOpensUpdate(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -714,8 +714,8 @@ func testSessionsOpensUpdate(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	if rowsAff, err := o.Update(ctx, tx, boil.Infer()); err != nil {
@@ -725,18 +725,18 @@ func testSessionsOpensUpdate(t *testing.T) {
 	}
 }
 
-func testSessionsOpensSliceUpdateAll(t *testing.T) {
+func testLatenciesSliceUpdateAll(t *testing.T) {
 	t.Parallel()
 
-	if len(sessionsOpenAllColumns) == len(sessionsOpenPrimaryKeyColumns) {
+	if len(latencyAllColumns) == len(latencyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
-	o := &SessionsOpen{}
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := &Latency{}
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
@@ -746,7 +746,7 @@ func testSessionsOpensSliceUpdateAll(t *testing.T) {
 		t.Error(err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -755,18 +755,18 @@ func testSessionsOpensSliceUpdateAll(t *testing.T) {
 		t.Error("want one record, got:", count)
 	}
 
-	if err = randomize.Struct(seed, o, sessionsOpenDBTypes, true, sessionsOpenPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err = randomize.Struct(seed, o, latencyDBTypes, true, latencyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	// Remove Primary keys and unique columns from what we plan to update
 	var fields []string
-	if strmangle.StringSliceMatch(sessionsOpenAllColumns, sessionsOpenPrimaryKeyColumns) {
-		fields = sessionsOpenAllColumns
+	if strmangle.StringSliceMatch(latencyAllColumns, latencyPrimaryKeyColumns) {
+		fields = latencyAllColumns
 	} else {
 		fields = strmangle.SetComplement(
-			sessionsOpenAllColumns,
-			sessionsOpenPrimaryKeyColumns,
+			latencyAllColumns,
+			latencyPrimaryKeyColumns,
 		)
 	}
 
@@ -784,7 +784,7 @@ func testSessionsOpensSliceUpdateAll(t *testing.T) {
 		}
 	}
 
-	slice := SessionsOpenSlice{o}
+	slice := LatencySlice{o}
 	if rowsAff, err := slice.UpdateAll(ctx, tx, updateMap); err != nil {
 		t.Error(err)
 	} else if rowsAff != 1 {
@@ -792,29 +792,29 @@ func testSessionsOpensSliceUpdateAll(t *testing.T) {
 	}
 }
 
-func testSessionsOpensUpsert(t *testing.T) {
+func testLatenciesUpsert(t *testing.T) {
 	t.Parallel()
 
-	if len(sessionsOpenAllColumns) == len(sessionsOpenPrimaryKeyColumns) {
+	if len(latencyAllColumns) == len(latencyPrimaryKeyColumns) {
 		t.Skip("Skipping table with only primary key columns")
 	}
 
 	seed := randomize.NewSeed()
 	var err error
 	// Attempt the INSERT side of an UPSERT
-	o := SessionsOpen{}
-	if err = randomize.Struct(seed, &o, sessionsOpenDBTypes, true); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	o := Latency{}
+	if err = randomize.Struct(seed, &o, latencyDBTypes, true); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 	if err = o.Upsert(ctx, tx, false, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert SessionsOpen: %s", err)
+		t.Errorf("Unable to upsert Latency: %s", err)
 	}
 
-	count, err := SessionsOpens().Count(ctx, tx)
+	count, err := Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -823,15 +823,15 @@ func testSessionsOpensUpsert(t *testing.T) {
 	}
 
 	// Attempt the UPDATE side of an UPSERT
-	if err = randomize.Struct(seed, &o, sessionsOpenDBTypes, false, sessionsOpenPrimaryKeyColumns...); err != nil {
-		t.Errorf("Unable to randomize SessionsOpen struct: %s", err)
+	if err = randomize.Struct(seed, &o, latencyDBTypes, false, latencyPrimaryKeyColumns...); err != nil {
+		t.Errorf("Unable to randomize Latency struct: %s", err)
 	}
 
 	if err = o.Upsert(ctx, tx, true, nil, boil.Infer(), boil.Infer()); err != nil {
-		t.Errorf("Unable to upsert SessionsOpen: %s", err)
+		t.Errorf("Unable to upsert Latency: %s", err)
 	}
 
-	count, err = SessionsOpens().Count(ctx, tx)
+	count, err = Latencies().Count(ctx, tx)
 	if err != nil {
 		t.Error(err)
 	}

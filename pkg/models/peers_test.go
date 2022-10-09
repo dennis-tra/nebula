@@ -607,6 +607,84 @@ func testPeerOneToOneSetOpSessionsOpenUsingSessionsOpen(t *testing.T) {
 	}
 }
 
+func testPeerToManyLatencies(t *testing.T) {
+	var err error
+	ctx := context.Background()
+	tx := MustTx(boil.BeginTx(ctx, nil))
+	defer func() { _ = tx.Rollback() }()
+
+	var a Peer
+	var b, c Latency
+
+	seed := randomize.NewSeed()
+	if err = randomize.Struct(seed, &a, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
+		t.Errorf("Unable to randomize Peer struct: %s", err)
+	}
+
+	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = randomize.Struct(seed, &b, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+	if err = randomize.Struct(seed, &c, latencyDBTypes, false, latencyColumnsWithDefault...); err != nil {
+		t.Fatal(err)
+	}
+
+	b.PeerID = a.ID
+	c.PeerID = a.ID
+
+	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
+		t.Fatal(err)
+	}
+
+	check, err := a.Latencies().All(ctx, tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bFound, cFound := false, false
+	for _, v := range check {
+		if v.PeerID == b.PeerID {
+			bFound = true
+		}
+		if v.PeerID == c.PeerID {
+			cFound = true
+		}
+	}
+
+	if !bFound {
+		t.Error("expected to find b")
+	}
+	if !cFound {
+		t.Error("expected to find c")
+	}
+
+	slice := PeerSlice{&a}
+	if err = a.L.LoadLatencies(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.Latencies); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	a.R.Latencies = nil
+	if err = a.L.LoadLatencies(ctx, tx, true, &a, nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(a.R.Latencies); got != 2 {
+		t.Error("number of eager loaded records wrong, got:", got)
+	}
+
+	if t.Failed() {
+		t.Logf("%#v", check)
+	}
+}
+
 func testPeerToManyNeighbors(t *testing.T) {
 	var err error
 	ctx := context.Background()
@@ -847,34 +925,30 @@ func testPeerToManyMultiAddresses(t *testing.T) {
 	}
 }
 
-func testPeerToManySessionsClosed202210S(t *testing.T) {
+func testPeerToManyAddOpLatencies(t *testing.T) {
 	var err error
+
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
 	defer func() { _ = tx.Rollback() }()
 
 	var a Peer
-	var b, c SessionsClosed202210
+	var b, c, d, e Latency
 
 	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, true, peerColumnsWithDefault...); err != nil {
-		t.Errorf("Unable to randomize Peer struct: %s", err)
+	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
+		t.Fatal(err)
+	}
+	foreigners := []*Latency{&b, &c, &d, &e}
+	for _, x := range foreigners {
+		if err = randomize.Struct(seed, x, latencyDBTypes, false, strmangle.SetComplement(latencyPrimaryKeyColumns, latencyColumnsWithoutDefault)...); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
-
-	if err = randomize.Struct(seed, &b, sessionsClosed202210DBTypes, false, sessionsClosed202210ColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-	if err = randomize.Struct(seed, &c, sessionsClosed202210DBTypes, false, sessionsClosed202210ColumnsWithDefault...); err != nil {
-		t.Fatal(err)
-	}
-
-	b.PeerID = a.ID
-	c.PeerID = a.ID
-
 	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
 		t.Fatal(err)
 	}
@@ -882,49 +956,50 @@ func testPeerToManySessionsClosed202210S(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	check, err := a.SessionsClosed202210S().All(ctx, tx)
-	if err != nil {
-		t.Fatal(err)
+	foreignersSplitByInsertion := [][]*Latency{
+		{&b, &c},
+		{&d, &e},
 	}
 
-	bFound, cFound := false, false
-	for _, v := range check {
-		if v.PeerID == b.PeerID {
-			bFound = true
+	for i, x := range foreignersSplitByInsertion {
+		err = a.AddLatencies(ctx, tx, i != 0, x...)
+		if err != nil {
+			t.Fatal(err)
 		}
-		if v.PeerID == c.PeerID {
-			cFound = true
+
+		first := x[0]
+		second := x[1]
+
+		if a.ID != first.PeerID {
+			t.Error("foreign key was wrong value", a.ID, first.PeerID)
 		}
-	}
+		if a.ID != second.PeerID {
+			t.Error("foreign key was wrong value", a.ID, second.PeerID)
+		}
 
-	if !bFound {
-		t.Error("expected to find b")
-	}
-	if !cFound {
-		t.Error("expected to find c")
-	}
+		if first.R.Peer != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
+		if second.R.Peer != &a {
+			t.Error("relationship was not added properly to the foreign slice")
+		}
 
-	slice := PeerSlice{&a}
-	if err = a.L.LoadSessionsClosed202210S(ctx, tx, false, (*[]*Peer)(&slice), nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.SessionsClosed202210S); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
+		if a.R.Latencies[i*2] != first {
+			t.Error("relationship struct slice not set to correct value")
+		}
+		if a.R.Latencies[i*2+1] != second {
+			t.Error("relationship struct slice not set to correct value")
+		}
 
-	a.R.SessionsClosed202210S = nil
-	if err = a.L.LoadSessionsClosed202210S(ctx, tx, true, &a, nil); err != nil {
-		t.Fatal(err)
-	}
-	if got := len(a.R.SessionsClosed202210S); got != 2 {
-		t.Error("number of eager loaded records wrong, got:", got)
-	}
-
-	if t.Failed() {
-		t.Logf("%#v", check)
+		count, err := a.Latencies().Count(ctx, tx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := int64((i + 1) * 2); count != want {
+			t.Error("want", want, "got", count)
+		}
 	}
 }
-
 func testPeerToManyAddOpNeighbors(t *testing.T) {
 	var err error
 
@@ -1303,81 +1378,6 @@ func testPeerToManyRemoveOpMultiAddresses(t *testing.T) {
 	}
 }
 
-func testPeerToManyAddOpSessionsClosed202210S(t *testing.T) {
-	var err error
-
-	ctx := context.Background()
-	tx := MustTx(boil.BeginTx(ctx, nil))
-	defer func() { _ = tx.Rollback() }()
-
-	var a Peer
-	var b, c, d, e SessionsClosed202210
-
-	seed := randomize.NewSeed()
-	if err = randomize.Struct(seed, &a, peerDBTypes, false, strmangle.SetComplement(peerPrimaryKeyColumns, peerColumnsWithoutDefault)...); err != nil {
-		t.Fatal(err)
-	}
-	foreigners := []*SessionsClosed202210{&b, &c, &d, &e}
-	for _, x := range foreigners {
-		if err = randomize.Struct(seed, x, sessionsClosed202210DBTypes, false, strmangle.SetComplement(sessionsClosed202210PrimaryKeyColumns, sessionsClosed202210ColumnsWithoutDefault)...); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	if err := a.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = b.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-	if err = c.Insert(ctx, tx, boil.Infer()); err != nil {
-		t.Fatal(err)
-	}
-
-	foreignersSplitByInsertion := [][]*SessionsClosed202210{
-		{&b, &c},
-		{&d, &e},
-	}
-
-	for i, x := range foreignersSplitByInsertion {
-		err = a.AddSessionsClosed202210S(ctx, tx, i != 0, x...)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		first := x[0]
-		second := x[1]
-
-		if a.ID != first.PeerID {
-			t.Error("foreign key was wrong value", a.ID, first.PeerID)
-		}
-		if a.ID != second.PeerID {
-			t.Error("foreign key was wrong value", a.ID, second.PeerID)
-		}
-
-		if first.R.Peer != &a {
-			t.Error("relationship was not added properly to the foreign slice")
-		}
-		if second.R.Peer != &a {
-			t.Error("relationship was not added properly to the foreign slice")
-		}
-
-		if a.R.SessionsClosed202210S[i*2] != first {
-			t.Error("relationship struct slice not set to correct value")
-		}
-		if a.R.SessionsClosed202210S[i*2+1] != second {
-			t.Error("relationship struct slice not set to correct value")
-		}
-
-		count, err := a.SessionsClosed202210S().Count(ctx, tx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if want := int64((i + 1) * 2); count != want {
-			t.Error("want", want, "got", count)
-		}
-	}
-}
 func testPeerToOneAgentVersionUsingAgentVersion(t *testing.T) {
 	ctx := context.Background()
 	tx := MustTx(boil.BeginTx(ctx, nil))
