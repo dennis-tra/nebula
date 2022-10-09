@@ -18,6 +18,8 @@ CREATE TABLE visits
     peer_id           INT         NOT NULL,
     -- In which crawl did we meet this peer (can be null if recorded during monitoring)
     crawl_id          INT,
+    -- The session that this visit belongs to (no foreign key constraint).
+    session_id        INT,
     -- The agent version that this peer reported during this visit.
     agent_version_id  INT,
     -- The set of supported protocols that this peer reported.

@@ -12,7 +12,7 @@ $$
 BEGIN
     RETURN new_visited_at + LEAST(max_interval, GREATEST(min_interval, factor * (new_visited_at - last_visited_at)));
 END;
-$$ LANGUAGE 'plpgsql' IMMUTABLE;
+$$ LANGUAGE 'plpgsql' ;
 
 
 CREATE OR REPLACE FUNCTION calc_max_failed_visits(
@@ -35,7 +35,7 @@ BEGIN
         RETURN 3;
     END IF;
 END;
-$$ LANGUAGE 'plpgsql' IMMUTABLE;
+$$ LANGUAGE 'plpgsql' ;
 
 CREATE OR REPLACE FUNCTION upsert_session(
     visit_peer_id INT,
@@ -69,8 +69,10 @@ BEGIN
                     NOW(),
                     NOW(), 1, 'open', 0, 0)
             RETURNING id INTO upserted_session_id;
+
             RETURN upserted_session_id;
         ELSE
+
             -- If there is no open session object in the database and
             -- this visit yielded an error there is no point in
             -- opening a session.

@@ -18,7 +18,7 @@ CREATE OR REPLACE FUNCTION insert_visit(
 ) RETURNS INT AS
 $insert_visit$
 DECLARE
-    new_visit_id               int;
+    new_visit_id int;
 BEGIN
 
     WITH all_protocol_ids AS (
@@ -59,38 +59,17 @@ BEGIN
         WHERE madf.existing_id IS NULL
         ON CONFLICT DO NOTHING
     ), upsert_session AS (
-        SELECT upsert_session((SELECT id FROM upserted_peer_id), new_visit_ended_at, new_visit_started_at, new_error)
+        SELECT upsert_session((SELECT id FROM upserted_peer_id), new_visit_ended_at, new_visit_started_at, new_error) id
     )
 
     -- Now we're able to create the normalized visit instance
-    INSERT
-    INTO visits (peer_id,
-                 crawl_id,
-                 dial_duration,
-                 connect_duration,
-                 crawl_duration,
-                 visit_started_at,
-                 visit_ended_at,
-                 created_at,
-                 type,
-                 error,
-                 agent_version_id,
-                 protocols_set_id,
-                 multi_address_ids
-                 )
-    SELECT (SELECT id FROM upserted_peer_id),
-            new_crawl_id,
-            new_dial_duration,
-            new_connect_duration,
-            new_crawl_duration,
-            new_visit_started_at,
-            new_visit_ended_at,
-            NOW(),
-            new_type,
-            new_error,
-            (SELECT id FROM upserted_agent_version_id),
-            (SELECT id FROM upserted_protocols_set_id),
-            (SELECT array_agg(multi_address_id) FROM upserted_multi_addresses)
+    INSERT INTO visits (
+        peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration, visit_started_at, visit_ended_at,
+        created_at, type, error, agent_version_id, protocols_set_id, multi_address_ids
+    ) SELECT
+        (SELECT id FROM upserted_peer_id), new_crawl_id, (SELECT id FROM upsert_session), new_dial_duration, new_connect_duration, new_crawl_duration,
+        new_visit_started_at, new_visit_ended_at, NOW(), new_type, new_error, (SELECT id FROM upserted_agent_version_id),
+        (SELECT id FROM upserted_protocols_set_id), (SELECT array_agg(multi_address_id) FROM upserted_multi_addresses)
     RETURNING id INTO new_visit_id;
 
     RETURN new_visit_id;
