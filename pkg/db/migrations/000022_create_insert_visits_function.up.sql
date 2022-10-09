@@ -24,18 +24,18 @@ BEGIN
     WITH all_protocol_ids AS (
         SELECT id
         FROM upsert_protocols(new_protocols, new_visit_ended_at)
-        UNION
+        UNION ALL
         SELECT id
         FROM unnest(new_protocol_ids) id
     ), upserted_protocol_ids AS (
         SELECT array_agg(DISTINCT id) ids
         FROM all_protocol_ids
         ORDER BY 1
-    ), upserted_agent_version_id AS (
-        SELECT coalesce(upsert_agent_version(new_agent_version, new_visit_ended_at), new_agent_version_id) id
     ), upserted_protocols_set_id AS (
         SELECT upsert_protocol_set_id(upi.ids,sha256(upi.ids::TEXT::BYTEA)) id
         FROM upserted_protocol_ids upi WHERE upi IS NOT NULL
+    ), upserted_agent_version_id AS (
+        SELECT coalesce(upsert_agent_version(new_agent_version, new_visit_ended_at), new_agent_version_id) id
     ), upserted_peer_id AS (
         SELECT upsert_peer(new_peer_multi_hash, (SELECT id FROM upserted_agent_version_id), (SELECT id FROM upserted_protocols_set_id), new_visit_ended_at) id
     ), upserted_multi_addresses AS (
@@ -43,12 +43,11 @@ BEGIN
     ), multi_address_diff_table AS (
         SELECT pxma.multi_address_id existing_id, uma.multi_address_id new_id
         FROM peers_x_multi_addresses pxma
-            FULL OUTER JOIN upserted_multi_addresses uma ON uma.multi_address_id = pxma.multi_address_id
-        WHERE peer_id = (SELECT id FROM upserted_peer_id)
+            FULL OUTER JOIN upserted_multi_addresses uma ON uma.multi_address_id = pxma.multi_address_id AND peer_id = (SELECT id FROM upserted_peer_id)
     ), delete_multi_addresses AS (
         DELETE FROM peers_x_multi_addresses pxma
         WHERE peer_id = (SELECT id FROM upserted_peer_id)
-            AND NOT EXISTS (
+            AND EXISTS (
                 SELECT FROM multi_address_diff_table madt
                 WHERE pxma.multi_address_id = madt.existing_id
                   AND madt.new_id IS NULL
@@ -77,7 +76,8 @@ BEGIN
                  error,
                  agent_version_id,
                  protocols_set_id,
-                 multi_address_ids)
+                 multi_address_ids
+                 )
     SELECT (SELECT id FROM upserted_peer_id),
             new_crawl_id,
             new_dial_duration,
@@ -90,7 +90,7 @@ BEGIN
             new_error,
             (SELECT id FROM upserted_agent_version_id),
             (SELECT id FROM upserted_protocols_set_id),
-            array_agg((SELECT multi_address_id FROM upserted_multi_addresses))
+            (SELECT array_agg(multi_address_id) FROM upserted_multi_addresses)
     RETURNING id INTO new_visit_id;
 
     RETURN new_visit_id;

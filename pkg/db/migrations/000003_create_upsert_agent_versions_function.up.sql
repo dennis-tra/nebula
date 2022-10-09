@@ -18,7 +18,7 @@ $upsert_agent_version$
         RETURNING id, agent_version
     )
     SELECT id FROM sel
-    UNION
+    UNION ALL
     SELECT id FROM ups;
 $upsert_agent_version$ LANGUAGE sql;
 

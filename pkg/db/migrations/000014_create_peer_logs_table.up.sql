@@ -21,14 +21,14 @@ BEGIN
     IF OLD.agent_version_id != NEW.agent_version_id THEN
         INSERT INTO peer_logs (peer_id, field, old, new, created_at)
         VALUES (NEW.id, 'agent_version_id', OLD.agent_version_id, NEW.agent_version_id, NOW());
-        RETURN NEW;
     END IF;
 
     IF OLD.protocols_set_id != NEW.protocols_set_id THEN
         INSERT INTO peer_logs (peer_id, field, old, new, created_at)
         VALUES (NEW.id, 'protocols_set_id', OLD.protocols_set_id, NEW.protocols_set_id, NOW());
-        RETURN NEW;
     END IF;
+
+    RETURN NULL;
 END;
 $$ LANGUAGE 'plpgsql';
 
