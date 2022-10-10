@@ -8,7 +8,7 @@ import (
 )
 
 func TestClient_Datacenter(t *testing.T) {
-	client, err := NewClient()
+	client, err := NewClient("")
 	require.NoError(t, err)
 
 	tests := []struct {

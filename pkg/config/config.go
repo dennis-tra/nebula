@@ -50,6 +50,7 @@ var DefaultConfig = Config{
 	RefreshRoutingTable:    false,
 	ProtocolsCacheSize:     100,
 	AgentVersionsCacheSize: 200,
+	FilePathUdgerDB:        "",
 }
 
 // Config contains general user configuration.
@@ -134,6 +135,9 @@ type Config struct {
 
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
+
+	// File path to the udger datbase
+	FilePathUdgerDB string
 }
 
 func init() {
@@ -318,5 +322,8 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("agent-versions-cache-size") {
 		c.AgentVersionsCacheSize = ctx.Int("agent-versions-cache-size")
+	}
+	if ctx.IsSet("udger-db") {
+		c.FilePathUdgerDB = ctx.String("udger-db")
 	}
 }

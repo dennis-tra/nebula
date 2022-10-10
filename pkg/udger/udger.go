@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/binary"
-	"github.com/friendsofgo/errors"
-	_ "github.com/mattn/go-sqlite3"
 	"math/big"
 	"net"
+
+	"github.com/friendsofgo/errors"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Client struct {
@@ -15,8 +16,8 @@ type Client struct {
 }
 
 // NewClient initializes a new maxmind database client from the embedded database
-func NewClient() (*Client, error) {
-	db, err := sql.Open("sqlite3", "udgerdb_v3.dat")
+func NewClient(dbpath string) (*Client, error) {
+	db, err := sql.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, errors.Wrap(err, "open udger db")
 	}

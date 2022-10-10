@@ -7,8 +7,8 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/maxmind"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/udger"
 	ma "github.com/multiformats/go-multiaddr"
-
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -23,6 +23,11 @@ var ResolveCommand = &cli.Command{
 	Usage:  "Resolves all multi addresses to their IP addresses and geo location information",
 	Action: ResolveAction,
 	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:    "udger-db",
+			Usage:   "Location of the Udger database v3",
+			EnvVars: []string{"NEBULA_RESOLVE_UDGER_DB"},
+		},
 		&cli.IntFlag{
 			Name:        "batch-size",
 			Usage:       "How many database entries should be fetched at each iteration",
@@ -59,15 +64,15 @@ func ResolveAction(c *cli.Context) error {
 		return err
 	}
 
-	limit := c.Int("batch-size")
+	var uclient *udger.Client
+	if conf.FilePathUdgerDB != "" {
+		uclient, err = udger.NewClient(conf.FilePathUdgerDB)
+		if err != nil {
+			return err
+		}
+	}
 
-	//// lastID tracks the highest ID of the set of fetched multi addresses. It could be that the last multi address
-	//// in dbmaddrs below can't be resolved to a proper IP address. This means we would not add an entry in the
-	//// multi_address_x_ip_address table. The next round we fetch all multi addresses where the id is larger then
-	//// the maximum id in the multi_address_x_ip_address. Since we could not resolve and hence have not inserted
-	//// the last multi address we fetch it again and try to resolve it again... basically and endless loop. So we
-	//// keep track of the last ID and if they are equal we break out.
-	//lastID := 0
+	limit := c.Int("batch-size")
 
 	// Start the main loop
 	for {
@@ -77,15 +82,18 @@ func ResolveAction(c *cli.Context) error {
 			return errors.Wrap(err, "fetching multi addresses")
 		}
 		log.Infof("Fetched %d multi addresses", len(dbmaddrs))
+		if len(dbmaddrs) == 0 {
+			return nil
+		}
 
+		if err = resolve(c.Context, dbh, mmc, uclient, dbmaddrs); err != nil {
+			log.WithError(err).Warnln("Error resolving multi addresses")
+		}
 	}
-
-	log.Infof("Done")
-	return nil
 }
 
 // Resolve save the resolved IP addresses + their countries in a transaction
-func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, dbmaddrs models.MultiAddressSlice) error {
+func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs models.MultiAddressSlice) error {
 	txn, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "begin txn")
@@ -99,6 +107,7 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, dbmaddrs mod
 			log.WithError(err).Warnln("Error parsing multi address")
 			continue
 		}
+
 		dbmaddr.IsPublic = null.BoolFrom(manet.IsPublicAddr(maddr))
 		dbmaddr.IsRelay = null.BoolFrom(isRelayedMaddr(maddr))
 
@@ -109,7 +118,6 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, dbmaddrs mod
 
 		if len(addrInfos) == 0 {
 			dbmaddr.HasManyAddrs = null.BoolFrom(false)
-			continue
 		} else if len(addrInfos) == 1 {
 			dbmaddr.HasManyAddrs = null.BoolFrom(false)
 			var addr string
@@ -122,22 +130,40 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, dbmaddrs mod
 			dbmaddr.Country = null.NewString(addrInfo.Country, addrInfo.Country != "")
 			dbmaddr.Continent = null.NewString(addrInfo.Continent, addrInfo.Continent != "")
 			dbmaddr.Addr = null.NewString(addr, addr != "")
+
+			if uclient != nil {
+				datacenterID, err := uclient.Datacenter(addr)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					log.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
+				}
+				dbmaddr.IsCloud = null.NewInt(datacenterID, datacenterID != 0)
+			}
 		} else if len(addrInfos) > 1 { // not "else" because the MaddrInfo could have failed and we still want to update the maddr
 			dbmaddr.HasManyAddrs = null.BoolFrom(true)
 			// Due to dnsaddr protocols each multi address can point to multiple
 			// IP addresses each in a different country.
 			for addr, addrInfo := range addrInfos {
+
+				datacenterID := 0
+				if uclient != nil {
+					datacenterID, err = uclient.Datacenter(addr)
+					if err != nil && !errors.Is(err, sql.ErrNoRows) {
+						log.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
+					} else if datacenterID > 0 {
+						dbmaddr.IsCloud = null.IntFrom(datacenterID)
+					}
+				}
+
 				// Save the IP address + country information + asn information
 				ipaddr := &models.IPAddress{
 					Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
-					IsCloud:   null.Int{},
+					IsCloud:   null.NewInt(datacenterID, datacenterID != 0),
 					Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),
 					Continent: null.NewString(addrInfo.Continent, addrInfo.Continent != ""),
 					Address:   addr,
 				}
 				if err := dbmaddr.AddIPAddresses(ctx, txn, true, ipaddr); err != nil {
 					log.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
-					continue
 				}
 			}
 		}
