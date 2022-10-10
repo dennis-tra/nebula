@@ -84,7 +84,6 @@ var (
 	MonitorDialErrorsCount     = stats.Float64("monitor_dial_errors_count", "Number of successful dial errors during monitoring", stats.UnitDimensionless)
 	FetchedNeighborsCount      = stats.Float64("fetched_neighbors_count", "Number of neighbors fetched from a peer", stats.UnitDimensionless)
 	CrawledPeersCount          = stats.Float64("crawled_peers_count", "Number of distinct peers found for a peer crawl", stats.UnitDimensionless)
-	CrawledUpsertDuration      = stats.Float64("crawled_upsert_duration", "Amount of time we need to populate the database with one crawl result", stats.UnitMilliseconds)
 	PeersToCrawlCount          = stats.Float64("peers_to_crawl_count", "Number of peers in the queue to crawl", stats.UnitDimensionless)
 	PeersToDialCount           = stats.Float64("peers_to_dial_count", "Number of peers in the queue to dial", stats.UnitDimensionless)
 	PeersToDialErrorsCount     = stats.Float64("peers_to_dial_errors_count", "Number of errors when dialing peers", stats.UnitDimensionless)
@@ -120,10 +119,6 @@ var (
 	CrawledPeersCountView = &view.View{
 		Measure:     CrawledPeersCount,
 		Aggregation: view.Count(),
-	}
-	CrawledUpsertDurationView = &view.View{
-		Measure:     CrawledUpsertDuration,
-		Aggregation: ocsql.DefaultMillisecondsDistribution,
 	}
 	PeersToCrawlCountView = &view.View{
 		Measure:     PeersToCrawlCount,
@@ -163,7 +158,6 @@ var DefaultCrawlViews = []*view.View{
 	FetchedNeighborsCountView,
 	CrawledPeersCountView,
 	PeersToCrawlCountView,
-	CrawledUpsertDurationView,
 }
 
 // DefaultMonitorViews with all views in it.

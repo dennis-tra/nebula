@@ -63,7 +63,7 @@ CREATE TABLE sessions_open PARTITION OF sessions(
 CREATE UNIQUE INDEX uq_sessions_open_peer_id ON sessions_open (peer_id);
 
 -- Create index on visit attempt to efficiently query due sessions.
-CREATE INDEX idx_sessions_open_next_visit_due_at ON sessions_open (next_visit_due_at);
+-- CREATE INDEX idx_sessions_open_next_visit_due_at ON sessions_open (next_visit_due_at); commented out as it may not be needed
 
 -------------------------------------------------
 -- Create partition for closed sessions
