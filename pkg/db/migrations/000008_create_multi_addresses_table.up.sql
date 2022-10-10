@@ -46,6 +46,8 @@ CREATE TABLE multi_addresses
     PRIMARY KEY (id)
 );
 
+-- Create an index for all rows that have has_many_addrs set to NULL. This means this row wasn't resolved yet.
+CREATE INDEX idx_multi_addresses_unresolved ON multi_addresses (created_at) WHERE ( has_many_addrs IS NULL );
 
 COMMENT ON TABLE multi_addresses IS ''
     'The `multi_addresses` table keeps track of all ever encountered multi addresses.'
@@ -62,8 +64,5 @@ COMMENT ON COLUMN multi_addresses.continent IS 'The continent that this multi ad
 COMMENT ON COLUMN multi_addresses.maddr IS 'The multi address in the form of `/ip4/123.456.789.123/tcp/4001`.';
 COMMENT ON COLUMN multi_addresses.updated_at IS 'Timestamp of when this multi address was updated.';
 COMMENT ON COLUMN multi_addresses.created_at IS 'Timestamp of when this multi address was created.';
-
-
-CREATE INDEX idx_multi_addresses_maddr ON multi_addresses (maddr);
 
 COMMIT;

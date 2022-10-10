@@ -137,3 +137,4 @@ analysis/provide/server
 
 **/*.vault
 **/ansible*cfg
+udgerdb_v3.dat

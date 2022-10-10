@@ -153,7 +153,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {
-		if dr.DialError == models.DialErrorUnknown {
+		if dr.DialError == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(dr.Error)
 		} else {
 			logEntry = logEntry.WithField("error", dr.DialError)

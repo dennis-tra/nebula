@@ -537,6 +537,15 @@ func (c *Client) FetchDueOpenSessions(ctx context.Context) (models.SessionsOpenS
 	).All(ctx, c.dbh)
 }
 
+// FetchUnresolvedMultiAddresses fetches all multi addresses that were not resolved yet.
+func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
+	return models.MultiAddresses(
+		models.MultiAddressWhere.HasManyAddrs.IsNull(),
+		qm.OrderBy(models.MultiAddressColumns.CreatedAt),
+		qm.Limit(limit),
+	).All(ctx, c.dbh)
+}
+
 func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
 	pi := peer.AddrInfo{
 		Addrs: []ma.Multiaddr{},

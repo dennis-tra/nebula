@@ -32,7 +32,8 @@ type Visit struct {
 	AgentVersionID  null.Int         `boil:"agent_version_id" json:"agent_version_id,omitempty" toml:"agent_version_id" yaml:"agent_version_id,omitempty"`
 	ProtocolsSetID  null.Int         `boil:"protocols_set_id" json:"protocols_set_id,omitempty" toml:"protocols_set_id" yaml:"protocols_set_id,omitempty"`
 	Type            string           `boil:"type" json:"type" toml:"type" yaml:"type"`
-	Error           null.String      `boil:"error" json:"error,omitempty" toml:"error" yaml:"error,omitempty"`
+	ConnectError    null.String      `boil:"connect_error" json:"connect_error,omitempty" toml:"connect_error" yaml:"connect_error,omitempty"`
+	CrawlError      null.String      `boil:"crawl_error" json:"crawl_error,omitempty" toml:"crawl_error" yaml:"crawl_error,omitempty"`
 	VisitStartedAt  time.Time        `boil:"visit_started_at" json:"visit_started_at" toml:"visit_started_at" yaml:"visit_started_at"`
 	VisitEndedAt    time.Time        `boil:"visit_ended_at" json:"visit_ended_at" toml:"visit_ended_at" yaml:"visit_ended_at"`
 	CreatedAt       time.Time        `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
@@ -53,7 +54,8 @@ var VisitColumns = struct {
 	AgentVersionID  string
 	ProtocolsSetID  string
 	Type            string
-	Error           string
+	ConnectError    string
+	CrawlError      string
 	VisitStartedAt  string
 	VisitEndedAt    string
 	CreatedAt       string
@@ -69,7 +71,8 @@ var VisitColumns = struct {
 	AgentVersionID:  "agent_version_id",
 	ProtocolsSetID:  "protocols_set_id",
 	Type:            "type",
-	Error:           "error",
+	ConnectError:    "connect_error",
+	CrawlError:      "crawl_error",
 	VisitStartedAt:  "visit_started_at",
 	VisitEndedAt:    "visit_ended_at",
 	CreatedAt:       "created_at",
@@ -87,7 +90,8 @@ var VisitTableColumns = struct {
 	AgentVersionID  string
 	ProtocolsSetID  string
 	Type            string
-	Error           string
+	ConnectError    string
+	CrawlError      string
 	VisitStartedAt  string
 	VisitEndedAt    string
 	CreatedAt       string
@@ -103,7 +107,8 @@ var VisitTableColumns = struct {
 	AgentVersionID:  "visits.agent_version_id",
 	ProtocolsSetID:  "visits.protocols_set_id",
 	Type:            "visits.type",
-	Error:           "visits.error",
+	ConnectError:    "visits.connect_error",
+	CrawlError:      "visits.crawl_error",
 	VisitStartedAt:  "visits.visit_started_at",
 	VisitEndedAt:    "visits.visit_ended_at",
 	CreatedAt:       "visits.created_at",
@@ -123,7 +128,8 @@ var VisitWhere = struct {
 	AgentVersionID  whereHelpernull_Int
 	ProtocolsSetID  whereHelpernull_Int
 	Type            whereHelperstring
-	Error           whereHelpernull_String
+	ConnectError    whereHelpernull_String
+	CrawlError      whereHelpernull_String
 	VisitStartedAt  whereHelpertime_Time
 	VisitEndedAt    whereHelpertime_Time
 	CreatedAt       whereHelpertime_Time
@@ -139,7 +145,8 @@ var VisitWhere = struct {
 	AgentVersionID:  whereHelpernull_Int{field: "\"visits\".\"agent_version_id\""},
 	ProtocolsSetID:  whereHelpernull_Int{field: "\"visits\".\"protocols_set_id\""},
 	Type:            whereHelperstring{field: "\"visits\".\"type\""},
-	Error:           whereHelpernull_String{field: "\"visits\".\"error\""},
+	ConnectError:    whereHelpernull_String{field: "\"visits\".\"connect_error\""},
+	CrawlError:      whereHelpernull_String{field: "\"visits\".\"crawl_error\""},
 	VisitStartedAt:  whereHelpertime_Time{field: "\"visits\".\"visit_started_at\""},
 	VisitEndedAt:    whereHelpertime_Time{field: "\"visits\".\"visit_ended_at\""},
 	CreatedAt:       whereHelpertime_Time{field: "\"visits\".\"created_at\""},
@@ -166,9 +173,9 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "type", "error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "type", "connect_error", "crawl_error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
 	visitColumnsWithoutDefault = []string{"peer_id", "type", "visit_started_at", "visit_ended_at", "created_at"}
-	visitColumnsWithDefault    = []string{"id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitColumnsWithDefault    = []string{"id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "connect_error", "crawl_error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
 	visitPrimaryKeyColumns     = []string{"id", "visit_started_at"}
 	visitGeneratedColumns      = []string{"id"}
 )

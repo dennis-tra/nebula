@@ -51,46 +51,46 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 	return str
 }
 
-// Enum values for DialError
+// Enum values for NetError
 const (
-	DialErrorUnknown                    string = "unknown"
-	DialErrorIoTimeout                  string = "io_timeout"
-	DialErrorNoRecentNetworkActivity    string = "no_recent_network_activity"
-	DialErrorConnectionRefused          string = "connection_refused"
-	DialErrorProtocolNotSupported       string = "protocol_not_supported"
-	DialErrorPeerIDMismatch             string = "peer_id_mismatch"
-	DialErrorNoRouteToHost              string = "no_route_to_host"
-	DialErrorNetworkUnreachable         string = "network_unreachable"
-	DialErrorNoGoodAddresses            string = "no_good_addresses"
-	DialErrorContextDeadlineExceeded    string = "context_deadline_exceeded"
-	DialErrorNoPublicIP                 string = "no_public_ip"
-	DialErrorMaxDialAttemptsExceeded    string = "max_dial_attempts_exceeded"
-	DialErrorMaddrReset                 string = "maddr_reset"
-	DialErrorStreamReset                string = "stream_reset"
-	DialErrorHostIsDown                 string = "host_is_down"
-	DialErrorNegotiateSecurityProtocol  string = "negotiate_security_protocol"
-	DialErrorNegotiateStreamMultiplexer string = "negotiate_stream_multiplexer"
+	NetErrorUnknown                    string = "unknown"
+	NetErrorIoTimeout                  string = "io_timeout"
+	NetErrorNoRecentNetworkActivity    string = "no_recent_network_activity"
+	NetErrorConnectionRefused          string = "connection_refused"
+	NetErrorProtocolNotSupported       string = "protocol_not_supported"
+	NetErrorPeerIDMismatch             string = "peer_id_mismatch"
+	NetErrorNoRouteToHost              string = "no_route_to_host"
+	NetErrorNetworkUnreachable         string = "network_unreachable"
+	NetErrorNoGoodAddresses            string = "no_good_addresses"
+	NetErrorContextDeadlineExceeded    string = "context_deadline_exceeded"
+	NetErrorNoPublicIP                 string = "no_public_ip"
+	NetErrorMaxDialAttemptsExceeded    string = "max_dial_attempts_exceeded"
+	NetErrorMaddrReset                 string = "maddr_reset"
+	NetErrorStreamReset                string = "stream_reset"
+	NetErrorHostIsDown                 string = "host_is_down"
+	NetErrorNegotiateSecurityProtocol  string = "negotiate_security_protocol"
+	NetErrorNegotiateStreamMultiplexer string = "negotiate_stream_multiplexer"
 )
 
-func AllDialError() []string {
+func AllNetError() []string {
 	return []string{
-		DialErrorUnknown,
-		DialErrorIoTimeout,
-		DialErrorNoRecentNetworkActivity,
-		DialErrorConnectionRefused,
-		DialErrorProtocolNotSupported,
-		DialErrorPeerIDMismatch,
-		DialErrorNoRouteToHost,
-		DialErrorNetworkUnreachable,
-		DialErrorNoGoodAddresses,
-		DialErrorContextDeadlineExceeded,
-		DialErrorNoPublicIP,
-		DialErrorMaxDialAttemptsExceeded,
-		DialErrorMaddrReset,
-		DialErrorStreamReset,
-		DialErrorHostIsDown,
-		DialErrorNegotiateSecurityProtocol,
-		DialErrorNegotiateStreamMultiplexer,
+		NetErrorUnknown,
+		NetErrorIoTimeout,
+		NetErrorNoRecentNetworkActivity,
+		NetErrorConnectionRefused,
+		NetErrorProtocolNotSupported,
+		NetErrorPeerIDMismatch,
+		NetErrorNoRouteToHost,
+		NetErrorNetworkUnreachable,
+		NetErrorNoGoodAddresses,
+		NetErrorContextDeadlineExceeded,
+		NetErrorNoPublicIP,
+		NetErrorMaxDialAttemptsExceeded,
+		NetErrorMaddrReset,
+		NetErrorStreamReset,
+		NetErrorHostIsDown,
+		NetErrorNegotiateSecurityProtocol,
+		NetErrorNegotiateStreamMultiplexer,
 	}
 }
 
