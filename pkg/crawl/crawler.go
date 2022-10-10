@@ -113,6 +113,9 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 
 		// Fetch all neighbors
 		cr.RoutingTable, cr.CrawlError = c.fetchNeighbors(ctx, pi)
+		if cr.CrawlError != nil {
+			cr.CrawlErrorStr = db.DialError(cr.CrawlError)
+		}
 
 		// Extract information from peer store
 		ps := c.host.Peerstore()

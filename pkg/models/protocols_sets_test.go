@@ -896,7 +896,7 @@ func testProtocolsSetsSelect(t *testing.T) {
 }
 
 var (
-	protocolsSetDBTypes = map[string]string{`ID`: `integer`, `ProtocolIds`: `ARRAYinteger`}
+	protocolsSetDBTypes = map[string]string{`ID`: `integer`, `ProtocolIds`: `ARRAYinteger`, `Hash`: `bytea`}
 	_                   = bytes.MinRead
 )
 

@@ -31,7 +31,7 @@ $upsert_peer$
         )
     )
     SELECT id FROM sel
-    UNION
+    UNION ALL
     SELECT id FROM ups;
 $upsert_peer$ LANGUAGE sql;
 

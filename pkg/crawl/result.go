@@ -32,6 +32,9 @@ type Result struct {
 	// Any error that has occurred during fetching neighbor information
 	CrawlError error
 
+	// The above error transferred to a known error
+	CrawlErrorStr string
+
 	// When was the crawl started
 	CrawlStartTime time.Time
 

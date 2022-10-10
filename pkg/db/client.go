@@ -172,29 +172,32 @@ func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
 func (c *Client) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	lowerBound := time.Date(baseDate.Year(), baseDate.Month(), 1, 0, 0, 0, 0, baseDate.Location())
 	upperBound := lowerBound.AddDate(0, 1, 0)
-	lowerBound.Format("2006-01-02")
 
-	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS visits_%s_%s PARTITION OF visits FOR VALUES FROM ('%s') TO ('%s')",
-		lowerBound.Format("2006"),
-		lowerBound.Format("01"),
-		lowerBound.Format("2006-01-02"),
-		upperBound.Format("2006-01-02"),
-	)
-	_, err := c.dbh.ExecContext(ctx, query)
-	if err != nil {
+	query := partitionQuery("visits", lowerBound, upperBound)
+	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create visits partition")
 	}
 
-	query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS sessions_closed_%s_%s PARTITION OF sessions_closed FOR VALUES FROM ('%s') TO ('%s')",
-		lowerBound.Format("2006"),
-		lowerBound.Format("01"),
-		lowerBound.Format("2006-01-02"),
-		upperBound.Format("2006-01-02"),
-	)
-	_, err = c.dbh.ExecContext(ctx, query)
-	if err != nil {
+	query = partitionQuery("sessions_closed", lowerBound, upperBound)
+	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create sessions closed partition")
 	}
+
+	query = partitionQuery("peer_logs", lowerBound, upperBound)
+	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
+		log.WithError(err).WithField("query", query).Warnln("could not create peer_logs partition")
+	}
+}
+
+func partitionQuery(table string, lower time.Time, upper time.Time) string {
+	return fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s_%s_%s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
+		table,
+		lower.Format("2006"),
+		lower.Format("01"),
+		table,
+		lower.Format("2006-01-02"),
+		upper.Format("2006-01-02"),
+	)
 }
 
 // InitCrawl inserts a crawl instance into the database in the state `started`.
@@ -223,7 +226,8 @@ func (c *Client) PersistCrawlVisit(
 	crawlDuration time.Duration,
 	visitStartedAt time.Time,
 	visitEndedAt time.Time,
-	errorStr string,
+	connectErrorStr string,
+	crawlErrorStr string,
 ) error {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
@@ -234,9 +238,10 @@ func (c *Client) PersistCrawlVisit(
 	dbAgentVersion := null.NewString(agentVersion, !dbAgentVersionID.Valid && agentVersion != "")
 	dbConnectDuration := null.NewString(fmt.Sprintf("%f seconds", connectDuration.Seconds()), connectDuration != 0)
 	dbCrawlDuration := null.NewString(fmt.Sprintf("%f seconds", crawlDuration.Seconds()), crawlDuration != 0)
-	dbErrorStr := null.NewString(errorStr, errorStr != "")
+	dbConnectErrorStr := null.NewString(connectErrorStr, connectErrorStr != "")
+	dbCrawlErrorStr := null.NewString(crawlErrorStr, crawlErrorStr != "")
 
-	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
 		crawlID,
 		peerID.String(),
 		types.StringArray(maddrStrs),
@@ -250,7 +255,8 @@ func (c *Client) PersistCrawlVisit(
 		visitStartedAt,
 		visitEndedAt,
 		models.VisitTypeCrawl,
-		dbErrorStr,
+		dbConnectErrorStr,
+		dbCrawlErrorStr,
 	).Query(c.dbh)
 	if err != nil {
 		return err
@@ -392,7 +398,7 @@ func (c *Client) PersistDialVisit(
 	dbDialDuration := null.NewString(fmt.Sprintf("%f seconds", dialDuration.Seconds()), dialDuration != 0)
 	dbErrorStr := null.NewString(errorStr, errorStr != "")
 
-	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
 		nil,
 		peerID.String(),
 		types.StringArray(maddrStrs),
@@ -407,6 +413,7 @@ func (c *Client) PersistDialVisit(
 		visitEndedAt,
 		models.VisitTypeDial,
 		dbErrorStr,
+		nil,
 	).Query(c.dbh)
 	if err != nil {
 		return err
@@ -443,7 +450,9 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 				Count:   count,
 			}
 
-			if property == "protocol" {
+			if value == "" {
+				continue
+			} else if property == "protocol" {
 				protocolID, err := c.GetOrCreateProtocol(ctx, txn, value)
 				if err != nil {
 					continue

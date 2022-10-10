@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -63,13 +62,17 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
-	// Initialize a single libp2p node that's shared between all dialers.
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		return nil, err
-	}
+	// TODO: configure resource manager
+	//mgr, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits))
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "new resource manager")
+	//}
 
-	h, err := libp2p.New(libp2p.Identity(priv), libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	// Initialize a single libp2p node that's shared between all dialers.
+	h, err := libp2p.New(
+		libp2p.NoListenAddrs,
+		//libp2p.ResourceManager(mgr),
+		libp2p.UserAgent("nebula-monitor/"+conf.Version))
 	if err != nil {
 		return nil, err
 	}

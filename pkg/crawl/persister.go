@@ -106,5 +106,6 @@ func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 		cr.CrawlStartTime,
 		cr.CrawlEndTime,
 		cr.ConnectErrorStr,
+		cr.CrawlErrorStr,
 	)
 }

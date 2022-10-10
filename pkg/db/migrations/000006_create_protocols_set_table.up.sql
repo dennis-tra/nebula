@@ -29,5 +29,6 @@ COMMENT ON TABLE protocols_sets IS ''
     'this table holds particular sets of protocols which other tables can reference and save space.';
 COMMENT ON COLUMN protocols_sets.id IS 'An internal unique id that identifies a unique set of protocols.';
 COMMENT ON COLUMN protocols_sets.protocol_ids IS 'The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).';
+COMMENT ON COLUMN protocols_sets.hash IS 'The hash digest of the sorted protocol ids to allow a unique constraint.';
 
 COMMIT;

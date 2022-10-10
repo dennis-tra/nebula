@@ -11,8 +11,10 @@ CREATE TABLE peer_logs
 
     CONSTRAINT fk_peer_logs_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id),
 
-    PRIMARY KEY (id)
-);
+    PRIMARY KEY (id, created_at)
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX idx_peer_logs_created_at ON peer_logs (created_at);
 
 CREATE OR REPLACE FUNCTION insert_peer_log()
     RETURNS TRIGGER AS

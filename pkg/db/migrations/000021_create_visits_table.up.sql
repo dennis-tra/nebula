@@ -27,7 +27,9 @@ CREATE TABLE visits
     -- The type of this visit (done here for column alignment)
     type              visit_type  NOT NULL,
     -- The error that happened for this visit.
-    error             dial_error,
+    connect_error     net_error,
+    -- The error that happened when crawling the peer.
+    crawl_error       net_error,
     -- The time it took to connect with the peer
     visit_started_at  TIMESTAMPTZ NOT NULL,
     -- The time it took to connect with the peer

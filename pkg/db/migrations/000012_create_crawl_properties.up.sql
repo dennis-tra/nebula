@@ -12,7 +12,7 @@ CREATE TABLE crawl_properties
     -- If not NULL the count value corresponds to the number of peers we found with this agent version during the referenced crawl.
     agent_version_id INT,
     -- If not NULL the count value corresponds to the number of peers we failed to connect to with this error type during the referenced crawl.
-    error            dial_error,
+    error            net_error,
     -- The aggregated count of one of the properties above (protocol, agent version, dial error).
     count            INT NOT NULL CHECK ( count >= 0 ),
 

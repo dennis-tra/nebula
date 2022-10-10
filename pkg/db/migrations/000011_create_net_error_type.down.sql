@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP TYPE IF EXISTS net_error;
+
+COMMIT;

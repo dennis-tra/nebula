@@ -31,15 +31,15 @@ type SessionsClosed struct {
 	NextVisitDueAt        null.Time `boil:"next_visit_due_at" json:"next_visit_due_at,omitempty" toml:"next_visit_due_at" yaml:"next_visit_due_at,omitempty"`
 	FirstFailedVisit      time.Time `boil:"first_failed_visit" json:"first_failed_visit" toml:"first_failed_visit" yaml:"first_failed_visit"`
 	LastFailedVisit       time.Time `boil:"last_failed_visit" json:"last_failed_visit" toml:"last_failed_visit" yaml:"last_failed_visit"`
+	LastVisitedAt         time.Time `boil:"last_visited_at" json:"last_visited_at" toml:"last_visited_at" yaml:"last_visited_at"`
 	UpdatedAt             time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt             time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	MinDuration           string    `boil:"min_duration" json:"min_duration" toml:"min_duration" yaml:"min_duration"`
-	MaxDuration           string    `boil:"max_duration" json:"max_duration" toml:"max_duration" yaml:"max_duration"`
 	SuccessfulVisitsCount int       `boil:"successful_visits_count" json:"successful_visits_count" toml:"successful_visits_count" yaml:"successful_visits_count"`
+	RecoveredCount        int       `boil:"recovered_count" json:"recovered_count" toml:"recovered_count" yaml:"recovered_count"`
 	State                 string    `boil:"state" json:"state" toml:"state" yaml:"state"`
 	FailedVisitsCount     int16     `boil:"failed_visits_count" json:"failed_visits_count" toml:"failed_visits_count" yaml:"failed_visits_count"`
-	RecoveredCount        int       `boil:"recovered_count" json:"recovered_count" toml:"recovered_count" yaml:"recovered_count"`
 	FinishReason          string    `boil:"finish_reason" json:"finish_reason" toml:"finish_reason" yaml:"finish_reason"`
+	Uptime                string    `boil:"uptime" json:"uptime" toml:"uptime" yaml:"uptime"`
 
 	R *sessionsClosedR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L sessionsClosedL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -53,15 +53,15 @@ var SessionsClosedColumns = struct {
 	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
+	LastVisitedAt         string
 	UpdatedAt             string
 	CreatedAt             string
-	MinDuration           string
-	MaxDuration           string
 	SuccessfulVisitsCount string
+	RecoveredCount        string
 	State                 string
 	FailedVisitsCount     string
-	RecoveredCount        string
 	FinishReason          string
+	Uptime                string
 }{
 	ID:                    "id",
 	PeerID:                "peer_id",
@@ -70,15 +70,15 @@ var SessionsClosedColumns = struct {
 	NextVisitDueAt:        "next_visit_due_at",
 	FirstFailedVisit:      "first_failed_visit",
 	LastFailedVisit:       "last_failed_visit",
+	LastVisitedAt:         "last_visited_at",
 	UpdatedAt:             "updated_at",
 	CreatedAt:             "created_at",
-	MinDuration:           "min_duration",
-	MaxDuration:           "max_duration",
 	SuccessfulVisitsCount: "successful_visits_count",
+	RecoveredCount:        "recovered_count",
 	State:                 "state",
 	FailedVisitsCount:     "failed_visits_count",
-	RecoveredCount:        "recovered_count",
 	FinishReason:          "finish_reason",
+	Uptime:                "uptime",
 }
 
 var SessionsClosedTableColumns = struct {
@@ -89,15 +89,15 @@ var SessionsClosedTableColumns = struct {
 	NextVisitDueAt        string
 	FirstFailedVisit      string
 	LastFailedVisit       string
+	LastVisitedAt         string
 	UpdatedAt             string
 	CreatedAt             string
-	MinDuration           string
-	MaxDuration           string
 	SuccessfulVisitsCount string
+	RecoveredCount        string
 	State                 string
 	FailedVisitsCount     string
-	RecoveredCount        string
 	FinishReason          string
+	Uptime                string
 }{
 	ID:                    "sessions_closed.id",
 	PeerID:                "sessions_closed.peer_id",
@@ -106,15 +106,15 @@ var SessionsClosedTableColumns = struct {
 	NextVisitDueAt:        "sessions_closed.next_visit_due_at",
 	FirstFailedVisit:      "sessions_closed.first_failed_visit",
 	LastFailedVisit:       "sessions_closed.last_failed_visit",
+	LastVisitedAt:         "sessions_closed.last_visited_at",
 	UpdatedAt:             "sessions_closed.updated_at",
 	CreatedAt:             "sessions_closed.created_at",
-	MinDuration:           "sessions_closed.min_duration",
-	MaxDuration:           "sessions_closed.max_duration",
 	SuccessfulVisitsCount: "sessions_closed.successful_visits_count",
+	RecoveredCount:        "sessions_closed.recovered_count",
 	State:                 "sessions_closed.state",
 	FailedVisitsCount:     "sessions_closed.failed_visits_count",
-	RecoveredCount:        "sessions_closed.recovered_count",
 	FinishReason:          "sessions_closed.finish_reason",
+	Uptime:                "sessions_closed.uptime",
 }
 
 // Generated where
@@ -127,15 +127,15 @@ var SessionsClosedWhere = struct {
 	NextVisitDueAt        whereHelpernull_Time
 	FirstFailedVisit      whereHelpertime_Time
 	LastFailedVisit       whereHelpertime_Time
+	LastVisitedAt         whereHelpertime_Time
 	UpdatedAt             whereHelpertime_Time
 	CreatedAt             whereHelpertime_Time
-	MinDuration           whereHelperstring
-	MaxDuration           whereHelperstring
 	SuccessfulVisitsCount whereHelperint
+	RecoveredCount        whereHelperint
 	State                 whereHelperstring
 	FailedVisitsCount     whereHelperint16
-	RecoveredCount        whereHelperint
 	FinishReason          whereHelperstring
+	Uptime                whereHelperstring
 }{
 	ID:                    whereHelperint{field: "\"sessions_closed\".\"id\""},
 	PeerID:                whereHelperint{field: "\"sessions_closed\".\"peer_id\""},
@@ -144,15 +144,15 @@ var SessionsClosedWhere = struct {
 	NextVisitDueAt:        whereHelpernull_Time{field: "\"sessions_closed\".\"next_visit_due_at\""},
 	FirstFailedVisit:      whereHelpertime_Time{field: "\"sessions_closed\".\"first_failed_visit\""},
 	LastFailedVisit:       whereHelpertime_Time{field: "\"sessions_closed\".\"last_failed_visit\""},
+	LastVisitedAt:         whereHelpertime_Time{field: "\"sessions_closed\".\"last_visited_at\""},
 	UpdatedAt:             whereHelpertime_Time{field: "\"sessions_closed\".\"updated_at\""},
 	CreatedAt:             whereHelpertime_Time{field: "\"sessions_closed\".\"created_at\""},
-	MinDuration:           whereHelperstring{field: "\"sessions_closed\".\"min_duration\""},
-	MaxDuration:           whereHelperstring{field: "\"sessions_closed\".\"max_duration\""},
 	SuccessfulVisitsCount: whereHelperint{field: "\"sessions_closed\".\"successful_visits_count\""},
+	RecoveredCount:        whereHelperint{field: "\"sessions_closed\".\"recovered_count\""},
 	State:                 whereHelperstring{field: "\"sessions_closed\".\"state\""},
 	FailedVisitsCount:     whereHelperint16{field: "\"sessions_closed\".\"failed_visits_count\""},
-	RecoveredCount:        whereHelperint{field: "\"sessions_closed\".\"recovered_count\""},
 	FinishReason:          whereHelperstring{field: "\"sessions_closed\".\"finish_reason\""},
+	Uptime:                whereHelperstring{field: "\"sessions_closed\".\"uptime\""},
 }
 
 // SessionsClosedRels is where relationship names are stored.
@@ -172,10 +172,10 @@ func (*sessionsClosedR) NewStruct() *sessionsClosedR {
 type sessionsClosedL struct{}
 
 var (
-	sessionsClosedAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_due_at", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
-	sessionsClosedColumnsWithoutDefault = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "first_failed_visit", "last_failed_visit", "updated_at", "created_at", "min_duration", "max_duration", "successful_visits_count", "state", "failed_visits_count", "recovered_count", "finish_reason"}
+	sessionsClosedAllColumns            = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "next_visit_due_at", "first_failed_visit", "last_failed_visit", "last_visited_at", "updated_at", "created_at", "successful_visits_count", "recovered_count", "state", "failed_visits_count", "finish_reason", "uptime"}
+	sessionsClosedColumnsWithoutDefault = []string{"id", "peer_id", "first_successful_visit", "last_successful_visit", "first_failed_visit", "last_failed_visit", "last_visited_at", "updated_at", "created_at", "successful_visits_count", "recovered_count", "state", "failed_visits_count", "finish_reason", "uptime"}
 	sessionsClosedColumnsWithDefault    = []string{"next_visit_due_at"}
-	sessionsClosedPrimaryKeyColumns     = []string{"id", "state", "created_at"}
+	sessionsClosedPrimaryKeyColumns     = []string{"id", "state", "last_visited_at"}
 	sessionsClosedGeneratedColumns      = []string{}
 )
 
@@ -470,7 +470,7 @@ func SessionsCloseds(mods ...qm.QueryMod) sessionsClosedQuery {
 
 // FindSessionsClosed retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time, selectCols ...string) (*SessionsClosed, error) {
+func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastVisitedAt time.Time, selectCols ...string) (*SessionsClosed, error) {
 	sessionsClosedObj := &SessionsClosed{}
 
 	sel := "*"
@@ -478,10 +478,10 @@ func FindSessionsClosed(ctx context.Context, exec boil.ContextExecutor, iD int, 
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3", sel,
+		"select %s from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"last_visited_at\"=$3", sel,
 	)
 
-	q := queries.Raw(query, iD, state, createdAt)
+	q := queries.Raw(query, iD, state, lastVisitedAt)
 
 	err := q.Bind(ctx, exec, sessionsClosedObj)
 	if err != nil {
@@ -857,7 +857,7 @@ func (o *SessionsClosed) Delete(ctx context.Context, exec boil.ContextExecutor) 
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), sessionsClosedPrimaryKeyMapping)
-	sql := "DELETE FROM \"sessions_closed\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3"
+	sql := "DELETE FROM \"sessions_closed\" WHERE \"id\"=$1 AND \"state\"=$2 AND \"last_visited_at\"=$3"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -954,7 +954,7 @@ func (o SessionsClosedSlice) DeleteAll(ctx context.Context, exec boil.ContextExe
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *SessionsClosed) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindSessionsClosed(ctx, exec, o.ID, o.State, o.CreatedAt)
+	ret, err := FindSessionsClosed(ctx, exec, o.ID, o.State, o.LastVisitedAt)
 	if err != nil {
 		return err
 	}
@@ -993,16 +993,16 @@ func (o *SessionsClosedSlice) ReloadAll(ctx context.Context, exec boil.ContextEx
 }
 
 // SessionsClosedExists checks if the SessionsClosed row exists.
-func SessionsClosedExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, createdAt time.Time) (bool, error) {
+func SessionsClosedExists(ctx context.Context, exec boil.ContextExecutor, iD int, state string, lastVisitedAt time.Time) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"created_at\"=$3 limit 1)"
+	sql := "select exists(select 1 from \"sessions_closed\" where \"id\"=$1 AND \"state\"=$2 AND \"last_visited_at\"=$3 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, iD, state, createdAt)
+		fmt.Fprintln(writer, iD, state, lastVisitedAt)
 	}
-	row := exec.QueryRowContext(ctx, sql, iD, state, createdAt)
+	row := exec.QueryRowContext(ctx, sql, iD, state, lastVisitedAt)
 
 	err := row.Scan(&exists)
 	if err != nil {

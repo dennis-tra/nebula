@@ -28,6 +28,7 @@ type Visit struct {
 	ID              int              `boil:"id" json:"id" toml:"id" yaml:"id"`
 	PeerID          int              `boil:"peer_id" json:"peer_id" toml:"peer_id" yaml:"peer_id"`
 	CrawlID         null.Int         `boil:"crawl_id" json:"crawl_id,omitempty" toml:"crawl_id" yaml:"crawl_id,omitempty"`
+	SessionID       null.Int         `boil:"session_id" json:"session_id,omitempty" toml:"session_id" yaml:"session_id,omitempty"`
 	AgentVersionID  null.Int         `boil:"agent_version_id" json:"agent_version_id,omitempty" toml:"agent_version_id" yaml:"agent_version_id,omitempty"`
 	ProtocolsSetID  null.Int         `boil:"protocols_set_id" json:"protocols_set_id,omitempty" toml:"protocols_set_id" yaml:"protocols_set_id,omitempty"`
 	Type            string           `boil:"type" json:"type" toml:"type" yaml:"type"`
@@ -48,6 +49,7 @@ var VisitColumns = struct {
 	ID              string
 	PeerID          string
 	CrawlID         string
+	SessionID       string
 	AgentVersionID  string
 	ProtocolsSetID  string
 	Type            string
@@ -63,6 +65,7 @@ var VisitColumns = struct {
 	ID:              "id",
 	PeerID:          "peer_id",
 	CrawlID:         "crawl_id",
+	SessionID:       "session_id",
 	AgentVersionID:  "agent_version_id",
 	ProtocolsSetID:  "protocols_set_id",
 	Type:            "type",
@@ -80,6 +83,7 @@ var VisitTableColumns = struct {
 	ID              string
 	PeerID          string
 	CrawlID         string
+	SessionID       string
 	AgentVersionID  string
 	ProtocolsSetID  string
 	Type            string
@@ -95,6 +99,7 @@ var VisitTableColumns = struct {
 	ID:              "visits.id",
 	PeerID:          "visits.peer_id",
 	CrawlID:         "visits.crawl_id",
+	SessionID:       "visits.session_id",
 	AgentVersionID:  "visits.agent_version_id",
 	ProtocolsSetID:  "visits.protocols_set_id",
 	Type:            "visits.type",
@@ -114,6 +119,7 @@ var VisitWhere = struct {
 	ID              whereHelperint
 	PeerID          whereHelperint
 	CrawlID         whereHelpernull_Int
+	SessionID       whereHelpernull_Int
 	AgentVersionID  whereHelpernull_Int
 	ProtocolsSetID  whereHelpernull_Int
 	Type            whereHelperstring
@@ -129,6 +135,7 @@ var VisitWhere = struct {
 	ID:              whereHelperint{field: "\"visits\".\"id\""},
 	PeerID:          whereHelperint{field: "\"visits\".\"peer_id\""},
 	CrawlID:         whereHelpernull_Int{field: "\"visits\".\"crawl_id\""},
+	SessionID:       whereHelpernull_Int{field: "\"visits\".\"session_id\""},
 	AgentVersionID:  whereHelpernull_Int{field: "\"visits\".\"agent_version_id\""},
 	ProtocolsSetID:  whereHelpernull_Int{field: "\"visits\".\"protocols_set_id\""},
 	Type:            whereHelperstring{field: "\"visits\".\"type\""},
@@ -159,9 +166,9 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "agent_version_id", "protocols_set_id", "type", "error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "type", "error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
 	visitColumnsWithoutDefault = []string{"peer_id", "type", "visit_started_at", "visit_ended_at", "created_at"}
-	visitColumnsWithDefault    = []string{"id", "crawl_id", "agent_version_id", "protocols_set_id", "error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitColumnsWithDefault    = []string{"id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
 	visitPrimaryKeyColumns     = []string{"id", "visit_started_at"}
 	visitGeneratedColumns      = []string{"id"}
 )

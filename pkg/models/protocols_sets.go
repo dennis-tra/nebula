@@ -27,6 +27,8 @@ type ProtocolsSet struct { // An internal unique id that identifies a unique set
 	ID int `boil:"id" json:"id" toml:"id" yaml:"id"`
 	// The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).
 	ProtocolIds types.Int64Array `boil:"protocol_ids" json:"protocol_ids" toml:"protocol_ids" yaml:"protocol_ids"`
+	// The hash digest of the sorted protocol ids to allow a unique constraint.
+	Hash []byte `boil:"hash" json:"hash" toml:"hash" yaml:"hash"`
 
 	R *protocolsSetR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L protocolsSetL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -35,27 +37,42 @@ type ProtocolsSet struct { // An internal unique id that identifies a unique set
 var ProtocolsSetColumns = struct {
 	ID          string
 	ProtocolIds string
+	Hash        string
 }{
 	ID:          "id",
 	ProtocolIds: "protocol_ids",
+	Hash:        "hash",
 }
 
 var ProtocolsSetTableColumns = struct {
 	ID          string
 	ProtocolIds string
+	Hash        string
 }{
 	ID:          "protocols_sets.id",
 	ProtocolIds: "protocols_sets.protocol_ids",
+	Hash:        "protocols_sets.hash",
 }
 
 // Generated where
 
+type whereHelper__byte struct{ field string }
+
+func (w whereHelper__byte) EQ(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelper__byte) NEQ(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelper__byte) LT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelper__byte) LTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelper__byte) GT(x []byte) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelper__byte) GTE(x []byte) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
 var ProtocolsSetWhere = struct {
 	ID          whereHelperint
 	ProtocolIds whereHelpertypes_Int64Array
+	Hash        whereHelper__byte
 }{
 	ID:          whereHelperint{field: "\"protocols_sets\".\"id\""},
 	ProtocolIds: whereHelpertypes_Int64Array{field: "\"protocols_sets\".\"protocol_ids\""},
+	Hash:        whereHelper__byte{field: "\"protocols_sets\".\"hash\""},
 }
 
 // ProtocolsSetRels is where relationship names are stored.
@@ -86,8 +103,8 @@ func (r *protocolsSetR) GetPeers() PeerSlice {
 type protocolsSetL struct{}
 
 var (
-	protocolsSetAllColumns            = []string{"id", "protocol_ids"}
-	protocolsSetColumnsWithoutDefault = []string{"protocol_ids"}
+	protocolsSetAllColumns            = []string{"id", "protocol_ids", "hash"}
+	protocolsSetColumnsWithoutDefault = []string{"protocol_ids", "hash"}
 	protocolsSetColumnsWithDefault    = []string{"id"}
 	protocolsSetPrimaryKeyColumns     = []string{"id"}
 	protocolsSetGeneratedColumns      = []string{"id"}

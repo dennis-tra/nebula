@@ -92,7 +92,6 @@ var PeerRels = struct {
 	SessionsOpen   string
 	Latencies      string
 	Neighbors      string
-	PeerLogs       string
 	MultiAddresses string
 }{
 	AgentVersion:   "AgentVersion",
@@ -100,7 +99,6 @@ var PeerRels = struct {
 	SessionsOpen:   "SessionsOpen",
 	Latencies:      "Latencies",
 	Neighbors:      "Neighbors",
-	PeerLogs:       "PeerLogs",
 	MultiAddresses: "MultiAddresses",
 }
 
@@ -111,7 +109,6 @@ type peerR struct {
 	SessionsOpen   *SessionsOpen     `boil:"SessionsOpen" json:"SessionsOpen" toml:"SessionsOpen" yaml:"SessionsOpen"`
 	Latencies      LatencySlice      `boil:"Latencies" json:"Latencies" toml:"Latencies" yaml:"Latencies"`
 	Neighbors      NeighborSlice     `boil:"Neighbors" json:"Neighbors" toml:"Neighbors" yaml:"Neighbors"`
-	PeerLogs       PeerLogSlice      `boil:"PeerLogs" json:"PeerLogs" toml:"PeerLogs" yaml:"PeerLogs"`
 	MultiAddresses MultiAddressSlice `boil:"MultiAddresses" json:"MultiAddresses" toml:"MultiAddresses" yaml:"MultiAddresses"`
 }
 
@@ -153,13 +150,6 @@ func (r *peerR) GetNeighbors() NeighborSlice {
 		return nil
 	}
 	return r.Neighbors
-}
-
-func (r *peerR) GetPeerLogs() PeerLogSlice {
-	if r == nil {
-		return nil
-	}
-	return r.PeerLogs
 }
 
 func (r *peerR) GetMultiAddresses() MultiAddressSlice {
@@ -517,20 +507,6 @@ func (o *Peer) Neighbors(mods ...qm.QueryMod) neighborQuery {
 	)
 
 	return Neighbors(queryMods...)
-}
-
-// PeerLogs retrieves all the peer_log's PeerLogs with an executor.
-func (o *Peer) PeerLogs(mods ...qm.QueryMod) peerLogQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"peer_logs\".\"peer_id\"=?", o.ID),
-	)
-
-	return PeerLogs(queryMods...)
 }
 
 // MultiAddresses retrieves all the multi_address's MultiAddresses with an executor.
@@ -1141,120 +1117,6 @@ func (peerL) LoadNeighbors(ctx context.Context, e boil.ContextExecutor, singular
 	return nil
 }
 
-// LoadPeerLogs allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (peerL) LoadPeerLogs(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
-	var slice []*Peer
-	var object *Peer
-
-	if singular {
-		var ok bool
-		object, ok = maybePeer.(*Peer)
-		if !ok {
-			object = new(Peer)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybePeer)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePeer))
-			}
-		}
-	} else {
-		s, ok := maybePeer.(*[]*Peer)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybePeer)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePeer))
-			}
-		}
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &peerR{}
-		}
-		args = append(args, object.ID)
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &peerR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ID)
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`peer_logs`),
-		qm.WhereIn(`peer_logs.peer_id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load peer_logs")
-	}
-
-	var resultSlice []*PeerLog
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice peer_logs")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on peer_logs")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peer_logs")
-	}
-
-	if len(peerLogAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.PeerLogs = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &peerLogR{}
-			}
-			foreign.R.Peer = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if local.ID == foreign.PeerID {
-				local.R.PeerLogs = append(local.R.PeerLogs, foreign)
-				if foreign.R == nil {
-					foreign.R = &peerLogR{}
-				}
-				foreign.R.Peer = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
 // LoadMultiAddresses allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (peerL) LoadMultiAddresses(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeer interface{}, mods queries.Applicator) error {
@@ -1564,7 +1426,7 @@ func (o *Peer) SetSessionsOpen(ctx context.Context, exec boil.ContextExecutor, i
 			strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
 			strmangle.WhereClause("\"", "\"", 2, sessionsOpenPrimaryKeyColumns),
 		)
-		values := []interface{}{o.ID, related.ID, related.State, related.CreatedAt}
+		values := []interface{}{o.ID, related.ID, related.State, related.LastVisitedAt}
 
 		if boil.IsDebug(ctx) {
 			writer := boil.DebugWriterFrom(ctx)
@@ -1693,59 +1555,6 @@ func (o *Peer) AddNeighbors(ctx context.Context, exec boil.ContextExecutor, inse
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &neighborR{
-				Peer: o,
-			}
-		} else {
-			rel.R.Peer = o
-		}
-	}
-	return nil
-}
-
-// AddPeerLogs adds the given related objects to the existing relationships
-// of the peer, optionally inserting them as new records.
-// Appends related to o.R.PeerLogs.
-// Sets related.R.Peer appropriately.
-func (o *Peer) AddPeerLogs(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*PeerLog) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			rel.PeerID = o.ID
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"peer_logs\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
-				strmangle.WhereClause("\"", "\"", 2, peerLogPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.ID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			rel.PeerID = o.ID
-		}
-	}
-
-	if o.R == nil {
-		o.R = &peerR{
-			PeerLogs: related,
-		}
-	} else {
-		o.R.PeerLogs = append(o.R.PeerLogs, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &peerLogR{
 				Peer: o,
 			}
 		} else {

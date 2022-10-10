@@ -14,7 +14,8 @@ CREATE OR REPLACE FUNCTION insert_visit(
     new_visit_started_at TIMESTAMPTZ,
     new_visit_ended_at TIMESTAMPTZ,
     new_type visit_type,
-    new_error dial_error
+    new_connect_error net_error,
+    new_crawl_error net_error
 ) RETURNS INT AS
 $insert_visit$
 DECLARE
@@ -59,16 +60,16 @@ BEGIN
         WHERE madf.existing_id IS NULL
         ON CONFLICT DO NOTHING
     ), upsert_session AS (
-        SELECT upsert_session((SELECT id FROM upserted_peer_id), new_visit_ended_at, new_visit_started_at, new_error) id
+        SELECT upsert_session((SELECT id FROM upserted_peer_id), new_visit_started_at, new_visit_ended_at, new_connect_error) id
     )
 
     -- Now we're able to create the normalized visit instance
     INSERT INTO visits (
         peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration, visit_started_at, visit_ended_at,
-        created_at, type, error, agent_version_id, protocols_set_id, multi_address_ids
+        created_at, type, connect_error, crawl_error, agent_version_id, protocols_set_id, multi_address_ids
     ) SELECT
         (SELECT id FROM upserted_peer_id), new_crawl_id, (SELECT id FROM upsert_session), new_dial_duration, new_connect_duration, new_crawl_duration,
-        new_visit_started_at, new_visit_ended_at, NOW(), new_type, new_error, (SELECT id FROM upserted_agent_version_id),
+        new_visit_started_at, new_visit_ended_at, NOW(), new_type, new_connect_error, new_crawl_error, (SELECT id FROM upserted_agent_version_id),
         (SELECT id FROM upserted_protocols_set_id), (SELECT array_agg(multi_address_id) FROM upserted_multi_addresses)
     RETURNING id INTO new_visit_id;
 

@@ -86,26 +86,15 @@ var PeerLogWhere = struct {
 
 // PeerLogRels is where relationship names are stored.
 var PeerLogRels = struct {
-	Peer string
-}{
-	Peer: "Peer",
-}
+}{}
 
 // peerLogR is where relationships are stored.
 type peerLogR struct {
-	Peer *Peer `boil:"Peer" json:"Peer" toml:"Peer" yaml:"Peer"`
 }
 
 // NewStruct creates a new relationship struct
 func (*peerLogR) NewStruct() *peerLogR {
 	return &peerLogR{}
-}
-
-func (r *peerLogR) GetPeer() *Peer {
-	if r == nil {
-		return nil
-	}
-	return r.Peer
 }
 
 // peerLogL is where Load methods for each relationship are stored.
@@ -115,7 +104,7 @@ var (
 	peerLogAllColumns            = []string{"id", "peer_id", "field", "old", "new", "created_at"}
 	peerLogColumnsWithoutDefault = []string{"peer_id", "field", "old", "new", "created_at"}
 	peerLogColumnsWithDefault    = []string{"id"}
-	peerLogPrimaryKeyColumns     = []string{"id"}
+	peerLogPrimaryKeyColumns     = []string{"id", "created_at"}
 	peerLogGeneratedColumns      = []string{"id"}
 )
 
@@ -397,184 +386,6 @@ func (q peerLogQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bo
 	return count > 0, nil
 }
 
-// Peer pointed to by the foreign key.
-func (o *PeerLog) Peer(mods ...qm.QueryMod) peerQuery {
-	queryMods := []qm.QueryMod{
-		qm.Where("\"id\" = ?", o.PeerID),
-	}
-
-	queryMods = append(queryMods, mods...)
-
-	return Peers(queryMods...)
-}
-
-// LoadPeer allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for an N-1 relationship.
-func (peerLogL) LoadPeer(ctx context.Context, e boil.ContextExecutor, singular bool, maybePeerLog interface{}, mods queries.Applicator) error {
-	var slice []*PeerLog
-	var object *PeerLog
-
-	if singular {
-		var ok bool
-		object, ok = maybePeerLog.(*PeerLog)
-		if !ok {
-			object = new(PeerLog)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybePeerLog)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybePeerLog))
-			}
-		}
-	} else {
-		s, ok := maybePeerLog.(*[]*PeerLog)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybePeerLog)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybePeerLog))
-			}
-		}
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &peerLogR{}
-		}
-		args = append(args, object.PeerID)
-
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &peerLogR{}
-			}
-
-			for _, a := range args {
-				if a == obj.PeerID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.PeerID)
-
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`peers`),
-		qm.WhereIn(`peers.id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load Peer")
-	}
-
-	var resultSlice []*Peer
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice Peer")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results of eager load for peers")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for peers")
-	}
-
-	if len(peerLogAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-
-	if len(resultSlice) == 0 {
-		return nil
-	}
-
-	if singular {
-		foreign := resultSlice[0]
-		object.R.Peer = foreign
-		if foreign.R == nil {
-			foreign.R = &peerR{}
-		}
-		foreign.R.PeerLogs = append(foreign.R.PeerLogs, object)
-		return nil
-	}
-
-	for _, local := range slice {
-		for _, foreign := range resultSlice {
-			if local.PeerID == foreign.ID {
-				local.R.Peer = foreign
-				if foreign.R == nil {
-					foreign.R = &peerR{}
-				}
-				foreign.R.PeerLogs = append(foreign.R.PeerLogs, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
-// SetPeer of the peerLog to the related item.
-// Sets o.R.Peer to related.
-// Adds o to related.R.PeerLogs.
-func (o *PeerLog) SetPeer(ctx context.Context, exec boil.ContextExecutor, insert bool, related *Peer) error {
-	var err error
-	if insert {
-		if err = related.Insert(ctx, exec, boil.Infer()); err != nil {
-			return errors.Wrap(err, "failed to insert into foreign table")
-		}
-	}
-
-	updateQuery := fmt.Sprintf(
-		"UPDATE \"peer_logs\" SET %s WHERE %s",
-		strmangle.SetParamNames("\"", "\"", 1, []string{"peer_id"}),
-		strmangle.WhereClause("\"", "\"", 2, peerLogPrimaryKeyColumns),
-	)
-	values := []interface{}{related.ID, o.ID}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, updateQuery)
-		fmt.Fprintln(writer, values)
-	}
-	if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-		return errors.Wrap(err, "failed to update local table")
-	}
-
-	o.PeerID = related.ID
-	if o.R == nil {
-		o.R = &peerLogR{
-			Peer: related,
-		}
-	} else {
-		o.R.Peer = related
-	}
-
-	if related.R == nil {
-		related.R = &peerR{
-			PeerLogs: PeerLogSlice{o},
-		}
-	} else {
-		related.R.PeerLogs = append(related.R.PeerLogs, o)
-	}
-
-	return nil
-}
-
 // PeerLogs retrieves all the records using an executor.
 func PeerLogs(mods ...qm.QueryMod) peerLogQuery {
 	mods = append(mods, qm.From("\"peer_logs\""))
@@ -588,7 +399,7 @@ func PeerLogs(mods ...qm.QueryMod) peerLogQuery {
 
 // FindPeerLog retrieves a single record by ID with an executor.
 // If selectCols is empty Find will return all columns.
-func FindPeerLog(ctx context.Context, exec boil.ContextExecutor, iD int, selectCols ...string) (*PeerLog, error) {
+func FindPeerLog(ctx context.Context, exec boil.ContextExecutor, iD int, createdAt time.Time, selectCols ...string) (*PeerLog, error) {
 	peerLogObj := &PeerLog{}
 
 	sel := "*"
@@ -596,10 +407,10 @@ func FindPeerLog(ctx context.Context, exec boil.ContextExecutor, iD int, selectC
 		sel = strings.Join(strmangle.IdentQuoteSlice(dialect.LQ, dialect.RQ, selectCols), ",")
 	}
 	query := fmt.Sprintf(
-		"select %s from \"peer_logs\" where \"id\"=$1", sel,
+		"select %s from \"peer_logs\" where \"id\"=$1 AND \"created_at\"=$2", sel,
 	)
 
-	q := queries.Raw(query, iD)
+	q := queries.Raw(query, iD, createdAt)
 
 	err := q.Bind(ctx, exec, peerLogObj)
 	if err != nil {
@@ -970,7 +781,7 @@ func (o *PeerLog) Delete(ctx context.Context, exec boil.ContextExecutor) (int64,
 	}
 
 	args := queries.ValuesFromMapping(reflect.Indirect(reflect.ValueOf(o)), peerLogPrimaryKeyMapping)
-	sql := "DELETE FROM \"peer_logs\" WHERE \"id\"=$1"
+	sql := "DELETE FROM \"peer_logs\" WHERE \"id\"=$1 AND \"created_at\"=$2"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1067,7 +878,7 @@ func (o PeerLogSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) 
 // Reload refetches the object from the database
 // using the primary keys with an executor.
 func (o *PeerLog) Reload(ctx context.Context, exec boil.ContextExecutor) error {
-	ret, err := FindPeerLog(ctx, exec, o.ID)
+	ret, err := FindPeerLog(ctx, exec, o.ID, o.CreatedAt)
 	if err != nil {
 		return err
 	}
@@ -1106,16 +917,16 @@ func (o *PeerLogSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor)
 }
 
 // PeerLogExists checks if the PeerLog row exists.
-func PeerLogExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, error) {
+func PeerLogExists(ctx context.Context, exec boil.ContextExecutor, iD int, createdAt time.Time) (bool, error) {
 	var exists bool
-	sql := "select exists(select 1 from \"peer_logs\" where \"id\"=$1 limit 1)"
+	sql := "select exists(select 1 from \"peer_logs\" where \"id\"=$1 AND \"created_at\"=$2 limit 1)"
 
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
 		fmt.Fprintln(writer, sql)
-		fmt.Fprintln(writer, iD)
+		fmt.Fprintln(writer, iD, createdAt)
 	}
-	row := exec.QueryRowContext(ctx, sql, iD)
+	row := exec.QueryRowContext(ctx, sql, iD, createdAt)
 
 	err := row.Scan(&exists)
 	if err != nil {

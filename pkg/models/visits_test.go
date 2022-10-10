@@ -568,7 +568,7 @@ func testVisitsSelect(t *testing.T) {
 }
 
 var (
-	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `AgentVersionID`: `integer`, `ProtocolsSetID`: `integer`, `Type`: `enum.visit_type('crawl','dial')`, `Error`: `enum.dial_error('unknown','io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`, `VisitStartedAt`: `timestamp with time zone`, `VisitEndedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `DialDuration`: `interval`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `MultiAddressIds`: `ARRAYinteger`}
+	visitDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `CrawlID`: `integer`, `SessionID`: `integer`, `AgentVersionID`: `integer`, `ProtocolsSetID`: `integer`, `Type`: `enum.visit_type('crawl','dial')`, `Error`: `enum.dial_error('unknown','io_timeout','no_recent_network_activity','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol','negotiate_stream_multiplexer')`, `VisitStartedAt`: `timestamp with time zone`, `VisitEndedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `DialDuration`: `interval`, `ConnectDuration`: `interval`, `CrawlDuration`: `interval`, `MultiAddressIds`: `ARRAYinteger`}
 	_            = bytes.MinRead
 )
 

@@ -22,29 +22,29 @@ CREATE TABLE sessions
     first_failed_visit      TIMESTAMPTZ,
     -- When did we first notice that this peer is not reachable.
     last_failed_visit       TIMESTAMPTZ,
+    -- When did we last visit this peer. For indexing purposes.
+    last_visited_at         TIMESTAMPTZ   NOT NULL,
     -- When was this session instance updated the last time
     updated_at              TIMESTAMPTZ   NOT NULL,
     -- When was this session instance created
     created_at              TIMESTAMPTZ   NOT NULL,
-    -- The duration that this peer was online due to multiple subsequent successful dials
-    min_duration            INTERVAL,
-    -- The duration that from the first successful dial until the first failed dial
-    max_duration            INTERVAL,
     -- Number of successful visits in this session.
     successful_visits_count INTEGER       NOT NULL,
+    -- The number of times this session went from pending to open again.
+    recovered_count         INTEGER       NOT NULL,
     -- The state this session is in.
     state                   session_state NOT NULL,
     -- Number of failed visits before closing this session.
     failed_visits_count     SMALLINT      NOT NULL,
-    -- The number of times this session went from pending to open again.
-    recovered_count         INTEGER       NOT NULL,
     -- What's the first error before we close this session.
-    finish_reason           dial_error,
+    finish_reason           net_error,
+    -- The uptime time range for this session measured from first- to last_successful_visit to
+    uptime                  TSTZRANGE     NOT NULL,
 
     -- The peer ID should always point to an existing peer in the DB
     CONSTRAINT fk_sessions_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
 
-    PRIMARY KEY (id, state, created_at)
+    PRIMARY KEY (id, state, last_visited_at)
 
 ) PARTITION BY LIST (state);
 
@@ -55,7 +55,8 @@ CREATE TABLE sessions
 CREATE TABLE sessions_open PARTITION OF sessions(
     id DEFAULT nextval('sessions_id_seq'),
     next_visit_due_at NOT NULL
-    ) FOR VALUES IN ('open', 'pending') WITH (fillfactor = 90);
+) FOR VALUES IN ('open', 'pending') WITH (fillfactor = 80);
+
 -- we're doing lots of updates on this table so decrease fill factor.
 
 -- There shouldn't be two active sessions for the same peer.
@@ -70,11 +71,11 @@ CREATE INDEX idx_sessions_open_next_visit_due_at ON sessions_open (next_visit_du
 CREATE TABLE sessions_closed PARTITION OF sessions (
     first_failed_visit NOT NULL,
     last_failed_visit NOT NULL,
-    min_duration NOT NULL,
-    max_duration NOT NULL,
+    uptime NOT NULL,
     finish_reason NOT NULL
-    ) FOR VALUES IN ('closed') PARTITION BY RANGE (created_at);
+) FOR VALUES IN ('closed') PARTITION BY RANGE (last_visited_at);
 
-CREATE INDEX idx_sessions_closed_created_at ON sessions_closed (created_at);
+CREATE INDEX idx_sessions_closed_last_visited_at ON sessions_closed (last_visited_at);
+CREATE INDEX idx_sessions_closed_uptime ON sessions_closed USING GIST (uptime);
 
 COMMIT;

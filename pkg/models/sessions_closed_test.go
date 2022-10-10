@@ -149,7 +149,7 @@ func testSessionsClosedsExists(t *testing.T) {
 		t.Error(err)
 	}
 
-	e, err := SessionsClosedExists(ctx, tx, o.ID, o.State, o.CreatedAt)
+	e, err := SessionsClosedExists(ctx, tx, o.ID, o.State, o.LastVisitedAt)
 	if err != nil {
 		t.Errorf("Unable to check if SessionsClosed exists: %s", err)
 	}
@@ -175,7 +175,7 @@ func testSessionsClosedsFind(t *testing.T) {
 		t.Error(err)
 	}
 
-	sessionsClosedFound, err := FindSessionsClosed(ctx, tx, o.ID, o.State, o.CreatedAt)
+	sessionsClosedFound, err := FindSessionsClosed(ctx, tx, o.ID, o.State, o.LastVisitedAt)
 	if err != nil {
 		t.Error(err)
 	}
@@ -568,7 +568,7 @@ func testSessionsClosedsSelect(t *testing.T) {
 }
 
 var (
-	sessionsClosedDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `FirstSuccessfulVisit`: `timestamp with time zone`, `LastSuccessfulVisit`: `timestamp with time zone`, `NextVisitDueAt`: `timestamp with time zone`, `FirstFailedVisit`: `timestamp with time zone`, `LastFailedVisit`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `MinDuration`: `interval`, `MaxDuration`: `interval`, `SuccessfulVisitsCount`: `integer`, `State`: `enum.session_state('open','pending','closed')`, `FailedVisitsCount`: `smallint`, `RecoveredCount`: `integer`, `FinishReason`: `enum.dial_error('unknown','io_timeout','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol_no_trailing_new_line')`}
+	sessionsClosedDBTypes = map[string]string{`ID`: `integer`, `PeerID`: `integer`, `FirstSuccessfulVisit`: `timestamp with time zone`, `LastSuccessfulVisit`: `timestamp with time zone`, `NextVisitDueAt`: `timestamp with time zone`, `FirstFailedVisit`: `timestamp with time zone`, `LastFailedVisit`: `timestamp with time zone`, `LastVisitedAt`: `timestamp with time zone`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`, `SuccessfulVisitsCount`: `integer`, `RecoveredCount`: `integer`, `State`: `enum.session_state('open','pending','closed')`, `FailedVisitsCount`: `smallint`, `FinishReason`: `enum.dial_error('unknown','io_timeout','no_recent_network_activity','connection_refused','protocol_not_supported','peer_id_mismatch','no_route_to_host','network_unreachable','no_good_addresses','context_deadline_exceeded','no_public_ip','max_dial_attempts_exceeded','maddr_reset','stream_reset','host_is_down','negotiate_security_protocol','negotiate_stream_multiplexer')`, `Uptime`: `tstzrange`}
 	_                     = bytes.MinRead
 )
 
