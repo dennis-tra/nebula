@@ -187,7 +187,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 		persistersCancel()
 		log.Infoln("Cancelling persister context as root context stopped") // e.g. ^C
 	default:
-		log.Infoln("Not cancelling persister context as we stopped organically") // limit or just finished
+		log.Debugln("Not cancelling persister context as we stopped organically") // limit or just finished
 	}
 	for _, p := range persisters {
 		log.WithField("persisterID", p.id).Infoln("Waiting for persister to stop")
@@ -335,7 +335,7 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
 		"remoteID":   utils.FmtPeerID(cr.Peer.ID),
-		"isDialable": cr.ConnectError == nil,
+		"isDialable": cr.ConnectError == nil && cr.CrawlError == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
 

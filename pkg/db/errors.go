@@ -3,8 +3,9 @@ package db
 import (
 	"strings"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 // KnownErrors contains a list of known errors. Property key + string to match for

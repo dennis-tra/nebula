@@ -41,6 +41,12 @@ import (
 //go:embed migrations
 var migrations embed.FS
 
+var (
+	ErrEmptyAgentVersion = fmt.Errorf("empty agent version")
+	ErrEmptyProtocol     = fmt.Errorf("empty protocol")
+	ErrEmptyProtocolsSet = fmt.Errorf("empty protocols set")
+)
+
 type Client struct {
 	ctx context.Context
 
@@ -162,8 +168,7 @@ func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
 			return errors.Wrap(err, "read file")
 		}
 
-		err = os.WriteFile(join, data, 0644)
-		return err
+		return os.WriteFile(join, data, 0644)
 	})
 	if err != nil {
 		log.WithError(err).Warnln("Could not create migrations files")
@@ -193,17 +198,41 @@ func (c *Client) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	lowerBound := time.Date(baseDate.Year(), baseDate.Month(), 1, 0, 0, 0, 0, baseDate.Location())
 	upperBound := lowerBound.AddDate(0, 1, 0)
 
-	query := partitionQuery("visits", lowerBound, upperBound)
+	query := partitionQuery(models.TableNames.Visits, lowerBound, upperBound)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create visits partition")
 	}
 
-	query = partitionQuery("sessions_closed", lowerBound, upperBound)
+	query = partitionQuery(models.TableNames.SessionsClosed, lowerBound, upperBound)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create sessions closed partition")
 	}
 
-	query = partitionQuery("peer_logs", lowerBound, upperBound)
+	query = partitionQuery(models.TableNames.PeerLogs, lowerBound, upperBound)
+	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
+		log.WithError(err).WithField("query", query).Warnln("could not create peer_logs partition")
+	}
+
+	crawl, err := models.Crawls(qm.OrderBy(models.CrawlColumns.StartedAt+" DESC")).One(ctx, c.dbh)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		log.WithError(err).Warnln("could not load most recent crawl")
+	}
+	var maxCrawlID = 0
+	if crawl != nil {
+		maxCrawlID = crawl.ID
+	}
+
+	neighborsPartitionSize := 1000
+	lower := (maxCrawlID / neighborsPartitionSize) * neighborsPartitionSize
+	upper := lower + neighborsPartitionSize
+	query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s_%d_%d PARTITION OF %s FOR VALUES FROM (%d) TO (%d)",
+		models.TableNames.Neighbors,
+		lower,
+		upper,
+		models.TableNames.Neighbors,
+		lower,
+		upper,
+	)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create peer_logs partition")
 	}
@@ -251,22 +280,22 @@ func (c *Client) PersistCrawlVisit(
 	connectErrorStr string,
 	crawlErrorStr string,
 ) error {
+	var agentVersionID, protocolsSetID *int
+	var avidErr, psidErr error
 
 	var wg sync.WaitGroup
 	wg.Add(2)
-	var agentVersionID, protocolsSetID *int
-	var avidErr, psidErr error
 	go func() {
 		agentVersionID, avidErr = c.GetOrCreateAgentVersionID(ctx, exec, agentVersion)
 		if avidErr != nil && !errors.Is(avidErr, ErrEmptyAgentVersion) && !errors.Is(psidErr, context.Canceled) {
-			log.WithError(avidErr).WithField("agentVersion", agentVersion).Warnln("Err getting or creating agent version id")
+			log.WithError(avidErr).WithField("agentVersion", agentVersion).Warnln("Error getting or creating agent version id")
 		}
 		wg.Done()
 	}()
 	go func() {
 		protocolsSetID, psidErr = c.GetOrCreateProtocolsSetID(ctx, exec, protocols)
 		if psidErr != nil && !errors.Is(psidErr, ErrEmptyProtocolsSet) && !errors.Is(psidErr, context.Canceled) {
-			log.WithError(psidErr).WithField("protocols", protocols).Warnln("Err getting or creating protocols set id")
+			log.WithError(psidErr).WithField("protocols", protocols).Warnln("Error getting or creating protocols set id")
 		}
 		wg.Done()
 	}()
@@ -288,8 +317,6 @@ func (c *Client) PersistCrawlVisit(
 		crawlErrorStr,
 	)
 }
-
-var ErrEmptyProtocol = fmt.Errorf("empty protocol")
 
 func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*int, error) {
 	if protocol == "" {
@@ -372,8 +399,6 @@ func (c *Client) protocolsSetHash(protocolIDs []int64) string {
 	return string(h.Sum(nil))
 }
 
-var ErrEmptyProtocolsSet = fmt.Errorf("empty protocols set")
-
 func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.ContextExecutor, protocols []string) (*int, error) {
 	if len(protocols) == 0 {
 		return nil, ErrEmptyProtocolsSet
@@ -416,8 +441,6 @@ func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Contex
 
 	return protocolsSetID, nil
 }
-
-var ErrEmptyAgentVersion = fmt.Errorf("empty agent version")
 
 func (c *Client) GetOrCreateAgentVersionID(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (*int, error) {
 	if agentVersion == "" {

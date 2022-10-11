@@ -17,7 +17,8 @@ $$ LANGUAGE 'plpgsql' ;
 
 CREATE OR REPLACE FUNCTION calc_max_failed_visits(
     first_successful_visit TIMESTAMPTZ,
-    last_successful_visit TIMESTAMPTZ
+    last_successful_visit TIMESTAMPTZ,
+    error net_error
 )
     RETURNS INT AS
 $$
@@ -25,7 +26,9 @@ DECLARE
     uptime INTERVAL;
 BEGIN
     SELECT last_successful_visit - first_successful_visit INTO uptime;
-    IF uptime < '1h'::INTERVAL THEN
+    IF error = 'no_good_addresses' OR error = 'no_public_ip' OR error = 'no_route_to_host' OR error = 'peer_id_mismatch' THEN
+        RETURN 0;
+    ELSIF uptime < '1h'::INTERVAL THEN
         RETURN 0;
     ELSIF uptime < '6h'::INTERVAL THEN
         RETURN 1;
@@ -50,7 +53,7 @@ $upsert_session$
         FROM sessions_open
         WHERE peer_id = visit_peer_id
     ), max_failed_visits AS (
-        SELECT es.id, calc_max_failed_visits(es.first_successful_visit, es.last_successful_visit) max_visits
+        SELECT es.id, calc_max_failed_visits(es.first_successful_visit, es.last_successful_visit, new_error) max_visits
         FROM existing_session AS es
     ), new_session AS (
         INSERT INTO sessions_open (

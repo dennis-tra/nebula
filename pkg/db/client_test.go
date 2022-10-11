@@ -3,14 +3,15 @@ package db
 import (
 	"context"
 	"database/sql"
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	ma "github.com/multiformats/go-multiaddr"
 	"testing"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 func clearDatabase(ctx context.Context, db *sql.DB) error {
@@ -155,6 +156,8 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 	m, _ := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/2345")
 
 	err = client.PersistCrawlVisit(
+		ctx,
+		client.dbh,
 		crawl.ID,
 		"my-long-peer-id",
 		[]ma.Multiaddr{m},
@@ -164,6 +167,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		time.Second,
 		time.Now().Add(-time.Second),
 		time.Now(),
+		"",
 		"",
 	)
 	require.NoError(t, err)

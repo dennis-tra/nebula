@@ -118,7 +118,6 @@ retryLoop:
 			switch dr.DialError {
 			case models.NetErrorPeerIDMismatch:
 				logEntry.WithError(err).Debugln("Dial failed due to peer ID mismatch - stopping retry")
-				// TODO: properly connect to new peer and see if it is part of the DHT.
 				break retryLoop
 			case models.NetErrorNoPublicIP, models.NetErrorNoGoodAddresses:
 				logEntry.WithError(err).Debugln("Dial failed due to no public ip - stopping retry")
@@ -129,8 +128,7 @@ retryLoop:
 			case models.NetErrorConnectionRefused:
 				// The monitoring task receives a lot of "connection refused" messages. I guess there is
 				// a limit somewhere of how often a peer can connect. I could imagine that this rate limiting
-				// is set to one minute. As the scheduler fetches all sessions that are due in the next 10
-				// seconds I'll add that and another one just to be sure ¯\_(ツ)_/¯
+				// is set to one minute ¯\_(ツ)_/¯
 				if retry >= 1 {
 					logEntry.WithError(err).Debugf("Received 'connection refused' the second time - stopping retry")
 					break retryLoop

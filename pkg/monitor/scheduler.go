@@ -47,7 +47,7 @@ type Scheduler struct {
 	// we don't put it there again.
 	inDialQueue sync.Map
 
-	// The number of peers in the ping queue.
+	// The number of peers in the dial queue.
 	inDialQueueCount atomic.Uint32
 
 	// The queue that the dialers publish their dial results on
@@ -231,7 +231,7 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 	}
 
 	// Check if peer is already in dial queue
-	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
+	if _, inDialQueue := s.inDialQueue.LoadOrStore(peerID, pi); inDialQueue {
 		return nil
 	}
 	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
