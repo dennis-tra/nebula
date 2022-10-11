@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -108,6 +109,10 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 
 	if err = client.fillProtocolsCache(ctx); err != nil {
 		return nil, errors.Wrap(err, "fill protocols cache")
+	}
+
+	if err = client.fillProtocolsSetCache(ctx); err != nil {
+		return nil, errors.Wrap(err, "fill protocols set cache")
 	}
 
 	// Ensure all appropriate partitions exist
@@ -293,7 +298,7 @@ func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecu
 		return id.(*int), nil
 	}
 
-	log.WithField("protocol", protocol).Errorln("upsert_protocol")
+	log.WithField("protocol", protocol).Infoln("Upsert protocol")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
 	if row.Err() != nil {
 		return nil, errors.Wrap(row.Err(), "unable to upsert protocol")
@@ -391,7 +396,7 @@ func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Contex
 		return id.(*int), nil
 	}
 
-	log.Errorln("upsert_protocol_set_id")
+	log.WithField("key", hex.EncodeToString([]byte(key))).Infoln("Upsert protocols set")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol_set_id($1)", types.Int64Array(protocolIDs))
 	if row.Err() != nil {
 		return nil, errors.Wrap(row.Err(), "unable to upsert protocols set")
@@ -422,7 +427,7 @@ func (c *Client) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Contex
 		return id.(*int), nil
 	}
 
-	log.WithField("agentVersion", agentVersion).Errorln("upsert_agent_version")
+	log.WithField("agentVersion", agentVersion).Infoln("Upsert agent version")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
 	if row.Err() != nil {
 		return nil, errors.Wrap(row.Err(), "unable to upsert agent version")
@@ -509,9 +514,9 @@ func (c *Client) insertVisit(
 		types.StringArray(maddrStrs),
 		agentVersionID,
 		protocolsSetID,
-		dialDuration,
-		connectDuration,
-		crawlDuration,
+		durationToInterval(dialDuration),
+		durationToInterval(connectDuration),
+		durationToInterval(crawlDuration),
 		visitStartedAt,
 		visitEndedAt,
 		visitType,
@@ -522,6 +527,14 @@ func (c *Client) insertVisit(
 		return err
 	}
 	return rows.Close()
+}
+
+func durationToInterval(dur *time.Duration) *string {
+	if dur == nil {
+		return nil
+	}
+	s := fmt.Sprintf("%f seconds", dur.Seconds())
+	return &s
 }
 
 func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, errorBits uint16, neighbors []peer.ID) error {

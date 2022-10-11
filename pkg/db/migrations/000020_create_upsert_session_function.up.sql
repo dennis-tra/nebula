@@ -71,7 +71,7 @@ $upsert_session$
             last_failed_visit        = NULL,
             failed_visits_count      = 0,
             finish_reason            = NULL,
-            uptime                   = TSTZRANGE(lower(es.uptime), new_visit_ended_at),
+            uptime                   = TSTZRANGE(es.first_successful_visit, new_visit_ended_at),
             recovered_count          = es.recovered_count + (es.state = 'pending')::INT, -- if the state was `pending` this will yield `1` and thus increment the recovered_count
             next_visit_due_at        = (SELECT calc_next_visit(new_visit_ended_at, es.last_successful_visit))
         FROM existing_session AS es
