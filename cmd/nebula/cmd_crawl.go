@@ -45,6 +45,13 @@ var CrawlCommand = &cli.Command{
 			DefaultText: strconv.FormatBool(config.DefaultConfig.PersistNeighbors),
 			Value:       config.DefaultConfig.PersistNeighbors,
 		},
+		&cli.StringFlag{
+			Name:        "network",
+			Usage:       "Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers.",
+			EnvVars:     []string{"NEBULA_CRAWL_NETWORK"},
+			DefaultText: string(config.DefaultConfig.Network),
+			Value:       string(config.DefaultConfig.Network),
+		},
 	},
 }
 

@@ -22,6 +22,15 @@ const (
 	Prefix = "nebula"
 )
 
+type Network string
+
+const (
+	NetworkIPFS     Network = "IPFS"
+	NetworkFilecoin Network = "FILECOIN"
+	NetworkKusama   Network = "KUSAMA"
+	NetworkPolkadot Network = "POLKADOT"
+)
+
 // configFile contains the path suffix that's appended to
 // an XDG compliant directory to find the settings file.
 var configFile = filepath.Join(Prefix, "config.json")
@@ -52,6 +61,7 @@ var DefaultConfig = Config{
 	ProtocolsCacheSize:     100,
 	ProtocolsSetCacheSize:  200,
 	FilePathUdgerDB:        "",
+	Network:                NetworkIPFS,
 }
 
 // Config contains general user configuration.
@@ -142,12 +152,9 @@ type Config struct {
 
 	// File path to the udger datbase
 	FilePathUdgerDB string
-}
 
-func init() {
-	for _, maddr := range dht.DefaultBootstrapPeers {
-		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
-	}
+	// The network to crawl
+	Network Network
 }
 
 // Init takes the command line argument and tries to read the config file from that directory.
@@ -332,5 +339,36 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("udger-db") {
 		c.FilePathUdgerDB = ctx.String("udger-db")
+	}
+
+	c.fillBootstrapPeers()
+
+	// Give CLI option precedence
+	if ctx.IsSet("bootstrap-peers") {
+		c.BootstrapPeers = ctx.StringSlice("bootstrap-peers")
+	}
+}
+
+func (c *Config) fillBootstrapPeers() {
+	if len(DefaultConfig.BootstrapPeers) > 0 {
+		return
+	}
+
+	var bps []ma.Multiaddr
+	switch c.Network {
+	case NetworkFilecoin:
+		bps = BootstrapPeersFilecoinMaddrs
+	case NetworkKusama:
+		bps = BootstrapPeersKusamaMaddrs
+	case NetworkPolkadot:
+		bps = BootstrapPeersPolkadotMaddrs
+	case NetworkIPFS:
+		fallthrough
+	default:
+		bps = dht.DefaultBootstrapPeers
+	}
+
+	for _, maddr := range bps {
+		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
 	}
 }
