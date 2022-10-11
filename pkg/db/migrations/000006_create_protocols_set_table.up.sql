@@ -13,6 +13,7 @@ CREATE TABLE protocols_sets
     -- can make huge storage difference.
     id           INT GENERATED ALWAYS AS IDENTITY,
     -- The protocol IDs of this protocol set. The IDs reference the protocols table (no foreign key checks).
+    -- Note: there's an invariant regarding the INT type. Don't increase it to BIGINT without changing protocolsSetHash.
     protocol_ids INT[] NOT NULL CHECK ( array_length(protocol_ids, 1) IS NOT NULL ),
     -- The hash digest of the sorted protocol ids to allow a unique constraint
     hash         BYTEA NOT NULL,

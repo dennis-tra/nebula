@@ -1,8 +1,7 @@
 BEGIN;
 
 CREATE OR REPLACE FUNCTION upsert_protocol_set_id(
-    new_protocol_ids INT[],
-    hash BYTEA
+    new_protocol_ids INT[]
 ) RETURNS INT AS
 $upsert_protocol_set_id$
     WITH sel AS (
@@ -11,7 +10,7 @@ $upsert_protocol_set_id$
         WHERE protocol_ids = new_protocol_ids
     ), ups AS (
         INSERT INTO protocols_sets (protocol_ids, hash)
-        SELECT new_protocol_ids, hash
+        SELECT new_protocol_ids, sha256(new_protocol_ids::TEXT::BYTEA)
         WHERE NOT EXISTS (SELECT NULL FROM sel)
         ON CONFLICT (hash) DO UPDATE
             SET protocol_ids = new_protocol_ids

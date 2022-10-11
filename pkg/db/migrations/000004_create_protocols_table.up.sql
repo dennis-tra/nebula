@@ -4,6 +4,7 @@ BEGIN;
 CREATE TABLE protocols
 (
     -- A unique id that identifies a agent version.
+    -- Note: there's an invariant regarding the INT type. Don't increase it to BIGINT without changing protocolsSetHash.
     id         INT GENERATED ALWAYS AS IDENTITY,
     -- Timestamp of when this protocol was seen the last time.
     created_at TIMESTAMPTZ NOT NULL,
