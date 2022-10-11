@@ -83,21 +83,21 @@ func TestClient_GetOrCreateAgentVersion(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	id, err := client.GetOrCreateAgentVersion(ctx, client.Handle(), "")
+	id, err := client.GetOrCreateAgentVersionID(ctx, client.Handle(), "")
 	assert.Error(t, err)
 	assert.Equal(t, 0, id)
 
-	id, err = client.GetOrCreateAgentVersion(ctx, client.Handle(), "agent-1")
+	id, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-1")
 	assert.NoError(t, err)
 	assert.Greater(t, id, 0)
 	prevID := id
 
-	id, err = client.GetOrCreateAgentVersion(ctx, client.Handle(), "agent-1")
+	id, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-1")
 	assert.NoError(t, err)
 	assert.Greater(t, id, 0)
 	assert.Equal(t, prevID, id)
 
-	id, err = client.GetOrCreateAgentVersion(ctx, client.Handle(), "agent-2")
+	id, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-2")
 	assert.NoError(t, err)
 	assert.Greater(t, id, 0)
 	assert.NotEqual(t, prevID, id)

@@ -6,14 +6,13 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-	"go.opencensus.io/stats"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -44,17 +43,20 @@ var migrations embed.FS
 type Client struct {
 	ctx context.Context
 
+	// Reference to the configuration
+	conf *config.Config
+
 	// Database handler
 	dbh *sql.DB
 
-	// protocols set cache
-	protocolsSets *lru.Cache
+	// protocols cache
+	agentVersions *lru.Cache
 
 	// protocols cache
 	protocols *lru.Cache
 
-	// protocols cache
-	agentVersions *lru.Cache
+	// protocols set cache
+	protocolsSets *lru.Cache
 }
 
 func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
@@ -82,8 +84,13 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 		return nil, errors.Wrap(err, "pinging database")
 	}
 
-	client := &Client{ctx: ctx, dbh: dbh}
+	client := &Client{ctx: ctx, conf: conf, dbh: dbh}
 	client.applyMigrations(conf, dbh)
+
+	client.agentVersions, err = lru.New(conf.AgentVersionsCacheSize)
+	if err != nil {
+		return nil, errors.Wrap(err, "new agent versions lru cache")
+	}
 
 	client.protocols, err = lru.New(conf.ProtocolsCacheSize)
 	if err != nil {
@@ -95,17 +102,12 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 		return nil, errors.Wrap(err, "new protocols set lru cache")
 	}
 
-	client.agentVersions, err = lru.New(conf.AgentVersionsCacheSize)
-	if err != nil {
-		return nil, errors.Wrap(err, "new agent versions lru cache")
+	if err = client.fillAgentVersionsCache(ctx); err != nil {
+		return nil, errors.Wrap(err, "fill agent versions cache")
 	}
 
 	if err = client.fillProtocolsCache(ctx); err != nil {
 		return nil, errors.Wrap(err, "fill protocols cache")
-	}
-
-	if err = client.fillAgentVersionsCache(ctx); err != nil {
-		return nil, errors.Wrap(err, "fill agent versions cache")
 	}
 
 	// Ensure all appropriate partitions exist
@@ -228,10 +230,12 @@ func (c *Client) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
 }
 
 func (c *Client) PersistCrawlVisit(
+	ctx context.Context,
+	exec boil.ContextExecutor,
 	crawlID int,
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
-	protocolStrs types.StringArray,
+	protocols []string,
 	agentVersion string,
 	connectDuration time.Duration,
 	crawlDuration time.Duration,
@@ -240,16 +244,33 @@ func (c *Client) PersistCrawlVisit(
 	connectErrorStr string,
 	crawlErrorStr string,
 ) error {
-	protocolStrs, protocolIDs := c.parseProtocols(protocolStrs)
-	agentVersionID, _ := c.AgentVersionID(agentVersion)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var agentVersionID, protocolsSetID *int
+	var avidErr, psidErr error
+	go func() {
+		agentVersionID, avidErr = c.GetOrCreateAgentVersionID(ctx, exec, agentVersion)
+		if avidErr != nil && !errors.Is(avidErr, ErrEmptyAgentVersion) && !errors.Is(psidErr, context.Canceled) {
+			log.WithError(avidErr).WithField("agentVersion", agentVersion).Warnln("Err getting or creating agent version id")
+		}
+		wg.Done()
+	}()
+	go func() {
+		protocolsSetID, psidErr = c.GetOrCreateProtocolsSetID(ctx, exec, protocols)
+		if psidErr != nil && !errors.Is(psidErr, ErrEmptyProtocolsSet) && !errors.Is(psidErr, context.Canceled) {
+			log.WithError(psidErr).WithField("protocols", protocols).Warnln("Err getting or creating protocols set id")
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+
 	return c.insertVisit(
 		&crawlID,
 		peerID,
 		maddrs,
-		protocolStrs,
-		protocolIDs,
-		agentVersion,
-		agentVersionID,
+		null.IntFromPtr(agentVersionID),
+		null.IntFromPtr(protocolsSetID),
 		nil,
 		&connectDuration,
 		&crawlDuration,
@@ -261,95 +282,79 @@ func (c *Client) PersistCrawlVisit(
 	)
 }
 
-func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (int, error) {
-	if id, found := c.ProtocolID(protocol); found {
-		return id, nil
+var ErrEmptyProtocol = fmt.Errorf("empty protocol")
+
+func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*int, error) {
+	if protocol == "" {
+		return nil, ErrEmptyProtocol
 	}
 
+	if id, found := c.protocols.Get(protocol); found {
+		return id.(*int), nil
+	}
+
+	log.WithField("protocol", protocol).Errorln("upsert_protocol")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
 	if row.Err() != nil {
-		return 0, errors.Wrap(row.Err(), "unable to upsert protocol")
+		return nil, errors.Wrap(row.Err(), "unable to upsert protocol")
 	}
 
 	var protocolID *int
 	if err := row.Scan(&protocolID); err != nil {
-		return 0, errors.Wrap(err, "unable to scan result from upsert protocol")
+		return nil, errors.Wrap(err, "unable to scan result from upsert protocol")
 	}
 
 	if protocolID == nil {
-		return 0, fmt.Errorf("protocol not created")
+		return nil, fmt.Errorf("protocol not created")
 	}
 
-	c.protocols.Add(protocol, *protocolID)
+	c.protocols.Add(protocol, protocolID)
 
-	return *protocolID, nil
-}
-
-// ProtocolID returns the protocol database id for the given string
-func (c *Client) ProtocolID(protocol string) (int, bool) {
-	val, ok := c.protocols.Get(protocol)
-	if !ok {
-		stats.Record(c.ctx, metrics.ProtocolCacheMissCount.M(1))
-		return 0, false
-	}
-	stats.Record(c.ctx, metrics.ProtocolCacheHitCount.M(1))
-	return val.(int), true
+	return protocolID, nil
 }
 
 // fillProtocolsCache fetches all rows until protocol cache size from the protocols table and
 // initializes the DB clients protocols cache.
 func (c *Client) fillProtocolsCache(ctx context.Context) error {
-	if c.protocols.Len() == 0 {
+	if c.conf.ProtocolsCacheSize == 0 {
 		return nil
 	}
 
-	prots, err := models.Protocols(qm.Limit(c.protocols.Len())).All(ctx, c.dbh)
+	prots, err := models.Protocols(qm.Limit(c.conf.ProtocolsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
 
 	for _, p := range prots {
-		c.protocols.Add(p.Protocol, p.ID)
+		c.protocols.Add(p.Protocol, &p.ID)
 	}
 
 	return nil
 }
 
-func (c *Client) parseProtocols(protocols []string) (types.StringArray, types.Int64Array) {
-	var protocolStrs []string
-	var protocolIDs []int64
-	for _, protocol := range protocols {
-		if protocolID, found := c.ProtocolID(protocol); found {
-			protocolIDs = append(protocolIDs, int64(protocolID))
-		} else {
-			protocolStrs = append(protocolStrs, protocol)
-		}
-	}
-	return protocolStrs, protocolIDs
-}
-
 // fillProtocolsSetCache fetches all rows until protocolSet cache size from the protocolsSets table and
 // initializes the DB clients protocolsSets cache.
 func (c *Client) fillProtocolsSetCache(ctx context.Context) error {
-	if c.protocolsSets.Len() == 0 {
-		return nil
-	}
+	// TODO: make configurable
+	//if c.protocolsSets.Len() == 0 {
+	//	return nil
+	//}
 
-	protSets, err := models.ProtocolsSets(qm.Limit(c.protocolsSets.Len())).All(ctx, c.dbh)
+	protSets, err := models.ProtocolsSets(qm.Limit(500)).All(ctx, c.dbh) // TODO
 	if err != nil {
 		return err
 	}
 
 	for _, ps := range protSets {
-		c.protocols.Add(string(ps.Hash), ps.ID)
+		c.protocolsSets.Add(string(ps.Hash), &ps.ID)
 	}
 
 	return nil
 }
 
 // protocolsSetHash returns a unique hash digest for this set of protocol IDs as it's also generated by the database.
+// It expects the list of protocolIDs to be sorted in ascending order.
 func (c *Client) protocolsSetHash(protocolIDs []int64) string {
-	sort.Slice(protocolIDs, func(i, j int) bool { return protocolIDs[i] < protocolIDs[j] })
 	protocolStrs := make([]string, len(protocolIDs))
 	for i, id := range protocolIDs {
 		protocolStrs[i] = strconv.Itoa(int(id)) // safe because protocol IDs are just integers in the database.
@@ -361,55 +366,96 @@ func (c *Client) protocolsSetHash(protocolIDs []int64) string {
 	return string(h.Sum(nil))
 }
 
-func (c *Client) GetOrCreateAgentVersion(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (int, error) {
-	if id, found := c.AgentVersionID(agentVersion); found {
-		return id, nil
+var ErrEmptyProtocolsSet = fmt.Errorf("empty protocols set")
+
+func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.ContextExecutor, protocols []string) (*int, error) {
+	if len(protocols) == 0 {
+		return nil, ErrEmptyProtocolsSet
 	}
 
+	protocolIDs := make([]int64, len(protocols))
+	for i, protocol := range protocols {
+		protocolID, err := c.GetOrCreateProtocol(ctx, exec, protocol)
+		if errors.Is(err, ErrEmptyProtocol) {
+			continue
+		} else if err != nil {
+			return nil, errors.Wrap(err, "get or create protocol")
+		}
+		protocolIDs[i] = int64(*protocolID)
+	}
+
+	sort.Slice(protocolIDs, func(i, j int) bool { return protocolIDs[i] < protocolIDs[j] })
+
+	key := c.protocolsSetHash(protocolIDs)
+	if id, found := c.protocolsSets.Get(key); found {
+		return id.(*int), nil
+	}
+
+	log.Errorln("upsert_protocol_set_id")
+	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol_set_id($1)", types.Int64Array(protocolIDs))
+	if row.Err() != nil {
+		return nil, errors.Wrap(row.Err(), "unable to upsert protocols set")
+	}
+
+	var protocolsSetID *int
+	if err := row.Scan(&protocolsSetID); err != nil {
+		return nil, errors.Wrap(err, "unable to scan result from upsert protocol set id")
+	}
+
+	if protocolsSetID == nil {
+		return nil, fmt.Errorf("protocols set not created")
+	}
+
+	c.protocolsSets.Add(key, protocolsSetID)
+
+	return protocolsSetID, nil
+}
+
+var ErrEmptyAgentVersion = fmt.Errorf("empty agent version")
+
+func (c *Client) GetOrCreateAgentVersionID(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (*int, error) {
+	if agentVersion == "" {
+		return nil, ErrEmptyAgentVersion
+	}
+
+	if id, found := c.agentVersions.Get(agentVersion); found {
+		return id.(*int), nil
+	}
+
+	log.WithField("agentVersion", agentVersion).Errorln("upsert_agent_version")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
 	if row.Err() != nil {
-		return 0, errors.Wrap(row.Err(), "unable to upsert agent version")
+		return nil, errors.Wrap(row.Err(), "unable to upsert agent version")
 	}
 
 	var agentVersionID *int
 	if err := row.Scan(&agentVersionID); err != nil {
-		return 0, errors.Wrap(err, "unable to scan result from upsert agent version")
+		return nil, errors.Wrap(err, "unable to scan result from upsert agent version")
 	}
 
 	if agentVersionID == nil {
-		return 0, fmt.Errorf("agentVersion not created")
+		return nil, fmt.Errorf("agentVersion not created")
 	}
 
-	c.agentVersions.Add(agentVersion, *agentVersionID)
+	c.agentVersions.Add(agentVersion, agentVersionID)
 
-	return *agentVersionID, nil
-}
-
-// AgentVersionID returns the agent version database id for the given string
-func (c *Client) AgentVersionID(agentVersion string) (int, bool) {
-	val, ok := c.agentVersions.Get(agentVersion)
-	if !ok {
-		stats.Record(c.ctx, metrics.AgentVersionCacheMissCount.M(1))
-		return 0, false
-	}
-	stats.Record(c.ctx, metrics.AgentVersionCacheHitCount.M(1))
-	return val.(int), true
+	return agentVersionID, nil
 }
 
 // fillAgentVersionsCache fetches all rows until agent version cache size from the agent_versions table and
 // initializes the DB clients agent version cache.
 func (c *Client) fillAgentVersionsCache(ctx context.Context) error {
-	if c.agentVersions.Len() == 0 {
+	if c.conf.AgentVersionsCacheSize == 0 {
 		return nil
 	}
 
-	avs, err := models.AgentVersions(qm.Limit(c.agentVersions.Len())).All(ctx, c.dbh)
+	avs, err := models.AgentVersions(qm.Limit(c.conf.AgentVersionsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
 
 	for _, av := range avs {
-		c.agentVersions.Add(av.AgentVersion, av.ID)
+		c.agentVersions.Add(av.AgentVersion, &av.ID)
 	}
 
 	return nil
@@ -427,10 +473,8 @@ func (c *Client) PersistDialVisit(
 		nil,
 		peerID,
 		maddrs,
-		nil,
-		nil,
-		"",
-		0,
+		null.IntFromPtr(nil),
+		null.IntFromPtr(nil),
 		&dialDuration,
 		nil,
 		nil,
@@ -446,10 +490,8 @@ func (c *Client) insertVisit(
 	crawlID *int,
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
-	protocolStrs []string,
-	protocolIDs []int64,
-	agentVersion string,
-	agentVersionID int,
+	agentVersionID null.Int,
+	protocolsSetID null.Int,
 	dialDuration *time.Duration,
 	connectDuration *time.Duration,
 	crawlDuration *time.Duration,
@@ -461,14 +503,12 @@ func (c *Client) insertVisit(
 ) error {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
-	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
 		crawlID,
 		peerID.String(),
 		types.StringArray(maddrStrs),
-		types.StringArray(protocolStrs),
-		types.Int64Array(protocolIDs),
-		null.NewString(agentVersion, agentVersion != ""),
-		null.NewInt(agentVersionID, agentVersionID != 0),
+		agentVersionID,
+		protocolsSetID,
 		dialDuration,
 		connectDuration,
 		crawlDuration,
@@ -520,13 +560,13 @@ func (c *Client) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl
 				if err != nil {
 					continue
 				}
-				cp.ProtocolID = null.IntFrom(protocolID)
+				cp.ProtocolID = null.IntFromPtr(protocolID)
 			} else if property == "agent_version" {
-				agentVersionID, err := c.GetOrCreateAgentVersion(ctx, txn, value)
+				agentVersionID, err := c.GetOrCreateAgentVersionID(ctx, txn, value)
 				if err != nil {
 					continue
 				}
-				cp.AgentVersionID = null.IntFrom(agentVersionID)
+				cp.AgentVersionID = null.IntFromPtr(agentVersionID)
 			} else if property == "error" {
 				cp.Error = null.StringFrom(value)
 			}

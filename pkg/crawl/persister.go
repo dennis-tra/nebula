@@ -82,6 +82,7 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	err := p.insertRawVisit(ctx, cr)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
+		fmt.Printf("%v\n", cr)
 	} else {
 		p.persistedPeers++
 	}
@@ -96,6 +97,8 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
 
 	return p.dbc.PersistCrawlVisit(
+		ctx,
+		p.dbc.Handle(),
 		p.crawl.ID,
 		cr.Peer.ID,
 		cr.Peer.Addrs,
