@@ -13,8 +13,6 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -166,14 +164,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
-	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
-
-	// Track dial errors for prometheus
-	if dr.Error != nil {
-		if ctx, err := tag.New(ctx, tag.Upsert(metrics.KeyError, dr.DialError)); err == nil {
-			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
-		}
-	}
+	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Dec()))
 
 	logEntry.
 		WithField("dialDur", dr.DialDuration()).
@@ -234,10 +225,12 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 	if _, inDialQueue := s.inDialQueue.LoadOrStore(peerID, pi); inDialQueue {
 		return nil
 	}
-	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
 	// Schedule dial for peer
 	s.dialQueue.Push(pi)
+
+	// Track new peer in queue with prometheus
+	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Inc()))
 
 	return nil
 }

@@ -7,6 +7,8 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -324,8 +326,10 @@ func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecu
 	}
 
 	if id, found := c.protocols.Get(protocol); found {
+		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol", "outcome": "hit"}).Inc()
 		return id.(*int), nil
 	}
+	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol", "outcome": "miss"}).Inc()
 
 	log.WithField("protocol", protocol).Infoln("Upsert protocol")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
@@ -419,8 +423,10 @@ func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Contex
 
 	key := c.protocolsSetHash(protocolIDs)
 	if id, found := c.protocolsSets.Get(key); found {
+		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol_set", "outcome": "hit"}).Inc()
 		return id.(*int), nil
 	}
+	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol_set", "outcome": "miss"}).Inc()
 
 	log.WithField("key", hex.EncodeToString([]byte(key))).Infoln("Upsert protocols set")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol_set_id($1)", types.Int64Array(protocolIDs))
@@ -448,8 +454,10 @@ func (c *Client) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Contex
 	}
 
 	if id, found := c.agentVersions.Get(agentVersion); found {
+		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "agent_version", "outcome": "hit"}).Inc()
 		return id.(*int), nil
 	}
+	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "agent_version", "outcome": "miss"}).Inc()
 
 	log.WithField("agentVersion", agentVersion).Infoln("Upsert agent version")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
@@ -532,6 +540,7 @@ func (c *Client) insertVisit(
 ) error {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
+	start := time.Now()
 	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
 		crawlID,
 		peerID.String(),
@@ -547,6 +556,10 @@ func (c *Client) insertVisit(
 		null.NewString(connectErrorStr, connectErrorStr != ""),
 		null.NewString(crawlErrorStr, crawlErrorStr != ""),
 	).Query(c.dbh)
+	metrics.InsertVisitHistogram.With(prometheus.Labels{
+		"type":    visitType,
+		"success": strconv.FormatBool(err == nil),
+	}).Observe(time.Since(start).Seconds())
 	if err != nil {
 		return err
 	}

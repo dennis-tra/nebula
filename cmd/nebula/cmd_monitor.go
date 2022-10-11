@@ -47,12 +47,7 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Start prometheus metrics endpoint
-	if err = metrics.RegisterMonitorMetrics(); err != nil {
-		return err
-	}
-	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
-		return errors.Wrap(err, "initialize metrics")
-	}
+	go metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort)
 
 	// Initialize the monitoring task
 	s, err := monitor.NewScheduler(c.Context, conf, dbc)

@@ -5,20 +5,18 @@ import (
 	"math"
 	"time"
 
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
-
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -341,11 +339,11 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 
 	// Keep track that this peer was crawled, so we don't do it again during this run
 	s.crawled[cr.Peer.ID] = cr.Peer
-	stats.Record(ctx, metrics.CrawledPeersCount.M(1))
+	metrics.DistinctVisitedPeersCount.Inc()
 
 	// Remove peer from crawl queue map as it is not in there anymore
 	delete(s.inCrawlQueue, cr.Peer.ID)
-	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(len(s.inCrawlQueue)))
 
 	// Publish crawl result to persist queue so that the data is saved into the DB.
 	s.persistQueue.Push(cr)
@@ -411,9 +409,12 @@ func (s *Scheduler) tryScheduleCrawl(ctx context.Context, pi peer.AddrInfo) {
 		return
 	}
 
+	// Schedule crawl for peer
 	s.inCrawlQueue[pi.ID] = pi
 	s.crawlQueue.Push(pi)
-	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+
+	// Track new peer in queue with prometheus
+	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(len(s.inCrawlQueue)))
 }
 
 // logSummary logs the final results of the crawl.

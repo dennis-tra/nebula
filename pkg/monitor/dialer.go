@@ -9,7 +9,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -163,10 +162,10 @@ retryLoop:
 }
 
 func (d *Dialer) dial(ctx context.Context, peerID peer.ID) error {
-	stats.Record(ctx, metrics.MonitorDialCount.M(1))
+	metrics.VisitCount.With(metrics.DialLabel).Inc()
 
 	if _, err := d.host.Network().DialPeer(ctx, peerID); err != nil {
-		stats.Record(ctx, metrics.MonitorDialErrorsCount.M(1))
+		metrics.VisitErrorsCount.With(metrics.DialLabel).Inc()
 		return err
 	}
 

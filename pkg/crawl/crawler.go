@@ -13,7 +13,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
@@ -152,10 +151,10 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 // connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
 // It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
-	stats.Record(ctx, metrics.CrawlConnectsCount.M(1))
+	metrics.VisitCount.With(metrics.CrawlLabel).Inc()
 
 	if len(pi.Addrs) == 0 {
-		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
+		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
@@ -163,7 +162,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	defer cancel()
 
 	if err := c.host.Connect(ctx, pi); err != nil {
-		stats.Record(ctx, metrics.CrawlConnectErrorsCount.M(1))
+		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return err
 	}
 
@@ -214,7 +213,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*Routin
 		})
 	}
 	err = errg.Wait()
-	stats.Record(ctx, metrics.FetchedNeighborsCount.M(float64(len(allNeighbors))))
+	metrics.FetchedNeighborsCount.Observe(float64(len(allNeighbors)))
 
 	routingTable := &RoutingTable{
 		PeerID:    pi.ID,
