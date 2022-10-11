@@ -14,7 +14,7 @@ CREATE TABLE peer_logs
     PRIMARY KEY (id, created_at)
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_peer_logs_created_at ON peer_logs (created_at);
+CREATE INDEX idx_peer_logs_peer_id_created_at ON peer_logs (peer_id, created_at);
 
 CREATE OR REPLACE FUNCTION insert_peer_log()
     RETURNS TRIGGER AS

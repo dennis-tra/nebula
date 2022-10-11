@@ -343,9 +343,9 @@ func (c *Config) apply(ctx *cli.Context) {
 
 	if ctx.IsSet("network") {
 		c.Network = Network(ctx.String("network"))
-		c.fillBootstrapPeers()
+		c.configureNetwork()
 	} else if len(DefaultConfig.BootstrapPeers) == 0 {
-		c.fillBootstrapPeers()
+		c.configureNetwork()
 	}
 
 	// Give CLI option precedence
@@ -354,7 +354,7 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 }
 
-func (c *Config) fillBootstrapPeers() {
+func (c *Config) configureNetwork() {
 	switch c.Network {
 	case NetworkFilecoin:
 		c.BootstrapPeers = BootstrapPeersFilecoin
