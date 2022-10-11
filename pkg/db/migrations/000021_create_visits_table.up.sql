@@ -59,6 +59,6 @@ CREATE TABLE visits
 ) PARTITION BY RANGE (visit_started_at);
 
 CREATE INDEX idx_visits_visit_started_at ON visits (visit_started_at);
-CREATE INDEX idx_visits_visit_started_at_peer_id ON visits (visit_started_at, peer_id);
+CREATE INDEX idx_visits_peer_id ON visits (peer_id);
 
 COMMIT;

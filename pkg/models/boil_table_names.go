@@ -8,7 +8,6 @@ var TableNames = struct {
 	CrawlProperties      string
 	Crawls               string
 	IPAddresses          string
-	Latencies            string
 	MultiAddresses       string
 	Neighbors            string
 	PeerLogs             string
@@ -25,7 +24,6 @@ var TableNames = struct {
 	CrawlProperties:      "crawl_properties",
 	Crawls:               "crawls",
 	IPAddresses:          "ip_addresses",
-	Latencies:            "latencies",
 	MultiAddresses:       "multi_addresses",
 	Neighbors:            "neighbors",
 	PeerLogs:             "peer_logs",

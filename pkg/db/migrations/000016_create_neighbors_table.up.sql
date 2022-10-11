@@ -18,7 +18,7 @@ CREATE TABLE neighbors
     CONSTRAINT fk_neighbors_crawl_id FOREIGN KEY (crawl_id) REFERENCES crawls (id) ON DELETE CASCADE,
 
     PRIMARY KEY (crawl_id, peer_id)
-);
+) PARTITION BY RANGE (crawl_id);
 
 -- End the transaction
 COMMIT;

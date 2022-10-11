@@ -14,8 +14,6 @@ func TestUpsert(t *testing.T) {
 
 	t.Run("IPAddresses", testIPAddressesUpsert)
 
-	t.Run("Latencies", testLatenciesUpsert)
-
 	t.Run("MultiAddresses", testMultiAddressesUpsert)
 
 	t.Run("Neighbors", testNeighborsUpsert)

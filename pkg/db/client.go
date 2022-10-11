@@ -60,6 +60,8 @@ type Client struct {
 	protocolsSets *lru.Cache
 }
 
+// InitClient establishes a database connection with the provided configuration and applies any pending
+// migrations
 func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 	log.WithFields(log.Fields{
 		"host": conf.DatabaseHost,
@@ -98,7 +100,7 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 		return nil, errors.Wrap(err, "new protocol lru cache")
 	}
 
-	client.protocolsSets, err = lru.New(500) // TODO: make configurable as above
+	client.protocolsSets, err = lru.New(conf.ProtocolsSetCacheSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "new protocols set lru cache")
 	}
@@ -181,7 +183,7 @@ func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
 		return
 	}
 
-	if err = m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.WithError(err).Warnln("Couldn't apply migrations")
 		return
 	}
@@ -340,12 +342,11 @@ func (c *Client) fillProtocolsCache(ctx context.Context) error {
 // fillProtocolsSetCache fetches all rows until protocolSet cache size from the protocolsSets table and
 // initializes the DB clients protocolsSets cache.
 func (c *Client) fillProtocolsSetCache(ctx context.Context) error {
-	// TODO: make configurable
-	//if c.protocolsSets.Len() == 0 {
-	//	return nil
-	//}
+	if c.conf.ProtocolsSetCacheSize == 0 {
+		return nil
+	}
 
-	protSets, err := models.ProtocolsSets(qm.Limit(500)).All(ctx, c.dbh) // TODO
+	protSets, err := models.ProtocolsSets(qm.Limit(c.conf.ProtocolsSetCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -544,7 +545,12 @@ func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, errorBits
 	}
 	// postgres does not support unsigned integers. So we interpret the uint16 as an int16
 	bitMask := *(*int16)(unsafe.Pointer(&errorBits))
-	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)", crawl.ID, peerID.String(), fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")), bitMask).Query(c.dbh)
+	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)",
+		crawl.ID,
+		peerID.String(),
+		fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")),
+		bitMask,
+	).Query(c.dbh)
 	if err != nil {
 		return err
 	}
@@ -656,30 +662,10 @@ func (c *Client) FetchDueOpenSessions(ctx context.Context) (models.SessionsOpenS
 // FetchUnresolvedMultiAddresses fetches all multi addresses that were not resolved yet.
 func (c *Client) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
 	return models.MultiAddresses(
-		models.MultiAddressWhere.HasManyAddrs.IsNull(),
+		models.MultiAddressWhere.Resolved.EQ(false),
 		qm.OrderBy(models.MultiAddressColumns.CreatedAt),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
-}
-
-func ToAddrInfo(p *models.Peer) (peer.AddrInfo, error) {
-	pi := peer.AddrInfo{
-		Addrs: []ma.Multiaddr{},
-	}
-	peerID, err := peer.Decode(p.MultiHash)
-	if err != nil {
-		return pi, err
-	}
-	pi.ID = peerID
-
-	for _, dbmaddr := range p.R.MultiAddresses {
-		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
-		if err != nil {
-			return pi, err
-		}
-		pi.Addrs = append(pi.Addrs, maddr)
-	}
-	return pi, nil
 }
 
 // Rollback calls rollback on the given transaction and logs the potential error.

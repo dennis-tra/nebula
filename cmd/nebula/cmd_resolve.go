@@ -78,7 +78,9 @@ func ResolveAction(c *cli.Context) error {
 	for {
 		log.Infoln("Fetching multi addresses...")
 		dbmaddrs, err := dbc.FetchUnresolvedMultiAddresses(c.Context, limit)
-		if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return nil
+		} else if err != nil {
 			return errors.Wrap(err, "fetching multi addresses")
 		}
 		log.Infof("Fetched %d multi addresses", len(dbmaddrs))
@@ -86,7 +88,7 @@ func ResolveAction(c *cli.Context) error {
 			return nil
 		}
 
-		if err = resolve(c.Context, dbh, mmc, uclient, dbmaddrs); err != nil {
+		if err = resolve(c.Context, dbh, mmc, uclient, dbmaddrs); err != nil && !errors.Is(err, context.Canceled) {
 			log.WithError(err).Warnln("Error resolving multi addresses")
 		}
 	}
@@ -94,6 +96,7 @@ func ResolveAction(c *cli.Context) error {
 
 // Resolve save the resolved IP addresses + their countries in a transaction
 func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs models.MultiAddressSlice) error {
+	log.WithField("size", len(dbmaddrs)).Infoln("Resolving batch of multi addresses...")
 	txn, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "begin txn")
@@ -101,19 +104,24 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udg
 	defer db.Rollback(txn)
 
 	for _, dbmaddr := range dbmaddrs {
-		log.Debugln("Resolving", dbmaddr.Maddr)
+		logEntry := log.WithField("maddr", dbmaddr.Maddr)
+
 		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
 		if err != nil {
-			log.WithError(err).Warnln("Error parsing multi address")
+			logEntry.WithError(err).Warnln("Error parsing multi address - deleting row")
+			if _, err = dbmaddr.Delete(ctx, txn); err != nil {
+				logEntry.WithError(err).Warnln("Error deleting multi address")
+			}
 			continue
 		}
 
+		dbmaddr.Resolved = true
 		dbmaddr.IsPublic = null.BoolFrom(manet.IsPublicAddr(maddr))
 		dbmaddr.IsRelay = null.BoolFrom(isRelayedMaddr(maddr))
 
 		addrInfos, err := mmc.MaddrInfo(ctx, maddr)
 		if err != nil {
-			log.WithError(err).Warnln("Error deriving address information from maddr ", maddr)
+			logEntry.WithError(err).Warnln("Error deriving address information from maddr ", maddr)
 		}
 
 		if len(addrInfos) == 0 {
@@ -134,7 +142,7 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udg
 			if uclient != nil {
 				datacenterID, err := uclient.Datacenter(addr)
 				if err != nil && !errors.Is(err, sql.ErrNoRows) {
-					log.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
+					logEntry.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
 				}
 				dbmaddr.IsCloud = null.NewInt(datacenterID, datacenterID != 0)
 			}
@@ -148,7 +156,7 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udg
 				if uclient != nil {
 					datacenterID, err = uclient.Datacenter(addr)
 					if err != nil && !errors.Is(err, sql.ErrNoRows) {
-						log.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
+						logEntry.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
 					} else if datacenterID > 0 {
 						dbmaddr.IsCloud = null.IntFrom(datacenterID)
 					}
@@ -163,12 +171,12 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udg
 					Address:   addr,
 				}
 				if err := dbmaddr.AddIPAddresses(ctx, txn, true, ipaddr); err != nil {
-					log.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
+					logEntry.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
 				}
 			}
 		}
 		if _, err = dbmaddr.Update(ctx, txn, boil.Infer()); err != nil {
-			log.WithError(err).WithField("maddr", dbmaddr.Maddr).Warnln("Could not update multi address")
+			logEntry.WithError(err).Warnln("Could not update multi address")
 			continue
 		}
 	}

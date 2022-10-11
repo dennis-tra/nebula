@@ -141,16 +141,13 @@ var CrawlWhere = struct {
 // CrawlRels is where relationship names are stored.
 var CrawlRels = struct {
 	CrawlProperties string
-	Neighbors       string
 }{
 	CrawlProperties: "CrawlProperties",
-	Neighbors:       "Neighbors",
 }
 
 // crawlR is where relationships are stored.
 type crawlR struct {
 	CrawlProperties CrawlPropertySlice `boil:"CrawlProperties" json:"CrawlProperties" toml:"CrawlProperties" yaml:"CrawlProperties"`
-	Neighbors       NeighborSlice      `boil:"Neighbors" json:"Neighbors" toml:"Neighbors" yaml:"Neighbors"`
 }
 
 // NewStruct creates a new relationship struct
@@ -163,13 +160,6 @@ func (r *crawlR) GetCrawlProperties() CrawlPropertySlice {
 		return nil
 	}
 	return r.CrawlProperties
-}
-
-func (r *crawlR) GetNeighbors() NeighborSlice {
-	if r == nil {
-		return nil
-	}
-	return r.Neighbors
 }
 
 // crawlL is where Load methods for each relationship are stored.
@@ -475,20 +465,6 @@ func (o *Crawl) CrawlProperties(mods ...qm.QueryMod) crawlPropertyQuery {
 	return CrawlProperties(queryMods...)
 }
 
-// Neighbors retrieves all the neighbor's Neighbors with an executor.
-func (o *Crawl) Neighbors(mods ...qm.QueryMod) neighborQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.Where("\"neighbors\".\"crawl_id\"=?", o.ID),
-	)
-
-	return Neighbors(queryMods...)
-}
-
 // LoadCrawlProperties allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
 func (crawlL) LoadCrawlProperties(ctx context.Context, e boil.ContextExecutor, singular bool, maybeCrawl interface{}, mods queries.Applicator) error {
@@ -603,120 +579,6 @@ func (crawlL) LoadCrawlProperties(ctx context.Context, e boil.ContextExecutor, s
 	return nil
 }
 
-// LoadNeighbors allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (crawlL) LoadNeighbors(ctx context.Context, e boil.ContextExecutor, singular bool, maybeCrawl interface{}, mods queries.Applicator) error {
-	var slice []*Crawl
-	var object *Crawl
-
-	if singular {
-		var ok bool
-		object, ok = maybeCrawl.(*Crawl)
-		if !ok {
-			object = new(Crawl)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeCrawl)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeCrawl))
-			}
-		}
-	} else {
-		s, ok := maybeCrawl.(*[]*Crawl)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeCrawl)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeCrawl))
-			}
-		}
-	}
-
-	args := make([]interface{}, 0, 1)
-	if singular {
-		if object.R == nil {
-			object.R = &crawlR{}
-		}
-		args = append(args, object.ID)
-	} else {
-	Outer:
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &crawlR{}
-			}
-
-			for _, a := range args {
-				if a == obj.ID {
-					continue Outer
-				}
-			}
-
-			args = append(args, obj.ID)
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	query := NewQuery(
-		qm.From(`neighbors`),
-		qm.WhereIn(`neighbors.crawl_id in ?`, args...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load neighbors")
-	}
-
-	var resultSlice []*Neighbor
-	if err = queries.Bind(results, &resultSlice); err != nil {
-		return errors.Wrap(err, "failed to bind eager loaded slice neighbors")
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on neighbors")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for neighbors")
-	}
-
-	if len(neighborAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.Neighbors = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &neighborR{}
-			}
-			foreign.R.Crawl = object
-		}
-		return nil
-	}
-
-	for _, foreign := range resultSlice {
-		for _, local := range slice {
-			if local.ID == foreign.CrawlID {
-				local.R.Neighbors = append(local.R.Neighbors, foreign)
-				if foreign.R == nil {
-					foreign.R = &neighborR{}
-				}
-				foreign.R.Crawl = local
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
 // AddCrawlProperties adds the given related objects to the existing relationships
 // of the crawl, optionally inserting them as new records.
 // Appends related to o.R.CrawlProperties.
@@ -761,59 +623,6 @@ func (o *Crawl) AddCrawlProperties(ctx context.Context, exec boil.ContextExecuto
 	for _, rel := range related {
 		if rel.R == nil {
 			rel.R = &crawlPropertyR{
-				Crawl: o,
-			}
-		} else {
-			rel.R.Crawl = o
-		}
-	}
-	return nil
-}
-
-// AddNeighbors adds the given related objects to the existing relationships
-// of the crawl, optionally inserting them as new records.
-// Appends related to o.R.Neighbors.
-// Sets related.R.Crawl appropriately.
-func (o *Crawl) AddNeighbors(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Neighbor) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			rel.CrawlID = o.ID
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		} else {
-			updateQuery := fmt.Sprintf(
-				"UPDATE \"neighbors\" SET %s WHERE %s",
-				strmangle.SetParamNames("\"", "\"", 1, []string{"crawl_id"}),
-				strmangle.WhereClause("\"", "\"", 2, neighborPrimaryKeyColumns),
-			)
-			values := []interface{}{o.ID, rel.CrawlID, rel.PeerID}
-
-			if boil.IsDebug(ctx) {
-				writer := boil.DebugWriterFrom(ctx)
-				fmt.Fprintln(writer, updateQuery)
-				fmt.Fprintln(writer, values)
-			}
-			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
-				return errors.Wrap(err, "failed to update foreign table")
-			}
-
-			rel.CrawlID = o.ID
-		}
-	}
-
-	if o.R == nil {
-		o.R = &crawlR{
-			Neighbors: related,
-		}
-	} else {
-		o.R.Neighbors = append(o.R.Neighbors, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &neighborR{
 				Crawl: o,
 			}
 		} else {

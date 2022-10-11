@@ -37,6 +37,7 @@ type MultiAddress struct { // An internal unique id that identifies this multi a
 	Addr null.String `boil:"addr" json:"addr,omitempty" toml:"addr" yaml:"addr,omitempty"`
 	// Indicates if the multi_address has multiple IP addresses. Could happen for dnsaddr multi addresses.
 	HasManyAddrs null.Bool `boil:"has_many_addrs" json:"has_many_addrs,omitempty" toml:"has_many_addrs" yaml:"has_many_addrs,omitempty"`
+	Resolved     bool      `boil:"resolved" json:"resolved" toml:"resolved" yaml:"resolved"`
 	// The country that this multi address belongs to in the form of a two letter country code.
 	Country null.String `boil:"country" json:"country,omitempty" toml:"country" yaml:"country,omitempty"`
 	// The continent that this multi address belongs to in the form of a two letter code.
@@ -60,6 +61,7 @@ var MultiAddressColumns = struct {
 	IsPublic     string
 	Addr         string
 	HasManyAddrs string
+	Resolved     string
 	Country      string
 	Continent    string
 	Maddr        string
@@ -73,6 +75,7 @@ var MultiAddressColumns = struct {
 	IsPublic:     "is_public",
 	Addr:         "addr",
 	HasManyAddrs: "has_many_addrs",
+	Resolved:     "resolved",
 	Country:      "country",
 	Continent:    "continent",
 	Maddr:        "maddr",
@@ -88,6 +91,7 @@ var MultiAddressTableColumns = struct {
 	IsPublic     string
 	Addr         string
 	HasManyAddrs string
+	Resolved     string
 	Country      string
 	Continent    string
 	Maddr        string
@@ -101,6 +105,7 @@ var MultiAddressTableColumns = struct {
 	IsPublic:     "multi_addresses.is_public",
 	Addr:         "multi_addresses.addr",
 	HasManyAddrs: "multi_addresses.has_many_addrs",
+	Resolved:     "multi_addresses.resolved",
 	Country:      "multi_addresses.country",
 	Continent:    "multi_addresses.continent",
 	Maddr:        "multi_addresses.maddr",
@@ -134,6 +139,15 @@ func (w whereHelpernull_Bool) GTE(x null.Bool) qm.QueryMod {
 func (w whereHelpernull_Bool) IsNull() qm.QueryMod    { return qmhelper.WhereIsNull(w.field) }
 func (w whereHelpernull_Bool) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
+type whereHelperbool struct{ field string }
+
+func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
 var MultiAddressWhere = struct {
 	ID           whereHelperint
 	Asn          whereHelpernull_Int
@@ -142,6 +156,7 @@ var MultiAddressWhere = struct {
 	IsPublic     whereHelpernull_Bool
 	Addr         whereHelpernull_String
 	HasManyAddrs whereHelpernull_Bool
+	Resolved     whereHelperbool
 	Country      whereHelpernull_String
 	Continent    whereHelpernull_String
 	Maddr        whereHelperstring
@@ -155,6 +170,7 @@ var MultiAddressWhere = struct {
 	IsPublic:     whereHelpernull_Bool{field: "\"multi_addresses\".\"is_public\""},
 	Addr:         whereHelpernull_String{field: "\"multi_addresses\".\"addr\""},
 	HasManyAddrs: whereHelpernull_Bool{field: "\"multi_addresses\".\"has_many_addrs\""},
+	Resolved:     whereHelperbool{field: "\"multi_addresses\".\"resolved\""},
 	Country:      whereHelpernull_String{field: "\"multi_addresses\".\"country\""},
 	Continent:    whereHelpernull_String{field: "\"multi_addresses\".\"continent\""},
 	Maddr:        whereHelperstring{field: "\"multi_addresses\".\"maddr\""},
@@ -200,9 +216,9 @@ func (r *multiAddressR) GetPeers() PeerSlice {
 type multiAddressL struct{}
 
 var (
-	multiAddressAllColumns            = []string{"id", "asn", "is_cloud", "is_relay", "is_public", "addr", "has_many_addrs", "country", "continent", "maddr", "updated_at", "created_at"}
+	multiAddressAllColumns            = []string{"id", "asn", "is_cloud", "is_relay", "is_public", "addr", "has_many_addrs", "resolved", "country", "continent", "maddr", "updated_at", "created_at"}
 	multiAddressColumnsWithoutDefault = []string{"maddr", "updated_at", "created_at"}
-	multiAddressColumnsWithDefault    = []string{"id", "asn", "is_cloud", "is_relay", "is_public", "addr", "has_many_addrs", "country", "continent"}
+	multiAddressColumnsWithDefault    = []string{"id", "asn", "is_cloud", "is_relay", "is_public", "addr", "has_many_addrs", "resolved", "country", "continent"}
 	multiAddressPrimaryKeyColumns     = []string{"id"}
 	multiAddressGeneratedColumns      = []string{"id"}
 )

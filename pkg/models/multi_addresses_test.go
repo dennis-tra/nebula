@@ -1033,7 +1033,7 @@ func testMultiAddressesSelect(t *testing.T) {
 }
 
 var (
-	multiAddressDBTypes = map[string]string{`ID`: `integer`, `Asn`: `integer`, `IsCloud`: `integer`, `IsRelay`: `boolean`, `IsPublic`: `boolean`, `Addr`: `inet`, `HasManyAddrs`: `boolean`, `Country`: `character`, `Continent`: `character`, `Maddr`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
+	multiAddressDBTypes = map[string]string{`ID`: `integer`, `Asn`: `integer`, `IsCloud`: `integer`, `IsRelay`: `boolean`, `IsPublic`: `boolean`, `Addr`: `inet`, `HasManyAddrs`: `boolean`, `Resolved`: `boolean`, `Country`: `character`, `Continent`: `character`, `Maddr`: `text`, `UpdatedAt`: `timestamp with time zone`, `CreatedAt`: `timestamp with time zone`}
 	_                   = bytes.MinRead
 )
 

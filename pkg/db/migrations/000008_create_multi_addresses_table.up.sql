@@ -28,6 +28,8 @@ CREATE TABLE multi_addresses
     -- This means the vast minority is only linked to multiple IP addresses.
     -- If this flag is true there are corresponding IP addresses.
     has_many_addrs BOOLEAN,
+    -- Indicates whether the resolver went over this multi address and tried to derived information from it
+    resolved       BOOLEAN     NOT NULL DEFAULT FALSE,
     -- The country that this multi address belongs to in the form of a two letter country code.
     country        CHAR(2) CHECK ( TRIM(country) != '' ),
     -- The continent that this multi address belongs to in the form of a two letter code.
@@ -47,7 +49,7 @@ CREATE TABLE multi_addresses
 );
 
 -- Create an index for all rows that have has_many_addrs set to NULL. This means this row wasn't resolved yet.
-CREATE INDEX idx_multi_addresses_unresolved ON multi_addresses (created_at) WHERE ( has_many_addrs IS NULL );
+CREATE INDEX idx_multi_addresses_unresolved ON multi_addresses (created_at) WHERE (resolved IS NULL);
 
 COMMENT ON TABLE multi_addresses IS ''
     'The `multi_addresses` table keeps track of all ever encountered multi addresses.'

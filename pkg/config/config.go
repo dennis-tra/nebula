@@ -48,8 +48,9 @@ var DefaultConfig = Config{
 	DatabaseSSLMode:        "disable",
 	Protocols:              []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
 	RefreshRoutingTable:    false,
-	ProtocolsCacheSize:     100,
 	AgentVersionsCacheSize: 200,
+	ProtocolsCacheSize:     100,
+	ProtocolsSetCacheSize:  200,
 	FilePathUdgerDB:        "",
 }
 
@@ -130,11 +131,14 @@ type Config struct {
 	// The directory where the measurement files should be saved
 	ProvideOutDir string
 
+	// The cache size to hold agent versions in memory to skip database queries.
+	AgentVersionsCacheSize int
+
 	// The cache size to hold protocols in memory to skip database queries.
 	ProtocolsCacheSize int
 
-	// The cache size to hold agent versions in memory to skip database queries.
-	AgentVersionsCacheSize int
+	// The cache size to hold sets of protocols in memory to skip database queries.
+	ProtocolsSetCacheSize int
 
 	// File path to the udger datbase
 	FilePathUdgerDB string
@@ -317,11 +321,14 @@ func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("out") {
 		c.ProvideOutDir = ctx.String("out")
 	}
+	if ctx.IsSet("agent-versions-cache-size") {
+		c.AgentVersionsCacheSize = ctx.Int("agent-versions-cache-size")
+	}
 	if ctx.IsSet("protocols-cache-size") {
 		c.ProtocolsCacheSize = ctx.Int("protocols-cache-size")
 	}
-	if ctx.IsSet("agent-versions-cache-size") {
-		c.AgentVersionsCacheSize = ctx.Int("agent-versions-cache-size")
+	if ctx.IsSet("protocols-set-cache-size") {
+		c.ProtocolsSetCacheSize = ctx.Int("protocols-set-cache-size")
 	}
 	if ctx.IsSet("udger-db") {
 		c.FilePathUdgerDB = ctx.String("udger-db")

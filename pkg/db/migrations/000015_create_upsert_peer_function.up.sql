@@ -2,8 +2,8 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION upsert_peer(
     new_multi_hash TEXT,
-    new_agent_version_id INT,
-    new_protocols_set_id INT,
+    new_agent_version_id INT DEFAULT NULL,
+    new_protocols_set_id INT DEFAULT NULL,
     new_created_at TIMESTAMPTZ DEFAULT NOW()
 ) RETURNS INT AS
 $upsert_peer$
@@ -29,10 +29,13 @@ $upsert_peer$
             coalesce(agent_version_id, -1) != coalesce(new_agent_version_id, -1) OR
             coalesce(protocols_set_id, -1) != coalesce(new_protocols_set_id, -1)
         )
+        RETURNING peers.id
     )
     SELECT id FROM sel
-    UNION ALL
-    SELECT id FROM ups;
+    UNION
+    SELECT id FROM ups
+    UNION
+    SELECT id FROM upd;
 $upsert_peer$ LANGUAGE sql;
 
 COMMIT;
