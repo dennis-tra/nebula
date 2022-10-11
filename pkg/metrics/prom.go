@@ -2,11 +2,12 @@ package metrics
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"net/http"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var (
@@ -53,6 +54,10 @@ var (
 )
 
 func ListenAndServe(host string, port int) {
+	if err := prometheus.Register(InsertVisitHistogram); err != nil {
+		log.WithError(err).Warnln("Error registering histogram")
+	}
+
 	addr := fmt.Sprintf("%s:%d", host, port)
 	log.WithField("addr", addr).Debugln("Starting prometheus endpoint")
 	http.Handle("/metrics", promhttp.Handler())

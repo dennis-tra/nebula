@@ -55,7 +55,7 @@ var DefaultConfig = Config{
 	DatabasePassword:       "password",
 	DatabaseUser:           "nebula",
 	DatabaseSSLMode:        "disable",
-	Protocols:              []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
+	Protocols:              []string{},
 	RefreshRoutingTable:    false,
 	AgentVersionsCacheSize: 200,
 	ProtocolsCacheSize:     100,
@@ -341,7 +341,12 @@ func (c *Config) apply(ctx *cli.Context) {
 		c.FilePathUdgerDB = ctx.String("udger-db")
 	}
 
-	c.fillBootstrapPeers()
+	if ctx.IsSet("network") {
+		c.Network = Network(ctx.String("network"))
+		c.fillBootstrapPeers()
+	} else if len(DefaultConfig.BootstrapPeers) == 0 {
+		c.fillBootstrapPeers()
+	}
 
 	// Give CLI option precedence
 	if ctx.IsSet("bootstrap-peers") {
@@ -350,25 +355,23 @@ func (c *Config) apply(ctx *cli.Context) {
 }
 
 func (c *Config) fillBootstrapPeers() {
-	if len(DefaultConfig.BootstrapPeers) > 0 {
-		return
-	}
-
-	var bps []ma.Multiaddr
 	switch c.Network {
 	case NetworkFilecoin:
-		bps = BootstrapPeersFilecoinMaddrs
+		c.BootstrapPeers = BootstrapPeersFilecoin
+		c.Protocols = []string{"/fil/kad/testnetnet/kad/1.0.0"}
 	case NetworkKusama:
-		bps = BootstrapPeersKusamaMaddrs
+		c.BootstrapPeers = BootstrapPeersKusama
+		c.Protocols = []string{"/ksmcc3/kad"}
 	case NetworkPolkadot:
-		bps = BootstrapPeersPolkadotMaddrs
+		c.BootstrapPeers = BootstrapPeersPolkadot
+		c.Protocols = []string{"/dot/kad"}
 	case NetworkIPFS:
 		fallthrough
 	default:
-		bps = dht.DefaultBootstrapPeers
-	}
-
-	for _, maddr := range bps {
-		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
+		c.BootstrapPeers = []string{}
+		for _, maddr := range dht.DefaultBootstrapPeers {
+			c.BootstrapPeers = append(c.BootstrapPeers, maddr.String())
+		}
+		c.Protocols = []string{"/ipfs/kad/1.0.0"}
 	}
 }
