@@ -11,7 +11,7 @@ import (
 var IDLength = 16
 
 func FmtPeerID(id peer.ID) string {
-	return id.Pretty()[:IDLength]
+	return id.String()[:IDLength]
 }
 
 // MaddrsToAddrs maps a slice of multi addresses to their string representation.
@@ -35,7 +35,7 @@ func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 		if manet.IsPrivateAddr(maddr) {
 			continue
 		}
-		filtered.Addrs = append(filtered.Addrs, maddr) // TODO: Strip relays?
+		filtered.Addrs = append(filtered.Addrs, maddr)
 	}
 
 	return filtered

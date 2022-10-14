@@ -24,7 +24,7 @@ COPY --from=builder /build/nebula /usr/local/bin/nebula
 COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
 
 # TODO: migrations on application level? https://github.com/golang-migrate/migrate#use-in-your-go-project
-COPY --chown=nebula migrations migrations
+COPY --chown=nebula pkg/db/migrations migrations
 COPY --chown=nebula deploy/docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
 

@@ -7,15 +7,12 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
-	"go.opencensus.io/tag"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -48,7 +45,7 @@ type Scheduler struct {
 	// we don't put it there again.
 	inDialQueue sync.Map
 
-	// The number of peers in the ping queue.
+	// The number of peers in the dial queue.
 	inDialQueueCount atomic.Uint32
 
 	// The queue that the dialers publish their dial results on
@@ -64,12 +61,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
 	// Initialize a single libp2p node that's shared between all dialers.
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		return nil, err
-	}
-
-	h, err := libp2p.New(libp2p.Identity(priv), libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.UserAgent("nebula-monitor/"+conf.Version))
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +142,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {
-		if dr.DialError == models.DialErrorUnknown {
+		if dr.DialError == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(dr.Error)
 		} else {
 			logEntry = logEntry.WithField("error", dr.DialError)
@@ -163,14 +155,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 
 	// Update maps
 	s.inDialQueue.Delete(dr.Peer.ID)
-	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Dec())))
-
-	// Track dial errors for prometheus
-	if dr.Error != nil {
-		if ctx, err := tag.New(ctx, tag.Upsert(metrics.KeyError, dr.DialError)); err == nil {
-			stats.Record(ctx, metrics.PeersToDialErrorsCount.M(1))
-		}
-	}
+	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Dec()))
 
 	logEntry.
 		WithField("dialDur", dr.DialDuration()).
@@ -182,7 +167,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 func (s *Scheduler) monitorDatabase(ctx context.Context) {
 	for {
 		log.Infof("Looking for sessions to check...")
-		sessions, err := s.dbc.FetchDueSessions(ctx)
+		sessions, err := s.dbc.FetchDueOpenSessions(ctx)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
@@ -208,7 +193,7 @@ func (s *Scheduler) monitorDatabase(ctx context.Context) {
 
 // scheduleDial takes a session entity from the database constructs a peer.AddrInfo struct and feeds
 // it into the queue of peers-to-dial to be picked up by one of the dialers.
-func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) error {
+func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOpen) error {
 	// Parse peer ID from database
 	peerID, err := peer.Decode(session.R.Peer.MultiHash)
 	if err != nil {
@@ -228,13 +213,15 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.Session) e
 	}
 
 	// Check if peer is already in dial queue
-	if _, inPingQueue := s.inDialQueue.LoadOrStore(peerID, pi); inPingQueue {
+	if _, inDialQueue := s.inDialQueue.LoadOrStore(peerID, pi); inDialQueue {
 		return nil
 	}
-	stats.Record(ctx, metrics.PeersToDialCount.M(float64(s.inDialQueueCount.Inc())))
 
 	// Schedule dial for peer
 	s.dialQueue.Push(pi)
+
+	// Track new peer in queue with prometheus
+	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Inc()))
 
 	return nil
 }
