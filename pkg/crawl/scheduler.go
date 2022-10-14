@@ -6,13 +6,11 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
@@ -88,14 +86,7 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
 	// Initialize a single libp2p node that's shared between all crawlers.
-	// TODO: experiment with multiple nodes.
-	// TODO: is the key pair really necessary? see "weak keys" handling in weizenbaum crawler.
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		return nil, errors.Wrap(err, "generate key pair")
-	}
-
-	h, err := libp2p.New(libp2p.Identity(priv), libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
@@ -130,14 +121,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	err := s.initCrawl(ctx)
-	if err != nil {
-		return err
-	}
-
-	// Fetch known agent versions and protocols
-	avs, protocols, err := s.fetchCacheData(ctx)
-	if err != nil {
+	if err := s.initCrawl(ctx); err != nil {
 		return err
 	}
 
@@ -149,7 +133,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	defer crawlerCancel()
 
 	// Start all persisters
-	persisters, persistersCancel, err := s.startPersisters(ctx, avs, protocols)
+	persisters, persistersCancel, err := s.startPersisters(ctx)
 	if err != nil {
 		return err
 	}
@@ -193,7 +177,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 		persistersCancel()
 		log.Infoln("Cancelling persister context as root context stopped") // e.g. ^C
 	default:
-		log.Infoln("Not cancelling persister context as we stopped organically") // limit or just finished
+		log.Debugln("Not cancelling persister context as we stopped organically") // limit or just finished
 	}
 	for _, p := range persisters {
 		log.WithField("persisterID", p.id).Infoln("Waiting for persister to stop")
@@ -259,31 +243,6 @@ func (s *Scheduler) initCrawl(ctx context.Context) error {
 	return nil
 }
 
-// fetchCacheData fetches all known agent versions and protocols from the database.
-func (s *Scheduler) fetchCacheData(ctx context.Context) (map[string]*models.AgentVersion, map[string]*models.Protocol, error) {
-	if s.dbc == nil {
-		return map[string]*models.AgentVersion{}, map[string]*models.Protocol{}, nil
-	}
-
-	// Fetch all known agent version from the database and pass it to the persisters so that
-	// the resulting raw_visit can already contain the corresponding database ids for the agent version.
-	log.Infoln("Caching agent versions from database...")
-	avs, err := s.dbc.GetAllAgentVersions(ctx)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting all agent versions")
-	}
-
-	// Fetch all known protocols from the database and pass it to the persisters so that
-	// the resulting raw_visit can already contain the corresponding database ids for the protocols.
-	log.Infoln("Caching protocols from database...")
-	protocols, err := s.dbc.GetAllProtocols(ctx)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "getting all protocols")
-	}
-
-	return avs, protocols, nil
-}
-
 // startCrawlers initializes Crawler structs and instructs them to read the crawlQueue to _start crawling_.
 // The returned cancelFunc can be used to stop the crawlers from reading from the crawlQueue and "shut down".
 func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Context, context.CancelFunc, error) {
@@ -305,7 +264,7 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Cont
 
 // startPersisters initializes Persister structs and instructs them to read the persistQueue to _start persisting_.
 // The returned cancelFunc can be used to stop the persisters from reading from the persistQueue and "shut down".
-func (s *Scheduler) startPersisters(ctx context.Context, avs map[string]*models.AgentVersion, protocols map[string]*models.Protocol) ([]*Persister, context.CancelFunc, error) {
+func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.CancelFunc, error) {
 	// Create dedicated context for the persisters
 	persistersCtx, persistersCancel := context.WithCancel(ctx)
 	if s.dbc == nil {
@@ -314,7 +273,7 @@ func (s *Scheduler) startPersisters(ctx context.Context, avs map[string]*models.
 
 	var persisters []*Persister
 	for i := 0; i < 10; i++ {
-		p, err := NewPersister(s.dbc, s.config, s.crawl, avs, protocols)
+		p, err := NewPersister(s.dbc, s.config, s.crawl)
 		if err != nil {
 			persistersCancel()
 			return nil, nil, errors.Wrap(err, "new persister")
@@ -366,17 +325,17 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
 		"remoteID":   utils.FmtPeerID(cr.Peer.ID),
-		"isDialable": cr.ConnectError == nil,
+		"isDialable": cr.ConnectError == nil && cr.CrawlError == nil,
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
 
 	// Keep track that this peer was crawled, so we don't do it again during this run
 	s.crawled[cr.Peer.ID] = cr.Peer
-	stats.Record(ctx, metrics.CrawledPeersCount.M(1))
+	metrics.DistinctVisitedPeersCount.Inc()
 
 	// Remove peer from crawl queue map as it is not in there anymore
 	delete(s.inCrawlQueue, cr.Peer.ID)
-	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(len(s.inCrawlQueue)))
 
 	// Publish crawl result to persist queue so that the data is saved into the DB.
 	s.persistQueue.Push(cr)
@@ -405,12 +364,20 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 			s.routingTables[cr.Peer.ID] = cr.RoutingTable
 		}
 	} else if cr.ConnectError != nil {
-		// Log and count errors
+		// Log and count connection errors
 		s.errors[cr.ConnectErrorStr] += 1
-		if cr.ConnectErrorStr == models.DialErrorUnknown {
+		if cr.ConnectErrorStr == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(cr.ConnectError)
 		} else {
 			logEntry = logEntry.WithField("dialErr", cr.ConnectErrorStr)
+		}
+	} else if cr.CrawlError != nil {
+		// Log and count crawl errors
+		s.errors[cr.CrawlErrorStr] += 1
+		if cr.CrawlErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(cr.CrawlError)
+		} else {
+			logEntry = logEntry.WithField("crawlErr", cr.CrawlErrorStr)
 		}
 	}
 
@@ -434,9 +401,12 @@ func (s *Scheduler) tryScheduleCrawl(ctx context.Context, pi peer.AddrInfo) {
 		return
 	}
 
+	// Schedule crawl for peer
 	s.inCrawlQueue[pi.ID] = pi
 	s.crawlQueue.Push(pi)
-	stats.Record(ctx, metrics.PeersToCrawlCount.M(float64(len(s.inCrawlQueue))))
+
+	// Track new peer in queue with prometheus
+	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(len(s.inCrawlQueue)))
 }
 
 // logSummary logs the final results of the crawl.

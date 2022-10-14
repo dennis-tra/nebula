@@ -3,31 +3,34 @@ package db
 import (
 	"strings"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 // KnownErrors contains a list of known errors. Property key + string to match for
 var KnownErrors = map[string]string{
-	models.DialErrorIoTimeout:                                  "i/o timeout",
-	models.DialErrorConnectionRefused:                          "connection refused",
-	models.DialErrorProtocolNotSupported:                       "protocol not supported",
-	models.DialErrorPeerIDMismatch:                             "peer id mismatch",
-	models.DialErrorNoRouteToHost:                              "no route to host",
-	models.DialErrorNetworkUnreachable:                         "network is unreachable",
-	models.DialErrorNoGoodAddresses:                            "no good addresses",
-	models.DialErrorContextDeadlineExceeded:                    "context deadline exceeded",
-	models.DialErrorNoPublicIP:                                 "no public IP address",
-	models.DialErrorMaxDialAttemptsExceeded:                    "max dial attempts exceeded",
-	models.DialErrorHostIsDown:                                 "host is down",
-	models.DialErrorStreamReset:                                "stream reset",
-	models.DialErrorNegotiateSecurityProtocolNoTrailingNewLine: "failed to negotiate security protocol: message did not have trailing newline",
+	models.NetErrorIoTimeout:                  "i/o timeout",
+	models.NetErrorNoRecentNetworkActivity:    "no recent network activity",
+	models.NetErrorConnectionRefused:          "connection refused",
+	models.NetErrorProtocolNotSupported:       "protocol not supported",
+	models.NetErrorPeerIDMismatch:             "peer id mismatch",
+	models.NetErrorNoRouteToHost:              "no route to host",
+	models.NetErrorNetworkUnreachable:         "network is unreachable",
+	models.NetErrorNoGoodAddresses:            "no good addresses",
+	models.NetErrorContextDeadlineExceeded:    "context deadline exceeded",
+	models.NetErrorNoPublicIP:                 "no public IP address",
+	models.NetErrorMaxDialAttemptsExceeded:    "max dial attempts exceeded",
+	models.NetErrorHostIsDown:                 "host is down",
+	models.NetErrorStreamReset:                "stream reset",
+	models.NetErrorNegotiateSecurityProtocol:  "failed to negotiate security protocol",
+	models.NetErrorNegotiateStreamMultiplexer: "failed to negotiate stream multiplexer",
 }
 
-// DialError extracts the appropriate error type from the given error.
-func DialError(err error) string {
-	if dialErr, ok := err.(*swarm.DialError); ok && dialErr.Cause != nil {
-		return DialError(dialErr.Cause)
+// NetError extracts the appropriate error type from the given error.
+func NetError(err error) string {
+	if netErr, ok := err.(*swarm.DialError); ok && netErr.Cause != nil {
+		return NetError(netErr.Cause)
 	}
 
 	for key, errStr := range KnownErrors {
@@ -35,5 +38,5 @@ func DialError(err error) string {
 			return key
 		}
 	}
-	return models.DialErrorUnknown
+	return models.NetErrorUnknown
 }

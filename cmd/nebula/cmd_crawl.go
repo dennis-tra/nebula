@@ -45,6 +45,13 @@ var CrawlCommand = &cli.Command{
 			DefaultText: strconv.FormatBool(config.DefaultConfig.PersistNeighbors),
 			Value:       config.DefaultConfig.PersistNeighbors,
 		},
+		&cli.StringFlag{
+			Name:        "network",
+			Usage:       "Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers.",
+			EnvVars:     []string{"NEBULA_CRAWL_NETWORK"},
+			DefaultText: string(config.DefaultConfig.Network),
+			Value:       string(config.DefaultConfig.Network),
+		},
 	},
 }
 
@@ -61,18 +68,13 @@ func CrawlAction(c *cli.Context) error {
 	// Acquire database handle
 	var dbc *db.Client
 	if !c.Bool("dry-run") {
-		if dbc, err = db.InitClient(conf); err != nil {
+		if dbc, err = db.InitClient(c.Context, conf); err != nil {
 			return err
 		}
 	}
 
 	// Start prometheus metrics endpoint
-	if err = metrics.RegisterCrawlMetrics(); err != nil {
-		return err
-	}
-	if err = metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort); err != nil {
-		return errors.Wrap(err, "initialize metrics")
-	}
+	go metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort)
 
 	// Parse bootstrap info
 	pis, err := conf.BootstrapAddrInfos()

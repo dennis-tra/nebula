@@ -22,32 +22,46 @@ const (
 	Prefix = "nebula"
 )
 
+type Network string
+
+const (
+	NetworkIPFS     Network = "IPFS"
+	NetworkFilecoin Network = "FILECOIN"
+	NetworkKusama   Network = "KUSAMA"
+	NetworkPolkadot Network = "POLKADOT"
+)
+
 // configFile contains the path suffix that's appended to
 // an XDG compliant directory to find the settings file.
 var configFile = filepath.Join(Prefix, "config.json")
 
 // DefaultConfig the default configuration.
 var DefaultConfig = Config{
-	BootstrapPeers:      []string{}, // see init
-	DialTimeout:         time.Minute,
-	CrawlWorkerCount:    1000,
-	CrawlLimit:          0,
-	PersistNeighbors:    false,
-	PingLimit:           0,
-	PingWorkerCount:     1000,
-	MonitorWorkerCount:  1000,
-	MinPingInterval:     time.Second * 30,
-	PingIntervalFactor:  1.2,
-	PrometheusHost:      "0.0.0.0",
-	PrometheusPort:      6666,
-	DatabaseHost:        "0.0.0.0",
-	DatabasePort:        5432,
-	DatabaseName:        "nebula",
-	DatabasePassword:    "password",
-	DatabaseUser:        "nebula",
-	DatabaseSSLMode:     "disable",
-	Protocols:           []string{"/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0"},
-	RefreshRoutingTable: false,
+	BootstrapPeers:         []string{}, // see init
+	DialTimeout:            time.Minute,
+	CrawlWorkerCount:       1000,
+	CrawlLimit:             0,
+	PersistNeighbors:       false,
+	PingLimit:              0,
+	PingWorkerCount:        1000,
+	MonitorWorkerCount:     1000,
+	MinPingInterval:        time.Second * 30,
+	PingIntervalFactor:     1.2,
+	PrometheusHost:         "0.0.0.0",
+	PrometheusPort:         6666,
+	DatabaseHost:           "0.0.0.0",
+	DatabasePort:           5432,
+	DatabaseName:           "nebula",
+	DatabasePassword:       "password",
+	DatabaseUser:           "nebula",
+	DatabaseSSLMode:        "disable",
+	Protocols:              []string{},
+	RefreshRoutingTable:    false,
+	AgentVersionsCacheSize: 200,
+	ProtocolsCacheSize:     100,
+	ProtocolsSetCacheSize:  200,
+	FilePathUdgerDB:        "",
+	Network:                NetworkIPFS,
 }
 
 // Config contains general user configuration.
@@ -126,12 +140,21 @@ type Config struct {
 
 	// The directory where the measurement files should be saved
 	ProvideOutDir string
-}
 
-func init() {
-	for _, maddr := range dht.DefaultBootstrapPeers {
-		DefaultConfig.BootstrapPeers = append(DefaultConfig.BootstrapPeers, maddr.String())
-	}
+	// The cache size to hold agent versions in memory to skip database queries.
+	AgentVersionsCacheSize int
+
+	// The cache size to hold protocols in memory to skip database queries.
+	ProtocolsCacheSize int
+
+	// The cache size to hold sets of protocols in memory to skip database queries.
+	ProtocolsSetCacheSize int
+
+	// File path to the udger datbase
+	FilePathUdgerDB string
+
+	// The network to crawl
+	Network Network
 }
 
 // Init takes the command line argument and tries to read the config file from that directory.
@@ -180,6 +203,19 @@ func (c *Config) ReachedCrawlLimit(crawled int) bool {
 func (c *Config) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
 	return fmt.Sprintf("%s", data)
+}
+
+// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
+func (c *Config) DatabaseSourceName() string {
+	return fmt.Sprintf(
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
+		c.DatabaseHost,
+		c.DatabasePort,
+		c.DatabaseName,
+		c.DatabaseUser,
+		c.DatabasePassword,
+		c.DatabaseSSLMode,
+	)
 }
 
 // BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
@@ -291,5 +327,51 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("out") {
 		c.ProvideOutDir = ctx.String("out")
+	}
+	if ctx.IsSet("agent-versions-cache-size") {
+		c.AgentVersionsCacheSize = ctx.Int("agent-versions-cache-size")
+	}
+	if ctx.IsSet("protocols-cache-size") {
+		c.ProtocolsCacheSize = ctx.Int("protocols-cache-size")
+	}
+	if ctx.IsSet("protocols-set-cache-size") {
+		c.ProtocolsSetCacheSize = ctx.Int("protocols-set-cache-size")
+	}
+	if ctx.IsSet("udger-db") {
+		c.FilePathUdgerDB = ctx.String("udger-db")
+	}
+
+	if ctx.IsSet("network") {
+		c.Network = Network(ctx.String("network"))
+		c.configureNetwork()
+	} else if len(DefaultConfig.BootstrapPeers) == 0 {
+		c.configureNetwork()
+	}
+
+	// Give CLI option precedence
+	if ctx.IsSet("bootstrap-peers") {
+		c.BootstrapPeers = ctx.StringSlice("bootstrap-peers")
+	}
+}
+
+func (c *Config) configureNetwork() {
+	switch c.Network {
+	case NetworkFilecoin:
+		c.BootstrapPeers = BootstrapPeersFilecoin
+		c.Protocols = []string{"/fil/kad/testnetnet/kad/1.0.0"}
+	case NetworkKusama:
+		c.BootstrapPeers = BootstrapPeersKusama
+		c.Protocols = []string{"/ksmcc3/kad"}
+	case NetworkPolkadot:
+		c.BootstrapPeers = BootstrapPeersPolkadot
+		c.Protocols = []string{"/dot/kad"}
+	case NetworkIPFS:
+		fallthrough
+	default:
+		c.BootstrapPeers = []string{}
+		for _, maddr := range dht.DefaultBootstrapPeers {
+			c.BootstrapPeers = append(c.BootstrapPeers, maddr.String())
+		}
+		c.Protocols = []string{"/ipfs/kad/1.0.0"}
 	}
 }

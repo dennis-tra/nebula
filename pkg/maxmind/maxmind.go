@@ -43,8 +43,9 @@ func NewClient() (*Client, error) {
 }
 
 type AddrInfo struct {
-	Country string
-	ASN     uint
+	Country   string
+	Continent string
+	ASN       uint
 }
 
 // MaddrInfo resolve the give multi address to its corresponding
@@ -58,7 +59,7 @@ func (c *Client) MaddrInfo(ctx context.Context, maddr ma.Multiaddr) (map[string]
 
 	infos := map[string]*AddrInfo{}
 	for _, addr := range resolved {
-		country, err := c.AddrCountry(addr)
+		country, continent, err := c.AddrGeoInfo(addr)
 		if err != nil {
 			log.Debugln("could not derive Country for address", addr)
 		}
@@ -66,22 +67,22 @@ func (c *Client) MaddrInfo(ctx context.Context, maddr ma.Multiaddr) (map[string]
 		if err != nil {
 			log.Debugln("could not derive Country for address", addr)
 		}
-		infos[addr] = &AddrInfo{Country: country, ASN: asn}
+		infos[addr] = &AddrInfo{Country: country, Continent: continent, ASN: asn}
 	}
 	return infos, nil
 }
 
-// AddrCountry takes an IP address string and tries to derive the Country ISO code.
-func (c *Client) AddrCountry(addr string) (string, error) {
+// AddrGeoInfo takes an IP address string and tries to derive the Country ISO code and continent code.
+func (c *Client) AddrGeoInfo(addr string) (string, string, error) {
 	ip := net.ParseIP(addr)
 	if ip == nil {
-		return "", fmt.Errorf("invalid address %s", addr)
+		return "", "", fmt.Errorf("invalid address %s", addr)
 	}
 	record, err := c.countryReader.Country(ip)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return record.Country.IsoCode, nil
+	return record.Country.IsoCode, record.Continent.Code, nil
 }
 
 // AddrAS takes an IP address string and tries to derive the Autonomous System Number

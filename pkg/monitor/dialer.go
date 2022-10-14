@@ -9,7 +9,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
-	"go.opencensus.io/stats"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -106,7 +105,7 @@ retryLoop:
 		// Actually dial the peer
 		if err := d.dial(ctx, pi.ID); err != nil {
 			dr.Error = err
-			dr.DialError = db.DialError(dr.Error)
+			dr.DialError = db.NetError(dr.Error)
 
 			if errors.Is(err, context.Canceled) {
 				break retryLoop
@@ -116,21 +115,19 @@ retryLoop:
 			errMsg := fmt.Sprintf("Dial failed, sleeping %s", sleepDur)
 
 			switch dr.DialError {
-			case models.DialErrorPeerIDMismatch:
+			case models.NetErrorPeerIDMismatch:
 				logEntry.WithError(err).Debugln("Dial failed due to peer ID mismatch - stopping retry")
-				// TODO: properly connect to new peer and see if it is part of the DHT.
 				break retryLoop
-			case models.DialErrorNoPublicIP, models.DialErrorNoGoodAddresses:
+			case models.NetErrorNoPublicIP, models.NetErrorNoGoodAddresses:
 				logEntry.WithError(err).Debugln("Dial failed due to no public ip - stopping retry")
 				break retryLoop
-			case models.DialErrorMaxDialAttemptsExceeded:
+			case models.NetErrorMaxDialAttemptsExceeded:
 				sleepDur = 70 * time.Second
 				errMsg = fmt.Sprintf("Max dial attempts exceeded, sleeping longer %s", sleepDur)
-			case models.DialErrorConnectionRefused:
+			case models.NetErrorConnectionRefused:
 				// The monitoring task receives a lot of "connection refused" messages. I guess there is
 				// a limit somewhere of how often a peer can connect. I could imagine that this rate limiting
-				// is set to one minute. As the scheduler fetches all sessions that are due in the next 10
-				// seconds I'll add that and another one just to be sure ¯\_(ツ)_/¯
+				// is set to one minute ¯\_(ツ)_/¯
 				if retry >= 1 {
 					logEntry.WithError(err).Debugf("Received 'connection refused' the second time - stopping retry")
 					break retryLoop
@@ -165,10 +162,10 @@ retryLoop:
 }
 
 func (d *Dialer) dial(ctx context.Context, peerID peer.ID) error {
-	stats.Record(ctx, metrics.MonitorDialCount.M(1))
+	metrics.VisitCount.With(metrics.DialLabel).Inc()
 
 	if _, err := d.host.Network().DialPeer(ctx, peerID); err != nil {
-		stats.Record(ctx, metrics.MonitorDialErrorsCount.M(1))
+		metrics.VisitErrorsCount.With(metrics.DialLabel).Inc()
 		return err
 	}
 

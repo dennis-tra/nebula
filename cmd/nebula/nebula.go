@@ -142,13 +142,33 @@ func main() {
 				Usage:   "Comma separated list of multi addresses of bootstrap peers",
 				EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
 			},
+			&cli.IntFlag{
+				Name:        "agent-versions-cache-size",
+				Usage:       "The cache size to hold agent versions in memory",
+				EnvVars:     []string{"NEBULA_AGENT_VERSIONS_CACHE_SIZE"},
+				DefaultText: strconv.Itoa(config.DefaultConfig.AgentVersionsCacheSize),
+				Value:       config.DefaultConfig.AgentVersionsCacheSize,
+			},
+			&cli.IntFlag{
+				Name:        "protocols-cache-size",
+				Usage:       "The cache size to hold protocols in memory",
+				EnvVars:     []string{"NEBULA_PROTOCOLS_CACHE_SIZE"},
+				DefaultText: strconv.Itoa(config.DefaultConfig.ProtocolsCacheSize),
+				Value:       config.DefaultConfig.ProtocolsCacheSize,
+			},
+			&cli.IntFlag{
+				Name:        "protocols-set-cache-size",
+				Usage:       "The cache size to hold sets of protocols in memory",
+				EnvVars:     []string{"NEBULA_PROTOCOLS_SET_CACHE_SIZE"},
+				DefaultText: strconv.Itoa(config.DefaultConfig.ProtocolsSetCacheSize),
+				Value:       config.DefaultConfig.ProtocolsSetCacheSize,
+			},
 		},
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			CrawlCommand,
 			MonitorCommand,
 			ResolveCommand,
-			PingCommand,
 		},
 	}
 
