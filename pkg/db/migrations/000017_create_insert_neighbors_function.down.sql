@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS insert_neighbors;
+
+COMMIT;
