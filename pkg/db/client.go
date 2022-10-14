@@ -7,8 +7,6 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-	"github.com/prometheus/client_golang/prometheus"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -28,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -36,6 +35,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/types"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )

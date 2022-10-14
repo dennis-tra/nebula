@@ -82,7 +82,6 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 	err := p.insertRawVisit(ctx, cr)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
-		fmt.Printf("%v\n", cr)
 	} else {
 		p.persistedPeers++
 	}

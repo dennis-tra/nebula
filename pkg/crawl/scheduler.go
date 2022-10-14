@@ -5,18 +5,19 @@ import (
 	"math"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/queue"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -84,17 +85,8 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
-	// TODO: configure resource manager
-	//mgr, err := rcmgr.NewResourceManager(rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits))
-	//if err != nil {
-	//	return nil, errors.Wrap(err, "new resource manager")
-	//}
-
 	// Initialize a single libp2p node that's shared between all crawlers.
-	h, err := libp2p.New(
-		libp2p.NoListenAddrs,
-		//libp2p.ResourceManager(mgr),
-		libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}

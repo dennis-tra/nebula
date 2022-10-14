@@ -3,11 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/maxmind"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/dennis-tra/nebula-crawler/pkg/udger"
+
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	"github.com/pkg/errors"
@@ -15,6 +11,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/maxmind"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/udger"
 )
 
 // ResolveCommand contains the monitor sub-command configuration.
