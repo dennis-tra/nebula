@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
@@ -70,7 +71,22 @@ func (s *Scheduler) persistNeighbors() {
 		}
 		i++
 		neighborsCount += len(routingTable.Neighbors)
-		if err := s.dbc.PersistNeighbors(s.crawl, p, routingTable.ErrorBits, routingTable.PeerIDs()); err != nil {
+
+		var dbPeerID *int
+		if id, found := s.peerMappings[p]; found {
+			dbPeerID = &id
+		}
+
+		dbPeerIDs := []int{}
+		peerIDs := []peer.ID{}
+		for _, n := range routingTable.Neighbors {
+			if id, found := s.peerMappings[n.ID]; found {
+				dbPeerIDs = append(dbPeerIDs, id)
+			} else {
+				peerIDs = append(peerIDs, n.ID)
+			}
+		}
+		if err := s.dbc.PersistNeighbors(s.crawl, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
 			log.WithError(err).WithField("peerID", utils.FmtPeerID(p)).Warnln("Could not persist neighbors")
 		}
 	}

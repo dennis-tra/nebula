@@ -45,7 +45,7 @@ func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Pe
 
 // StartPersisting enters an endless loop and consumes persist jobs from the persist queue
 // until it is told to stop or the persist queue was closed.
-func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIFO[Result]) {
+func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIFO[Result], resultsQueue *queue.FIFO[*db.InsertVisitResult]) {
 	defer close(p.done)
 	for {
 		// Give the shutdown signal precedence
@@ -63,13 +63,15 @@ func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIF
 				// The persist queue was closed
 				return
 			}
-			p.handlePersistJob(ctx, r)
+
+			ivr := p.handlePersistJob(ctx, r)
+			resultsQueue.Push(ivr)
 		}
 	}
 }
 
 // handlePersistJob takes a crawl result (persist job) and inserts a denormalized database entry of the results.
-func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
+func (p *Persister) handlePersistJob(ctx context.Context, cr Result) *db.InsertVisitResult {
 	logEntry := log.WithFields(log.Fields{
 		"persisterID": p.id,
 		"remoteID":    utils.FmtPeerID(cr.Peer.ID),
@@ -79,7 +81,7 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 
 	start := time.Now()
 
-	err := p.insertRawVisit(ctx, cr)
+	ivr, err := p.insertVisit(ctx, cr)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
 	} else {
@@ -90,11 +92,11 @@ func (p *Persister) handlePersistJob(ctx context.Context, cr Result) {
 		WithField("success", err == nil).
 		WithField("duration", time.Since(start)).
 		Infoln("Persisted result from worker", cr.CrawlerID)
+	return ivr
 }
 
-// insertRawVisit builds up a raw_visit database entry.
-func (p *Persister) insertRawVisit(ctx context.Context, cr Result) error {
-
+// insertVisit builds up a visit database entry.
+func (p *Persister) insertVisit(ctx context.Context, cr Result) (*db.InsertVisitResult, error) {
 	return p.dbc.PersistCrawlVisit(
 		ctx,
 		p.dbc.Handle(),

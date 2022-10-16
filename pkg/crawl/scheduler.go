@@ -60,10 +60,14 @@ type Scheduler struct {
 
 	// The queue that the crawlers publish their results on, so that the scheduler can handle them,
 	// e.g. update the maps above etc.
-	resultsQueue *queue.FIFO[Result]
+	crawlResultsQueue *queue.FIFO[Result]
 
 	// A queue that takes crawl results and gets consumed by persisters that save the data into the DB.
 	persistQueue *queue.FIFO[Result]
+
+	// The queue that the persisters publish their results on, so that the peerID -> database id mapping (peerMappings)
+	// can be built.
+	persistResultsQueue *queue.FIFO[*db.InsertVisitResult]
 
 	// A map of agent versions and their occurrences that happened during the crawl.
 	agentVersion map[string]int
@@ -76,6 +80,12 @@ type Scheduler struct {
 
 	// A map that keeps track of all k-bucket entries of a particular peer.
 	routingTables map[peer.ID]*RoutingTable
+
+	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
+	// the database does not need to look up every peer ID but only the ones not yet present in the database.
+	// Speed up for ~11k peers: 5.5 min -> 30s
+	// TODO: Disable maintenance of map if dry-run is active
+	peerMappings map[peer.ID]int
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -100,18 +110,20 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	}
 
 	s := &Scheduler{
-		host:          h,
-		dbc:           dbc,
-		config:        conf,
-		inCrawlQueue:  map[peer.ID]peer.AddrInfo{},
-		crawled:       map[peer.ID]peer.AddrInfo{},
-		crawlQueue:    queue.NewFIFO[peer.AddrInfo](),
-		resultsQueue:  queue.NewFIFO[Result](),
-		persistQueue:  queue.NewFIFO[Result](),
-		agentVersion:  map[string]int{},
-		protocols:     map[string]int{},
-		errors:        map[string]int{},
-		routingTables: map[peer.ID]*RoutingTable{},
+		host:                h,
+		dbc:                 dbc,
+		config:              conf,
+		inCrawlQueue:        map[peer.ID]peer.AddrInfo{},
+		crawled:             map[peer.ID]peer.AddrInfo{},
+		crawlQueue:          queue.NewFIFO[peer.AddrInfo](),
+		crawlResultsQueue:   queue.NewFIFO[Result](),
+		persistQueue:        queue.NewFIFO[Result](),
+		persistResultsQueue: queue.NewFIFO[*db.InsertVisitResult](),
+		agentVersion:        map[string]int{},
+		protocols:           map[string]int{},
+		errors:              map[string]int{},
+		routingTables:       map[peer.ID]*RoutingTable{},
+		peerMappings:        map[peer.ID]int{},
 	}
 
 	return s, nil
@@ -159,7 +171,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	s.readResultsQueue(ctx)
 
 	// Indicate that we won't publish any new crawl tasks to the queue.
-	// TODO: This can still leak a Go routine. However we're exiting here anyway...
+	// TODO: This can still leak a Go routine. However, we're exiting here anyway...
 	s.crawlQueue.DoneProducing()
 
 	// Stop crawlers - blocking
@@ -170,8 +182,8 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	}
 
 	// Indicate that the crawlers won't send any new results as they are now stopped.
-	// TODO: This can still leak a Go routine. However we're exiting here anyway...
-	s.resultsQueue.DoneProducing()
+	// TODO: This can still leak a Go routine. However, we're exiting here anyway...
+	s.crawlResultsQueue.DoneProducing()
 
 	// Indicate that we won't send any more results to the persisters. This will
 	// lead the persisters to consume the queue until the end and then stop automatically,
@@ -192,9 +204,14 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 		<-p.done
 	}
 
+	// Indicate that the persisters won't send any new results as they are now stopped.
+	// TODO: This can still leak a Go routine. However we're exiting here anyway...
+	s.persistResultsQueue.DoneProducing()
+
 	// Finally, log the crawl summary
 	defer s.logSummary()
 
+	// Return early if we are in a dry-run
 	if s.dbc == nil {
 		return nil
 	}
@@ -204,10 +221,12 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 		return errors.Wrap(err, "persist crawl")
 	}
 
+	// Persist associated crawl properties
 	if err := s.persistCrawlProperties(context.Background()); err != nil {
 		return errors.Wrap(err, "persist crawl properties")
 	}
 
+	// persist all neighbor information
 	s.persistNeighbors()
 
 	return nil
@@ -264,7 +283,7 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Cont
 			return nil, nil, nil, errors.Wrap(err, "new crawler")
 		}
 		crawlers = append(crawlers, c)
-		go c.StartCrawling(crawlerCtx, s.crawlQueue, s.resultsQueue)
+		go c.StartCrawling(crawlerCtx, s.crawlQueue, s.crawlResultsQueue)
 	}
 
 	return crawlers, crawlerCtx, crawlerCancel, nil
@@ -287,17 +306,16 @@ func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.
 			return nil, nil, errors.Wrap(err, "new persister")
 		}
 		persisters = append(persisters, p)
-		go p.StartPersisting(persistersCtx, s.persistQueue)
+		go p.StartPersisting(persistersCtx, s.persistQueue, s.persistResultsQueue)
 	}
 
 	return persisters, persistersCancel, nil
 }
 
-// readResultsQueue listens for crawl results on the resultsQueue and handles any
+// readResultsQueue listens for crawl results on the crawlResultsQueue and handles any
 // entries in handleResult. If the scheduler is asked to shut down it
 // breaks out of this loop and the clean-up routines above take over.
 func (s *Scheduler) readResultsQueue(ctx context.Context) {
-	var result Result
 	for {
 		// Give the shutdown signal precedence
 		select {
@@ -309,18 +327,25 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case r, ok := <-s.resultsQueue.Consume():
+		case r, ok := <-s.crawlResultsQueue.Consume():
 			if !ok {
 				return
 			}
-			result = r
-		}
 
-		s.handleResult(ctx, result)
+			s.handleResult(ctx, r)
 
-		// If the queue is empty, or we have reached the configured limit we stop the crawl.
-		if len(s.inCrawlQueue) == 0 || s.config.ReachedCrawlLimit(len(s.crawled)) {
-			return
+			// If the queue is empty, or we have reached the configured limit we stop the crawl.
+			if len(s.inCrawlQueue) == 0 || s.config.ReachedCrawlLimit(len(s.crawled)) {
+				return
+			}
+		case r, ok := <-s.persistResultsQueue.Consume():
+			if !ok {
+				return
+			}
+
+			if r.PeerID != nil {
+				s.peerMappings[r.PID] = *r.PeerID
+			}
 		}
 	}
 }
