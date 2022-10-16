@@ -45,7 +45,7 @@ func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Pe
 
 // StartPersisting enters an endless loop and consumes persist jobs from the persist queue
 // until it is told to stop or the persist queue was closed.
-func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIFO) {
+func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIFO[Result]) {
 	defer close(p.done)
 	for {
 		// Give the shutdown signal precedence
@@ -58,12 +58,12 @@ func (p *Persister) StartPersisting(ctx context.Context, persistQueue *queue.FIF
 		select {
 		case <-ctx.Done():
 			return
-		case elem, ok := <-persistQueue.Consume():
+		case r, ok := <-persistQueue.Consume():
 			if !ok {
 				// The persist queue was closed
 				return
 			}
-			p.handlePersistJob(ctx, elem.(Result))
+			p.handlePersistJob(ctx, r)
 		}
 	}
 }

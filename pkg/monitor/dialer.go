@@ -46,7 +46,7 @@ func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
 // StartDialing enters an endless loop and consumes dial jobs from the dial queue
 // and publishes its result on the results queue until it is told to stop or the
 // dial queue was closed.
-func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO[peer.AddrInfo], resultsQueue *queue.FIFO[Result]) {
 	defer close(d.done)
 	for {
 		// Give the shutdown signal precedence
@@ -59,12 +59,12 @@ func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO, result
 		select {
 		case <-ctx.Done():
 			return
-		case elem, ok := <-dialQueue.Consume():
+		case pi, ok := <-dialQueue.Consume():
 			if !ok {
 				// The crawl queue was closed
 				return
 			}
-			result := d.handleDialJob(ctx, elem.(peer.AddrInfo))
+			result := d.handleDialJob(ctx, pi)
 			resultsQueue.Push(result)
 		}
 	}

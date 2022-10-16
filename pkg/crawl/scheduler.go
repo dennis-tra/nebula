@@ -56,14 +56,14 @@ type Scheduler struct {
 	crawled map[peer.ID]peer.AddrInfo // TODO: could be replaced by just a counter
 
 	// The queue of peer.AddrInfo's that still need to be crawled.
-	crawlQueue *queue.FIFO
+	crawlQueue *queue.FIFO[peer.AddrInfo]
 
 	// The queue that the crawlers publish their results on, so that the scheduler can handle them,
 	// e.g. update the maps above etc.
-	resultsQueue *queue.FIFO
+	resultsQueue *queue.FIFO[Result]
 
 	// A queue that takes crawl results and gets consumed by persisters that save the data into the DB.
-	persistQueue *queue.FIFO
+	persistQueue *queue.FIFO[Result]
 
 	// A map of agent versions and their occurrences that happened during the crawl.
 	agentVersion map[string]int
@@ -105,9 +105,9 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		config:        conf,
 		inCrawlQueue:  map[peer.ID]peer.AddrInfo{},
 		crawled:       map[peer.ID]peer.AddrInfo{},
-		crawlQueue:    queue.NewFIFO(),
-		resultsQueue:  queue.NewFIFO(),
-		persistQueue:  queue.NewFIFO(),
+		crawlQueue:    queue.NewFIFO[peer.AddrInfo](),
+		resultsQueue:  queue.NewFIFO[Result](),
+		persistQueue:  queue.NewFIFO[Result](),
 		agentVersion:  map[string]int{},
 		protocols:     map[string]int{},
 		errors:        map[string]int{},
@@ -309,11 +309,11 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case elem, ok := <-s.resultsQueue.Consume():
+		case r, ok := <-s.resultsQueue.Consume():
 			if !ok {
 				return
 			}
-			result = elem.(Result)
+			result = r
 		}
 
 		s.handleResult(ctx, result)

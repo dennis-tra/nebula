@@ -62,7 +62,7 @@ func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 // StartCrawling enters an endless loop and consumes crawl jobs from the crawl queue
 // and publishes its result on the results queue until it is told to stop or the
 // crawl queue was closed.
-func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO, resultsQueue *queue.FIFO) {
+func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO[peer.AddrInfo], resultsQueue *queue.FIFO[Result]) {
 	defer close(c.done)
 	for {
 		// Give the shutdown signal precedence
@@ -75,12 +75,12 @@ func (c *Crawler) StartCrawling(ctx context.Context, crawlQueue *queue.FIFO, res
 		select {
 		case <-ctx.Done():
 			return
-		case elem, ok := <-crawlQueue.Consume():
+		case pi, ok := <-crawlQueue.Consume():
 			if !ok {
 				// The crawl queue was closed
 				return
 			}
-			result := c.handleCrawlJob(ctx, elem.(peer.AddrInfo))
+			result := c.handleCrawlJob(ctx, pi)
 			resultsQueue.Push(result)
 		}
 	}

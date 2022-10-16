@@ -1,16 +1,16 @@
 package queue
 
-type FIFO struct {
-	ring *ring
-	in   chan interface{}
-	out  chan interface{}
+type FIFO[T any] struct {
+	ring *Ring[T]
+	in   chan T
+	out  chan T
 }
 
-func NewFIFO() *FIFO {
-	fifo := &FIFO{
-		ring: NewRing(1000),
-		in:   make(chan interface{}),
-		out:  make(chan interface{}),
+func NewFIFO[T any]() *FIFO[T] {
+	fifo := &FIFO[T]{
+		ring: NewRing[T](1000),
+		in:   make(chan T),
+		out:  make(chan T),
 	}
 
 	go fifo.listen()
@@ -18,27 +18,27 @@ func NewFIFO() *FIFO {
 	return fifo
 }
 
-func (fifo *FIFO) DoneProducing() {
+func (fifo *FIFO[T]) DoneProducing() {
 	close(fifo.in)
 }
 
-func (fifo *FIFO) Produce() chan<- interface{} {
+func (fifo *FIFO[T]) Produce() chan<- T {
 	return fifo.in
 }
 
-func (fifo *FIFO) Push(elem interface{}) {
+func (fifo *FIFO[T]) Push(elem T) {
 	fifo.in <- elem
 }
 
-func (fifo *FIFO) Consume() <-chan interface{} {
+func (fifo *FIFO[T]) Consume() <-chan T {
 	return fifo.out
 }
 
-func (fifo *FIFO) listen() {
+func (fifo *FIFO[T]) listen() {
 	defer close(fifo.out)
 
 	var ok bool
-	var elem interface{}
+	var elem T
 LOOP:
 	for {
 		// At the start the in channel is empty, so we're waiting for elements

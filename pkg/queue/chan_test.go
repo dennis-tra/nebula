@@ -9,7 +9,7 @@ import (
 )
 
 func Test_FIFO(t *testing.T) {
-	fifo := NewFIFO()
+	fifo := NewFIFO[int]()
 	for i := 0; i < 10; i++ {
 		fifo.Push(i)
 	}
@@ -26,7 +26,7 @@ func Test_FIFO(t *testing.T) {
 }
 
 func Test_FIFO_async(t *testing.T) {
-	fifo := NewFIFO()
+	fifo := NewFIFO[int]()
 
 	var wg sync.WaitGroup
 	wg.Add(10)

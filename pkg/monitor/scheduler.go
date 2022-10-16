@@ -40,7 +40,7 @@ type Scheduler struct {
 	config *config.Config
 
 	// The queue of peer.AddrInfo's that need to be dialed to.
-	dialQueue *queue.FIFO
+	dialQueue *queue.FIFO[peer.AddrInfo]
 
 	// A map from peer.ID to peer.AddrInfo to indicate if a peer was put in the queue, so
 	// we don't put it there again.
@@ -50,7 +50,7 @@ type Scheduler struct {
 	inDialQueueCount atomic.Uint32
 
 	// The queue that the dialers publish their dial results on
-	resultsQueue *queue.FIFO
+	resultsQueue *queue.FIFO[Result]
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
@@ -79,8 +79,8 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 		dbc:          dbc,
 		config:       conf,
 		inDialQueue:  sync.Map{},
-		dialQueue:    queue.NewFIFO(),
-		resultsQueue: queue.NewFIFO(),
+		dialQueue:    queue.NewFIFO[peer.AddrInfo](),
+		resultsQueue: queue.NewFIFO[Result](),
 	}
 
 	return s, nil
@@ -134,8 +134,8 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 		}
 
 		select {
-		case elem := <-s.resultsQueue.Consume():
-			s.handleResult(ctx, elem.(Result))
+		case r := <-s.resultsQueue.Consume():
+			s.handleResult(ctx, r)
 		case <-ctx.Done():
 			return
 		}
