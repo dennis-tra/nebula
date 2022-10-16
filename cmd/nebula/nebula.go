@@ -137,11 +137,6 @@ func main() {
 				DefaultText: "IPFS DHT: " + strings.Join(config.DefaultConfig.Protocols, ","),
 				Value:       cli.NewStringSlice(config.DefaultConfig.Protocols...),
 			},
-			&cli.StringSliceFlag{
-				Name:    "bootstrap-peers",
-				Usage:   "Comma separated list of multi addresses of bootstrap peers",
-				EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
-			},
 			&cli.IntFlag{
 				Name:        "agent-versions-cache-size",
 				Usage:       "The cache size to hold agent versions in memory",

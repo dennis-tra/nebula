@@ -1,6 +1,6 @@
-![Nebula Crawler Logo](./docs/nebula-logo.svg)
+![Nebula Logo](./docs/nebula-logo.svg)
 
-# Nebula Crawler
+# Nebula
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
@@ -47,9 +47,9 @@ Nebula is a command line tool and provides the `crawl` sub-command. To simply cr
 nebula crawl --dry-run
 ```
 
-Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min depending on your internet connection.
+Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min depending on your internet connection. You can also specify the network you want to crawl by appending, e.g., `--network FILECOIN`.
 
-See the command line help page below for configuration options:
+See the command line help page below for global configuration options or consult the sub-command specific ones:
 
 ```shell
 NAME:
@@ -67,30 +67,29 @@ AUTHOR:
 COMMANDS:
    crawl    Crawls the entire network starting with a set of bootstrap nodes.
    monitor  Monitors the network by periodically dialing previously crawled peers.
-   resolve  Resolves all multi addresses to their IP addresses and meta location information
+   resolve  Resolves all multi addresses to their IP addresses and geo location information
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --agent-versions-cache-size value                    The cache size to hold agent versions in memory (default: 200) [$NEBULA_AGENT_VERSIONS_CACHE_SIZE]
-   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
-   --config FILE                                        Load configuration from FILE [$NEBULA_CONFIG_FILE]
-   --db-host value                                      On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
-   --db-name value                                      The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
-   --db-password value                                  The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
-   --db-port value                                      On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
-   --db-sslmode value                                   The sslmode to use when connecting the the database (default: disable) [$NEBULA_DATABASE_SSL_MODE]
-   --db-user value                                      The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
-   --debug                                              Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
-   --dial-timeout value                                 How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
-   --help, -h                                           show help (default: false)
-   --log-level value                                    Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
-   --pprof-port value                                   Enable pprof profiling endpoint on given port (default: disabled) [$NEBULA_PPROF_PORT]
-   --prom-host value                                    Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
-   --prom-port value                                    On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
-   --protocols value [ --protocols value ]              Comma separated list of protocols that this crawler should look for [$NEBULA_PROTOCOLS]
-   --protocols-cache-size value                         The cache size to hold protocols in memory (default: 100) [$NEBULA_PROTOCOLS_CACHE_SIZE]
-   --protocols-set-cache-size value                     The cache size to hold sets of protocols in memory (default: 200) [$NEBULA_PROTOCOLS_SET_CACHE_SIZE]
-   --version, -v                                        print the version (default: false)
+   --debug                                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
+   --log-level value                        Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
+   --config FILE                            Load configuration from FILE [$NEBULA_CONFIG_FILE]
+   --dial-timeout value                     How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
+   --prom-port value                        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
+   --prom-host value                        Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
+   --pprof-port value                       Enable pprof profiling endpoint on given port (default: disabled) [$NEBULA_PPROF_PORT]
+   --db-host value                          On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
+   --db-port value                          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
+   --db-name value                          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
+   --db-password value                      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
+   --db-user value                          The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
+   --db-sslmode value                       The sslmode to use when connecting the the database (default: disable) [$NEBULA_DATABASE_SSL_MODE]
+   --protocols value [ --protocols value ]  Comma separated list of protocols that this crawler should look for (default: IPFS DHT: ) [$NEBULA_PROTOCOLS]
+   --agent-versions-cache-size value        The cache size to hold agent versions in memory (default: 200) [$NEBULA_AGENT_VERSIONS_CACHE_SIZE]
+   --protocols-cache-size value             The cache size to hold protocols in memory (default: 100) [$NEBULA_PROTOCOLS_CACHE_SIZE]
+   --protocols-set-cache-size value         The cache size to hold sets of protocols in memory (default: 200) [$NEBULA_PROTOCOLS_SET_CACHE_SIZE]
+   --help, -h                               show help (default: false)
+   --version, -v                            print the version (default: false)
 ```
 
 ## How does it work?
@@ -134,7 +133,10 @@ CREATE TABLE sessions (
     successful_visits_count INTEGER       NOT NULL,
     -- The number of times this session went from pending to open again.
     recovered_count         INTEGER       NOT NULL,
-    -- The state this session is in.
+    -- The state this session is in (open, pending, closed)
+    -- open: currently considered online
+    -- pending: peer missed a dial and is pending to be closed
+    -- closed: peer is considered to be offline and session is complete
     state                   session_state NOT NULL,
     -- Number of failed visits before closing this session.
     failed_visits_count     SMALLINT      NOT NULL,
@@ -157,6 +159,25 @@ At the end of each crawl `nebula` persists general statistics about the crawl li
 
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
 
+Command line help page:
+
+```text
+NAME:
+   nebula crawl - Crawls the entire network starting with a set of bootstrap nodes.
+
+USAGE:
+   nebula crawl [command options] [arguments...]
+
+OPTIONS:
+   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
+   --workers value                                      How many concurrent workers should dial and crawl peers. (default: 1000) [$NEBULA_CRAWL_WORKER_COUNT]
+   --limit value                                        Only crawl the specified amount of peers (0 for unlimited) (default: 0) [$NEBULA_CRAWL_PEER_LIMIT]
+   --dry-run                                            Don't persist anything to a database (you don't need a running DB) (default: false) [$NEBULA_CRAWL_DRY_RUN]
+   --neighbors                                          Whether to persist all k-bucket entries of a particular peer at the end of a crawl. (default: false) [$NEBULA_CRAWL_NEIGHBORS]
+   --network value                                      Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers. (default: IPFS) [$NEBULA_CRAWL_NETWORK]
+   --help, -h                                           show help (default: false)
+```
+
 ### `monitor`
 
 The `monitor` sub-command polls every 10 seconds all sessions from the database (see above) that are due to be dialed
@@ -167,16 +188,41 @@ The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` 
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
 
+Command line help page:
+
+```text
+NAME:
+   nebula monitor - Monitors the network by periodically dialing previously crawled peers.
+
+USAGE:
+   nebula monitor [command options] [arguments...]
+
+OPTIONS:
+   --workers value  How many concurrent workers should dial peers. (default: 1000) [$NEBULA_MONITOR_WORKER_COUNT]
+   --help, -h       show help (default: false)
+```
+
 ### `resolve`
 
 The resolve sub-command goes through all multi addresses that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to, e.g., the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
-Further, it queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and saves them alongside the resolved addresses.
+Further, it queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and [UdgerDB](https://udger.com/) to detect datacenters. The command saves all information alongside the resolved addresses.
+
+Command line help page:
+
+```text
+NAME:
+   nebula resolve - Resolves all multi addresses to their IP addresses and geo location information
+
+USAGE:
+   nebula resolve [command options] [arguments...]
+
+OPTIONS:
+   --udger-db value    Location of the Udger database v3 [$NEBULA_RESOLVE_UDGER_DB]
+   --batch-size value  How many database entries should be fetched at each iteration (default: 100) [$NEBULA_RESOLVE_BATCH_SIZE]
+   --help, -h          show help (default: false)
+```
 
 ## Install
-
-### Release download
-
-There is no release yet. 
 
 ### From source
 
@@ -222,28 +268,19 @@ To apply migrations then run:
 
 ```shell
 # Up migrations
-migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
-# OR
-make migrate-up
+make migrate-up # runs: migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations up
 
 # Down migrations
-migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
-# OR
-make migrate-down
+make migrate-down # runs: migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
 
+# Generate the ORM with SQLBoiler
+make models # runs: sqlboiler psql
+# This will update all files in the `pkg/models` directory.
+```
+```shell
 # Create new migration
 migrate create -ext sql -dir migrations -seq some_migration_name
 ```
-
-To generate the ORM with SQLBoiler run:
-
-```shell
-sqlboiler psql
-# OR
-make models
-```
-
-This will update all files in the `pkg/models` directory.
 
 ## Deployment
 
@@ -294,13 +331,13 @@ The logs will rotate every 7 days.
 To run the crawler for multiple DHTs the idea is to also start multiple instances of `nebula` with the corresponding configuration. For instance, I'm running the crawler for the IPFS and Filecoin networks. The monitoring commands look like this:
 
 ```shell
-nebula --prom-port=6667 monitor --workers=1000 # for IPFS
-nebula --prom-port=6669 --config filecoin.json monitor --workers=1000 # for Filecoin
+nebula --prom-port=6667 monitor # for IPFS
+nebula --prom-port=6669 --config filecoin.json monitor # for Filecoin
 ```
 
 The `filecoin.json` file contains the following content:
 
-```shell
+```json5
  {
   "BootstrapPeers": [
     "/ip4/3.224.142.21/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",
@@ -342,8 +379,8 @@ This configuration is created upon the first start of nebula in `$XDG_CONFIG_HOM
 The corresponding crawl commands look like:
 
 ```shell
-nebula crawl --workers=1000 # for IPFS (uses defaults like prom-port 6666)
-nebula --config filecoin.json crawl --workers=1000 # for Filecoin (uses configuration prom-port 6668)
+nebula crawl # for IPFS (uses defaults like prom-port 6666)
+nebula --config filecoin.json crawl --network FILECOIN # for Filecoin (uses configuration prom-port 6668)
 ```
 
 The `workers` flag configures the amount of concurrent connection/dials. I increased it until I didn't notice any performance improvement anymore.
@@ -355,7 +392,9 @@ So this is the prometheus ports configuration:
 - `nebula crawl` - `filecoin` - `6668`
 - `nebula monitor` - `filecoin` - `6669`
 
-Furthermore, `nebula` has a hidden flag called `--pprof-port` if this flag is set it also serves `pprof` at `localhost:given-port` for debugging.
+Furthermore, `nebula` has a flag called `--pprof-port`. If this flag is set it also serves `pprof` at `localhost:pprof-port` for debugging.
+
+
 ## Analysis
 
 There is a top-level `analysis` folder that contains various scripts to help understand the gathered data. More information can be found in the respective subfolders README file. The following evaluations can be found there

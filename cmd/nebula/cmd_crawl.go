@@ -19,6 +19,11 @@ var CrawlCommand = &cli.Command{
 	Usage:  "Crawls the entire network starting with a set of bootstrap nodes.",
 	Action: CrawlAction,
 	Flags: []cli.Flag{
+		&cli.StringSliceFlag{
+			Name:    "bootstrap-peers",
+			Usage:   "Comma separated list of multi addresses of bootstrap peers",
+			EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
+		},
 		&cli.IntFlag{
 			Name:        "workers",
 			Usage:       "How many concurrent workers should dial and crawl peers.",
