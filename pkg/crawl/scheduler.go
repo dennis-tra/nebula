@@ -9,6 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
@@ -85,8 +86,15 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
+	// Configure the resource manager to not limit anything
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, errors.Wrap(err, "new resource manager")
+	}
+
 	// Initialize a single libp2p node that's shared between all crawlers.
-	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Version))
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
