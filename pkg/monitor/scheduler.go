@@ -157,7 +157,7 @@ func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 		}
 	}
 	start := time.Now()
-	if err := s.insertVisit(dr); err != nil {
+	if _, err := s.insertVisit(dr); err != nil {
 		logEntry.WithError(err).Warnln("Could not persist dial result")
 	}
 
@@ -235,7 +235,7 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 }
 
 // insertRawVisit builds up a raw_visit database entry.
-func (s *Scheduler) insertVisit(cr Result) error {
+func (s *Scheduler) insertVisit(cr Result) (*db.InsertVisitResult, error) {
 	return s.dbc.PersistDialVisit(
 		cr.Peer.ID,
 		cr.Peer.Addrs,

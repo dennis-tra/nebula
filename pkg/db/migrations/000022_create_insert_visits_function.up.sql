@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION insert_visit(
     new_type visit_type,
     new_connect_error net_error,
     new_crawl_error net_error
-) RETURNS INT AS
+) RETURNS RECORD AS
 $insert_visit$
 DECLARE
     new_peer_id             INT;
@@ -34,15 +34,15 @@ BEGIN
 
     INSERT INTO peers_x_multi_addresses (peer_id, multi_address_id)
     SELECT new_peer_id, new_multi_address_id
-    FROM unnest(new_multi_addresses_ids) new_multi_address_id;
+    FROM unnest(new_multi_addresses_ids) new_multi_address_id
+    ON CONFLICT DO NOTHING;
 
     SELECT upsert_session(new_peer_id, new_visit_started_at, new_visit_ended_at, new_connect_error) INTO new_session_id;
 
     -- Now we're able to create the normalized visit instance
     INSERT INTO visits (peer_id, crawl_id, session_id, dial_duration, connect_duration, crawl_duration,
-                        visit_started_at, visit_ended_at,
-                        created_at, type, connect_error, crawl_error, agent_version_id, protocols_set_id,
-                        multi_address_ids)
+                        visit_started_at, visit_ended_at, created_at, type, connect_error, crawl_error,
+                        agent_version_id, protocols_set_id, multi_address_ids)
     SELECT new_peer_id,
            new_crawl_id,
            new_session_id,
@@ -60,7 +60,7 @@ BEGIN
            new_multi_addresses_ids
     RETURNING id INTO new_visit_id;
 
-    RETURN new_visit_id;
+    RETURN ROW(new_peer_id, new_visit_id, new_session_id);
 END;
 $insert_visit$ LANGUAGE plpgsql;
 

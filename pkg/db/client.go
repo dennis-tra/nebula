@@ -281,7 +281,7 @@ func (c *Client) PersistCrawlVisit(
 	visitEndedAt time.Time,
 	connectErrorStr string,
 	crawlErrorStr string,
-) error {
+) (*InsertVisitResult, error) {
 	var agentVersionID, protocolsSetID *int
 	var avidErr, psidErr error
 
@@ -505,7 +505,7 @@ func (c *Client) PersistDialVisit(
 	visitStartedAt time.Time,
 	visitEndedAt time.Time,
 	errorStr string,
-) error {
+) (*InsertVisitResult, error) {
 	return c.insertVisit(
 		nil,
 		peerID,
@@ -537,7 +537,7 @@ func (c *Client) insertVisit(
 	visitType string,
 	connectErrorStr string,
 	crawlErrorStr string,
-) error {
+) (*InsertVisitResult, error) {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
 	start := time.Now()
@@ -561,9 +561,72 @@ func (c *Client) insertVisit(
 		"success": strconv.FormatBool(err == nil),
 	}).Observe(time.Since(start).Seconds())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return rows.Close()
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.WithError(err).Warnln("Could not close rows")
+		}
+	}()
+
+	ivr := InsertVisitResult{
+		PID: peerID,
+	}
+	if !rows.Next() {
+		return &ivr, nil
+	}
+
+	if err = rows.Scan(&ivr); err != nil {
+		return nil, err
+	}
+
+	return &ivr, nil
+}
+
+type InsertVisitResult struct {
+	PID       peer.ID
+	PeerID    *int
+	VisitID   *int
+	SessionID *int
+}
+
+func (ivr *InsertVisitResult) Scan(value interface{}) error {
+	data, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("incompatible type %T", value)
+	}
+
+	parts := strings.Split(string(data[1:len(data)-1]), ",")
+	if len(parts) != 3 {
+		return fmt.Errorf("unexpected number of return values: %s", string(data))
+	}
+
+	if parts[0] != "" {
+		id, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return fmt.Errorf("invalid db peer id %s", parts[0])
+		}
+		ivr.PeerID = &id
+	}
+
+	if parts[1] != "" {
+		id, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("invalid db visit id %s", parts[1])
+		}
+		ivr.VisitID = &id
+	}
+
+	if parts[2] != "" {
+		id, err := strconv.Atoi(parts[2])
+		if err != nil {
+			return fmt.Errorf("invalid db session id %s", parts[2])
+		}
+		ivr.SessionID = &id
+	}
+
+	return nil
 }
 
 func durationToInterval(dur *time.Duration) *string {
@@ -574,16 +637,18 @@ func durationToInterval(dur *time.Duration) *string {
 	return &s
 }
 
-func (c *Client) PersistNeighbors(crawl *models.Crawl, peerID peer.ID, errorBits uint16, neighbors []peer.ID) error {
+func (c *Client) PersistNeighbors(crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error {
 	neighborMHashes := make([]string, len(neighbors))
 	for i, neighbor := range neighbors {
 		neighborMHashes[i] = neighbor.String()
 	}
 	// postgres does not support unsigned integers. So we interpret the uint16 as an int16
 	bitMask := *(*int16)(unsafe.Pointer(&errorBits))
-	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4)",
+	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4, $5, $6)",
 		crawl.ID,
+		dbPeerID,
 		peerID.String(),
+		fmt.Sprintf("{%s}", strings.Trim(strings.Join(strings.Split(fmt.Sprint(dbNeighborsIDs), " "), ","), "[]")),
 		fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")),
 		bitMask,
 	).Query(c.dbh)
