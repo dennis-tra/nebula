@@ -38,7 +38,7 @@ var (
 		Help:      "Number of distinct peers found for a peer crawl",
 	})
 	VisitQueueLength = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name:      "visit_queue_legth",
+		Name:      "visit_queue_length",
 		Namespace: "nebula",
 		Help:      "Number of peers in the queue to visit",
 	}, []string{"type"})
