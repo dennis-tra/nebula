@@ -4,7 +4,7 @@
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
-[![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula-crawler)](https://github.com/dennis-tra/nebula-crawler/blob/main/LICENSE)
+[![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 
 A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler connects to the standard [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap nodes and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
 
@@ -19,11 +19,11 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
-  - [`crawl`](#crawl) | [`monitor`](#monitor) | [`ping`](#ping) | [`resolve`](#resolve)
+  - [`crawl`](#crawl) | [`monitor`](#monitor)| [`resolve`](#resolve)
 - [Install](#install)
   - [Release download](#release-download) | [From source](#from-source)
 - [Development](#development)
-  - [Database](#database)  
+  - [Database](#database)
 - [Deployment](#deployment)
 - [Analysis](#analysis)
 - [Related Efforts](#related-efforts)
@@ -53,7 +53,7 @@ See the command line help page below for configuration options:
 
 ```shell
 NAME:
-   nebula - A libp2p DHT crawler, monitor and measurement tool that exposes timely information about DHT networks.
+   nebula - A libp2p DHT crawler, monitor, and measurement tool that exposes timely information about DHT networks.
 
 USAGE:
    nebula [global options] command [command options] [arguments...]
@@ -67,27 +67,30 @@ AUTHOR:
 COMMANDS:
    crawl    Crawls the entire network starting with a set of bootstrap nodes.
    monitor  Monitors the network by periodically dialing previously crawled peers.
-   resolve  Resolves all multi addresses to their IP addresses and geo location information
-   ping     Runs an ICMP latency measurement over the set of online peers of the most recent crawl
-   provide  Starts a DHT measurement experiment by providing and requesting random content.
+   resolve  Resolves all multi addresses to their IP addresses and meta location information
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --debug                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
-   --log-level value        Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
-   --config FILE             Load configuration from FILE [$NEBULA_CONFIG_FILE]
-   --dial-timeout value     How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
-   --prom-port value        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
-   --prom-host value        Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
-   --db-host value          On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
-   --db-port value          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
-   --db-name value          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
-   --db-password value      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
-   --db-user value          The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
-   --protocols value        Comma separated list of protocols that this crawler should look for (default: "/ipfs/kad/1.0.0", "/ipfs/kad/2.0.0") [$NEBULA_PROTOCOLS]
-   --bootstrap-peers value  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
-   --help, -h               show help (default: false)
-   --version, -v            print the version (default: false)
+   --agent-versions-cache-size value                    The cache size to hold agent versions in memory (default: 200) [$NEBULA_AGENT_VERSIONS_CACHE_SIZE]
+   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
+   --config FILE                                        Load configuration from FILE [$NEBULA_CONFIG_FILE]
+   --db-host value                                      On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
+   --db-name value                                      The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
+   --db-password value                                  The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
+   --db-port value                                      On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
+   --db-sslmode value                                   The sslmode to use when connecting the the database (default: disable) [$NEBULA_DATABASE_SSL_MODE]
+   --db-user value                                      The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
+   --debug                                              Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
+   --dial-timeout value                                 How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
+   --help, -h                                           show help (default: false)
+   --log-level value                                    Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
+   --pprof-port value                                   Enable pprof profiling endpoint on given port (default: disabled) [$NEBULA_PPROF_PORT]
+   --prom-host value                                    Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
+   --prom-port value                                    On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
+   --protocols value [ --protocols value ]              Comma separated list of protocols that this crawler should look for [$NEBULA_PROTOCOLS]
+   --protocols-cache-size value                         The cache size to hold protocols in memory (default: 100) [$NEBULA_PROTOCOLS_CACHE_SIZE]
+   --protocols-set-cache-size value                     The cache size to hold sets of protocols in memory (default: 200) [$NEBULA_PROTOCOLS_SET_CACHE_SIZE]
+   --version, -v                                        print the version (default: false)
 ```
 
 ## How does it work?
@@ -105,38 +108,50 @@ This process is heavily inspired by the `basic-crawler` in [libp2p/go-libp2p-kad
 Every peer that was visited is persisted in the database. The information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
 also create a `session` instance that contains the following information:
 
-```go
-type Session struct {
-  // A unique id that identifies a particular session
-  ID int
-  // The peer ID in the form of Qm... or 12D3...
-  PeerID string
-  // When was the peer successfully dialed the first time
-  FirstSuccessfulDial time.Time
-  // When was the most recent successful dial to the peer above
-  LastSuccessfulDial time.Time
-  // When should we try to dial the peer again
-  NextDialAttempt null.Time
-  // When did we notice that this peer is not reachable.
-  // This cannot be null because otherwise the unique constraint
-  // uq_peer_id_first_failed_dial would not work (nulls are distinct).
-  // An unset value corresponds to the timestamp 1970-01-01
-  FirstFailedDial time.Time
-  // The duration that this peer was online due to multiple subsequent successful dials
-  MinDuration null.String
-  // The duration from the first successful dial to the point were it was unreachable
-  MaxDuration null.String
-  // indicates whether this session is finished or not. Equivalent to check for
-  // 1970-01-01 in the first_failed_dial field.
-  Finished bool
-  // How many subsequent successful dials could we track
-  SuccessfulDials int
-  // When was this session instance updated the last time
-  UpdatedAt time.Time
-  // When was this session instance created
-  CreatedAt time.Time
-}
+```sql
+CREATE TABLE sessions (
+    -- A unique id that identifies this particular session
+    id                      INT GENERATED ALWAYS AS IDENTITY,
+    -- Reference to the remote peer ID.
+    peer_id                 INT           NOT NULL,
+    -- Timestamp of the first time we were able to visit that peer.
+    first_successful_visit  TIMESTAMPTZ   NOT NULL,
+    -- Timestamp of the last time we were able to visit that peer.
+    last_successful_visit   TIMESTAMPTZ   NOT NULL,
+    -- Timestamp when we should start visiting this peer again.
+    next_visit_due_at       TIMESTAMPTZ,
+    -- When did we notice that this peer is not reachable.
+    first_failed_visit      TIMESTAMPTZ,
+    -- When did we first notice that this peer is not reachable.
+    last_failed_visit       TIMESTAMPTZ,
+    -- When did we last visit this peer. For indexing purposes.
+    last_visited_at         TIMESTAMPTZ   NOT NULL,
+    -- When was this session instance updated the last time
+    updated_at              TIMESTAMPTZ   NOT NULL,
+    -- When was this session instance created
+    created_at              TIMESTAMPTZ   NOT NULL,
+    -- Number of successful visits in this session.
+    successful_visits_count INTEGER       NOT NULL,
+    -- The number of times this session went from pending to open again.
+    recovered_count         INTEGER       NOT NULL,
+    -- The state this session is in.
+    state                   session_state NOT NULL,
+    -- Number of failed visits before closing this session.
+    failed_visits_count     SMALLINT      NOT NULL,
+    -- What's the first error before we close this session.
+    finish_reason           net_error,
+    -- The uptime time range for this session measured from first- to last_successful_visit to
+    uptime                  TSTZRANGE     NOT NULL,
+
+    -- The peer ID should always point to an existing peer in the DB
+    CONSTRAINT fk_sessions_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
+
+    PRIMARY KEY (id, state, last_visited_at)
+
+) PARTITION BY LIST (state);
 ```
+
+> Columns are ordered to optimize for storage by minimizing padding.
 
 At the end of each crawl `nebula` persists general statistics about the crawl like the total duration, dialable peers, encountered errors, agent versions etc...
 
@@ -151,10 +166,6 @@ saved multi-addresses and updates their `session` instances accordingly if they'
 The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` has observed for that given peer.
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
 the `NextDialAttempt` timestamp to a time further in the future.
-
-### `ping`
-
-The ping command fetches all peers that were found online of the most recent successful crawl from the database and sends ten ICM pings to each host. The measured latencies are saved in the `latencies` table.
 
 ### `resolve`
 
@@ -172,7 +183,7 @@ There is no release yet.
 To compile it yourself run:
 
 ```shell
-go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.16 or higher is required (may work with a lower version too)
+go install github.com/dennis-tra/nebula/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
 ```
 
 Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
@@ -181,8 +192,8 @@ Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `ne
 
 To develop this project you need Go `> 1.16` and the following tools:
 
-- [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.14.1`
-- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.6.0`
+- [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.15.2`
+- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.13.0`
 - `docker` to run a local postgres instance
 
 To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
@@ -192,7 +203,7 @@ To install the necessary tools you can run `make tools`. This will use the `go i
 You need a running postgres instance to persist and/or read the crawl results. Use the following command to start a local instance of postgres:
 
 ```shell
-docker run -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:13
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14
 ```
 
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
@@ -228,7 +239,11 @@ To generate the ORM with SQLBoiler run:
 
 ```shell
 sqlboiler psql
+# OR
+make models
 ```
+
+This will update all files in the `pkg/models` directory.
 
 ## Deployment
 
@@ -237,7 +252,7 @@ First, you need to build the nebula docker image:
 ```shell
 make docker
 # OR
-docker build . -t dennis-tra/nebula-crawler:latest
+docker build . -t dennis-tra/nebula:latest
 ```
 
 The `deploy` subfolder contains a `docker-compose` setup to get up and running quickly. It will start and configure `nebula` (monitoring mode), `postgres`, `prometheus` and `grafana`. The configuration can serve as a starting point to see how things fit together. Then you can start the aforementioned services by changing in the `./deploy` directory and running:
@@ -260,9 +275,9 @@ There is one preconfigured dashboard in the `General` folder with the name `IPFS
 # OR
 docker run \
   --network nebula \
-  --name nebula_crawler \
-  --hostname nebula_crawler \
-  dennis-tra/nebula-crawler:latest \
+  --name nebula \
+  --hostname nebula \
+  dennis-tra/nebula:latest \
   nebula --db-host=postgres crawl
 ```
 
@@ -363,7 +378,7 @@ There is a top-level `analysis` folder that contains various scripts to help und
 
 ## Contributing
 
-Feel free to dive in! [Open an issue](https://github.com/dennis-tra/nebula-crawler/issues/new) or submit PRs.
+Feel free to dive in! [Open an issue](https://github.com/dennis-tra/nebula/issues/new) or submit PRs.
 
 ## Support
 
@@ -375,6 +390,7 @@ You may be interested in one of my other projects:
 
 - [`pcp`](https://github.com/dennis-tra/pcp) - Command line peer-to-peer data transfer tool based on [libp2p](https://github.com/libp2p/go-libp2p).
 - [`image-stego`](https://github.com/dennis-tra/image-stego) - A novel way to image manipulation detection. Steganography-based image integrity - Merkle tree nodes embedded into image chunks so that each chunk's integrity can be verified on its own.
+- [`antares`](https://github.com/dennis-tra/antares) - A gateway and pinning service probing tool.
 
 ## License
 

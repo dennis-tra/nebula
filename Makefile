@@ -21,14 +21,14 @@ docker:
 	docker build . -t dennis-tra/nebula-crawler:latest
 
 tools:
-	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.14.1
-	go install github.com/volatiletech/sqlboiler/v4@v4.6.0
-	go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.6.0
+	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.15.2
+	go install github.com/volatiletech/sqlboiler/v4@v4.13.0
+	go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.13.0
 
 db-reset: migrate-down migrate-up models
 
 database:
-	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_local -e POSTGRES_DB=nebula postgres:14
+	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14
 
 database-test:
 	docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password_test -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test postgres:14
