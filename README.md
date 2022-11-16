@@ -5,6 +5,7 @@
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
+[![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
 A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler connects to the standard [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap nodes and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
 
