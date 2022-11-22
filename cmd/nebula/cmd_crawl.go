@@ -10,7 +10,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -77,9 +76,6 @@ func CrawlAction(c *cli.Context) error {
 			return err
 		}
 	}
-
-	// Start prometheus metrics endpoint
-	go metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort)
 
 	// Parse bootstrap info
 	pis, err := conf.BootstrapAddrInfos()

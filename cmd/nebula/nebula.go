@@ -3,16 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
-	"strings"
 	"syscall"
 
-	_ "net/http/pprof"
-
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/sqlboiler/v4/boil"
@@ -68,25 +65,20 @@ func main() {
 				DefaultText: config.DefaultConfig.DialTimeout.String(),
 				Value:       config.DefaultConfig.DialTimeout,
 			},
-			&cli.IntFlag{
-				Name:        "prom-port",
-				Usage:       "On which port should prometheus serve the metrics endpoint",
-				EnvVars:     []string{"NEBULA_PROMETHEUS_PORT"},
-				DefaultText: strconv.Itoa(config.DefaultConfig.PrometheusPort),
-				Value:       config.DefaultConfig.PrometheusPort,
-			},
+
 			&cli.StringFlag{
-				Name:        "prom-host",
-				Usage:       "Where should prometheus serve the metrics endpoint",
-				EnvVars:     []string{"NEBULA_PROMETHEUS_HOST"},
-				DefaultText: config.DefaultConfig.PrometheusHost,
-				Value:       config.DefaultConfig.PrometheusHost,
+				Name:        "telemetry-host",
+				Usage:       "To which network address should the telemetry (prometheus, pprof) server bind",
+				EnvVars:     []string{"NEBULA_TELEMETRY_HOST"},
+				DefaultText: config.DefaultConfig.TelemetryHost,
+				Value:       config.DefaultConfig.TelemetryHost,
 			},
 			&cli.IntFlag{
-				Name:        "pprof-port",
-				Usage:       "Enable pprof profiling endpoint on given port",
-				EnvVars:     []string{"NEBULA_PPROF_PORT"},
-				DefaultText: "disabled",
+				Name:        "telemetry-port",
+				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
+				EnvVars:     []string{"NEBULA_TELEMETRY_PORT"},
+				DefaultText: strconv.Itoa(config.DefaultConfig.TelemetryPort),
+				Value:       config.DefaultConfig.TelemetryPort,
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -134,7 +126,7 @@ func main() {
 				Name:        "protocols",
 				Usage:       "Comma separated list of protocols that this crawler should look for",
 				EnvVars:     []string{"NEBULA_PROTOCOLS"},
-				DefaultText: "IPFS DHT: " + strings.Join(config.DefaultConfig.Protocols, ","),
+				DefaultText: "['/ipfs/kad/1.0.0']",
 				Value:       cli.NewStringSlice(config.DefaultConfig.Protocols...),
 			},
 			&cli.IntFlag{
@@ -199,15 +191,8 @@ func Before(c *cli.Context) error {
 		}
 	}
 
-	if c.IsSet("pprof-port") {
-		go func() {
-			pprof := fmt.Sprintf("localhost:%d", c.Int("pprof-port"))
-			log.Debugln("Starting profiling endpoint at", pprof)
-			if err := http.ListenAndServe(pprof, nil); err != nil {
-				log.WithError(err).Warnln("Error serving pprof")
-			}
-		}()
-	}
+	// Start prometheus metrics endpoint
+	go metrics.ListenAndServe(c.String("telemetry-host"), c.Int("telemetry-port"))
 
 	return nil
 }

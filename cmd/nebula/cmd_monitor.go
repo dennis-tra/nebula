@@ -10,7 +10,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
 )
 
@@ -45,9 +44,6 @@ func MonitorAction(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// Start prometheus metrics endpoint
-	go metrics.ListenAndServe(conf.PrometheusHost, conf.PrometheusPort)
 
 	// Initialize the monitoring task
 	s, err := monitor.NewScheduler(c.Context, conf, dbc)

@@ -18,7 +18,10 @@ clean:
 	rm -r dist || true
 
 docker:
-	docker build . -t dennis-tra/nebula-crawler:latest
+	docker build -t dennistra/nebula:latest -t dennistra/nebula:`cat version` .
+
+docker-push: docker
+	docker push dennistra/nebula:latest dennistra/nebula:`cat version`
 
 tools:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.15.2

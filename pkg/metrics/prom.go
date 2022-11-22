@@ -4,6 +4,7 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -59,7 +60,7 @@ func ListenAndServe(host string, port int) {
 	}
 
 	addr := fmt.Sprintf("%s:%d", host, port)
-	log.WithField("addr", addr).Debugln("Starting prometheus endpoint")
+	log.WithField("addr", addr).Debugln("Starting telemetry endpoint")
 	http.Handle("/metrics", promhttp.Handler())
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Warnln("Error serving prometheus")

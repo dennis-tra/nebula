@@ -225,3 +225,5 @@ node_modules/
 
 plot.png
 sessions.csv
+analysis
+.git

@@ -47,8 +47,8 @@ var DefaultConfig = Config{
 	MonitorWorkerCount:     1000,
 	MinPingInterval:        time.Second * 30,
 	PingIntervalFactor:     1.2,
-	PrometheusHost:         "0.0.0.0",
-	PrometheusPort:         6666,
+	TelemetryHost:          "0.0.0.0",
+	TelemetryPort:          6666,
 	DatabaseHost:           "0.0.0.0",
 	DatabasePort:           5432,
 	DatabaseName:           "nebula",
@@ -105,11 +105,11 @@ type Config struct {
 	// The factor with which the next ping timestamp should be calculated
 	PingIntervalFactor float64
 
-	// Determines the prometheus host bind to.
-	PrometheusHost string
+	// Determines where the prometheus and pprof hosts should bind to.
+	TelemetryHost string
 
-	// Determines the port where prometheus serves the metrics endpoint.
-	PrometheusPort int
+	// Determines the port where prometheus and pprof serve the metrics endpoint.
+	TelemetryPort int
 
 	// Determines the host address of the database.
 	DatabaseHost string
@@ -295,8 +295,11 @@ func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("ping-interval-factor") {
 		c.PingIntervalFactor = ctx.Float64("ping-interval-factor")
 	}
-	if ctx.IsSet("prom-port") {
-		c.PrometheusPort = ctx.Int("prom-port")
+	if ctx.IsSet("telemetry-host") {
+		c.TelemetryHost = ctx.String("telemetry-host")
+	}
+	if ctx.IsSet("telemetry-port") {
+		c.TelemetryPort = ctx.Int("telemetry-port")
 	}
 	if ctx.IsSet("db-host") {
 		c.DatabaseHost = ctx.String("db-host")
