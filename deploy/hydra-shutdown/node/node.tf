@@ -64,7 +64,7 @@ resource "aws_instance" "nebula_node" {
     sudo docker compose up -d
 
     # Configure cronjob
-    echo "${var.offset}-59/${var.frequency} * * * * docker run --network nebula --name nebula_crawler --hostname nebula_crawler dennistra/nebula-crawler:sha-ce5c756 nebula --db-host=postgres crawl --neighbors" > cronjobs
+    echo "${var.offset}-59/${var.frequency} * * * * docker run --rm --network nebula --name nebula_crawler --hostname nebula_crawler dennistra/nebula-crawler:sha-ce5c756 nebula --db-host=postgres crawl --neighbors" > cronjobs
     sudo crontab cronjobs
     rm cronjobs
   EOF
