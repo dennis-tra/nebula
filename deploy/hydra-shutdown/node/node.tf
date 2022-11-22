@@ -70,17 +70,17 @@ resource "aws_instance" "nebula_node" {
   EOF
 
   tags = merge(var.default_tags, {
-    Name = "nebula-instance-${var.region}"
+    Name = "nebula-instance-${var.region}-offset-${var.offset}"
   })
 }
 
 resource "aws_key_pair" "ssh_key" {
-  key_name   = "nebula-hydra-dial-down-ssh-key"
+  key_name   = "nebula-hydra-dial-down-ssh-key-offset-${var.offset}"
   public_key = var.ssh_key
 }
 
 resource "aws_security_group" "nebula_instance" {
-  name        = "Nebula Security Group"
+  name        = "Nebula Security Group (Offset ${var.offset})"
   description = "Opens Ports for all service running on a Nebula instance"
 
   ingress {

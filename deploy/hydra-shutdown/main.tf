@@ -21,7 +21,7 @@ provider "aws" {
 }
 
 provider "aws" {
-  # AMI: ami-097a2df4ac947655f
+  # AMI: ami-08c40ec9ead489470
   region = "us-east-1"
   alias  = "us_east_1"
 }
@@ -80,7 +80,7 @@ module "nebula_us_west_1_offset_1" {
 module "nebula_us_east_1_offset_2" {
   source = "./node"
 
-  ami          = "ami-097a2df4ac947655f"
+  ami          = "ami-08c40ec9ead489470"
   ssh_key      = var.ssh_key
   offset       = 2
   region       = "us-east-1"
@@ -150,7 +150,7 @@ module "nebula_us_west_1_offset_6" {
 module "nebula_us_east_1_offset_7" {
   source = "./node"
 
-  ami          = "ami-097a2df4ac947655f"
+  ami          = "ami-08c40ec9ead489470"
   ssh_key      = var.ssh_key
   offset       = 7
   region       = "us-east-1"
