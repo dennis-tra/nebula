@@ -24,12 +24,16 @@ variable "offset" {
 }
 
 variable "frequency" {
-  type = number
+  type    = number
   default = 10
 }
 
 variable "default_tags" {
   type = map(any)
+}
+
+output "ip_address" {
+  value = aws_instance.nebula_node.public_ip
 }
 
 resource "aws_instance" "nebula_node" {

@@ -63,6 +63,10 @@ module "nebula_eu_central_1_offset_0" {
   }
 }
 
+output "eu_central_1_offset_0_ip_address" {
+  value = module.nebula_eu_central_1_offset_0.ip_address
+}
+
 module "nebula_us_west_1_offset_1" {
   source = "./node"
 
@@ -75,6 +79,10 @@ module "nebula_us_west_1_offset_1" {
   providers = {
     aws = aws.us_west_1
   }
+}
+
+output "us_west_1_offset_1_ip_address" {
+  value = module.nebula_us_west_1_offset_1.ip_address
 }
 
 module "nebula_us_east_1_offset_2" {
@@ -91,6 +99,10 @@ module "nebula_us_east_1_offset_2" {
   }
 }
 
+output "us_east_1_offset_2_ip_address" {
+  value = module.nebula_us_east_1_offset_2.ip_address
+}
+
 module "nebula_sa_east_1_offset_3" {
   source = "./node"
 
@@ -103,6 +115,10 @@ module "nebula_sa_east_1_offset_3" {
   providers = {
     aws = aws.sa_east_1
   }
+}
+
+output "sa_east_1_offset_3_ip_address" {
+  value = module.nebula_sa_east_1_offset_3.ip_address
 }
 
 module "nebula_ap_southeast_1_offset_4" {
@@ -119,6 +135,10 @@ module "nebula_ap_southeast_1_offset_4" {
   }
 }
 
+output "ap_southeast_1_offset_4_ip_address" {
+  value = module.nebula_ap_southeast_1_offset_4.ip_address
+}
+
 module "nebula_eu_central_1_offset_5" {
   source = "./node"
 
@@ -131,6 +151,10 @@ module "nebula_eu_central_1_offset_5" {
   providers = {
     aws = aws.eu_central_1
   }
+}
+
+output "eu_central_1_offset_5_ip_address" {
+  value = module.nebula_eu_central_1_offset_5.ip_address
 }
 
 module "nebula_us_west_1_offset_6" {
@@ -147,6 +171,10 @@ module "nebula_us_west_1_offset_6" {
   }
 }
 
+output "us_west_1_offset_6_ip_address" {
+  value = module.nebula_us_west_1_offset_6.ip_address
+}
+
 module "nebula_us_east_1_offset_7" {
   source = "./node"
 
@@ -159,6 +187,10 @@ module "nebula_us_east_1_offset_7" {
   providers = {
     aws = aws.us_east_1
   }
+}
+
+output "us_east_1_offset_7_ip_address" {
+  value = module.nebula_us_east_1_offset_7.ip_address
 }
 
 module "nebula_sa_east_1_offset_8" {
@@ -175,6 +207,10 @@ module "nebula_sa_east_1_offset_8" {
   }
 }
 
+output "sa_east_1_offset_8_ip_address" {
+  value = module.nebula_sa_east_1_offset_8.ip_address
+}
+
 module "nebula_ap_southeast_1_offset_9" {
   source = "./node"
 
@@ -188,3 +224,10 @@ module "nebula_ap_southeast_1_offset_9" {
     aws = aws.ap_southeast_1
   }
 }
+
+output "ap_southeast_1_offset_9_ip_address" {
+  value = module.nebula_ap_southeast_1_offset_9.ip_address
+}
+
+
+
