@@ -25,7 +25,7 @@ variable "offset" {
 
 variable "frequency" {
   type    = number
-  default = 10
+  default = 30
 }
 
 variable "default_tags" {

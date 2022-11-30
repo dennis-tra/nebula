@@ -72,7 +72,7 @@ module "nebula_us_west_1_offset_1" {
 
   ami          = "ami-02ea247e531eb3ce6"
   ssh_key      = var.ssh_key
-  offset       = 1
+  offset       = 15
   region       = "us-west-1"
   default_tags = local.default_tags
 
@@ -81,152 +81,8 @@ module "nebula_us_west_1_offset_1" {
   }
 }
 
-output "us_west_1_offset_1_ip_address" {
+output "us_west_1_offset_15_ip_address" {
   value = module.nebula_us_west_1_offset_1.ip_address
-}
-
-module "nebula_us_east_1_offset_2" {
-  source = "./node"
-
-  ami          = "ami-08c40ec9ead489470"
-  ssh_key      = var.ssh_key
-  offset       = 2
-  region       = "us-east-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.us_east_1
-  }
-}
-
-output "us_east_1_offset_2_ip_address" {
-  value = module.nebula_us_east_1_offset_2.ip_address
-}
-
-module "nebula_sa_east_1_offset_3" {
-  source = "./node"
-
-  ami          = "ami-04b3c23ec8efcc2d6"
-  ssh_key      = var.ssh_key
-  offset       = 3
-  region       = "sa-east-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.sa_east_1
-  }
-}
-
-output "sa_east_1_offset_3_ip_address" {
-  value = module.nebula_sa_east_1_offset_3.ip_address
-}
-
-module "nebula_ap_southeast_1_offset_4" {
-  source = "./node"
-
-  ami          = "ami-07651f0c4c315a529"
-  ssh_key      = var.ssh_key
-  offset       = 4
-  region       = "ap-southeast-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.ap_southeast_1
-  }
-}
-
-output "ap_southeast_1_offset_4_ip_address" {
-  value = module.nebula_ap_southeast_1_offset_4.ip_address
-}
-
-module "nebula_eu_central_1_offset_5" {
-  source = "./node"
-
-  ami          = "ami-0caef02b518350c8b"
-  ssh_key      = var.ssh_key
-  offset       = 5
-  region       = "eu-central-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.eu_central_1
-  }
-}
-
-output "eu_central_1_offset_5_ip_address" {
-  value = module.nebula_eu_central_1_offset_5.ip_address
-}
-
-module "nebula_us_west_1_offset_6" {
-  source = "./node"
-
-  ami          = "ami-02ea247e531eb3ce6"
-  ssh_key      = var.ssh_key
-  offset       = 6
-  region       = "us-west-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.us_west_1
-  }
-}
-
-output "us_west_1_offset_6_ip_address" {
-  value = module.nebula_us_west_1_offset_6.ip_address
-}
-
-module "nebula_us_east_1_offset_7" {
-  source = "./node"
-
-  ami          = "ami-08c40ec9ead489470"
-  ssh_key      = var.ssh_key
-  offset       = 7
-  region       = "us-east-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.us_east_1
-  }
-}
-
-output "us_east_1_offset_7_ip_address" {
-  value = module.nebula_us_east_1_offset_7.ip_address
-}
-
-module "nebula_sa_east_1_offset_8" {
-  source = "./node"
-
-  ami          = "ami-04b3c23ec8efcc2d6"
-  ssh_key      = var.ssh_key
-  offset       = 8
-  region       = "sa-east-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.sa_east_1
-  }
-}
-
-output "sa_east_1_offset_8_ip_address" {
-  value = module.nebula_sa_east_1_offset_8.ip_address
-}
-
-module "nebula_ap_southeast_1_offset_9" {
-  source = "./node"
-
-  ami          = "ami-07651f0c4c315a529"
-  ssh_key      = var.ssh_key
-  offset       = 9
-  region       = "ap-southeast-1"
-  default_tags = local.default_tags
-
-  providers = {
-    aws = aws.ap_southeast_1
-  }
-}
-
-output "ap_southeast_1_offset_9_ip_address" {
-  value = module.nebula_ap_southeast_1_offset_9.ip_address
 }
 
 
