@@ -148,8 +148,7 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	return cr
 }
 
-// connect strips all private multi addresses in `pi` and establishes a connection to the given peer.
-// It also handles metric capturing.
+// connect establishes a connection to the given peer. It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	metrics.VisitCount.With(metrics.CrawlLabel).Inc()
 
@@ -170,8 +169,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 }
 
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
-// of 15 random peer IDs with increasing common prefix lengths (CPL). The returned peers are streamed
-// to the results channel.
+// of 15 random peer IDs with increasing common prefix lengths (CPL).
 func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*RoutingTable, error) {
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
