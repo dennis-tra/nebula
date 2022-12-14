@@ -84,7 +84,7 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(c.Context, conf, dbc)
+	s, err := crawl.NewScheduler(conf, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

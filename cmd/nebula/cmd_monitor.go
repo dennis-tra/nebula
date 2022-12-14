@@ -46,7 +46,7 @@ func MonitorAction(c *cli.Context) error {
 	}
 
 	// Initialize the monitoring task
-	s, err := monitor.NewScheduler(c.Context, conf, dbc)
+	s, err := monitor.NewScheduler(conf, dbc)
 	if err != nil {
 		return errors.Wrap(err, "creating new scheduler")
 	}

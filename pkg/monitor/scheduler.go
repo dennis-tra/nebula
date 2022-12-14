@@ -54,12 +54,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Scheduler, error) {
-	// Set the timeout for dialing peers
-	ctx = network.WithDialPeerTimeout(ctx, conf.DialTimeout)
-
-	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
-	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
@@ -90,6 +85,12 @@ func NewScheduler(ctx context.Context, conf *config.Config, dbc *db.Client) (*Sc
 // the dial queue with peers that are due to be dialed.
 func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	start := time.Now()
+
+	// Set the timeout for dialing peers
+	ctx = network.WithDialPeerTimeout(ctx, s.config.DialTimeout)
+
+	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
+	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
 	// Start all dialers
 	var dialers []*Dialer
