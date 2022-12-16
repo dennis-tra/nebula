@@ -99,88 +99,97 @@ func ResolveAction(c *cli.Context) error {
 // Resolve save the resolved IP addresses + their countries in a transaction
 func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs models.MultiAddressSlice) error {
 	log.WithField("size", len(dbmaddrs)).Infoln("Resolving batch of multi addresses...")
+
+	for _, dbmaddr := range dbmaddrs {
+		if err := resolveAddr(ctx, dbh, mmc, uclient, dbmaddr); err != nil {
+			log.WithField("maddr", dbmaddr.Maddr).WithError(err).Warnln("Error resolving multi address")
+		}
+	}
+
+	return nil
+}
+
+func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddr *models.MultiAddress) error {
+	logEntry := log.WithField("maddr", dbmaddr.Maddr)
 	txn, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.Wrap(err, "begin txn")
 	}
 	defer db.Rollback(txn)
 
-	for _, dbmaddr := range dbmaddrs {
-		logEntry := log.WithField("maddr", dbmaddr.Maddr)
-
-		maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
-		if err != nil {
-			logEntry.WithError(err).Warnln("Error parsing multi address - deleting row")
-			if _, err = dbmaddr.Delete(ctx, txn); err != nil {
-				logEntry.WithError(err).Warnln("Error deleting multi address")
-			}
-			continue
+	maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
+	if err != nil {
+		logEntry.WithError(err).Warnln("Error parsing multi address - deleting row")
+		if _, err = dbmaddr.Delete(ctx, txn); err != nil {
+			logEntry.WithError(err).Warnln("Error deleting multi address")
 		}
+		return errors.Wrap(err, "parse multi address")
+	}
 
-		dbmaddr.Resolved = true
-		dbmaddr.IsPublic = null.BoolFrom(manet.IsPublicAddr(maddr))
-		dbmaddr.IsRelay = null.BoolFrom(isRelayedMaddr(maddr))
+	dbmaddr.Resolved = true
+	dbmaddr.IsPublic = null.BoolFrom(manet.IsPublicAddr(maddr))
+	dbmaddr.IsRelay = null.BoolFrom(isRelayedMaddr(maddr))
 
-		addrInfos, err := mmc.MaddrInfo(ctx, maddr)
-		if err != nil {
-			logEntry.WithError(err).Warnln("Error deriving address information from maddr ", maddr)
+	addrInfos, err := mmc.MaddrInfo(ctx, maddr)
+	if err != nil {
+		logEntry.WithError(err).Warnln("Error deriving address information from maddr ", maddr)
+	}
+
+	if len(addrInfos) == 0 {
+		dbmaddr.HasManyAddrs = null.BoolFrom(false)
+	} else if len(addrInfos) == 1 {
+		dbmaddr.HasManyAddrs = null.BoolFrom(false)
+		var addr string
+		var addrInfo *maxmind.AddrInfo
+		for k, v := range addrInfos {
+			addr, addrInfo = k, v
+			break
 		}
+		dbmaddr.Asn = null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0)
+		dbmaddr.Country = null.NewString(addrInfo.Country, addrInfo.Country != "")
+		dbmaddr.Continent = null.NewString(addrInfo.Continent, addrInfo.Continent != "")
+		dbmaddr.Addr = null.NewString(addr, addr != "")
 
-		if len(addrInfos) == 0 {
-			dbmaddr.HasManyAddrs = null.BoolFrom(false)
-		} else if len(addrInfos) == 1 {
-			dbmaddr.HasManyAddrs = null.BoolFrom(false)
-			var addr string
-			var addrInfo *maxmind.AddrInfo
-			for k, v := range addrInfos {
-				addr, addrInfo = k, v
-				break
+		if uclient != nil {
+			datacenterID, err := uclient.Datacenter(addr)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				logEntry.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
 			}
-			dbmaddr.Asn = null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0)
-			dbmaddr.Country = null.NewString(addrInfo.Country, addrInfo.Country != "")
-			dbmaddr.Continent = null.NewString(addrInfo.Continent, addrInfo.Continent != "")
-			dbmaddr.Addr = null.NewString(addr, addr != "")
+			dbmaddr.IsCloud = null.NewInt(datacenterID, datacenterID != 0)
+		}
+	} else if len(addrInfos) > 1 { // not "else" because the MaddrInfo could have failed and we still want to update the maddr
+		dbmaddr.HasManyAddrs = null.BoolFrom(true)
+		// Due to dnsaddr protocols each multi address can point to multiple
+		// IP addresses each in a different country.
+		for addr, addrInfo := range addrInfos {
 
+			datacenterID := 0
 			if uclient != nil {
-				datacenterID, err := uclient.Datacenter(addr)
+				datacenterID, err = uclient.Datacenter(addr)
 				if err != nil && !errors.Is(err, sql.ErrNoRows) {
 					logEntry.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
-				}
-				dbmaddr.IsCloud = null.NewInt(datacenterID, datacenterID != 0)
-			}
-		} else if len(addrInfos) > 1 { // not "else" because the MaddrInfo could have failed and we still want to update the maddr
-			dbmaddr.HasManyAddrs = null.BoolFrom(true)
-			// Due to dnsaddr protocols each multi address can point to multiple
-			// IP addresses each in a different country.
-			for addr, addrInfo := range addrInfos {
-
-				datacenterID := 0
-				if uclient != nil {
-					datacenterID, err = uclient.Datacenter(addr)
-					if err != nil && !errors.Is(err, sql.ErrNoRows) {
-						logEntry.WithError(err).WithField("addr", addr).Warnln("Error resolving ip address to datacenter")
-					} else if datacenterID > 0 {
-						dbmaddr.IsCloud = null.IntFrom(datacenterID)
-					}
-				}
-
-				// Save the IP address + country information + asn information
-				ipaddr := &models.IPAddress{
-					Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
-					IsCloud:   null.NewInt(datacenterID, datacenterID != 0),
-					Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),
-					Continent: null.NewString(addrInfo.Continent, addrInfo.Continent != ""),
-					Address:   addr,
-				}
-				if err := dbmaddr.AddIPAddresses(ctx, txn, true, ipaddr); err != nil {
-					logEntry.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
+				} else if datacenterID > 0 {
+					dbmaddr.IsCloud = null.IntFrom(datacenterID)
 				}
 			}
+
+			// Save the IP address + country information + asn information
+			ipaddr := &models.IPAddress{
+				Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
+				IsCloud:   null.NewInt(datacenterID, datacenterID != 0),
+				Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),
+				Continent: null.NewString(addrInfo.Continent, addrInfo.Continent != ""),
+				Address:   addr,
+			}
+			if err := dbmaddr.AddIPAddresses(ctx, txn, true, ipaddr); err != nil {
+				logEntry.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
+				return errors.Wrap(err, "add ip addresses")
+			}
 		}
-		if _, err = dbmaddr.Update(ctx, txn, boil.Infer()); err != nil {
-			logEntry.WithError(err).Warnln("Could not update multi address")
-			continue
-		}
+	}
+	if _, err = dbmaddr.Update(ctx, txn, boil.Infer()); err != nil {
+		logEntry.WithError(err).Warnln("Could not update multi address")
+		return errors.Wrap(err, "update multi address")
 	}
 
 	return txn.Commit()
