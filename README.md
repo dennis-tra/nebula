@@ -33,7 +33,7 @@ _The crawler was:_
   - [Database](#database)
   - [Tests](#tests)
 - [Deployment](#deployment)
-- [Analysis](#analysis)
+- [Report](#report)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
@@ -412,15 +412,9 @@ So this is the prometheus ports configuration:
 Furthermore, `nebula` has a flag called `--pprof-port`. If this flag is set it also serves `pprof` at `localhost:pprof-port` for debugging.
 
 
-## Analysis
+## Report
 
-There is a top-level `analysis` folder that contains various scripts to help understand the gathered data. More information can be found in the respective subfolders README file. The following evaluations can be found there
-
-- [`geoip`](./analysis/geoip) - Uses a [Maxmind](https://maxmind.com) database to map IP addresses to country ISO codes and plots the results.
-- [`churn`](./analysis/churn) - Uses a `sessions` database dump to construct a CDF of peer session lengths.
-- [`mixed`](./analysis/mixed) - Multiple plotting scripts for various metrics of interest. See [wcgcyx/nebula-crawler](https://github.com/wcgcyx/nebula-crawler) for plots as I have just copied the scripts from there.
-- [`report`](./analysis/report) - A semi-automated set of scripts to generate the reports for [dennis-tra/nebula-crawler-reports](https://github.com/dennis-tra/nebula-crawler-reports)
-- More to come...
+There is a top-level `report` folder that contains a script to generate a comprehensive data report.
 
 ## Related Efforts
 
