@@ -2,16 +2,7 @@
 
 ## General Information
 
-The measurements were conducted on the following machine:
-
-- `vCPU` - `4`
-- `RAM` - `8GB`
-- `Disk` - `160GB`
-- `Datacenter` - `nbg1-dc3`
-- `Country` - `Germany`
-- `City` - `Nuremberg`
-
-The following results show measurement data that was collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
+The following results show measurement data that were collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
 
 - Number of crawls `{{ crawl_count }}`
 - Number of visits `{{ visit_count }}` ([what is a visit?](#terminology))
@@ -160,7 +151,7 @@ The number next to `Total` indicates the number of unique IP addresses that went
 
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
 |:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_hosts %}
-| `{{ tuh[0][:16] }}...` | `{{ tuh[1] }}` | {{ tuh[2] }}  | {{ '<br/>'.join(tuh[3]) }} | {{ tuh[4] }} |{% endfor %}
+| `{{ tuh[1][:16] }}...` | `{{ tuh[2] }}` | {{ tuh[3] }}  | {{ '<br/>'.join(tuh[4]) }} | {{ tuh[5] }} |{% endfor %}
 
 > `AV` = `Agent Version`
  

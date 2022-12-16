@@ -2,11 +2,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import lib_plot
-from lib_agent import known_agents
-from lib_db import DBClient
-from lib_cloud import Cloud
-from lib_fmt import fmt_barplot, fmt_thousands
+from lib import lib_plot
+from lib.lib_agent import known_agents
+from lib.lib_db import DBClient
+from lib.lib_cloud import Cloud
+from lib.lib_fmt import fmt_barplot, fmt_thousands
 
 
 def main(db_client: DBClient, cloud_client: Cloud):

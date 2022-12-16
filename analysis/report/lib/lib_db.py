@@ -11,8 +11,6 @@ from typing import TypeVar
 
 T = TypeVar('T')
 
-calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
-
 
 class NodeClassification(Enum):
     OFFLINE = "offline"
@@ -46,23 +44,31 @@ def cache():
             if not os.path.isdir(".cache"):
                 os.mkdir(".cache")
             client: DBClient = args[0]
-            hash_str = str(calendar_week) + \
+            hash_str = str(client.calendar_week) + \
                        str(client.start) + \
                        str(client.end) + \
                        str(client.config) + \
                        str(args[1:])
             digest = hashlib.sha256(str.encode(hash_str)).hexdigest()
-            cache_file = f'.cache/{filename}-{digest}.json'
+            cache_file = f'.cache/{filename}-{digest}'
 
-            if os.path.isfile(cache_file):
-                print(f"Using cache file {cache_file} for {filename}...")
-                with open(cache_file, 'r') as f:
+            if os.path.isfile(cache_file + ".json"):
+                print(f"Using cache file {cache_file + '.json'} for {filename}...")
+                with open(cache_file + ".json", 'r') as f:
                     return json.load(f)
+            elif os.path.isfile(cache_file + ".pickle"):
+                print(f"Using cache file {cache_file + '.pickle'} for {filename}...")
+                with open(cache_file + ".pickle", 'rb') as f:
+                    return pd.read_pickle(f)
 
             result = func(*args, **kwargs)
 
-            with open(cache_file, 'w') as f:
-                json.dump(result, f)
+            if isinstance(result, pd.DataFrame):
+                with open(cache_file + ".pickle", 'wb') as f:
+                    result.to_pickle(f)
+            else:
+                with open(cache_file + ".json", 'w') as f:
+                    json.dump(result, f)
 
             return result
 
@@ -72,11 +78,6 @@ def cache():
 
 
 class DBClient:
-    config = None
-    conn = None
-    start = "date_trunc('week', NOW() - '1 week'::interval)"
-    end = "date_trunc('week', NOW())"
-    node_classification_funcs = {}
 
     @staticmethod
     def __flatten(result: list[tuple[T]]) -> list[T]:
@@ -87,11 +88,19 @@ class DBClient:
         return [i for sub in result for i in sub]
 
     @staticmethod
-    def fmt_list(items: list[T]) -> str:
+    def fmt_list(items: list[T], type="INT") -> str:
         return ",".join(str(elem) for elem in items)
 
-    def __init__(self):
+    def __init__(self, year: int, calendar_week: int):
         print("Initializing database client...")
+
+        self.year = year
+        self.calendar_week = calendar_week
+        self.start_date = datetime.datetime.strptime(f"{year}-W{calendar_week}-1", "%Y-W%W-%w")
+        self.end_date = self.start_date + datetime.timedelta(weeks=1)
+
+        self.start = f"'{self.start_date.strftime('%Y-%m-%d')}'::DATE"
+        self.end = f"'{self.end_date.strftime('%Y-%m-%d')}'::DATE"
 
         self.config = toml.load("./db.toml")['psql']
         self.conn = psycopg2.connect(
@@ -111,12 +120,246 @@ class DBClient:
             NodeClassification.LEFT: self.get_only_leaving_peer_ids,
         }
 
+    def close(self):
+        self.conn.close()
+
     @cache()
     def query(self, query):
         print("Running custom query...")
         cur = self.conn.cursor()
         cur.execute(query)
         return cur.fetchall()
+
+    @cache()
+    def get_crawl_count(self) -> int:  # DONE
+        """
+        get_crawl_count returns the number of crawls performed
+        in the specified time interval.
+        """
+        print("Getting total number of crawls in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT count(*)
+            FROM crawls c
+            WHERE started_at > {self.start}
+              AND started_at < {self.end}
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())[0]
+
+    @cache()
+    def get_visit_count(self) -> int:  # DONE
+        """
+        get_visit_count returns the number of visits performed
+        in the specified time interval.
+        """
+        print("Getting total number of visits in specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT count(*)
+            FROM visits v
+            WHERE visit_started_at > {self.start}
+              AND visit_started_at < {self.end}
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())[0]
+
+    @cache()
+    def get_peer_id_count(self) -> int:  # DONE
+        """
+        get_peer_id_count returns the number of unique peer IDs that
+        were visited in the specified time interval
+        """
+        print("Getting the number of unique peer IDs that were visited in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT count(DISTINCT peer_id)
+            FROM visits v
+            WHERE visit_started_at > {self.start}
+              AND visit_started_at < {self.end}
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())[0]
+
+    @cache()
+    def get_ip_addresses_count(self) -> int:  # DONE
+        """
+        get_ip_addresses_count returns the number of unique ip addresses that
+        were discovered in the specified time interval.
+        """
+        print("Getting the number of unique ip addresses in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (
+                SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
+                FROM visits v
+                    LEFT OUTER JOIN agent_versions av on av.id = v.agent_version_id
+                WHERE visit_started_at > {self.start}
+                  AND visit_started_at < {self.end}
+                GROUP BY v.peer_id, unnest(v.multi_address_ids)
+            )
+            SELECT count(DISTINCT ma.addr)
+            FROM cte INNER JOIN multi_addresses ma ON  ma.id = cte.multi_address_id
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())[0]
+
+    @cache()
+    def get_top_rotating_hosts(self, limit=10) -> int:  # DONE
+        """
+        get_top_rotating_hosts returns the top hosts that rotated their
+        peer IDs
+        """
+        print("Getting top rotating hosts in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (
+                SELECT v.peer_id, av.agent_version, unnest(v.multi_address_ids) multi_address_id
+                FROM visits v
+                    LEFT OUTER JOIN agent_versions av on av.id = v.agent_version_id
+                WHERE v.visit_started_at >= {self.start}
+                  AND v.visit_started_at < {self.end}
+                GROUP BY v.peer_id, av.agent_version, unnest(v.multi_address_ids)
+            )
+            SELECT ma.addr, ma.country, count(DISTINCT cte.peer_id), array_agg(DISTINCT cte.agent_version)
+            FROM cte
+                INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+            WHERE ma.is_relay = FALSE
+            GROUP BY ma.addr, ma.country
+            ORDER BY 3 DESC
+            LIMIT {limit}
+            """
+        )
+
+        return cur.fetchall()
+
+    @cache()
+    def get_top_updating_hosts(self, limit=10):
+        """
+        get_top_updating_hosts returns the top hosts that were observed
+        with different agent versions.
+        """
+        print("Getting top updating hosts in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH multi_av_peer_ids AS (
+                SELECT v.peer_id
+                FROM visits v
+                WHERE v.agent_version_id IS NOT NULL
+                    AND v.visit_started_at >= {self.start}
+                    AND v.visit_started_at < {self.end}
+                GROUP BY v.peer_id
+                HAVING count(DISTINCT v.agent_version_id) > 1
+            ), cte AS (
+                SELECT v.peer_id,
+                    LAG(av.agent_version, 1) OVER (
+                        PARTITION BY v.peer_id
+                        ORDER BY v.visit_ended_at
+                    ) previous_agent_version,
+                    av.agent_version,
+                    v.visit_ended_at
+                FROM visits v
+                    INNER JOIN agent_versions av on av.id = v.agent_version_id
+                WHERE EXISTS (SELECT FROM multi_av_peer_ids mapi WHERE mapi.peer_id = v.peer_id)
+                    AND v.visit_started_at >= {self.start}
+                    AND v.visit_started_at < {self.end}
+                ORDER BY v.visit_ended_at
+            )
+            SELECT
+                p.id,
+                p.multi_hash,
+                av.agent_version                      final_agent_version,
+                count(cte.previous_agent_version)     transition_count,
+                array_agg(DISTINCT cte.agent_version) distinct_agent_versions,
+                count(DISTINCT cte.agent_version)     distinct_agent_versions_count,
+                (array_agg(cte.previous_agent_version))[:5]
+            FROM cte
+                INNER JOIN peers p ON cte.peer_id = p.id
+                LEFT OUTER JOIN agent_versions av on p.agent_version_id = av.id
+            WHERE cte.agent_version != cte.previous_agent_version
+            GROUP BY p.id, av.agent_version
+            ORDER BY count(cte.previous_agent_version) DESC
+            LIMIT {limit}
+            """
+        )
+
+        return cur.fetchall()
+
+    @cache()
+    def get_new_agent_versions(self):  # DONE
+        """
+        get_new_agent_versions returns all agent versions and their discovery
+        date that were discovered in the specified time interval.
+        """
+        print("Getting new agent versions in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT EXTRACT('epoch' FROM av.created_at), av.agent_version
+            FROM agent_versions av
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
+            ORDER BY av.created_at
+            """
+        )
+
+        return cur.fetchall()
+
+    @cache()
+    def get_new_protocols(self):  # DONE
+        """
+        get_new_protocols returns all protocols and their discovery
+        date that were discovered in the specified time interval.
+        """
+        print("Getting new protocols in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT EXTRACT('epoch' FROM p.created_at), p.protocol
+            FROM protocols p
+            WHERE created_at > {self.start}
+              AND created_at < {self.end}
+            ORDER BY p.created_at
+            """
+        )
+
+        return cur.fetchall()
+
+    def get_storm_protocol_set_ids(self):  # DONE
+        """
+        get_storm_protocol_set_ids returns all protocol **set** IDs (not protocol IDs) that contain at least
+        one storm node protocol ID.
+        https://www.bitdefender.com/files/News/CaseStudies/study/376/Bitdefender-Whitepaper-IPStorm.pdf
+        """
+        print("Getting protocol set IDs that contain at least one storm protocol")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (SELECT ps.id, unnest(ps.protocol_ids) protocol_id FROM protocols_sets ps)
+            SELECT DISTINCT cte.id FROM cte
+                INNER JOIN protocols p ON p.id = cte.protocol_id
+            WHERE p.protocol LIKE '/sreque%'
+               OR p.protocol LIKE '/shsk%'
+               OR p.protocol LIKE '/sfst%'
+               OR p.protocol LIKE '/sbst%'
+               OR p.protocol LIKE '/sbpcp%'
+               OR p.protocol LIKE '/sbptp%'
+               OR p.protocol LIKE '/strelayp%'
+            ORDER BY cte.id
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())
 
     @cache()
     def get_all_peer_ids(self) -> list[int]:  #
@@ -149,8 +392,8 @@ class DBClient:
             f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_successful_dial < {self.start}
-              AND (first_failed_dial > {self.end} OR finished = false)
+            WHERE first_successful_visit < {self.start}
+              AND (first_failed_visit > {self.end} OR state != 'closed')
             """
         )
         return DBClient.__flatten(cur.fetchall())
@@ -182,7 +425,7 @@ class DBClient:
                          LEFT JOIN sessions s ON v.session_id = s.id
                 WHERE v.created_at > {self.start}
                   AND v.created_at < {self.end}
-                  AND v.error IS NULL
+                  AND v.connect_error IS NULL
             )
             """
         )
@@ -202,8 +445,8 @@ class DBClient:
             f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_successful_dial > {self.start}
-              AND first_successful_dial < {self.end}
+            WHERE first_successful_visit > {self.start}
+              AND first_successful_visit < {self.end}
             """
         )
         return DBClient.__flatten(cur.fetchall())
@@ -232,9 +475,9 @@ class DBClient:
             f"""
             SELECT DISTINCT peer_id
             FROM sessions
-            WHERE first_failed_dial < {self.end}
-              AND first_failed_dial > {self.start}
-              AND last_successful_dial > {self.start}
+            WHERE first_failed_visit < {self.end}
+              AND first_failed_visit > {self.start}
+              AND last_successful_visit > {self.start}
             """
         )
         return DBClient.__flatten(cur.fetchall())
@@ -291,6 +534,7 @@ class DBClient:
         )
         return DBClient.__flatten(cur.fetchall())
 
+    @cache()
     def get_all_agent_versions(self) -> list[str]:  #
         """
         get_all_agent_versions returns all ever discovered agent versions
@@ -317,14 +561,14 @@ class DBClient:
             WHERE v.created_at > {self.start}
               AND v.created_at < {self.end}
               AND v.type = 'crawl'
-              AND v.error IS NULL
+              AND v.connect_error IS NULL
               AND av.agent_version LIKE ANY (array[{",".join(f"'%{av}%'" for av in agent_versions)}])
             """
         )
         return DBClient.__flatten(cur.fetchall())
 
     @cache()
-    def get_agent_versions_distribution(self) -> list[tuple[str, int]]:  #
+    def get_agent_versions_distribution(self) -> pd.DataFrame:  # DONE
         """
         get_agent_versions_distribution returns all agent versions with
         a count of peers that were discovered with such an agent version.
@@ -333,21 +577,38 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT av.agent_version, count(DISTINCT peer_id) "count"
+            WITH cte_1 AS (
+                SELECT ps.id, unnest(ps.protocol_ids) protocol_id FROM protocols_sets ps
+            ), cte_2 AS (
+                SELECT DISTINCT cte_1.id FROM cte_1
+                    INNER JOIN protocols p ON p.id = cte_1.protocol_id
+                WHERE p.protocol LIKE '/sreque%'
+                   OR p.protocol LIKE '/shsk%'
+                   OR p.protocol LIKE '/sfst%'
+                   OR p.protocol LIKE '/sbst%'
+                   OR p.protocol LIKE '/sbpcp%'
+                   OR p.protocol LIKE '/sbptp%'
+                   OR p.protocol LIKE '/strelayp%'
+                ORDER BY cte_1.id
+            ), cte_3 AS (
+            SELECT v.peer_id, av.agent_version, EXISTS (SELECT FROM cte_2 WHERE id = v.protocols_set_id) is_storm
             FROM visits v
-            INNER JOIN agent_versions av on av.id = v.agent_version_id
-            WHERE v.created_at > {self.start}
-              AND v.created_at < {self.end}
+                INNER JOIN agent_versions av on av.id = v.agent_version_id
+            WHERE v.visit_started_at >= {self.start}
+              AND v.visit_started_at < {self.end}
               AND v.type = 'crawl'
-              AND v.error IS NULL
-            GROUP BY av.agent_version
-            ORDER BY count DESC
+              AND v.connect_error IS NULL
+            )
+            SELECT cte_3.agent_version, cte_3.is_storm, count(DISTINCT cte_3.peer_id) FROM cte_3
+            GROUP BY cte_3.agent_version, cte_3.is_storm
+            ORDER BY 3 DESC
             """
         )
-        return cur.fetchall()
+
+        return pd.DataFrame(cur.fetchall(), columns=['agent_version', 'is_storm', 'count'])
 
     @cache()
-    def get_agent_versions_for_peer_ids(self, peer_ids: list[int]):  #
+    def get_agent_versions_for_peer_ids(self, peer_ids: list[int]) -> pd.DataFrame:  # DONE
         """
         get_agent_versions_for_peer_ids returns all agent versions with
         a count of peers that were discovered with such an agent version
@@ -357,22 +618,38 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT av.agent_version, count(DISTINCT peer_id) "count"
+            WITH cte_1 AS (
+                SELECT ps.id, unnest(ps.protocol_ids) protocol_id FROM protocols_sets ps
+            ), cte_2 AS (
+                SELECT DISTINCT cte_1.id FROM cte_1
+                    INNER JOIN protocols p ON p.id = cte_1.protocol_id
+                WHERE p.protocol LIKE '/sreque%'
+                   OR p.protocol LIKE '/shsk%'
+                   OR p.protocol LIKE '/sfst%'
+                   OR p.protocol LIKE '/sbst%'
+                   OR p.protocol LIKE '/sbpcp%'
+                   OR p.protocol LIKE '/sbptp%'
+                   OR p.protocol LIKE '/strelayp%'
+                ORDER BY cte_1.id
+            ), cte_3 AS (
+            SELECT v.peer_id, av.agent_version, EXISTS (SELECT FROM cte_2 WHERE id = v.protocols_set_id) is_storm
             FROM visits v
-            INNER JOIN agent_versions av on av.id = v.agent_version_id
-            WHERE v.created_at > {self.start}
-              AND v.created_at < {self.end}
+                INNER JOIN agent_versions av on av.id = v.agent_version_id
+            WHERE v.visit_started_at >= {self.start}
+              AND v.visit_started_at < {self.end}
               AND v.type = 'crawl'
-              AND v.error IS NULL
+              AND v.connect_error IS NULL
               AND v.peer_id IN ({self.fmt_list(peer_ids)})
-            GROUP BY av.agent_version
-            ORDER BY count DESC
+            )
+            SELECT cte_3.agent_version, cte_3.is_storm, count(DISTINCT cte_3.peer_id) FROM cte_3
+            GROUP BY cte_3.agent_version, cte_3.is_storm
+            ORDER BY 3 DESC
             """
         )
-        return cur.fetchall()
+        return pd.DataFrame(cur.fetchall(), columns=['agent_version', 'is_storm', 'count'])
 
     @cache()
-    def get_crawls(self):  #
+    def get_crawls(self) -> pd.DataFrame:  #
         """
         get_crawls returns information of all crawls in the
         specified time interval.
@@ -381,16 +658,21 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT extract(epoch from started_at), crawled_peers, dialable_peers, undialable_peers
+            SELECT EXTRACT(epoch from started_at), crawled_peers, dialable_peers, undialable_peers
             FROM crawls c
-            WHERE c.created_at > {self.start}
-              AND c.created_at < {self.end}
+            WHERE c.started_at > {self.start}
+              AND c.started_at < {self.end}
             """
         )
-        return cur.fetchall()
+
+        df = pd.DataFrame(cur.fetchall(), columns=['started_at', 'crawled_peers', 'dialable_peers', 'undialable_peers'])
+        df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
+        df["percentage_dialable"] = 100 * df["dialable_peers"] / df["crawled_peers"]
+
+        return df
 
     @cache()
-    def get_crawl_properties(self, threshold=10):  #
+    def get_crawl_properties(self, threshold=10) -> pd.DataFrame:  #
         """
         get_crawl_properties returns agent version distributions
         of the crawls in the specified time interval.
@@ -399,16 +681,20 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT cp.crawl_id, EXTRACT('epoch' FROM c.started_at) started_at, av.agent_version, cp.count
+            SELECT cp.crawl_id, EXTRACT('epoch' FROM c.started_at) AS "started_at", av.agent_version, cp.count
             FROM crawl_properties cp 
                 INNER JOIN agent_versions av ON cp.agent_version_id = av.id
                 INNER JOIN crawls c ON cp.crawl_id = c.id
-            WHERE cp.created_at > {self.start}
-              AND cp.created_at < {self.end}
+            WHERE c.started_at > {self.start}
+              AND c.started_at < {self.end}
               AND cp.count > {threshold}
             """
         )
-        return cur.fetchall()
+
+        df = pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'agent_version', 'count'])
+        df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
+
+        return df
 
     @cache()
     def get_crawl_visit_durations(self):  #
@@ -427,7 +713,7 @@ class DBClient:
             WHERE v.created_at > {self.start}
               AND v.created_at < {self.end}
               AND v.type = 'crawl'
-              AND v.error IS NULL
+              AND v.connect_error IS NULL
             """
         )
         return cur.fetchall()
@@ -448,7 +734,7 @@ class DBClient:
             WHERE v.created_at > {self.start}
               AND v.created_at < {self.end}
               AND v.type = 'dial'
-              AND v.error IS NULL
+              AND v.connect_error IS NULL
             """
         )
         return cur.fetchall()

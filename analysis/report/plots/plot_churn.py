@@ -4,10 +4,10 @@ import pandas as pd
 import numpy as np
 from matplotlib import ticker
 
-import lib_plot
-from lib_agent import agent_name, known_agents, go_ipfs_version_mappings, go_ipfs_version
-from lib_db import DBClient
-from lib_fmt import fmt_thousands
+from lib import lib_plot
+from lib.lib_agent import agent_name, known_agents, go_ipfs_version_mappings, go_ipfs_version
+from lib.lib_db import DBClient
+from lib.lib_fmt import fmt_thousands
 
 
 def main(client: DBClient):

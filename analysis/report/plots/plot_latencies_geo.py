@@ -4,9 +4,9 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 import geoip2.database
 
-import lib_plot
-from lib_fmt import thousands_ticker_formatter, fmt_thousands
-from lib_db import DBClient
+from lib import lib_plot
+from lib.lib_fmt import thousands_ticker_formatter, fmt_thousands
+from lib.lib_db import DBClient
 
 
 def main(db_client: DBClient):

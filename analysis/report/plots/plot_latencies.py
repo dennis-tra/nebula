@@ -4,8 +4,8 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 from analysis.report import lib_plot
-from lib_fmt import thousands_ticker_formatter
-from lib_db import DBClient
+from lib.lib_fmt import thousands_ticker_formatter
+from lib.lib_db import DBClient
 
 
 def main(db_client: DBClient):

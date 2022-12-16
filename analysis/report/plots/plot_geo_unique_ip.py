@@ -2,9 +2,9 @@ import seaborn as sns
 import pandas as pd
 from matplotlib import pyplot as plt
 
-import lib_plot
-from lib_fmt import fmt_barplot, fmt_thousands
-from lib_db import DBClient
+from lib import lib_plot
+from lib.lib_fmt import fmt_barplot, fmt_thousands
+from lib.lib_db import DBClient
 
 
 def main(db_client: DBClient, threshold=500):

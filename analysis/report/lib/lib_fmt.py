@@ -1,6 +1,11 @@
 from matplotlib import ticker
+from datetime import datetime as dt
 
 thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%dk" % int(x / 1000))
+
+
+def fmt_discovered_entity(data) -> list[str]:
+    return [f"`{d[1]}` ({dt.utcfromtimestamp(d[0]).strftime('%Y-%m-%d %H:%M:%S')})" for d in data]
 
 
 def fmt_thousands(val: int) -> str:

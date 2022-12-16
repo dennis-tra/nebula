@@ -1,6 +1,6 @@
 import unittest
 
-from lib_db import DBClient
+from lib.lib_db import DBClient
 
 
 class TestDBClient(unittest.TestCase):

@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt, ticker
 from analysis.report import lib_plot
 from analysis.report.lib_agent import known_agents
 from analysis.report.lib_fmt import fmt_thousands
-from lib_db import DBClient
+from lib.lib_db import DBClient
 
 
 def main(db_client: DBClient):

@@ -2,9 +2,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import lib_plot
-from lib_db import DBClient, NodeClassification
-from lib_fmt import fmt_thousands, fmt_barplot
+from lib import lib_plot
+from lib.lib_db import DBClient, NodeClassification
+from lib.lib_fmt import fmt_thousands, fmt_barplot
 
 
 def main(db_client: DBClient):

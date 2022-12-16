@@ -2,10 +2,10 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-import lib_plot
-from lib_db_filecoin import DBClientFilecoin
-from lib_db import DBClient, NodeClassification
-from lib_fmt import fmt_barplot, fmt_thousands
+from lib import lib_plot
+from lib.lib_db_filecoin import DBClientFilecoin
+from lib.lib_db import DBClient, NodeClassification
+from lib.lib_fmt import fmt_barplot, fmt_thousands
 
 
 def main(client: DBClient):
