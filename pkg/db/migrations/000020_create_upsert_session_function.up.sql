@@ -61,7 +61,7 @@ $upsert_session$
             created_at, successful_visits_count, state, recovered_count, failed_visits_count, uptime)
         SELECT visit_peer_id, new_visit_started_at, new_visit_ended_at, new_visit_ended_at, (SELECT calc_next_visit(new_visit_ended_at)),
                 NOW(), NOW(), 1, 'open', 0, 0, TSTZRANGE(new_visit_started_at, NULL, '[]')
-        WHERE NOT EXISTS (SELECT NULL FROM existing_session)
+        WHERE NOT EXISTS (SELECT NULL FROM existing_session) AND new_error IS NULL
         RETURNING id
     ), update_session_no_error AS (
         UPDATE sessions_open AS so
