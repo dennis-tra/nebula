@@ -60,7 +60,7 @@ $upsert_session$
             peer_id, first_successful_visit, last_successful_visit, last_visited_at, next_visit_due_at, updated_at,
             created_at, successful_visits_count, state, recovered_count, failed_visits_count, uptime)
         SELECT visit_peer_id, new_visit_started_at, new_visit_ended_at, new_visit_ended_at, (SELECT calc_next_visit(new_visit_ended_at)),
-                NOW(), NOW(), 1, 'open', 0, 0, TSTZRANGE(new_visit_started_at, NULL, '[]')
+                NOW(), NOW(), 1, 'open', 0, 0, TSTZRANGE(new_visit_started_at, NULL)
         WHERE NOT EXISTS (SELECT NULL FROM existing_session) AND new_error IS NULL
         RETURNING id
     ), update_session_no_error AS (
@@ -78,7 +78,7 @@ $upsert_session$
             recovered_count          = es.recovered_count + (es.state = 'pending')::INT, -- if the state was `pending` this will yield `1` and thus increment the recovered_count
             next_visit_due_at        = (SELECT calc_next_visit(new_visit_ended_at, es.last_successful_visit))
         FROM existing_session AS es
-        WHERE so.peer_id = es.peer_id AND new_error IS NULL
+        WHERE so.id = es.id AND new_error IS NULL
         RETURNING so.id
     ), update_open_session_error AS (
         UPDATE sessions_open AS so
@@ -91,7 +91,7 @@ $upsert_session$
             finish_reason            = new_error,
             next_visit_due_at        = new_visit_ended_at + mfv.max_visits * '1m'::INTERVAL
         FROM existing_session AS es INNER JOIN max_failed_visits AS mfv USING (id)
-        WHERE so.peer_id = es.peer_id AND es.state = 'open' AND new_error IS NOT NULL AND mfv.max_visits > 0
+        WHERE so.id = es.id AND es.state = 'open' AND new_error IS NOT NULL AND mfv.max_visits > 0
         RETURNING so.id
     ), update_pending_session_error AS (
         UPDATE sessions_open AS so
@@ -101,7 +101,7 @@ $upsert_session$
             updated_at               = NOW(),
             next_visit_due_at        = (SELECT calc_next_visit(new_visit_ended_at, es.last_successful_visit))
         FROM existing_session AS es INNER JOIN max_failed_visits AS mfv USING (id)
-        WHERE so.peer_id = es.peer_id AND es.state = 'pending' AND new_error IS NOT NULL AND es.failed_visits_count < mfv.max_visits
+        WHERE so.id = es.id AND es.state = 'pending' AND new_error IS NOT NULL AND es.failed_visits_count < mfv.max_visits
         RETURNING so.id
     ), close_session_error AS (
         UPDATE sessions AS s
@@ -115,7 +115,7 @@ $upsert_session$
             finish_reason            = COALESCE(es.finish_reason, new_error),
             next_visit_due_at        = NULL
         FROM existing_session AS es INNER JOIN max_failed_visits AS mfv USING (id)
-        WHERE s.peer_id = es.peer_id AND es.state != 'closed' AND new_error IS NOT NULL
+        WHERE s.id = es.id AND es.state != 'closed' AND new_error IS NOT NULL
             AND NOT EXISTS (SELECT NULL FROM update_session_no_error)
             AND NOT EXISTS (SELECT NULL FROM update_open_session_error)
             AND NOT EXISTS (SELECT NULL FROM update_pending_session_error)
