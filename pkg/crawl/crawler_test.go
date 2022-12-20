@@ -35,7 +35,7 @@ func TestCrawler_StartCrawling_stopsOnShutdown(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go crawler.StartCrawling(ctx, queue.NewFIFO(), queue.NewFIFO())
+	go crawler.StartCrawling(ctx, queue.NewFIFO[peer.AddrInfo](), queue.NewFIFO[Result]())
 
 	time.Sleep(time.Millisecond * 100)
 

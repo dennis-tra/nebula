@@ -28,7 +28,7 @@ func TestClient_AddrCountry(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s | iso: %s | err: %v", tt.addr, tt.want, tt.wantErr), func(t *testing.T) {
-			got, err := client.AddrCountry(tt.addr)
+			got, _, err := client.AddrGeoInfo(tt.addr)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -80,8 +80,6 @@ func TestClient_MaddrCountry(t *testing.T) {
 	}{
 		{addr: "/ip4/46.17.96.99/tcp/6666/p2p/Qme8g49gm3q4Acp7xWBKg3nAa9fxZ1YmyDJdyGgoG6LsXh/p2p-circuit", wantAddr: "46.17.96.99", wantCountry: "NL", wantErr: false},
 		{addr: "/p2p-circuit/p2p/QmPG5bax9kfpQUVDrzfahmh44Ab6egDeZ2QDWeTY279HLJ", wantAddr: "", wantCountry: "", wantErr: true},
-		{addr: "/dnsaddr/bootstrap.libp2p.io", wantAddr: "147.75.109.29", wantCountry: "US", wantErr: false},
-		//{addr: "/dns4/k8s-dev-ipfsp2pt-c0b76d02d7-969229bd37f82282.elb.ca-central-1.amazonaws.com/tcp/4001", want: "", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s | iso: %s | err: %v", tt.addr, tt.wantCountry, tt.wantErr), func(t *testing.T) {
@@ -93,7 +91,7 @@ func TestClient_MaddrCountry(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.wantCountry, got[tt.wantAddr])
+				assert.Equal(t, tt.wantCountry, got[tt.wantAddr].Country)
 			}
 		})
 	}

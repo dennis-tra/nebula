@@ -37,7 +37,7 @@ database-test:
 	docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password_test -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test postgres:14
 
 models:
-	sqlboiler psql
+	sqlboiler --no-tests psql
 
 migrate-up:
 	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path pkg/db/migrations up

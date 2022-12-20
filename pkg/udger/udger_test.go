@@ -9,7 +9,8 @@ import (
 )
 
 func TestClient_Datacenter(t *testing.T) {
-	client, err := NewClient("")
+	t.Skip("Skipping per default as its not a given that the Udger DB is present.")
+	client, err := NewClient("./udgerdb_v3.dat")
 	require.NoError(t, err)
 
 	tests := []struct {

@@ -38,6 +38,8 @@ func TestInit_BootstrapPeers(t *testing.T) {
 	config, teardown := setup(t)
 	defer teardown(t)
 
+	config.configureNetwork()
+
 	assert.Greater(t, len(config.BootstrapPeers), 0)
 }
 
