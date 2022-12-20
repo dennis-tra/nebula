@@ -498,6 +498,32 @@ func (c *Client) fillAgentVersionsCache(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID null.Int) (int, error) {
+	rows, err := queries.Raw("SELECT upsert_peer($1, $2, $3)",
+		mh, agentVersionID, protocolSetID,
+	).Query(c.dbh)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.WithError(err).Warnln("Could not close rows")
+		}
+	}()
+
+	id := 0
+	if !rows.Next() {
+		return id, nil
+	}
+
+	if err = rows.Scan(&id); err != nil {
+		return 0, err
+	}
+
+	return id, nil
+}
+
 func (c *Client) PersistDialVisit(
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,

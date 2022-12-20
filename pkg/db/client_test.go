@@ -10,6 +10,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
@@ -551,6 +552,62 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	count, err := models.Sessions().Count(ctx, client.Handle())
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), count)
+}
+
+func TestClient_UpsertPeer(t *testing.T) {
+	ctx, client, teardown := setup(t)
+	defer teardown(t)
+
+	dbAgentVersionID, err := client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-1")
+	require.NoError(t, err)
+
+	dbProtocolsSetID, err := client.GetOrCreateProtocolsSetID(ctx, client.Handle(), []string{"protocol-1", "protocol-2"})
+	require.NoError(t, err)
+
+	peerID, err := lp2ptest.RandPeerID()
+	require.NoError(t, err)
+
+	dbPeerID, err := client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil))
+	require.NoError(t, err)
+	assert.NotZero(t, dbPeerID)
+
+	dbPeer := fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.True(t, dbPeer.AgentVersionID.IsZero())
+	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
+
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(nil))
+	require.NoError(t, err)
+
+	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
+	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
+
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID))
+	require.NoError(t, err)
+
+	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
+	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil))
+	require.NoError(t, err)
+
+	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
+	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+
+	dbAgentVersionID, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-2")
+	require.NoError(t, err)
+
+	dbProtocolsSetID, err = client.GetOrCreateProtocolsSetID(ctx, client.Handle(), []string{"protocol-3", "protocol-2"})
+	require.NoError(t, err)
+
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(dbProtocolsSetID))
+	require.NoError(t, err)
+
+	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
+	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
 }
 
 func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbPeerID int) *models.Peer {

@@ -30,7 +30,7 @@ BEGIN
         VALUES (NEW.id, 'protocols_set_id', OLD.protocols_set_id, NEW.protocols_set_id, NOW());
     END IF;
 
-    RETURN NULL;
+    RETURN NEW;
 END;
 $$ LANGUAGE 'plpgsql';
 
