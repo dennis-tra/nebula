@@ -247,7 +247,7 @@ To install the necessary tools you can run `make tools`. This will use the `go i
 
 ### Database
 
-You need a running postgres instance to persist and/or read the crawl results. Use the following command to start a local instance of postgres:
+You need a running postgres instance to persist and/or read the crawl results. Run `make database` or use the following command to start a local instance of postgres:
 
 ```shell
 docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14
@@ -275,12 +275,21 @@ make migrate-up # runs: migrate -database 'postgres://nebula:password@localhost:
 make migrate-down # runs: migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path migrations down
 
 # Generate the ORM with SQLBoiler
-make models # runs: sqlboiler psql
+make models # runs: sqlboiler
 # This will update all files in the `pkg/models` directory.
 ```
 ```shell
 # Create new migration
 migrate create -ext sql -dir migrations -seq some_migration_name
+```
+
+### Tests
+
+To run the tests you need a running test database instance:
+
+```shell
+make database-test
+go test ./...
 ```
 
 ## Deployment
