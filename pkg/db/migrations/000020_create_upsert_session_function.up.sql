@@ -80,10 +80,10 @@ $upsert_session$
         FROM existing_session AS es
         WHERE so.id = es.id AND new_error IS NULL
         RETURNING so.id
-    ), update_open_session_error AS (
-        UPDATE sessions_open AS so
+), update_open_session_error AS (
+    UPDATE sessions_open AS so
         SET state                    = 'pending',
-            first_failed_visit       = new_visit_ended_at,
+            first_failed_visit       = new_visit_started_at,
             last_failed_visit        = new_visit_ended_at,
             last_visited_at          = new_visit_ended_at,
             failed_visits_count      = es.failed_visits_count + 1,
@@ -106,7 +106,7 @@ $upsert_session$
     ), close_session_error AS (
         UPDATE sessions AS s
         SET state                    = 'closed',
-            first_failed_visit       = COALESCE(es.first_failed_visit, new_visit_ended_at),
+            first_failed_visit       = COALESCE(es.first_failed_visit, new_visit_started_at),
             last_failed_visit        = new_visit_ended_at,
             last_visited_at          = new_visit_ended_at,
             failed_visits_count      = es.failed_visits_count + 1,
