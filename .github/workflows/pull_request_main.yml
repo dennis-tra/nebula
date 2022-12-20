@@ -1,0 +1,49 @@
+name: Run Code Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Testing
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - "2345:5432"
+        env:
+          POSTGRES_PASSWORD: password_test
+          POSTGRES_USER: nebula_test
+          POSTGRES_DB: nebula_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checking out repository code
+        uses: actions/checkout@v3
+
+      - name: Setting up Golang
+        uses: actions/setup-go@v3
+        with:
+          go-version: ~1.19
+
+      - name: Caching Golang modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-golang-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golang-
+
+      - name: Running tests
+        run: go test ./...
