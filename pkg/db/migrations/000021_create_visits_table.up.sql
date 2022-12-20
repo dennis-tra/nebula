@@ -50,7 +50,7 @@ CREATE TABLE visits
     CONSTRAINT fk_visits_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
     -- The crawl ID should always point to an existing crawl in the DB
     CONSTRAINT fk_visits_crawl_id FOREIGN KEY (crawl_id) REFERENCES crawls (id) ON DELETE SET NULL,
-    -- The session ID should always point to an existing session instance in the DB
+    -- The agent version ID should always point to an existing agent version in the DB
     CONSTRAINT fk_visits_agent_version_id FOREIGN KEY (agent_version_id) REFERENCES agent_versions (id) ON DELETE SET NULL,
     -- The protocol set ID should always point to an existing protocol set in the DB
     CONSTRAINT fk_visits_protocols_set_id FOREIGN KEY (protocols_set_id) REFERENCES protocols_sets (id) ON DELETE SET NULL,
