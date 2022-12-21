@@ -34,8 +34,8 @@ var ResolveCommand = &cli.Command{
 			Name:        "batch-size",
 			Usage:       "How many database entries should be fetched at each iteration",
 			EnvVars:     []string{"NEBULA_RESOLVE_BATCH_SIZE"},
-			DefaultText: "100",
-			Value:       100,
+			DefaultText: "1000",
+			Value:       1000,
 		},
 	},
 }
