@@ -7,9 +7,13 @@
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
-A libp2p DHT crawler that also monitors the liveness and availability of peers. The crawler connects to the standard [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap nodes and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. Currently I'm running it for the IPFS and Filecoin networks.
+A libp2p DHT crawler and monitor that tracks the liveness and availability of peers. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap peers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the [IPFS](https://ipfs.network), [Filecoin](https://filecoin.io), [Polkadot](https://polkadot.network/), and [Kusama](https://kusama.network/) networks.
 
-🏆 _The crawler was awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
+_The crawler was:_
+
+- 🏆 _awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
+- 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
+
 
 📊 A Demo Dashboard can be found [here](http://162.55.187.75:3000/d/CSQsORs7k/nebula)! 📊
 
@@ -20,11 +24,14 @@ A libp2p DHT crawler that also monitors the liveness and availability of peers. 
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
-  - [`crawl`](#crawl) | [`monitor`](#monitor)| [`resolve`](#resolve)
+  - [`crawl`](#crawl)
+  - [`monitor`](#monitor)
+  - [`resolve`](#resolve)
 - [Install](#install)
-  - [Release download](#release-download) | [From source](#from-source)
+  - [From source](#from-source)
 - [Development](#development)
   - [Database](#database)
+  - [Tests](#tests)
 - [Deployment](#deployment)
 - [Analysis](#analysis)
 - [Related Efforts](#related-efforts)
