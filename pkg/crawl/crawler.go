@@ -196,8 +196,19 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*Routin
 				return errors.Wrapf(err, "generating random peer ID with CPL %d", count)
 			}
 
-			neighbors, err := c.pm.GetClosestPeers(ctx, pi.ID, rpi)
-			if err != nil {
+			var neighbors []*peer.AddrInfo
+			for retry := 0; retry < 2; retry++ {
+				neighbors, err = c.pm.GetClosestPeers(ctx, pi.ID, rpi)
+				if err == nil {
+					break
+				}
+
+				if utils.IsResourceLimitExceeded(err) {
+					// other node has indicated that it's out of resources. Wait a bit and try again.
+					time.Sleep(time.Second * time.Duration(5*(retry+1))) // may add jitter here
+					continue
+				}
+
 				errorBits.Add(1 << count)
 				return errors.Wrapf(err, "getting closest peer with CPL %d", count)
 			}

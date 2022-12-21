@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"strings"
+
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
@@ -39,4 +42,8 @@ func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	}
 
 	return filtered
+}
+
+func IsResourceLimitExceeded(err error) bool {
+	return err != nil && strings.HasSuffix(err.Error(), network.ErrResourceLimitExceeded.Error())
 }
