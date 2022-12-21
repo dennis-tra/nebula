@@ -70,6 +70,8 @@ const (
 	NetErrorHostIsDown                 string = "host_is_down"
 	NetErrorNegotiateSecurityProtocol  string = "negotiate_security_protocol"
 	NetErrorNegotiateStreamMultiplexer string = "negotiate_stream_multiplexer"
+	NetErrorResourceLimitExceeded      string = "resource_limit_exceeded"
+	NetErrorWriteOnStream              string = "write_on_stream"
 )
 
 func AllNetError() []string {
@@ -91,6 +93,8 @@ func AllNetError() []string {
 		NetErrorHostIsDown,
 		NetErrorNegotiateSecurityProtocol,
 		NetErrorNegotiateStreamMultiplexer,
+		NetErrorResourceLimitExceeded,
+		NetErrorWriteOnStream,
 	}
 }
 

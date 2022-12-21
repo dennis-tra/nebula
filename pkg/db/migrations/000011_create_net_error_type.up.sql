@@ -18,7 +18,9 @@ CREATE TYPE net_error AS ENUM (
     'stream_reset',
     'host_is_down',
     'negotiate_security_protocol',
-    'negotiate_stream_multiplexer'
+    'negotiate_stream_multiplexer',
+    'resource_limit_exceeded',
+    'write_on_stream'
     );
 
 COMMENT ON TYPE net_error IS 'The different types of errors that can happen when trying to dial or crawl a remote peer.';

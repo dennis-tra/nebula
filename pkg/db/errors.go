@@ -25,6 +25,8 @@ var KnownErrors = map[string]string{
 	models.NetErrorStreamReset:                "stream reset",
 	models.NetErrorNegotiateSecurityProtocol:  "failed to negotiate security protocol",
 	models.NetErrorNegotiateStreamMultiplexer: "failed to negotiate stream multiplexer",
+	models.NetErrorResourceLimitExceeded:      "resource limit exceeded",
+	models.NetErrorWriteOnStream:              "Write on stream",
 }
 
 // NetError extracts the appropriate error type from the given error.
@@ -38,5 +40,6 @@ func NetError(err error) string {
 			return key
 		}
 	}
+
 	return models.NetErrorUnknown
 }
