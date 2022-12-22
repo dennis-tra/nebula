@@ -17,7 +17,7 @@ def plot_crawl_properties(df: pd.DataFrame) -> plt.Figure:
         .sum(numeric_only=True) \
         .sort_values(['started_at', 'count'], ascending=False)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[15, 5], dpi=300)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[15, 5], dpi=150)
 
     for name in sorted(group["agent_name"].unique()):
         data = group[group["agent_name"] == name]

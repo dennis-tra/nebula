@@ -4,6 +4,7 @@ from pandas.io.formats.style import jinja2
 
 from lib import DBClient, lib_plot, NodeClassification
 from lib.lib_fmt import fmt_thousands
+from lib.lib_udger import UdgerClient
 
 from plots import *
 
@@ -16,10 +17,11 @@ def generate_ipfs_report():
     year = now.year
     calendar_week = now.isocalendar().week - 1
     db_client = DBClient(year=year, calendar_week=calendar_week)
+    udger_client = UdgerClient()
 
     ### TEMPORARY START
-    db_client.start_date = dt.datetime.strptime(f"2022-12-14 12:57:30", "%Y-%m-%d %H:%M:%S")
-    db_client.end_date = dt.datetime.strptime(f"2022-12-19 00:00:00", "%Y-%m-%d %H:%M:%S")
+    db_client.start_date = dt.datetime.strptime(f"2022-12-21 11:00:30", "%Y-%m-%d %H:%M:%S")
+    db_client.end_date = dt.datetime.strptime(f"2022-12-26 14:00:00", "%Y-%m-%d %H:%M:%S")
 
     db_client.start = f"'{db_client.start_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
     db_client.end = f"'{db_client.end_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
@@ -106,6 +108,40 @@ def generate_ipfs_report():
     peer_id_agents = db_client.get_peer_id_agent_versions()
     fig = plot_geo_agents(peer_id_agents, countries)
     lib_plot.savefig(fig, "geo-peer-agents", calendar_week=calendar_week)
+
+    ##################################
+    data = db_client.get_overall_cloud_distribution()
+    data["datacenter"] = data.apply(lambda row: udger_client.get_datacenter(row["datacenter_id"]).name if udger_client.get_datacenter(row["datacenter_id"]) is not None else "Non-Datacenter", axis=1)
+    data = data.drop(columns=["datacenter_id"])
+    fig = plot_cloud_overall(data)
+    lib_plot.savefig(fig, "cloud-overall", calendar_week=calendar_week)
+
+    ##################################
+    peer_id_clouds = db_client.get_peer_id_cloud_distribution()
+    peer_id_agents = db_client.get_peer_id_agent_versions()
+    peer_id_clouds["datacenter"] = peer_id_clouds.apply(lambda row: udger_client.get_datacenter(row["datacenter_id"]).name if udger_client.get_datacenter(row["datacenter_id"]) is not None else "Non-Datacenter", axis=1)
+    peer_id_clouds = peer_id_clouds.drop(columns=["datacenter_id"])
+    fig = plot_cloud_agents(peer_id_agents, peer_id_clouds)
+    lib_plot.savefig(fig, "cloud-agents", calendar_week=calendar_week)
+
+    ##################################
+    node_classes = [
+        NodeClassification.DANGLING,
+        NodeClassification.ONLINE,
+        NodeClassification.ONEOFF,
+        NodeClassification.ENTERED,
+        NodeClassification.LEFT,
+    ]
+    clouds_distributions = {}
+    for node_class in node_classes:
+        peer_ids = db_client.node_classification_funcs[node_class]()
+        data = peer_id_clouds[peer_id_clouds["peer_id"].isin(peer_ids)]
+        data = data.groupby(by="datacenter", as_index=False).count().sort_values('peer_id', ascending=False).reset_index(drop=True)
+        data = data.rename(columns={'peer_id': 'count'})
+        clouds_distributions[node_class] = data
+
+    fig = plot_cloud_classification(clouds_distributions)
+    lib_plot.savefig(fig, "cloud-classification", calendar_week=calendar_week)
 
     loader = jinja2.FileSystemLoader(searchpath="./")
     env = jinja2.Environment(loader=loader)

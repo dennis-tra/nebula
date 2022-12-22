@@ -16,7 +16,7 @@ def data_node_classifications(db_client: DBClient):
 
 
 def plot_peer_classifications(all_peer_ids: list[int], data: OrderedDict) -> plt.Figure:
-    fig, ax = plt.subplots(figsize=[10, 5], dpi=300)
+    fig, ax = plt.subplots(figsize=[10, 5], dpi=150)
     sns.barplot(ax=ax, x=list(data.keys()), y=list(data.values()))
     ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
     ax.bar_label(ax.containers[0], list(map(fmt_percentage(len(all_peer_ids)), data.values())))

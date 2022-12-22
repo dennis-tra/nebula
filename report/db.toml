@@ -1,6 +1,0 @@
-[psql]
-host = "localhost"
-port = 5433
-database = "nebula_ipfs_2022_12_21"
-user = "nebula_ipfs_ro"
-password = "WD89VYjCFYtDrZCRrj"

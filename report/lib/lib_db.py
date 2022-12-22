@@ -660,7 +660,6 @@ class DBClient:
 
         return pd.DataFrame(cur.fetchall(), columns=['peer_id', 'agent_version', 'is_storm'])
 
-
     @cache()
     def get_agent_versions_for_peer_ids(self, peer_ids: list[int]) -> pd.DataFrame:  # DONE
         """
@@ -837,88 +836,77 @@ class DBClient:
         return pd.DataFrame(cur.fetchall(), columns=["peer_id", "agent_version", "inter_arrival_time"])
 
     @cache()
-    def get_ip_addresses_for_peer_ids(self, peer_ids):
-        print("Getting ip addresses for peer IDs...")
+    def get_overall_cloud_distribution(self) -> pd.DataFrame:
+        """
+        get_overall_cloud_distribution returns the UdgerDB datacenter IDs ordered by their occurrences in
+        the specified time interval.
+        """
+        print(f"Getting overall cloud distribution...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
             WITH cte AS (
-                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+                SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
                 FROM visits v
-                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                  AND v.peer_id IN ({self.fmt_list(peer_ids)})
-                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+                WHERE v.visit_started_at >= {self.start}
+                  AND v.visit_started_at < {self.end}
+                GROUP BY v.peer_id, unnest(v.multi_address_ids)
+            ), cte_2 AS (
+                SELECT ma.is_cloud datacenter_id, ma.addr as ip_address
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                WHERE ma.has_many_addrs IS FALSE AND ma.country IS NOT NULL AND ma.is_relay IS FALSE AND is_public
+                UNION
+                SELECT ia.is_cloud datacenter_id, ia.address as ip_address
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                    INNER JOIN ip_addresses ia on ma.id = ia.multi_address_id
+                WHERE ma.has_many_addrs IS TRUE AND ma.is_relay IS FALSE AND is_public
             )
-            SELECT DISTINCT ia.address
-            FROM multi_addresses ma
-                    INNER JOIN cte ON cte.multi_address_id = ma.id
-                    INNER JOIN multi_addresses_x_ip_addresses maxia on ma.id = maxia.multi_address_id
-                    INNER JOIN ip_addresses ia ON maxia.ip_address_id = ia.id
+            SELECT cte_2.datacenter_id, count(DISTINCT cte_2.ip_address) count
+            FROM cte_2
+            GROUP BY cte_2.datacenter_id
+            ORDER BY count DESC
             """
         )
-        return cur.fetchall()
+
+        return pd.DataFrame(cur.fetchall(), columns=["datacenter_id", "count"])
 
     @cache()
-    def get_no_public_ip_peer_ids(self) -> list[int]:  #
+    def get_peer_id_cloud_distribution(self) -> pd.DataFrame:
         """
-        get_no_public_ip_peer_ids returns the set of **database** peer IDs that
-        didn't have a public IP address throughout the specified time interval.
-        Still don't know how this is possible...
+        get_overall_cloud_distribution returns the UdgerDB datacenter IDs ordered by their occurrences in
+        the specified time interval.
         """
-        print("Getting database peer IDs with no public IP in specified time interval...")
+        print(f"Getting peer id cloud distribution...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT DISTINCT peer_id 
-            FROM visits v
-            WHERE v.created_at > {self.start}
-              AND v.created_at < {self.end}
-              AND v.multi_addresses_set_id IS NULL
-              AND peer_id NOT IN (
-                SELECT DISTINCT peer_id from visits v
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                  AND v.multi_addresses_set_id IS NOT NULL
-                );
-            """
-        )
-        return DBClient.__flatten(cur.fetchall())
-
-    @cache()
-    def get_unresolved_peer_ids(self) -> list[int]:  #
-        """
-        get_unresolved_peer_ids returns the set of **database** peer IDs that
-        had a public IP address but weren't or couldn't be resolved to an IP address.
-        """
-        print("Getting unresolved database peer IDs in specified time interval...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            WITH peer_maddrs AS (
-                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+            WITH cte AS (
+                SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
                 FROM visits v
-                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
-            ), peer_maddrs_resolved AS (
-                SELECT pm.peer_id, maxia.multi_address_id
-                FROM peer_maddrs pm
-                         LEFT JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
-                GROUP BY pm.peer_id, maxia.multi_address_id
+                WHERE v.visit_started_at >= {self.start}
+                  AND v.visit_started_at < {self.end}
+                GROUP BY v.peer_id, unnest(v.multi_address_ids)
+            ), cte_2 AS (
+                SELECT cte.peer_id, ma.is_cloud datacenter_id
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                WHERE ma.has_many_addrs IS FALSE AND ma.country IS NOT NULL AND ma.is_relay IS FALSE AND is_public
+                UNION
+                SELECT cte.peer_id, ia.is_cloud datacenter_id
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                    INNER JOIN ip_addresses ia on ma.id = ia.multi_address_id
+                WHERE ma.has_many_addrs IS TRUE AND ma.is_relay IS FALSE AND is_public
             )
-            SELECT DISTINCT peer_id
-            FROM peer_maddrs_resolved
-            WHERE peer_id NOT IN (
-                SELECT DISTINCT peer_id
-                FROM peer_maddrs_resolved
-                WHERE multi_address_id IS NOT NULL
-            )
+            SELECT cte_2.peer_id, cte_2.datacenter_id
+            FROM cte_2
+            GROUP BY cte_2.peer_id, cte_2.datacenter_id
             """
         )
-        return DBClient.__flatten(cur.fetchall())
+
+        return pd.DataFrame(cur.fetchall(), columns=["peer_id", "datacenter_id"])
 
     @cache()
     def get_countries(self) -> pd.DataFrame:
@@ -939,8 +927,8 @@ class DBClient:
             WITH cte AS (
                 SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
                 FROM visits v
-                WHERE v.visit_started_at >= '2022-12-12'::DATE
-                  AND v.visit_started_at < '2022-12-19'::DATE
+                WHERE v.visit_started_at >= {self.start}
+                  AND v.visit_started_at < {self.end}
                 GROUP BY v.peer_id, unnest(v.multi_address_ids)
             ), cte_2 AS (
                 SELECT cte.peer_id, ma.country
@@ -960,40 +948,6 @@ class DBClient:
             """
         )
         return pd.DataFrame(cur.fetchall(), columns=["peer_id", "country"])
-
-    @cache()
-    def get_countries_with_relays(self):
-        """
-        get_countries_with_relays returns a list of peer IDs and their corresponding countries if they happened
-        to have an IP address in in the specified time interval. Each peer ID can be associated
-        to many multi addresses which in turn are associated to many IP addresses. Often, the
-        number of associated ip addresses is smaller than the number of multi addresses as many
-        multi addresses only differ in the protocol being used. Even if there are multiple IP
-        addresses associated the number of different countries they are belonging to is often
-        smaller than the number of IP addresses as well.
-        This method INCLUDES peers that were only reachable via circuit relays.
-        """
-        print("Getting countries information (with relays)...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            WITH peer_maddrs AS (
-                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
-                FROM visits v
-                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
-            )
-            SELECT pm.peer_id, ia.country
-            FROM multi_addresses ma
-                     INNER JOIN peer_maddrs pm ON pm.multi_address_id = ma.id
-                     INNER JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
-                     INNER JOIN ip_addresses ia on maxia.ip_address_id = ia.id
-            GROUP BY pm.peer_id, ia.country
-            """
-        )
-        return cur.fetchall()
 
     @cache()
     def get_geo_ip_addresses(self):

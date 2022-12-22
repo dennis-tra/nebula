@@ -6,7 +6,7 @@ from lib.lib_fmt import fmt_thousands, fmt_barplot
 
 
 def plot_geo_classification(distributions) -> plt.Figure:
-    fig, axs = plt.subplots(2, 3, figsize=(15, 8))
+    fig, axs = plt.subplots(2, 3, figsize=[15, 8], dpi=150)
 
     for idx, node_class in enumerate(distributions):
         ax = axs[idx // 3][idx % 3]

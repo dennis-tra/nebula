@@ -21,7 +21,7 @@ def plot_churn(df: pd.DataFrame, max_hours: int) -> plt.Figure:
         kubo_version=lambda data_frame: data_frame.agent_version.apply(kubo_version),
     )
 
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5), dpi=300, sharey=True)
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5), dpi=150, sharey=True)
 
     # First plot
     data = cdf(df["uptime_in_h"])

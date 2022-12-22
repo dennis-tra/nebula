@@ -9,7 +9,7 @@ def plot_geo_unique_ip(df: pd.DataFrame) -> plt.Figure:
     result = df.nlargest(20, columns="count")
     result.loc[len(result)] = ['Rest', df.loc[~df["country"].isin(result["country"]), "count"].sum()]
 
-    fig, ax = plt.subplots(figsize=[15, 5], dpi=300)
+    fig, ax = plt.subplots(figsize=[15, 5], dpi=150)
 
     sns.barplot(ax=ax, x="country", y="count", data=result)
     fmt_barplot(ax, result["count"], result["count"].sum())

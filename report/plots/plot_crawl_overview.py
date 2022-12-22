@@ -6,7 +6,7 @@ from lib.lib_fmt import thousands_ticker_formatter
 
 def plot_crawl_overview(df: pd.DataFrame) -> plt.Figure:
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[15, 5], dpi=300)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=[15, 5], dpi=150)
 
     ax1.plot(df["started_at"], df["crawled_peers"], label="Total")
     ax1.plot(df["started_at"], df["dialable_peers"], label="Dialable")

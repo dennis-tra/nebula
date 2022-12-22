@@ -11,8 +11,9 @@ def plot_geo_agents(df: pd.DataFrame, countries: pd.DataFrame) -> plt.Figure:
         agent_name=lambda data_frame: data_frame.agent_version.apply(agent_name),
     )
 
-    fig, axs = plt.subplots(2, 3, figsize=(15, 9))
-    for idx, agent in enumerate(sorted(df["agent_name"].unique())):
+    unique = df["agent_name"].unique()
+    fig, axs = plt.subplots((len(unique) + 2) // 3, 3, figsize=(15, 9))
+    for idx, agent in enumerate(sorted(unique)):
         ax = fig.axes[idx]
 
         data = countries[countries["peer_id"].isin(df[df['agent_name'] == agent]["peer_id"])]

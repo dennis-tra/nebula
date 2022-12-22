@@ -2,48 +2,38 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from lib import lib_plot
-from lib.lib_agent import known_agents
-from lib.lib_db import DBClient
-from lib.lib_cloud import Cloud
-from lib.lib_fmt import fmt_barplot, fmt_thousands
+from lib.lib_agent import agent_name
+from lib.lib_fmt import fmt_thousands, thousands_ticker_formatter, fmt_percentage
 
 
-def main(db_client: DBClient, cloud_client: Cloud):
-    sns.set_theme()
+def plot_cloud_agents(df: pd.DataFrame, clouds: pd.DataFrame) -> plt.Figure:
+    df = df.assign(
+        agent_name=lambda data_frame: data_frame.agent_version.apply(agent_name),
+    )
 
-    ip_addresses = {}
-    for agent in known_agents:
-        peer_ids = set(db_client.get_peer_ids_for_agent_versions([agent]))
-        ip_addresses[agent] = db_client.get_ip_addresses_for_peer_ids(peer_ids)
+    unique = df["agent_name"].unique()
+    fig, axs = plt.subplots((len(unique) + 1) // 2, 2, figsize=[15, 10], dpi=150)
+    for idx, agent in enumerate(sorted(unique)):
+        ax = fig.axes[idx]
 
-    fig, axs = plt.subplots(2, 2, figsize=(15, 9))
+        data = clouds[clouds["peer_id"].isin(df[df['agent_name'] == agent]["peer_id"])]
+        data = data.groupby(by="datacenter", as_index=False).count().sort_values('peer_id',
+                                                                                 ascending=False).reset_index(drop=True)
+        data = data.rename(columns={'peer_id': 'count'})
 
-    for idx, agent in enumerate(ip_addresses):
-        data = ip_addresses[agent]
-        ax = axs[idx // 2][idx % 2]
+        result = data.nlargest(15, columns="count")
+        other_count = data.loc[~data["datacenter"].isin(result["datacenter"]), "count"].sum()
+        if other_count > 0:
+            result.loc[len(result)] = ["Other Datacenters", other_count]
 
-        results_df = pd.DataFrame(data, columns=["ip_address"]).assign(
-            cloud=lambda df: df.ip_address.apply(lambda ip: cloud_client.cloud_for(ip)),
-            count=lambda df: df.ip_address.apply(lambda ip: 1),
-        ).groupby(by='cloud', as_index=False).sum().sort_values('count', ascending=False)
+        sns.barplot(ax=ax, x="count", y="datacenter", data=result)
+        ax.bar_label(ax.containers[0], list(map(fmt_percentage(result["count"].sum()), result["count"])))
+        ax.get_xaxis().set_major_formatter(thousands_ticker_formatter)
+        ax.set_xlabel("Count")
+        ax.set_ylabel("")
+        ax.title.set_text(f"{agent} (Total {fmt_thousands(data['count'].sum())})")
 
-        sns.barplot(ax=ax, x="cloud", y="count", data=results_df)
-        fmt_barplot(ax, results_df["count"], results_df['count'].sum())
+    fig.suptitle(f"Datacenters by Agent Version")
+    fig.set_tight_layout(True)
 
-        ax.set_xlabel("")
-        ax.set_ylabel("Count")
-
-        ax.title.set_text(f"{agent} (Total {fmt_thousands(results_df['count'].sum())})")
-
-    plt.suptitle(f"Cloud Platform Distribution by Agent Version")
-
-    plt.tight_layout()
-    lib_plot.savefig(f"cloud-agents")
-    plt.show()
-
-
-if __name__ == '__main__':
-    db_client = DBClient()
-    cloud_client = Cloud()
-    main(db_client, cloud_client)
+    return fig

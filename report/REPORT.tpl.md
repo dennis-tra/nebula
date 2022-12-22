@@ -132,6 +132,16 @@ Peer classification:
 
 ![](./plots-{{ calendar_week }}/geo-peer-agents.png)
 
+## Datacenters
+
+### Overall
+
+![](./plots-{{ calendar_week }}/cloud-overall.png)
+
+### Agents
+
+![](./plots-{{ calendar_week }}/cloud-agents.png)
+
 ## Top Updating Peers
 
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |

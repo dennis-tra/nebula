@@ -17,7 +17,7 @@ def plot_agents_overall(df: pd.DataFrame) -> plt.Figure:
         .sort_values('count', ascending=False)
     agent_names_total = agent_names_df["count"].sum()
 
-    fig, ax = plt.subplots(figsize=[10, 5], dpi=300)
+    fig, ax = plt.subplots(figsize=[10, 5], dpi=150)
 
     peers_regular = agent_names_df[(agent_names_df["agent_name"] == "storm") | (agent_names_df["is_storm"] == False)].reset_index(drop=True)
     peers_storm = agent_names_df[(agent_names_df["agent_name"] != "storm") & (agent_names_df["is_storm"] == True)].reset_index(drop=True)

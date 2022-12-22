@@ -1,48 +1,30 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
 
-from lib import lib_plot
-from lib.lib_db import DBClient, NodeClassification
-from lib.lib_cloud import Cloud
-from lib.lib_fmt import fmt_barplot, fmt_thousands
+from lib.lib_fmt import fmt_thousands, thousands_ticker_formatter, fmt_percentage
 
 
-def main(db_client: DBClient, cloud_client: Cloud):
-    sns.set_theme()
+def plot_cloud_classification(distributions) -> plt.Figure:
+    fig, axs = plt.subplots(3, 2, figsize=[15, 10], dpi=150)
 
-    ip_addresses = {}
-    for node_class in NodeClassification:
-        peer_ids = db_client.node_classification_funcs[node_class]()
-        ip_addresses[node_class] = db_client.get_ip_addresses_for_peer_ids(peer_ids)
+    for idx, node_class in enumerate(distributions):
+        ax = fig.axes[idx]
+        data = distributions[node_class]
 
-    fig, axs = plt.subplots(2, 3, figsize=(15, 8))
+        result = data.nlargest(15, columns="count")
+        other_count = data.loc[~data["datacenter"].isin(result["datacenter"]), "count"].sum()
+        if other_count > 0:
+            result.loc[len(result)] = ["Other Datacenters", other_count]
 
-    for idx, node_class in enumerate(ip_addresses):
-        data = ip_addresses[node_class]
-        ax = axs[idx // 3][idx % 3]
+        sns.barplot(ax=ax, x="count", y="datacenter", data=result)
+        ax.bar_label(ax.containers[0], list(map(fmt_percentage(result["count"].sum()), result["count"])))
+        ax.get_xaxis().set_major_formatter(thousands_ticker_formatter)
+        ax.set_xlabel("Count")
+        ax.set_ylabel("")
+        ax.title.set_text(f"{node_class.name.lower()} (Total {fmt_thousands(data['count'].sum())})")
 
-        results_df = pd.DataFrame(data, columns=["ip_address"]).assign(
-            cloud=lambda df: df.ip_address.apply(lambda ip: cloud_client.cloud_for(ip)),
-            count=lambda df: df.ip_address.apply(lambda ip: 1),
-        ).groupby(by='cloud', as_index=False).sum().sort_values('count', ascending=False)
+    fig.suptitle(f"Datacenter Distributions by Node Classification")
 
-        sns.barplot(ax=ax, x="cloud", y="count", data=results_df)
-        fmt_barplot(ax, results_df["count"], results_df['count'].sum())
+    fig.set_tight_layout(True)
 
-        ax.set_xlabel("")
-        ax.set_ylabel("Count")
-
-        ax.title.set_text(f"{node_class.value} (Total {fmt_thousands(results_df['count'].sum())})")
-
-    plt.suptitle(f"Cloud Platform Distribution by Node Classification")
-
-    plt.tight_layout()
-    lib_plot.savefig(f"cloud-classification")
-    plt.show()
-
-
-if __name__ == '__main__':
-    db_client = DBClient()
-    cloud_client = Cloud()
-    main(db_client, cloud_client)
+    return fig

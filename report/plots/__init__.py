@@ -9,3 +9,6 @@ from .plot_geo_unique_ip import plot_geo_unique_ip
 from .plot_geo_classification import plot_geo_classification
 from .plot_geo_agents import plot_geo_agents
 from .plot_agents_classification import plot_agents_classification
+from .plot_cloud_overall import plot_cloud_overall
+from .plot_cloud_agents import plot_cloud_agents
+from .plot_cloud_classification import plot_cloud_classification

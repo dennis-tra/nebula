@@ -41,7 +41,7 @@ def plot_agents_kubo(df: pd.DataFrame, include_storm=True):
     else:
         kubo_versions_total = df['count'].sum()
 
-    fig, ax = plt.subplots(figsize=[10, 5], dpi=300)
+    fig, ax = plt.subplots(figsize=[10, 5], dpi=150)
 
     p1 = ax.barh(df["minor"], df["count"])
     ax.set_yticks(df["minor"], labels=[f"0.{minor}.x" for minor in df["minor"]])
