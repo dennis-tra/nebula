@@ -245,7 +245,7 @@ class DBClient:
                             columns=["ip_address", "country", "peer_id_count", "agent_versions", "is_datacenter_ip"])
 
     @cache()
-    def get_top_updating_nodes(self, limit=10) -> pd.DataFrame:
+    def get_top_updating_peers(self, limit=10) -> pd.DataFrame:
         """
         get_top_updating_hosts returns the top hosts that were observed
         with different agent versions.

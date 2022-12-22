@@ -33,7 +33,7 @@ def generate_ipfs_report():
     ip_address_count = db_client.get_ip_addresses_count()
 
     top_rotating_nodes = db_client.get_top_rotating_nodes()
-    top_updating_nodes = db_client.get_top_updating_nodes()
+    top_updating_peers = db_client.get_top_updating_peers()
 
     ##################################
     df = db_client.get_agent_versions_distribution()
@@ -52,13 +52,15 @@ def generate_ipfs_report():
         NodeClassification.ENTERED
     ]
 
+    agents = {}
     for node_class in node_classes:
         peer_ids = db_client.node_classification_funcs[node_class]()
         df = db_client.get_agent_versions_for_peer_ids(peer_ids)
         if len(df) == 0:
             continue
-        fig = plot_agents_overall(df)
-        lib_plot.savefig(fig, f"agents-{str(node_class.name).lower()}", db_client.calendar_week)
+        agents[node_class.name] = df
+    fig = plot_agents_classification(agents)
+    lib_plot.savefig(fig, f"agents-classification", db_client.calendar_week)
 
     ##################################
     all_peer_ids, data = data_node_classifications(db_client)
@@ -105,7 +107,6 @@ def generate_ipfs_report():
     fig = plot_geo_agents(peer_id_agents, countries)
     lib_plot.savefig(fig, "geo-peer-agents", calendar_week=calendar_week)
 
-
     loader = jinja2.FileSystemLoader(searchpath="./")
     env = jinja2.Environment(loader=loader)
     template = env.get_template("REPORT.tpl.md")
@@ -122,7 +123,7 @@ def generate_ipfs_report():
         new_protocols=db_client.get_new_protocols(),
         top_rotating_nodes=top_rotating_nodes,
         ip_address_count=fmt_thousands(ip_address_count),
-        top_updating_nodes=top_updating_nodes,
+        top_updating_peers=top_updating_peers,
     )
 
     with open(f"report-{calendar_week}.md", "w") as f:

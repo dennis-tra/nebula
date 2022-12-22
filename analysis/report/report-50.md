@@ -16,6 +16,7 @@ The following results show measurement data that were collected in calendar week
 
 - Number of crawls `230`
 - Number of visits `17,853,798`
+  > Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring process tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur.
 - Number of unique peer IDs visited `39,501`
 - Number of unique IP addresses found `58,707`
 
@@ -169,21 +170,13 @@ Peer classification:
 
 > Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
 
-### Dangling Nodes Only
+### Kubo
 
-![](./plots-50/agents-dangling.png)
+![](./plots-50/agents-kubo.png)
 
-### Online Nodes Only
+### Classification
 
-![](./plots-50/agents-online.png)
-
-### Oneoff Nodes Only
-
-![](./plots-50/agents-oneoff.png)
-
-### Entered Nodes Only
-
-![](./plots-50/agents-entered.png)
+![](./plots-50/agents-classification.png)
 
 ## Geo location
 
@@ -198,23 +191,6 @@ Peer classification:
 ### Agents
 
 ![](./plots-50/geo-peer-agents.png)
-
-## Cloud
-
-The number next to `Total` indicates the number of unique IP addresses that went into this calculation.
-
-### All
-
-![](./plots-50/cloud-all.png)
-
-### Classification
-
-![](./plots-50/cloud-classification.png)
-
-### Agents
-
-![](./plots-50/cloud-agents.png)
-
 
 ## Top Updating Peers
 
@@ -231,11 +207,7 @@ The number next to `Total` indicates the number of unique IP addresses that went
  
 - `# Final AV` - The last agent version that was observed in this measurement period
 - `# Transitions` - How often did this particular peer change its agent version
-- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times)
-
-## Terminology
-
-- `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur. 
+- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times) 
 
 ### Node classification:
 

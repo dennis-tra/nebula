@@ -8,3 +8,4 @@ from .plot_inter_arrival_time import plot_inter_arrival_time
 from .plot_geo_unique_ip import plot_geo_unique_ip
 from .plot_geo_classification import plot_geo_classification
 from .plot_geo_agents import plot_geo_agents
+from .plot_agents_classification import plot_agents_classification

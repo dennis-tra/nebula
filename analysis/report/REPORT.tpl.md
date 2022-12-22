@@ -94,21 +94,13 @@ Peer classification:
 
 > Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
 
-### Dangling Nodes Only
+### Kubo
 
-![](./plots-{{ calendar_week }}/agents-dangling.png)
+![](./plots-{{ calendar_week }}/agents-kubo.png)
 
-### Online Nodes Only
+### Classification
 
-![](./plots-{{ calendar_week }}/agents-online.png)
-
-### Oneoff Nodes Only
-
-![](./plots-{{ calendar_week }}/agents-oneoff.png)
-
-### Entered Nodes Only
-
-![](./plots-{{ calendar_week }}/agents-entered.png)
+![](./plots-{{ calendar_week }}/agents-classification.png)
 
 ## Geo location
 
@@ -124,28 +116,11 @@ Peer classification:
 
 ![](./plots-{{ calendar_week }}/geo-peer-agents.png)
 
-## Cloud
-
-The number next to `Total` indicates the number of unique IP addresses that went into this calculation.
-
-### All
-
-![](./plots-{{ calendar_week }}/cloud-all.png)
-
-### Classification
-
-![](./plots-{{ calendar_week }}/cloud-classification.png)
-
-### Agents
-
-![](./plots-{{ calendar_week }}/cloud-agents.png)
-
-
-## Top Updating Peers
+## Top Updating Nodes
 
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
-|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_nodes %}
-| `{{ tuh[1][:16] }}...` | `{{ tuh[2] }}` | {{ tuh[3] }}  | {{ '<br/>'.join(tuh[4]) }} | {{ tuh[5] }} |{% endfor %}
+|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for _, tup in top_updating_peers.iterrows() %}
+| `{{ tup["peer_id"][:16] }}...` | `{{ tup["final_agent_version"] }}` | {{ tup["transition_count"] }}  | {{ '<br/>'.join(tup["distinct_agent_versions"]) }} | {{ tup["distinct_agent_versions_count"] }} |{% endfor %}
 
 > `AV` = `Agent Version`
  

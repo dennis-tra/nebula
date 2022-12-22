@@ -9,7 +9,6 @@ from lib.lib_fmt import fmt_thousands, fmt_barplot
 def plot_geo_agents(df: pd.DataFrame, countries: pd.DataFrame) -> plt.Figure:
     df = df.assign(
         agent_name=lambda data_frame: data_frame.agent_version.apply(agent_name),
-        kubo_version=lambda data_frame: data_frame.agent_version.apply(kubo_version),
     )
 
     fig, axs = plt.subplots(2, 3, figsize=(15, 9))
