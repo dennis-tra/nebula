@@ -35,7 +35,7 @@ def main(db_client: DBClient):
 
     dial_results_df = pd.DataFrame(dial_results, columns=["ip_address", "dial_duration"])
 
-    with geoip2.database.Reader("../../pkg/maxmind/GeoLite2-Country.mmdb") as geoipreader:
+    with geoip2.database.Reader("./GeoLite2-Country.mmdb") as geoipreader:
         def determine_continent(address):
             try:
                 return geoipreader.country(address).continent.code

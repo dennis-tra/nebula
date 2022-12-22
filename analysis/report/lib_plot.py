@@ -1,11 +1,10 @@
-import os
+from pathlib import Path
 import matplotlib.pyplot as plt
 
 from lib_db import calendar_week
 
 
 def savefig(name: str):
-    dir_name = f"plots-{calendar_week}"
-    if not os.path.isdir(dir_name):
-        os.mkdir(dir_name)
+    dir_name = f"reports/plots-{calendar_week}"
+    Path(dir_name).mkdir(parents=True, exist_ok=True)
     plt.savefig(f"{dir_name}/{name}.png")

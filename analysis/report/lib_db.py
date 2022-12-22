@@ -11,7 +11,9 @@ from typing import TypeVar
 
 T = TypeVar('T')
 
-calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
+calendar = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar()
+calendar_week = calendar.week
+year = calendar.year
 
 
 class NodeClassification(Enum):

@@ -4,10 +4,7 @@ from datetime import datetime as dt
 
 from lib_cloud import Cloud
 from lib_fmt import fmt_thousands
-from lib_db import DBClient
-
-year = 2021
-calendar_week = (datetime.date.today() - datetime.timedelta(weeks=1)).isocalendar().week
+from lib_db import DBClient, calendar_week, year
 
 db_client = DBClient()
 cloud_client = Cloud()
@@ -211,5 +208,5 @@ outputText = template.render(
     top_updating_hosts=top_updating_hosts,
 )
 
-with open(f"report-{calendar_week}.md", "w") as f:
+with open(f"reports/report-{calendar_week}.md", "w") as f:
     f.write(outputText)
