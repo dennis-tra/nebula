@@ -6,9 +6,25 @@
   - [Agent Versions](#agent-versions)
   - [Protocols](#protocols)
   - [Classification](#classification)
+  - [Top 10 Rotating Nodes](#top-10-rotating-nodes)
   - [Crawls](#crawls)
     - [Overall](#overall)
     - [By Agent Version](#by-agent-version)
+- [Churn](#churn)
+- [Inter Arrival Time](#inter-arrival-time)
+- [Agent Version Analysis](#agent-version-analysis)
+  - [Overall](#overall-1)
+  - [Kubo](#kubo)
+  - [Classification](#classification-1)
+- [Geo location](#geo-location)
+  - [Unique IP Addresses](#unique-ip-addresses)
+  - [Classification](#classification-2)
+  - [Agents](#agents)
+- [Top Updating Peers](#top-updating-peers)
+  - [Node classification:](#node-classification)
+  - [IP Resolution Classification:](#ip-resolution-classification)
+  - [Cloud Providers](#cloud-providers)
+  - [Storm Specific Protocols](#storm-specific-protocols)
 
 ## General Information
 
@@ -29,7 +45,7 @@ Newly discovered agent versions:
 {% for _, row in new_agent_versions.iterrows() %}
 - `{{ row["agent_version"] }}` ({{ row["created_at"].strftime("%Y-%m-%d %H:%M:%S") }}){% endfor %}
 
-Agent versions that were found to support at least one [storm specific protocol](#storm-specific-protocol):
+Agent versions that were found to support at least one [storm specific protocol](#storm-specific-protocols):
 
 {% for av in storm_agent_versions %}
 - `{{ av }}`{% endfor %}
@@ -76,7 +92,7 @@ Peer classification:
 
 > Only the top 10 kubo versions appear in the right graph (due to lack of colors). The `0.8.x` versions do not contain disguised storm peers.
 
-> `storm*` are `go-ipfs/0.8.0/48f94e2` peers that support at least one [storm specific protocol](#storm-specific-protocol).
+> `storm*` are `go-ipfs/0.8.0/48f94e2` peers that support at least one [storm specific protocol](#storm-specific-protocols).
 
 ## Churn
 
@@ -116,11 +132,11 @@ Peer classification:
 
 ![](./plots-{{ calendar_week }}/geo-peer-agents.png)
 
-## Top Updating Nodes
+## Top Updating Peers
 
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
 |:----------------- |:------------ | ------------- |:------------ | -------------- |{% for _, tup in top_updating_peers.iterrows() %}
-| `{{ tup["peer_id"][:16] }}...` | `{{ tup["final_agent_version"] }}` | {{ tup["transition_count"] }}  | {{ '<br/>'.join(tup["distinct_agent_versions"]) }} | {{ tup["distinct_agent_versions_count"] }} |{% endfor %}
+| `{{ tup["multi_hash"][:16] }}...` | `{{ tup["final_agent_version"] }}` | {{ tup["transition_count"] }}  | {{ '<br/>'.join(tup["distinct_agent_versions"]) }} | {{ tup["distinct_agent_versions_count"] }} |{% endfor %}
 
 > `AV` = `Agent Version`
  
