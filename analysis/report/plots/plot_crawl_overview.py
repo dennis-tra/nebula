@@ -12,7 +12,7 @@ def plot_crawl_overview(df: pd.DataFrame) -> plt.Figure:
     ax1.plot(df["started_at"], df["dialable_peers"], label="Dialable")
     ax1.plot(df["started_at"], df["undialable_peers"], label="Undialable")
 
-    ax1.legend(loc='lower right', labels=["Total", "Dialable", "Undialable"])
+    ax1.legend(loc='lower left', labels=["Total", "Dialable", "Undialable"], ncols=3)
 
     for tick in ax1.get_xticklabels():
         tick.set_rotation(20)

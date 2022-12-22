@@ -23,7 +23,7 @@ def plot_agents_kubo(df: pd.DataFrame, include_storm=True):
         .sort_values(["minor", "count"], ascending=False) \
         .reset_index(drop=True)
     storm_df = storm_df.assign(
-        kubo_version=lambda data_frame: data_frame.agent_version.apply(kubo_version),
+        kubo_version=lambda data_frame: data_frame.agent_version.apply(lambda av: "0.8.0" if av == "go-ipfs/0.8.0/48f94e2" else kubo_version(av)),
     ).dropna()
 
     storm_df = storm_df.assign(

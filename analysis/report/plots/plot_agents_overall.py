@@ -34,7 +34,7 @@ def plot_agents_overall(df: pd.DataFrame) -> plt.Figure:
     for idx, row in peers_storm.iterrows():
         count = zeros.copy()
         count[storm_index] = row["count"]
-        bar = ax.bar(peers_regular["agent_name"], count, label=f"storm ({row['agent_name']})", bottom=bottom)
+        bar = ax.bar(peers_regular["agent_name"], count, label=f"{row['agent_name']}", bottom=bottom)
         ax.bar_label(bar, padding=6, labels=["%.1f%%" % (100 * val / agent_names_total) if val > 0 else "" for val in count])
         bottom[storm_index] += row["count"]
 

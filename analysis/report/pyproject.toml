@@ -10,12 +10,12 @@ psycopg2 = "^2.9.5"
 matplotlib = "^3.6.2"
 pandas = "^1.5.2"
 seaborn = "^0.12.1"
-numpy = "^1.23.5"
+numpy = "^1.24.0"
 toml = "^0.10.2"
 Jinja2 = "^3.0.2"
 
 [tool.poetry.dev-dependencies]
-pytest = "^3.4"
+pytest = "^7.2.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

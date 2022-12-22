@@ -1,11 +1,21 @@
-# Nebula Measurement Results Calendar Week {{ calendar_week }}
+# Nebula Measurement Results Calendar Week {{ calendar_week }} - {{ year }}
+
+## Table of Contents
+
+- [General Information](#general-information)
+  - [Agent Versions](#agent-versions)
+  - [Protocols](#protocols)
+  - [Classification](#classification)
+  - [Crawls](#crawls)
+    - [Overall](#overall)
+    - [By Agent Version](#by-agent-version)
 
 ## General Information
 
-The following results show measurement data that were collected in calendar week {{ calendar_week }} from {{ measurement_start }} to {{ measurement_end }} in {{ year }}.
+The following results show measurement data that were collected in calendar week {{ calendar_week }} in {{ year }} from `{{ measurement_start }}` to `{{ measurement_end }}`.
 
 - Number of crawls `{{ crawl_count }}`
-- Number of visits `{{ visit_count }}` ([what is a visit?](#terminology))
+- Number of visits `{{ visit_count }}`
 - Number of unique peer IDs visited `{{ peer_id_count }}`
 - Number of unique IP addresses found `{{ ip_address_count }}`
 
@@ -14,45 +24,62 @@ Timestamps are in UTC if not mentioned otherwise.
 ### Agent Versions
 
 Newly discovered agent versions:
-{% for av in new_agent_versions %}
-- {{ av }}{% endfor %}
+
+{% for _, row in new_agent_versions.iterrows() %}
+- `{{ row["agent_version"] }}` ({{ row["created_at"].strftime("%Y-%m-%d %H:%M:%S") }}){% endfor %}
+
+Agent versions that were found to support at least one [storm specific protocol](#storm-specific-protocol):
+
+{% for av in storm_agent_versions %}
+- `{{ av }}`{% endfor %}
 
 ### Protocols
 
 Newly discovered protocols:
-{% for p in new_protocols %}
-- {{ p }}{% endfor %}
+
+{% for _, row in new_protocols.iterrows() %}
+- `{{ row["protocol"] }}` ({{ row["created_at"].strftime("%Y-%m-%d %H:%M:%S") }}){% endfor %}
 
 ### Classification
 
-![](./plots-{{ calendar_week }}/node_classifications.png)
+![](./plots-{{ calendar_week }}/peer-classifications.png)
 
-Node classification:
+Peer classification:
 
-- `offline` - A peer that was never seen online during the measurement period (always offline) but found in the DHT
-- `dangling` - A peer that was seen going offline and online multiple times during the measurement period
-- `oneoff` - A peer that was seen coming online and then going offline **only once** during the measurement period
-- `online` - A peer that was not seen offline at all during the measurement period (always online)
-- `left` - A peer that was online at the beginning of the measurement period, did go offline and didn't come back online
-- `entered` - A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then
+| Classification | Description |
+| --- | --- |
+| `offline` | A peer that was never seen online during the measurement period (always offline) but found in the DHT |
+| `dangling` | A peer that was seen going offline and online multiple times during the measurement period |
+| `oneoff` | A peer that was seen coming online and then going offline **only once** during the measurement period |
+| `online` | A peer that was not seen offline at all during the measurement period (always online) |
+| `left` | A peer that was online at the beginning of the measurement period, did go offline and didn't come back online |
+| `entered` | A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then |
 
-### Top 10 Rotating Hosts
+### Top 10 Rotating Nodes
 
-| IP-Address    | Country | Unique Peer IDs | Agent Versions |
-|:------------- |:------- | ---------------:|:-------------- |{% for trh in top_rotating_hosts %}
-| {{ trh[0] }} | {{ trh[1] }} | {{ trh[2] }} | {{ trh[3] }} |{% endfor %}
+| IP-Address    | Country | Unique Peer IDs | Agent Versions | Datacenter IP |
+|:------------- |:------- | ---------------:|:-------------- | ------------- |{% for _, trn in top_rotating_nodes.iterrows() %}
+| `{{ trn["ip_address"] }}` | {{ trn["country"] }} | {{ trn["peer_id_count"] }} | {{ trn["agent_versions"] }}| {{ trn["is_datacenter_ip"] }}  |{% endfor %}
 
-### Crawl Time Series
+> A "rotating nodes" is a node (as identified by a single IP address) that was found with multiple peer IDs.
+
+### Crawls
+
+#### Overall
 
 ![](./plots-{{ calendar_week }}/crawl-overview.png)
 
-#### By Agent Version (selection)
+#### By Agent Version
 
 ![](./plots-{{ calendar_week }}/crawl-properties.png)
 
+> Only the top 10 kubo versions appear in the right graph (due to lack of colors). The `0.8.x` versions do not contain disguised storm peers.
+
+> `storm*` are `go-ipfs/0.8.0/48f94e2` peers that support at least one [storm specific protocol](#storm-specific-protocol).
+
 ## Churn
 
-![](./plots-{{ calendar_week }}/crawl-churn.png)
+![](./plots-{{ calendar_week }}/peer-churn.png)
 
 ## Inter Arrival Time
 
@@ -150,7 +177,7 @@ The number next to `Total` indicates the number of unique IP addresses that went
 ## Top Updating Peers
 
 | Peer ID           | Final AV     | # Transitions | Distinct AVs | # Distinct AVs |
-|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_hosts %}
+|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for tuh in top_updating_nodes %}
 | `{{ tuh[1][:16] }}...` | `{{ tuh[2] }}` | {{ tuh[3] }}  | {{ '<br/>'.join(tuh[4]) }} | {{ tuh[5] }} |{% endfor %}
 
 > `AV` = `Agent Version`
@@ -186,3 +213,15 @@ The number next to `Total` indicates the number of unique IP addresses that went
 - `Azure` - Microsoft Azure
 - `DO` - Digital Ocean
 - `OCI` - Oracle Cloud Infrastructure
+
+### Storm Specific Protocols
+
+The following protocol strings are unique for `storm` nodes according to [this Bitdefender paper](https://www.bitdefender.com/files/News/CaseStudies/study/376/Bitdefender-Whitepaper-IPStorm.pdf):
+
+- `/sreque/*`
+- `/shsk/*`
+- `/sfst/*`
+- `/sbst/*`
+- `/sbpcp/*`
+- `/sbptp/*`
+- `/strelayp/*`

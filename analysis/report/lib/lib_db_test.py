@@ -7,7 +7,11 @@ class TestDBClient(unittest.TestCase):
     client: DBClient
 
     def setUp(self) -> None:
-        self.client = DBClient()
+        self.client = DBClient(year=2022, calendar_week=50)
+
+    def test_get_all_peer_ids_with_agent_version(self):
+        peers = self.client.get_all_peer_ids_with_agent_version()
+        pass
 
     def test_integrity(self):
         all_peer_ids = set(self.client.get_all_peer_ids())
