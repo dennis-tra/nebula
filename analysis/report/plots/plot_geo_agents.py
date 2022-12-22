@@ -1,50 +1,34 @@
 import seaborn as sns
 import pandas as pd
-from lib import lib_plot
 import matplotlib.pyplot as plt
 
-from lib.lib_agent import known_agents
-from lib.lib_db import DBClient
+from lib.lib_agent import agent_name, kubo_version
 from lib.lib_fmt import fmt_thousands, fmt_barplot
 
 
-def main(db_client: DBClient):
-    sns.set_theme()
+def plot_geo_agents(df: pd.DataFrame, countries: pd.DataFrame) -> plt.Figure:
+    df = df.assign(
+        agent_name=lambda data_frame: data_frame.agent_version.apply(agent_name),
+        kubo_version=lambda data_frame: data_frame.agent_version.apply(kubo_version),
+    )
 
-    country_distributions = {}
-    thresholds = {
-        "go-ipfs": 350,
-        "hydra-booster": 0,
-        "storm": 50,
-        "ioi": 10
-    }
+    fig, axs = plt.subplots(2, 3, figsize=(15, 9))
+    for idx, agent in enumerate(sorted(df["agent_name"].unique())):
+        ax = fig.axes[idx]
 
-    for agent in known_agents:
-        peer_ids = set(db_client.get_peer_ids_for_agent_versions([agent]))
-        country_distributions[agent] = db_client.get_country_distribution_for_peer_ids(peer_ids)
+        data = countries[countries["peer_id"].isin(df[df['agent_name'] == agent]["peer_id"])]
+        data = data.groupby(by="country", as_index=False).count().sort_values('peer_id', ascending=False)
+        data = data.rename(columns={'peer_id': 'count'})
 
-    fig, axs = plt.subplots(2, 2, figsize=(15, 9))
-    for idx, agent in enumerate(country_distributions):
-        data = country_distributions[agent]
-        ax = axs[idx // 2][idx % 2]
+        result = data.nlargest(8, columns="count")
+        result.loc[len(result)] = ['Rest', data.loc[~data["country"].isin(result["country"]), "count"].sum()]
 
-        # calculate the "other" countries
-        granular_df = data[data["Count"] > thresholds[agent]]
-        others_df = data[data["Count"] <= thresholds[agent]]
-        others_sum_df = pd.DataFrame([["other", others_df["Count"].sum()]], columns=["Country", "Count"])
-        all_df = granular_df.append(others_sum_df)
-
-        sns.barplot(ax=ax, x="Country", y="Count", data=all_df)
-        fmt_barplot(ax, all_df["Count"], all_df["Count"].sum())
+        sns.barplot(ax=ax, x="country", y="count", data=result)
+        fmt_barplot(ax, result["count"], result["count"].sum())
         ax.set_xlabel("")
-        ax.title.set_text(f"{agent} (Total {fmt_thousands(data['Count'].sum())})")
+        ax.title.set_text(f"{agent} (Total {fmt_thousands(data['count'].sum())})")
 
-    plt.suptitle(f"Country Distributions of all Resolved Peer IDs by Agent Version")
-    plt.tight_layout()
-    lib_plot.savefig(f"geo-agents")
-    plt.show()
+    fig.suptitle(f"Country Distributions of all Resolved Peer IDs by Agent Version")
+    fig.set_tight_layout(True)
 
-
-if __name__ == '__main__':
-    db_client = DBClient()
-    main(db_client)
+    return fig

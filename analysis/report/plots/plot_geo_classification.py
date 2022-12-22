@@ -1,64 +1,30 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
-import pandas as pd
+from matplotlib import ticker
 
-from lib import lib_plot
-from lib.lib_db import DBClient, NodeClassification
 from lib.lib_fmt import fmt_thousands, fmt_barplot
 
 
-def main(db_client: DBClient):
-    sns.set_theme()
-
-    country_distributions = {}
-    thresholds_ipfs = {
-        NodeClassification.OFFLINE: 300,
-        NodeClassification.ONEOFF: 300,
-        NodeClassification.DANGLING: 500,
-        NodeClassification.ONLINE: 50,
-        NodeClassification.ENTERED: 14,
-        NodeClassification.LEFT: 15,
-    }
-
-    thresholds_filecoin = {
-        NodeClassification.OFFLINE: 10,
-        NodeClassification.ONEOFF: 5,
-        NodeClassification.DANGLING: 12,
-        NodeClassification.ONLINE: 10,
-        NodeClassification.ENTERED: 5,
-        NodeClassification.LEFT: 5,
-    }
-
-    thresholds = thresholds_ipfs
-
-    for node_class in NodeClassification:
-        peer_ids = db_client.node_classification_funcs[node_class]()
-        country_distributions[node_class] = db_client.get_country_distribution_for_peer_ids(peer_ids)
-
+def plot_geo_classification(distributions) -> plt.Figure:
     fig, axs = plt.subplots(2, 3, figsize=(15, 8))
 
-    for idx, node_class in enumerate(country_distributions):
-        data = country_distributions[node_class]
+    for idx, node_class in enumerate(distributions):
         ax = axs[idx // 3][idx % 3]
 
-        # calculate the "other" countries
-        granular_df = data[data["Count"] > thresholds[node_class]]
-        others_df = data[data["Count"] <= thresholds[node_class]]
-        others_sum_df = pd.DataFrame([["other", others_df["Count"].sum()]], columns=["Country", "Count"])
-        all_df = granular_df.append(others_sum_df)
+        data = distributions[node_class]
+        result = data.nlargest(8, columns="count")
+        result.loc[len(result)] = ['Rest', data.loc[~data["country"].isin(result["country"]), "count"].sum()]
 
-        sns.barplot(ax=ax, x="Country", y="Count", data=all_df)
-        fmt_barplot(ax, all_df["Count"], all_df["Count"].sum())
+        sns.barplot(ax=ax, x="country", y="count", data=result)
+        fmt_barplot(ax, result["count"], result["count"].sum())
         ax.set_xlabel("")
+        ax.set_ylabel("Count")
+        ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(lambda x, p: "%.1fk" % (x / 1000)))
 
-        ax.title.set_text(f"{node_class.value} (Total {fmt_thousands(data['Count'].sum())})")
+        ax.title.set_text(f"{node_class.value} (Total {fmt_thousands(data['count'].sum())})")
 
-    plt.suptitle(f"Country Distributions by Node Classification")
-    plt.tight_layout()
-    lib_plot.savefig(f"geo-node-classification")
-    plt.show()
+    fig.suptitle(f"Country Distributions by Node Classification")
 
+    fig.set_tight_layout(True)
 
-if __name__ == '__main__':
-    db_client = DBClient()
-    main(db_client)
+    return fig

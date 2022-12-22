@@ -4,3 +4,7 @@ from .plot_peer_classifications import plot_peer_classifications, data_node_clas
 from .plot_crawl_overview import plot_crawl_overview
 from .plot_crawl_properties import plot_crawl_properties
 from .plot_churn import plot_churn
+from .plot_inter_arrival_time import plot_inter_arrival_time
+from .plot_geo_unique_ip import plot_geo_unique_ip
+from .plot_geo_classification import plot_geo_classification
+from .plot_geo_agents import plot_geo_agents

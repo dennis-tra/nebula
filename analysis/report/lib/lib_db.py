@@ -91,20 +91,20 @@ class DBClient:
     def fmt_list(items: list[T], type="INT") -> str:
         return ",".join(str(elem) for elem in items)
 
-    def __init__(self, year: int, calendar_week: int):
+    def __init__(self, year: int, calendar_week: int, db_toml: str = "./db.toml"):
         print("Initializing database client...")
 
         self.year = year
         self.calendar_week = calendar_week
         self.start_date = datetime.datetime.strptime(f"{year}-W{calendar_week}-1", "%Y-W%W-%w")
         self.end_date = self.start_date + datetime.timedelta(weeks=1)
-        self.half_date = self.start_date + (self.end_date - self.start_date)/2
+        self.half_date = self.start_date + (self.end_date - self.start_date) / 2
 
         self.start = f"'{self.start_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
         self.end = f"'{self.end_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
         self.range = f"'[{self.start_date.strftime('%Y-%m-%d %H:%M:%S')}, {self.end_date.strftime('%Y-%m-%d %H:%M:%S')})'::TSTZRANGE"
 
-        self.config = toml.load("./db.toml")['psql']
+        self.config = toml.load(db_toml)['psql']
         self.conn = psycopg2.connect(
             host=self.config['host'],
             port=self.config['port'],
@@ -611,7 +611,7 @@ class DBClient:
         )
         return DBClient.__flatten(cur.fetchall())
 
-    # @cache()
+    @cache()
     def get_agent_versions_distribution(self) -> pd.DataFrame:  # DONE
         """
         get_agent_versions_distribution returns all agent versions with
@@ -637,6 +637,29 @@ class DBClient:
         )
 
         return pd.DataFrame(cur.fetchall(), columns=['agent_version', 'is_storm', 'count'])
+
+    @cache()
+    def get_peer_id_agent_versions(self) -> pd.DataFrame:  # DONE
+        """
+        get_peer_id_agent_versions returns all peer IDs and their agent versions
+        """
+        print("Getting peer id agent versions distribution...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT v.peer_id, av.agent_version, v.protocols_set_id IN ({self.fmt_list(self.get_storm_protocol_set_ids())}) is_storm
+            FROM visits v
+                INNER JOIN agent_versions av on av.id = v.agent_version_id
+            WHERE v.visit_started_at >= {self.start}
+              AND v.visit_started_at < {self.end}
+              AND v.type = 'crawl'
+              AND v.connect_error IS NULL
+            GROUP BY 1, 2, 3
+            """
+        )
+
+        return pd.DataFrame(cur.fetchall(), columns=['peer_id', 'agent_version', 'is_storm'])
+
 
     @cache()
     def get_agent_versions_for_peer_ids(self, peer_ids: list[int]) -> pd.DataFrame:  # DONE
@@ -784,7 +807,7 @@ class DBClient:
         return pd.DataFrame(cur.fetchall(), columns=['uptime_in_s', 'agent_version'])
 
     @cache()
-    def get_inter_arrival_time(self, peer_ids):
+    def get_inter_arrival_time(self, peer_ids) -> pd.DataFrame:
         """
         get_inter_arrival_time returns the times between two sessions of the
         same peer.
@@ -793,19 +816,25 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            SELECT s1.id,
-                   s1.peer_id,
-                   EXTRACT('epoch' FROM MIN(s2.created_at) - s1.created_at) AS diff_in_s
-            FROM sessions s1
-                     LEFT JOIN sessions s2 ON s1.peer_id = s2.peer_id AND s1.created_at < s2.created_at
-            WHERE s1.updated_at > {self.start}
-              AND s1.created_at < {self.end}
-              AND s2.created_at IS NOT NULL AND s1.peer_id IN ({self.fmt_list(peer_ids)})
-            GROUP BY s1.id, s1.peer_id
-            ORDER BY s1.created_at;
+            WITH cte AS (
+                SELECT
+                    s.peer_id,
+                    av.agent_version,
+                    first_successful_visit - LAG(first_successful_visit) OVER (
+                        PARTITION BY s.peer_id
+                        ORDER BY last_visited_at
+                    ) inter_arrival_time
+                FROM sessions s
+                    LEFT JOIN peers p on p.id = s.peer_id
+                    LEFT JOIN agent_versions av on p.agent_version_id = av.id
+                WHERE uptime && {self.range}
+                  AND uptime &< {self.range}
+                ORDER BY last_visited_at
+            ) SELECT cte.peer_id, cte.agent_version, cte.inter_arrival_time FROM cte WHERE inter_arrival_time IS NOT NULL
             """
         )
-        return cur.fetchall()
+
+        return pd.DataFrame(cur.fetchall(), columns=["peer_id", "agent_version", "inter_arrival_time"])
 
     @cache()
     def get_ip_addresses_for_peer_ids(self, peer_ids):
@@ -892,10 +921,10 @@ class DBClient:
         return DBClient.__flatten(cur.fetchall())
 
     @cache()
-    def get_countries(self):
+    def get_countries(self) -> pd.DataFrame:
         """
         get_countries returns a list of peer IDs and their corresponding countries if they happened
-        to have an IP address in in the specified time interval. Each peer ID can be associated
+        to have an IP address in the specified time interval. Each peer ID can be associated
         to many multi addresses which in turn are associated to many IP addresses. Often, the
         number of associated ip addresses is smaller than the number of multi addresses as many
         multi addresses only differ in the protocol being used. Even if there are multiple IP
@@ -907,24 +936,30 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            WITH peer_maddrs AS (
-                SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
+            WITH cte AS (
+                SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
                 FROM visits v
-                         INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-                WHERE v.created_at > {self.start}
-                  AND v.created_at < {self.end}
-                GROUP BY v.peer_id, unnest(mas.multi_address_ids)
+                WHERE v.visit_started_at >= '2022-12-12'::DATE
+                  AND v.visit_started_at < '2022-12-19'::DATE
+                GROUP BY v.peer_id, unnest(v.multi_address_ids)
+            ), cte_2 AS (
+                SELECT cte.peer_id, ma.country
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                WHERE ma.has_many_addrs IS FALSE AND ma.country IS NOT NULL AND ma.is_relay IS FALSE
+                UNION
+                SELECT cte.peer_id, ia.country
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                    INNER JOIN ip_addresses ia on ma.id = ia.multi_address_id
+                WHERE ma.has_many_addrs IS TRUE AND ma.is_relay IS FALSE
             )
-            SELECT pm.peer_id, ia.country
-            FROM multi_addresses ma
-                     INNER JOIN peer_maddrs pm ON pm.multi_address_id = ma.id
-                     INNER JOIN multi_addresses_x_ip_addresses maxia on pm.multi_address_id = maxia.multi_address_id
-                     INNER JOIN ip_addresses ia on maxia.ip_address_id = ia.id
-            WHERE ma.maddr NOT LIKE '%p2p-circuit%'
-            GROUP BY pm.peer_id, ia.country
+            SELECT cte_2.peer_id, cte_2.country
+            FROM cte_2
+            GROUP BY cte_2.peer_id, cte_2.country
             """
         )
-        return cur.fetchall()
+        return pd.DataFrame(cur.fetchall(), columns=["peer_id", "country"])
 
     @cache()
     def get_countries_with_relays(self):
@@ -960,8 +995,37 @@ class DBClient:
         )
         return cur.fetchall()
 
-    def get_country_distribution_for_peer_ids(self, peer_ids):
-        data = pd.DataFrame(self.get_countries(), columns=["peer_id", "country"])
-        data = data[data["peer_id"].isin(peer_ids)]
-        data = data.groupby(by="country", as_index=False).count().sort_values('peer_id', ascending=False)
-        return data.rename(columns={'country': 'Country', 'peer_id': 'Count'})
+    @cache()
+    def get_geo_ip_addresses(self):
+        """
+        get_geo_ip_addresses gets all IP addresses and their countries in the specified time interval.
+        """
+        print("Getting all IP addresses and their countries in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (
+                SELECT v.peer_id, unnest(v.multi_address_ids) multi_address_id
+                FROM visits v
+                WHERE v.visit_started_at >= {self.start}
+                  AND v.visit_started_at < {self.end}
+                GROUP BY v.peer_id, unnest(v.multi_address_ids)
+            ), cte_2 AS (
+                SELECT ma.country, ma.addr
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                WHERE ma.has_many_addrs IS FALSE AND ma.country IS NOT NULL AND ma.is_relay IS FALSE
+                UNION
+                SELECT ia.country, ia.address AS addr
+                FROM cte
+                    INNER JOIN multi_addresses ma ON cte.multi_address_id = ma.id
+                    INNER JOIN ip_addresses ia on ma.id = ia.multi_address_id
+                WHERE ma.has_many_addrs IS TRUE AND ma.is_relay IS FALSE
+            )
+            SELECT cte_2.country, count(DISTINCT cte_2.addr) count
+            FROM cte_2
+            GROUP BY cte_2.country
+            ORDER BY count DESC
+            """
+        )
+        return pd.DataFrame(cur.fetchall(), columns=["country", "count"])

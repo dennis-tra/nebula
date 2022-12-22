@@ -77,6 +77,34 @@ def generate_ipfs_report():
     fig = plot_churn(db_client.get_peer_uptime(), int((db_client.half_date-db_client.start_date).seconds/60/60))
     lib_plot.savefig(fig, "peer-churn", db_client.calendar_week)
 
+    ##################################
+    data = db_client.get_inter_arrival_time(db_client.get_dangling_peer_ids())
+    fig = plot_inter_arrival_time(data)
+    lib_plot.savefig(fig, "peer-inter-arrival-time", calendar_week=calendar_week)
+
+    ##################################
+    data = db_client.get_geo_ip_addresses()
+    fig = plot_geo_unique_ip(data)
+    lib_plot.savefig(fig, "geo-unique-ip", calendar_week=calendar_week)
+
+    ##################################
+    countries = db_client.get_countries()
+    country_distributions = {}
+    for node_class in NodeClassification:
+        peer_ids = db_client.node_classification_funcs[node_class]()
+        data = countries[countries["peer_id"].isin(peer_ids)]
+        data = data.groupby(by="country", as_index=False).count().sort_values('peer_id', ascending=False)
+        data = data.rename(columns={'peer_id': 'count'})
+        country_distributions[node_class] = data
+
+    fig = plot_geo_classification(country_distributions)
+    lib_plot.savefig(fig, "geo-peer-classification", calendar_week=calendar_week)
+
+    ##################################
+    peer_id_agents = db_client.get_peer_id_agent_versions()
+    fig = plot_geo_agents(peer_id_agents, countries)
+    lib_plot.savefig(fig, "geo-peer-agents", calendar_week=calendar_week)
+
 
     loader = jinja2.FileSystemLoader(searchpath="./")
     env = jinja2.Environment(loader=loader)

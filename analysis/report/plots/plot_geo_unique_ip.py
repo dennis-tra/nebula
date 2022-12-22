@@ -2,54 +2,23 @@ import seaborn as sns
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from lib import lib_plot
-from lib.lib_fmt import fmt_barplot, fmt_thousands
-from lib.lib_db import DBClient
+from lib.lib_fmt import fmt_barplot, thousands_ticker_formatter, fmt_thousands
 
 
-def main(db_client: DBClient, threshold=500):
-    sns.set_theme()
+def plot_geo_unique_ip(df: pd.DataFrame) -> plt.Figure:
+    result = df.nlargest(20, columns="count")
+    result.loc[len(result)] = ['Rest', df.loc[~df["country"].isin(result["country"]), "count"].sum()]
 
-    results = db_client.query(
-        f"""
-        WITH cte AS (
-            SELECT v.peer_id, unnest(mas.multi_address_ids) multi_address_id
-            FROM visits v
-                     INNER JOIN multi_addresses_sets mas on mas.id = v.multi_addresses_set_id
-            WHERE v.created_at > {db_client.start}
-              AND v.created_at < {db_client.end}
-            GROUP BY v.peer_id, unnest(mas.multi_address_ids)
-        )
-        SELECT ia.country, count(DISTINCT ia.address) count
-        FROM multi_addresses ma
-                 INNER JOIN cte ON cte.multi_address_id = ma.id
-                 INNER JOIN multi_addresses_x_ip_addresses maxia on ma.id = maxia.multi_address_id
-                 INNER JOIN ip_addresses ia ON maxia.ip_address_id = ia.id
-        GROUP BY ia.country
-        ORDER BY count DESC
-        """
-    )
+    fig, ax = plt.subplots(figsize=[15, 5], dpi=300)
 
-    data = pd.DataFrame(results, columns=["Country", "Count"])
-    # calculate the "other" countries
-    granular_df = data[data["Count"] > threshold]
-    others_df = data[data["Count"] <= threshold]
-    others_sum_df = pd.DataFrame([["other", others_df["Count"].sum()]], columns=["Country", "Count"])
-    all_df = granular_df.append(others_sum_df)
-
-    fig, ax = plt.subplots(figsize=(10, 5))
-
-    sns.barplot(ax=ax, x="Country", y="Count", data=all_df)
-    fmt_barplot(ax, all_df["Count"], all_df["Count"].sum())
+    sns.barplot(ax=ax, x="country", y="count", data=result)
+    fmt_barplot(ax, result["count"], result["count"].sum())
     ax.set_xlabel("")
+    ax.set_ylabel("Count")
+    ax.get_yaxis().set_major_formatter(thousands_ticker_formatter)
 
-    plt.title(f"Country Distribution of Unique IP Addresses (Total {fmt_thousands(data['Count'].sum())})")
+    plt.title(f"Country Distribution of Unique IP Addresses (Total {fmt_thousands(result['count'].sum())})")
 
-    plt.tight_layout()
-    lib_plot.savefig(f"geo-unique-ip")
-    plt.show()
+    fig.set_tight_layout(True)
 
-
-if __name__ == '__main__':
-    db_client = DBClient()
-    main(db_client)
+    return fig

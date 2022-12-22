@@ -159,52 +159,33 @@ Peer classification:
 
 ## Inter Arrival Time
 
-![](./plots-50/cdf-inter-arrival-dangling.png)
+![](./plots-50/peer-inter-arrival-time.png)
 
 ## Agent Version Analysis
 
 ### Overall
 
-![](./plots-50/agents-all.png)
+![](./plots-50/agents-overall.png)
 
-Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
+> Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
 
 ### Dangling Nodes Only
 
 ![](./plots-50/agents-dangling.png)
 
-Includes all peers that were seen going offline and online multiple times during the measurement.
-
 ### Online Nodes Only
 
 ![](./plots-50/agents-online.png)
-
-Includes all peers that were not seen offline at all during the measurement period (always online).
 
 ### Oneoff Nodes Only
 
 ![](./plots-50/agents-oneoff.png)
 
-Includes all peers that were seen coming online and then going offline **only once** during the measurement period
-
 ### Entered Nodes Only
 
 ![](./plots-50/agents-entered.png)
 
-Includes all peers that were offline at the beginning of the measurement period but appeared within and didn't go offline since then.
-
 ## Geo location
-
-### Resolution Statistics
-
-![](./plots-50/geo-resolution.png)
-
-Resolution Classification:
-
-- `resolved` - The number of peer IDs that could be resolved to at least one IP address (excludes peers that are only reachable via circuit-relays)
-- `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
-- `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
-- `relay` - The number of peer IDs that were only reachable by circuit relays
 
 ### Unique IP Addresses
 
@@ -212,26 +193,11 @@ Resolution Classification:
 
 ### Classification
 
-![](./plots-50/geo-node-classification.png)
+![](./plots-50/geo-peer-classification.png)
 
 ### Agents
 
-![](./plots-50/geo-agents.png)
-
-
-## Latencies
-
-### Overall
-
-![](./plots-50/latencies.png)
-
-`Connect` measures the time it takes for the `libp2p` `host.Connect` call to return.
-
-`Connect plus Crawl` includes the time of dialing, connecting and crawling the peer. `Crawling` means the time it takes for the FIND_NODE RPCs to resolve. Nebula is sending 15 of those with increasing common prefix lengths (CPLs) to the remote peer in parallel. 
-
-### By Continent
-
-![](./plots-50/latencies-geo.png)
+![](./plots-50/geo-peer-agents.png)
 
 ## Cloud
 

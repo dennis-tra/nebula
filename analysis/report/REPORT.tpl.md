@@ -16,6 +16,7 @@ The following results show measurement data that were collected in calendar week
 
 - Number of crawls `{{ crawl_count }}`
 - Number of visits `{{ visit_count }}`
+  > Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring process tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur.
 - Number of unique peer IDs visited `{{ peer_id_count }}`
 - Number of unique IP addresses found `{{ ip_address_count }}`
 
@@ -83,52 +84,33 @@ Peer classification:
 
 ## Inter Arrival Time
 
-![](./plots-{{ calendar_week }}/cdf-inter-arrival-dangling.png)
+![](./plots-{{ calendar_week }}/peer-inter-arrival-time.png)
 
 ## Agent Version Analysis
 
 ### Overall
 
-![](./plots-{{ calendar_week }}/agents-all.png)
+![](./plots-{{ calendar_week }}/agents-overall.png)
 
-Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
+> Includes all peers that the crawler was able to connect to at least once (`dangling`, `online`, `oneoff`, `entered`)
 
 ### Dangling Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-dangling.png)
 
-Includes all peers that were seen going offline and online multiple times during the measurement.
-
 ### Online Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-online.png)
-
-Includes all peers that were not seen offline at all during the measurement period (always online).
 
 ### Oneoff Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-oneoff.png)
 
-Includes all peers that were seen coming online and then going offline **only once** during the measurement period
-
 ### Entered Nodes Only
 
 ![](./plots-{{ calendar_week }}/agents-entered.png)
 
-Includes all peers that were offline at the beginning of the measurement period but appeared within and didn't go offline since then.
-
 ## Geo location
-
-### Resolution Statistics
-
-![](./plots-{{ calendar_week }}/geo-resolution.png)
-
-Resolution Classification:
-
-- `resolved` - The number of peer IDs that could be resolved to at least one IP address (excludes peers that are only reachable via circuit-relays)
-- `unresolved` - The number of peer IDs that could not or just were not yet resolved to at least one IP address
-- `no public ip` - The number of peer IDs that were found in the DHT but didn't have a public IP address
-- `relay` - The number of peer IDs that were only reachable by circuit relays
 
 ### Unique IP Addresses
 
@@ -136,26 +118,11 @@ Resolution Classification:
 
 ### Classification
 
-![](./plots-{{ calendar_week }}/geo-node-classification.png)
+![](./plots-{{ calendar_week }}/geo-peer-classification.png)
 
 ### Agents
 
-![](./plots-{{ calendar_week }}/geo-agents.png)
-
-
-## Latencies
-
-### Overall
-
-![](./plots-{{ calendar_week }}/latencies.png)
-
-`Connect` measures the time it takes for the `libp2p` `host.Connect` call to return.
-
-`Connect plus Crawl` includes the time of dialing, connecting and crawling the peer. `Crawling` means the time it takes for the FIND_NODE RPCs to resolve. Nebula is sending 15 of those with increasing common prefix lengths (CPLs) to the remote peer in parallel. 
-
-### By Continent
-
-![](./plots-{{ calendar_week }}/latencies-geo.png)
+![](./plots-{{ calendar_week }}/geo-peer-agents.png)
 
 ## Cloud
 
@@ -184,11 +151,7 @@ The number next to `Total` indicates the number of unique IP addresses that went
  
 - `# Final AV` - The last agent version that was observed in this measurement period
 - `# Transitions` - How often did this particular peer change its agent version
-- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times)
-
-## Terminology
-
-- `visit` - Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring task tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur. 
+- `Distinct AVs` - Distinct agent version that this peer transitioned between (could have had a single AV multiple times) 
 
 ### Node classification:
 
