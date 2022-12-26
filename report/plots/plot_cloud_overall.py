@@ -1,8 +1,9 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib import ticker
 
-from lib.lib_fmt import fmt_thousands, thousands_ticker_formatter, fmt_percentage
+from lib.lib_fmt import fmt_thousands, fmt_percentage
 
 
 def plot_cloud_overall(df: pd.DataFrame) -> plt.Figure:
@@ -14,7 +15,7 @@ def plot_cloud_overall(df: pd.DataFrame) -> plt.Figure:
     sns.barplot(ax=ax, x="count", y="datacenter", data=result)
     ax.bar_label(ax.containers[0], list(map(fmt_percentage(result["count"].sum()), result["count"])))
 
-    ax.get_xaxis().set_major_formatter(thousands_ticker_formatter)
+    ax.get_xaxis().set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
 
     ax.set_xlabel("Count")
     ax.set_ylabel("")

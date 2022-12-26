@@ -1,9 +1,10 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib import ticker
 
 from lib.lib_agent import agent_name
-from lib.lib_fmt import fmt_thousands, thousands_ticker_formatter, fmt_percentage
+from lib.lib_fmt import fmt_thousands, fmt_percentage
 
 
 def plot_cloud_agents(df: pd.DataFrame, clouds: pd.DataFrame) -> plt.Figure:
@@ -12,7 +13,7 @@ def plot_cloud_agents(df: pd.DataFrame, clouds: pd.DataFrame) -> plt.Figure:
     )
 
     unique = df["agent_name"].unique()
-    fig, axs = plt.subplots((len(unique) + 1) // 2, 2, figsize=[15, 10], dpi=150)
+    fig, axs = plt.subplots((len(unique) + 1) // 2, 2, figsize=[15, 13], dpi=150)
     for idx, agent in enumerate(sorted(unique)):
         ax = fig.axes[idx]
 
@@ -28,12 +29,16 @@ def plot_cloud_agents(df: pd.DataFrame, clouds: pd.DataFrame) -> plt.Figure:
 
         sns.barplot(ax=ax, x="count", y="datacenter", data=result)
         ax.bar_label(ax.containers[0], list(map(fmt_percentage(result["count"].sum()), result["count"])))
-        ax.get_xaxis().set_major_formatter(thousands_ticker_formatter)
+        ax.get_xaxis().set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
         ax.set_xlabel("Count")
         ax.set_ylabel("")
         ax.title.set_text(f"{agent} (Total {fmt_thousands(data['count'].sum())})")
 
     fig.suptitle(f"Datacenters by Agent Version")
     fig.set_tight_layout(True)
+
+    if len(unique) < len(fig.axes):
+        for ax in fig.axes[len(unique):]:
+            fig.delaxes(ax)
 
     return fig

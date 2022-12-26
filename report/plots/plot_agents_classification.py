@@ -1,16 +1,15 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from matplotlib import ticker
-from lib.lib_agent import kubo_version, agent_name
+from lib.lib_agent import agent_name
 from lib.lib_fmt import fmt_thousands
 
 
 def plot_agents_classification(agents):
-    fig, axs = plt.subplots(2, 2, figsize=(15, 8))
+    fig, axs = plt.subplots(2, 2, figsize=[15, 8], dpi=150)
 
     for idx, node_class in enumerate(sorted(agents.keys())):
-        ax = axs[idx // 2][idx % 2]
+        ax = fig.axes[idx]
 
         df = agents[node_class]
 
@@ -30,7 +29,7 @@ def plot_agents_classification(agents):
             (agent_names_df["agent_name"] != "storm") & (agent_names_df["is_storm"] == True)].reset_index(drop=True)
 
         bar = ax.bar(peers_regular["agent_name"], peers_regular["count"], label="Regular")
-        ax.bar_label(bar, padding=6,
+        ax.bar_label(bar, padding=4,
                      labels=["%.1f%%" % (100 * val / agent_names_total) for val in peers_regular["count"]])
 
         # find index of storm nodes
@@ -47,7 +46,7 @@ def plot_agents_classification(agents):
                          labels=["%.1f%%" % (100 * val / agent_names_total) if val > 0 else "" for val in count])
             bottom[storm_index] += row["count"]
 
-        ax.yaxis.set_major_formatter(ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+        ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
         ax.legend(title="Node Type")
         ax.set_xlabel("Agent")
         ax.set_ylabel("Count")
@@ -56,5 +55,9 @@ def plot_agents_classification(agents):
     fig.suptitle(f"Agent Type By Classification")
 
     fig.set_tight_layout(True)
+
+    if len(agents.keys()) < len(fig.axes):
+        for ax in fig.axes[len(agents.keys()):]:
+            fig.delaxes(ax)
 
     return fig

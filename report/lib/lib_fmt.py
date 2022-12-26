@@ -2,6 +2,7 @@ from matplotlib import ticker
 
 thousands_ticker_formatter = ticker.FuncFormatter(lambda x, p: "%dk" % int(x / 1000))
 
+
 def fmt_thousands(val: int) -> str:
     return format(val, ",")
 
@@ -16,3 +17,7 @@ def fmt_barplot(ax, values, total):
         return
     elif values.max() < 4500:
         ax.get_yaxis().set_major_formatter(ticker.FuncFormatter(lambda x, p: "%.1fk" % (x / 1000)))
+
+
+def fmt_axis(values):
+    return ticker.StrMethodFormatter('{x:,.0f}')
