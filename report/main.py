@@ -19,15 +19,6 @@ def generate_ipfs_report():
     db_client = DBClient(year=year, calendar_week=calendar_week)
     udger_client = UdgerClient()
 
-    ### TEMPORARY START
-    db_client.start_date = dt.datetime.strptime(f"2022-12-21 11:00:30", "%Y-%m-%d %H:%M:%S")
-    db_client.end_date = dt.datetime.strptime(f"2022-12-26 14:00:00", "%Y-%m-%d %H:%M:%S")
-
-    db_client.start = f"'{db_client.start_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
-    db_client.end = f"'{db_client.end_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
-    db_client.range = f"'[{db_client.start_date.strftime('%Y-%m-%d %H:%M:%S')}, {db_client.end_date.strftime('%Y-%m-%d %H:%M:%S')})'::TSTZRANGE"
-    ### TEMPORARY END
-
     ##################################
     crawl_count = db_client.get_crawl_count()
     visit_count = db_client.get_visit_count()
@@ -146,6 +137,7 @@ def generate_ipfs_report():
     loader = jinja2.FileSystemLoader(searchpath="./")
     env = jinja2.Environment(loader=loader)
     template = env.get_template("REPORT.tpl.md")
+    storm_agent_versions = db_client.get_storm_agent_versions()
     outputText = template.render(
         year=year,
         calendar_week=calendar_week,
@@ -154,7 +146,8 @@ def generate_ipfs_report():
         crawl_count=fmt_thousands(crawl_count),
         visit_count=fmt_thousands(visit_count),
         peer_id_count=fmt_thousands(peer_id_count),
-        storm_agent_versions=db_client.get_storm_agent_versions(),
+        storm_agent_versions=storm_agent_versions,
+        storm_star_agent_versions=[av for av in storm_agent_versions if av != "storm"],
         new_agent_versions=db_client.get_new_agent_versions(),
         new_protocols=db_client.get_new_protocols(),
         top_rotating_nodes=top_rotating_nodes,
