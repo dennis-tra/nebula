@@ -287,7 +287,7 @@ make models # runs: sqlboiler
 ```
 ```shell
 # Create new migration
-migrate create -ext sql -dir migrations -seq some_migration_name
+migrate create -ext sql -dir pkg/db/migrations -seq some_migration_name
 ```
 
 ### Tests

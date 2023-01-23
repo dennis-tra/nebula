@@ -3,22 +3,17 @@ package crawl
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/api"
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
@@ -32,6 +27,7 @@ type Crawler struct {
 	config       *config.Config
 	pm           *pb.ProtocolMessenger
 	crawledPeers int
+	client       *api.Client
 	done         chan struct{}
 }
 
@@ -53,6 +49,7 @@ func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
 		host:   h,
 		pm:     pm,
 		config: conf,
+		client: api.NewClient(),
 		done:   make(chan struct{}),
 	}
 
@@ -100,140 +97,22 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 		CrawlerID:      c.id,
 		Peer:           utils.FilterPrivateMaddrs(pi),
 		CrawlStartTime: time.Now(),
-		RoutingTable:   &RoutingTable{PeerID: pi.ID},
 	}
 
-	cr.ConnectStartTime = time.Now()
-	cr.ConnectError = c.connect(ctx, cr.Peer) // use filtered addr list
-	cr.ConnectEndTime = time.Now()
+	// start crawling both ways
 
-	// If we could successfully connect to the peer we actually crawl it.
-	if cr.ConnectError == nil {
+	p2pResultCh := c.crawlP2P(ctx, cr.Peer)
+	apiResultCh := c.crawlAPI(ctx, cr.Peer)
 
-		// Fetch all neighbors
-		cr.RoutingTable, cr.CrawlError = c.fetchNeighbors(ctx, pi)
-		if cr.CrawlError != nil {
-			cr.CrawlErrorStr = db.NetError(cr.CrawlError)
-		}
+	p2pResult := <-p2pResultCh
+	cr.CrawlEndTime = time.Now() // for legacy/consistency reasons we track the crawl end time here (without the API)
+	apiResult := <-apiResultCh
 
-		// Extract information from peer store
-		ps := c.host.Peerstore()
-
-		// Extract agent
-		if agent, err := ps.Get(pi.ID, "AgentVersion"); err == nil {
-			cr.Agent = agent.(string)
-		}
-
-		// Extract protocols
-		if protocols, err := ps.GetProtocols(pi.ID); err == nil {
-			cr.Protocols = protocols
-		}
-	}
-
-	if cr.ConnectError != nil {
-		cr.ConnectErrorStr = db.NetError(cr.ConnectError)
-	}
-
-	// Free connection resources
-	if err := c.host.Network().ClosePeer(pi.ID); err != nil {
-		log.WithError(err).WithField("remoteID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
-	}
+	// merge both results
+	cr.Merge(p2pResult, apiResult)
 
 	// We've now crawled this peer, so increment
 	c.crawledPeers++
 
-	// Save the end time of this crawl
-	cr.CrawlEndTime = time.Now()
-
 	return cr
-}
-
-// connect establishes a connection to the given peer. It also handles metric capturing.
-func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
-	metrics.VisitCount.With(metrics.CrawlLabel).Inc()
-
-	if len(pi.Addrs) == 0 {
-		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
-		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, c.config.DialTimeout)
-	defer cancel()
-
-	if err := c.host.Connect(ctx, pi); err != nil {
-		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
-		return err
-	}
-
-	return nil
-}
-
-// fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
-// of 15 random peer IDs with increasing common prefix lengths (CPL).
-func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*RoutingTable, error) {
-	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	allNeighborsLk := sync.RWMutex{}
-	allNeighbors := map[peer.ID]peer.AddrInfo{}
-
-	// errorBits tracks at which CPL errors have occurred.
-	// 0000 0000 0000 0000 - No error
-	// 0000 0000 0000 0001 - An error has occurred at CPL 0
-	// 1000 0000 0000 0001 - An error has occurred at CPL 0 and 15
-	errorBits := atomic.NewUint32(0)
-
-	errg := errgroup.Group{}
-	for i := uint(0); i <= 15; i++ { // 15 is maximum
-		count := i // Copy value
-		errg.Go(func() error {
-			// Generate a peer with the given common prefix length
-			rpi, err := rt.GenRandPeerID(count)
-			if err != nil {
-				errorBits.Add(1 << count)
-				return errors.Wrapf(err, "generating random peer ID with CPL %d", count)
-			}
-
-			var neighbors []*peer.AddrInfo
-			for retry := 0; retry < 2; retry++ {
-				neighbors, err = c.pm.GetClosestPeers(ctx, pi.ID, rpi)
-				if err == nil {
-					break
-				}
-
-				if utils.IsResourceLimitExceeded(err) {
-					// other node has indicated that it's out of resources. Wait a bit and try again.
-					time.Sleep(time.Second * time.Duration(5*(retry+1))) // may add jitter here
-					continue
-				}
-
-				errorBits.Add(1 << count)
-				return errors.Wrapf(err, "getting closest peer with CPL %d", count)
-			}
-
-			allNeighborsLk.Lock()
-			defer allNeighborsLk.Unlock()
-			for _, n := range neighbors {
-				allNeighbors[n.ID] = *n
-			}
-			return nil
-		})
-	}
-	err = errg.Wait()
-	metrics.FetchedNeighborsCount.Observe(float64(len(allNeighbors)))
-
-	routingTable := &RoutingTable{
-		PeerID:    pi.ID,
-		Neighbors: []peer.AddrInfo{},
-		ErrorBits: uint16(errorBits.Load()),
-		Error:     err,
-	}
-
-	for _, n := range allNeighbors {
-		routingTable.Neighbors = append(routingTable.Neighbors, n)
-	}
-
-	return routingTable, err
 }

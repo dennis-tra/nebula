@@ -344,7 +344,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 				return
 			}
 
-			if r.PeerID != nil {
+			if r != nil && r.PeerID != nil {
 				s.peerMappings[r.PID] = *r.PeerID
 			}
 		}
@@ -382,12 +382,13 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 		s.protocols[p] += 1
 	}
 
-	// Schedule crawls of all found neighbors.
-	// If the connection to the peer failed: cr.RoutingTable will be null -> no problem
-	// If the crawl (fetching neighbors) failed: cr.RoutingTable can be partially filled if some queries succeeded
-	// That's why we don't check the error here.
-	for _, rt := range cr.RoutingTable.Neighbors {
-		s.tryScheduleCrawl(ctx, rt)
+	// Schedule crawls of all found neighbors unless we got the routing table from the API.
+	// In this case the routing table information won't include any MultiAddresses. This means
+	// we can't use these peers for further crawls.
+	if !cr.RoutingTableFromAPI {
+		for _, rt := range cr.RoutingTable.Neighbors {
+			s.tryScheduleCrawl(ctx, rt)
+		}
 	}
 
 	if cr.ConnectError == nil {
