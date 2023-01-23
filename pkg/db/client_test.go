@@ -263,7 +263,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		visitEnd,
 		models.NetErrorIoTimeout,
 		"",
-		true,
+		null.BoolFrom(true),
 	)
 	require.NoError(t, err)
 
@@ -307,7 +307,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		true,
+		null.BoolFrom(true),
 	)
 	require.NoError(t, err)
 
@@ -405,7 +405,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		false,
+		null.BoolFrom(false),
 	)
 	require.NoError(t, err)
 
@@ -491,7 +491,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		false,
+		null.BoolFrom(false),
 	)
 	require.NoError(t, err)
 	visitStart = time.Now().Add(-time.Hour)
