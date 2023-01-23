@@ -281,7 +281,7 @@ func (c *Client) PersistCrawlVisit(
 	visitEndedAt time.Time,
 	connectErrorStr string,
 	crawlErrorStr string,
-	isExposed bool,
+	isExposed null.Bool,
 ) (*InsertVisitResult, error) {
 	var agentVersionID, protocolsSetID *int
 	var avidErr, psidErr error
@@ -318,7 +318,7 @@ func (c *Client) PersistCrawlVisit(
 		models.VisitTypeCrawl,
 		connectErrorStr,
 		crawlErrorStr,
-		null.BoolFrom(isExposed),
+		isExposed,
 	)
 }
 

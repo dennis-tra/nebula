@@ -27,6 +27,12 @@ type APIResult struct {
 func (c *Crawler) crawlAPI(ctx context.Context, pi peer.AddrInfo) <-chan APIResult {
 	resultCh := make(chan APIResult)
 
+	// if Nebula is configured to not check for an exposed API return early
+	if !c.config.CheckExposed {
+		close(resultCh)
+		return resultCh
+	}
+
 	go func() {
 		crawledIPs := map[string]struct{}{}
 		for _, maddr := range pi.Addrs {
@@ -63,13 +69,19 @@ func (c *Crawler) crawlAPI(ctx context.Context, pi peer.AddrInfo) <-chan APIResu
 				}
 				return nil
 			})
-			errg.Go(func() error {
-				rtResp, err = c.client.RoutingTable(tCtx, ip.String())
-				if err != nil {
-					return fmt.Errorf("could not crawl routing table api: %w", err)
-				}
-				return nil
-			})
+
+			// Only crawl routing table if we actually want to persist neighbors. The result from this API
+			// call cannot be used to continue our crawls because the response does not contain multiaddresses
+			// of remote peers.
+			if c.config.PersistNeighbors {
+				errg.Go(func() error {
+					rtResp, err = c.client.RoutingTable(tCtx, ip.String())
+					if err != nil {
+						return fmt.Errorf("could not crawl routing table api: %w", err)
+					}
+					return nil
+				})
+			}
 
 			// wait for an error or two successes
 			err = errg.Wait()

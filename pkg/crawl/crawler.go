@@ -100,7 +100,6 @@ func (c *Crawler) handleCrawlJob(ctx context.Context, pi peer.AddrInfo) Result {
 	}
 
 	// start crawling both ways
-
 	p2pResultCh := c.crawlP2P(ctx, cr.Peer)
 	apiResultCh := c.crawlAPI(ctx, cr.Peer)
 

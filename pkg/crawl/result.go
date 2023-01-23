@@ -5,6 +5,7 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/volatiletech/null/v8"
 )
 
 // Result captures data that is gathered from crawling a single peer.
@@ -53,7 +54,7 @@ type Result struct {
 	ConnectEndTime time.Time
 
 	// Whether kubos RPC API is exposed
-	IsExposed bool
+	IsExposed null.Bool
 }
 
 // CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
@@ -75,6 +76,8 @@ func (r *Result) Merge(p2pRes P2PResult, apiRes APIResult) {
 
 	r.Agent = p2pRes.Agent
 	r.Protocols = p2pRes.Protocols
+	r.ConnectStartTime = p2pRes.ConnectStartTime
+	r.ConnectEndTime = p2pRes.ConnectEndTime
 	r.ConnectError = p2pRes.ConnectError
 	r.ConnectErrorStr = p2pRes.ConnectErrorStr
 	r.CrawlError = p2pRes.CrawlError
@@ -82,9 +85,11 @@ func (r *Result) Merge(p2pRes P2PResult, apiRes APIResult) {
 
 	// If we attempted to crawl the API (only if we had at least one IP address for the peer)
 	// and we received either the ID or routing table information
-	r.IsExposed = apiRes.Attempted && apiRes.ID != nil || apiRes.RoutingTable != nil
+	if apiRes.Attempted {
+		r.IsExposed = null.BoolFrom(apiRes.ID != nil || apiRes.RoutingTable != nil)
+	}
 
-	if apiRes.ID != nil {
+	if apiRes.ID != nil && (r.Agent == "" || len(r.Protocols) == 0) {
 		r.Agent = apiRes.ID.AgentVersion
 		r.Protocols = apiRes.ID.Protocols
 	}

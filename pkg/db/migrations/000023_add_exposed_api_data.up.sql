@@ -23,7 +23,8 @@ WITH sel AS (
         ON CONFLICT ON CONSTRAINT uq_peers_multi_hash DO UPDATE
             SET multi_hash       = EXCLUDED.multi_hash,
                 agent_version_id = coalesce(EXCLUDED.agent_version_id, p.agent_version_id),
-                protocols_set_id = coalesce(EXCLUDED.protocols_set_id, p.protocols_set_id)
+                protocols_set_id = coalesce(EXCLUDED.protocols_set_id, p.protocols_set_id),
+                is_exposed       = coalesce(EXCLUDED.is_exposed, p.is_exposed)
         RETURNING id, multi_hash
 ), upd AS (
     UPDATE peers
