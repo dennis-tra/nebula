@@ -107,7 +107,7 @@ func (c *Crawler) crawlAPI(ctx context.Context, pi peer.AddrInfo) <-chan APIResu
 			case <-ctx.Done():
 			}
 
-			// since we have what we got, close the channel and return
+			// since we have what we want, close the channel and return
 			close(resultCh)
 
 			return
