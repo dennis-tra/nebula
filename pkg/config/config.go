@@ -96,6 +96,9 @@ type Config struct {
 	// Whether to persist all k-bucket entries
 	PersistNeighbors bool
 
+	// Whether to check if the Kubo API is exposed
+	CheckExposed bool
+
 	// Only ping the specified amount of peers
 	PingLimit int
 
@@ -288,6 +291,9 @@ func (c *Config) apply(ctx *cli.Context) {
 	}
 	if ctx.IsSet("neighbors") {
 		c.PersistNeighbors = ctx.Bool("neighbors")
+	}
+	if ctx.IsSet("check-exposed") {
+		c.CheckExposed = ctx.Bool("check-exposed")
 	}
 	if ctx.IsSet("min-ping-interval") {
 		c.MinPingInterval = ctx.Duration("min-ping-interval")

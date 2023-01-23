@@ -49,6 +49,13 @@ var CrawlCommand = &cli.Command{
 			DefaultText: strconv.FormatBool(config.DefaultConfig.PersistNeighbors),
 			Value:       config.DefaultConfig.PersistNeighbors,
 		},
+		&cli.BoolFlag{
+			Name:        "check-exposed",
+			Usage:       "Whether to check if the Kubo API is exposed. Checking also includes crawling the API.",
+			EnvVars:     []string{"NEBULA_CRAWL_CHECK_EXPOSED"},
+			DefaultText: strconv.FormatBool(config.DefaultConfig.CheckExposed),
+			Value:       config.DefaultConfig.CheckExposed,
+		},
 		&cli.StringFlag{
 			Name:        "network",
 			Usage:       "Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers.",
