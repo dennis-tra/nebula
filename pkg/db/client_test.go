@@ -263,6 +263,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		visitEnd,
 		models.NetErrorIoTimeout,
 		"",
+		true,
 	)
 	require.NoError(t, err)
 
@@ -306,6 +307,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
+		true,
 	)
 	require.NoError(t, err)
 
@@ -314,6 +316,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
 	assert.Equal(t, dbPeer.MultiHash, peerID.String())
 	assert.Len(t, dbPeer.R.MultiAddresses, 2)
+	assert.True(t, dbPeer.IsExposed.Bool)
 
 	for _, ma := range dbPeer.R.MultiAddresses {
 		assert.True(t, ma.Maddr == ma1.String() || ma.Maddr == ma2.String())
@@ -342,6 +345,8 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	)
 	require.NoError(t, err)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+
+	assert.True(t, dbPeer.IsExposed.Bool)
 
 	session = dbPeer.R.SessionsOpen
 	assert.Equal(t, session.PeerID, dbPeer.ID)
@@ -400,6 +405,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
+		false,
 	)
 	require.NoError(t, err)
 
@@ -485,6 +491,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		visitEnd,
 		"",
 		"",
+		false,
 	)
 	require.NoError(t, err)
 	visitStart = time.Now().Add(-time.Hour)
@@ -567,34 +574,46 @@ func TestClient_UpsertPeer(t *testing.T) {
 	peerID, err := lp2ptest.RandPeerID()
 	require.NoError(t, err)
 
-	dbPeerID, err := client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil))
+	dbPeerID, err := client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.BoolFromPtr(nil))
 	require.NoError(t, err)
 	assert.NotZero(t, dbPeerID)
 
 	dbPeer := fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.True(t, dbPeer.AgentVersionID.IsZero())
 	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
+	assert.True(t, dbPeer.IsExposed.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(nil))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(nil), null.BoolFromPtr(nil))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
+	assert.True(t, dbPeer.IsExposed.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.BoolFromPtr(nil))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+	assert.True(t, dbPeer.IsExposed.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.BoolFrom(false))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+	assert.False(t, dbPeer.IsExposed.Bool)
+
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.BoolFromPtr(nil))
+	require.NoError(t, err)
+
+	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
+	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
+	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+	assert.False(t, dbPeer.IsExposed.Bool)
 
 	dbAgentVersionID, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-2")
 	require.NoError(t, err)
@@ -602,12 +621,13 @@ func TestClient_UpsertPeer(t *testing.T) {
 	dbProtocolsSetID, err = client.GetOrCreateProtocolsSetID(ctx, client.Handle(), []string{"protocol-3", "protocol-2"})
 	require.NoError(t, err)
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(dbProtocolsSetID))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(dbProtocolsSetID), null.BoolFrom(true))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
+	assert.True(t, dbPeer.IsExposed.Bool)
 }
 
 func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbPeerID int) *models.Peer {

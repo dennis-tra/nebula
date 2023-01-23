@@ -111,5 +111,6 @@ func (p *Persister) insertVisit(ctx context.Context, cr Result) (*db.InsertVisit
 		cr.CrawlEndTime,
 		cr.ConnectErrorStr,
 		cr.CrawlErrorStr,
+		cr.IsExposed,
 	)
 }

@@ -30,6 +30,7 @@ type Peer struct {
 	MultiHash      string    `boil:"multi_hash" json:"multi_hash" toml:"multi_hash" yaml:"multi_hash"`
 	UpdatedAt      time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	CreatedAt      time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	IsExposed      null.Bool `boil:"is_exposed" json:"is_exposed,omitempty" toml:"is_exposed" yaml:"is_exposed,omitempty"`
 
 	R *peerR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L peerL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -42,6 +43,7 @@ var PeerColumns = struct {
 	MultiHash      string
 	UpdatedAt      string
 	CreatedAt      string
+	IsExposed      string
 }{
 	ID:             "id",
 	AgentVersionID: "agent_version_id",
@@ -49,6 +51,7 @@ var PeerColumns = struct {
 	MultiHash:      "multi_hash",
 	UpdatedAt:      "updated_at",
 	CreatedAt:      "created_at",
+	IsExposed:      "is_exposed",
 }
 
 var PeerTableColumns = struct {
@@ -58,6 +61,7 @@ var PeerTableColumns = struct {
 	MultiHash      string
 	UpdatedAt      string
 	CreatedAt      string
+	IsExposed      string
 }{
 	ID:             "peers.id",
 	AgentVersionID: "peers.agent_version_id",
@@ -65,6 +69,7 @@ var PeerTableColumns = struct {
 	MultiHash:      "peers.multi_hash",
 	UpdatedAt:      "peers.updated_at",
 	CreatedAt:      "peers.created_at",
+	IsExposed:      "peers.is_exposed",
 }
 
 // Generated where
@@ -76,6 +81,7 @@ var PeerWhere = struct {
 	MultiHash      whereHelperstring
 	UpdatedAt      whereHelpertime_Time
 	CreatedAt      whereHelpertime_Time
+	IsExposed      whereHelpernull_Bool
 }{
 	ID:             whereHelperint{field: "\"peers\".\"id\""},
 	AgentVersionID: whereHelpernull_Int{field: "\"peers\".\"agent_version_id\""},
@@ -83,6 +89,7 @@ var PeerWhere = struct {
 	MultiHash:      whereHelperstring{field: "\"peers\".\"multi_hash\""},
 	UpdatedAt:      whereHelpertime_Time{field: "\"peers\".\"updated_at\""},
 	CreatedAt:      whereHelpertime_Time{field: "\"peers\".\"created_at\""},
+	IsExposed:      whereHelpernull_Bool{field: "\"peers\".\"is_exposed\""},
 }
 
 // PeerRels is where relationship names are stored.
@@ -143,9 +150,9 @@ func (r *peerR) GetMultiAddresses() MultiAddressSlice {
 type peerL struct{}
 
 var (
-	peerAllColumns            = []string{"id", "agent_version_id", "protocols_set_id", "multi_hash", "updated_at", "created_at"}
+	peerAllColumns            = []string{"id", "agent_version_id", "protocols_set_id", "multi_hash", "updated_at", "created_at", "is_exposed"}
 	peerColumnsWithoutDefault = []string{"multi_hash", "updated_at", "created_at"}
-	peerColumnsWithDefault    = []string{"id", "agent_version_id", "protocols_set_id"}
+	peerColumnsWithDefault    = []string{"id", "agent_version_id", "protocols_set_id", "is_exposed"}
 	peerPrimaryKeyColumns     = []string{"id"}
 	peerGeneratedColumns      = []string{"id"}
 )

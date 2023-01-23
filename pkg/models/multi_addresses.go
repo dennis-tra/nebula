@@ -700,7 +700,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 	}
 
 	query := NewQuery(
-		qm.Select("\"peers\".\"id\", \"peers\".\"agent_version_id\", \"peers\".\"protocols_set_id\", \"peers\".\"multi_hash\", \"peers\".\"updated_at\", \"peers\".\"created_at\", \"a\".\"multi_address_id\""),
+		qm.Select("\"peers\".\"id\", \"peers\".\"agent_version_id\", \"peers\".\"protocols_set_id\", \"peers\".\"multi_hash\", \"peers\".\"updated_at\", \"peers\".\"created_at\", \"peers\".\"is_exposed\", \"a\".\"multi_address_id\""),
 		qm.From("\"peers\""),
 		qm.InnerJoin("\"peers_x_multi_addresses\" as \"a\" on \"peers\".\"id\" = \"a\".\"peer_id\""),
 		qm.WhereIn("\"a\".\"multi_address_id\" in ?", args...),
@@ -721,7 +721,7 @@ func (multiAddressL) LoadPeers(ctx context.Context, e boil.ContextExecutor, sing
 		one := new(Peer)
 		var localJoinCol int
 
-		err = results.Scan(&one.ID, &one.AgentVersionID, &one.ProtocolsSetID, &one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &localJoinCol)
+		err = results.Scan(&one.ID, &one.AgentVersionID, &one.ProtocolsSetID, &one.MultiHash, &one.UpdatedAt, &one.CreatedAt, &one.IsExposed, &localJoinCol)
 		if err != nil {
 			return errors.Wrap(err, "failed to scan eager loaded results for peers")
 		}

@@ -41,6 +41,7 @@ type Visit struct {
 	ConnectDuration null.String      `boil:"connect_duration" json:"connect_duration,omitempty" toml:"connect_duration" yaml:"connect_duration,omitempty"`
 	CrawlDuration   null.String      `boil:"crawl_duration" json:"crawl_duration,omitempty" toml:"crawl_duration" yaml:"crawl_duration,omitempty"`
 	MultiAddressIds types.Int64Array `boil:"multi_address_ids" json:"multi_address_ids,omitempty" toml:"multi_address_ids" yaml:"multi_address_ids,omitempty"`
+	IsExposed       null.Bool        `boil:"is_exposed" json:"is_exposed,omitempty" toml:"is_exposed" yaml:"is_exposed,omitempty"`
 
 	R *visitR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L visitL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -63,6 +64,7 @@ var VisitColumns = struct {
 	ConnectDuration string
 	CrawlDuration   string
 	MultiAddressIds string
+	IsExposed       string
 }{
 	ID:              "id",
 	PeerID:          "peer_id",
@@ -80,6 +82,7 @@ var VisitColumns = struct {
 	ConnectDuration: "connect_duration",
 	CrawlDuration:   "crawl_duration",
 	MultiAddressIds: "multi_address_ids",
+	IsExposed:       "is_exposed",
 }
 
 var VisitTableColumns = struct {
@@ -99,6 +102,7 @@ var VisitTableColumns = struct {
 	ConnectDuration string
 	CrawlDuration   string
 	MultiAddressIds string
+	IsExposed       string
 }{
 	ID:              "visits.id",
 	PeerID:          "visits.peer_id",
@@ -116,6 +120,7 @@ var VisitTableColumns = struct {
 	ConnectDuration: "visits.connect_duration",
 	CrawlDuration:   "visits.crawl_duration",
 	MultiAddressIds: "visits.multi_address_ids",
+	IsExposed:       "visits.is_exposed",
 }
 
 // Generated where
@@ -137,6 +142,7 @@ var VisitWhere = struct {
 	ConnectDuration whereHelpernull_String
 	CrawlDuration   whereHelpernull_String
 	MultiAddressIds whereHelpertypes_Int64Array
+	IsExposed       whereHelpernull_Bool
 }{
 	ID:              whereHelperint{field: "\"visits\".\"id\""},
 	PeerID:          whereHelperint{field: "\"visits\".\"peer_id\""},
@@ -154,6 +160,7 @@ var VisitWhere = struct {
 	ConnectDuration: whereHelpernull_String{field: "\"visits\".\"connect_duration\""},
 	CrawlDuration:   whereHelpernull_String{field: "\"visits\".\"crawl_duration\""},
 	MultiAddressIds: whereHelpertypes_Int64Array{field: "\"visits\".\"multi_address_ids\""},
+	IsExposed:       whereHelpernull_Bool{field: "\"visits\".\"is_exposed\""},
 }
 
 // VisitRels is where relationship names are stored.
@@ -173,9 +180,9 @@ func (*visitR) NewStruct() *visitR {
 type visitL struct{}
 
 var (
-	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "type", "connect_error", "crawl_error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitAllColumns            = []string{"id", "peer_id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "type", "connect_error", "crawl_error", "visit_started_at", "visit_ended_at", "created_at", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids", "is_exposed"}
 	visitColumnsWithoutDefault = []string{"peer_id", "type", "visit_started_at", "visit_ended_at", "created_at"}
-	visitColumnsWithDefault    = []string{"id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "connect_error", "crawl_error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids"}
+	visitColumnsWithDefault    = []string{"id", "crawl_id", "session_id", "agent_version_id", "protocols_set_id", "connect_error", "crawl_error", "dial_duration", "connect_duration", "crawl_duration", "multi_address_ids", "is_exposed"}
 	visitPrimaryKeyColumns     = []string{"id", "visit_started_at"}
 	visitGeneratedColumns      = []string{"id"}
 )

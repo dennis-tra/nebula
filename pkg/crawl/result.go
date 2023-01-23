@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 // Result captures data that is gathered from crawling a single peer.
@@ -16,6 +17,10 @@ type Result struct {
 
 	// The neighbors of the crawled peer
 	RoutingTable *RoutingTable
+
+	// Indicates whether the above routing table information was queried through the API.
+	// The API routing table does not include MultiAddresses, so we won't use them for further crawls.
+	RoutingTableFromAPI bool
 
 	// The agent version of the crawled peer
 	Agent string
@@ -46,6 +51,9 @@ type Result struct {
 
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ConnectEndTime time.Time
+
+	// Whether kubos RPC API is exposed
+	IsExposed bool
 }
 
 // CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
@@ -56,4 +64,54 @@ func (r *Result) CrawlDuration() time.Duration {
 // ConnectDuration returns the time it took to connect to the peer. This includes dialing and the identity protocol.
 func (r *Result) ConnectDuration() time.Duration {
 	return r.ConnectEndTime.Sub(r.ConnectStartTime)
+}
+
+func (r *Result) Merge(p2pRes P2PResult, apiRes APIResult) {
+	if p2pRes.RoutingTable == nil {
+		r.RoutingTable = &RoutingTable{PeerID: r.Peer.ID}
+	} else {
+		r.RoutingTable = p2pRes.RoutingTable
+	}
+
+	r.Agent = p2pRes.Agent
+	r.Protocols = p2pRes.Protocols
+	r.ConnectError = p2pRes.ConnectError
+	r.ConnectErrorStr = p2pRes.ConnectErrorStr
+	r.CrawlError = p2pRes.CrawlError
+	r.CrawlErrorStr = p2pRes.CrawlErrorStr
+
+	// If we attempted to crawl the API (only if we had at least one IP address for the peer)
+	// and we received either the ID or routing table information
+	r.IsExposed = apiRes.Attempted && apiRes.ID != nil || apiRes.RoutingTable != nil
+
+	if apiRes.ID != nil {
+		r.Agent = apiRes.ID.AgentVersion
+		r.Protocols = apiRes.ID.Protocols
+	}
+
+	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {
+		// construct routing table struct from API response
+		rt := &RoutingTable{
+			PeerID:    r.Peer.ID,
+			Neighbors: []peer.AddrInfo{},
+		}
+
+		for _, bucket := range apiRes.RoutingTable.Buckets {
+			for _, p := range bucket.Peers {
+				pid, err := peer.Decode(p.ID)
+				if err != nil {
+					continue
+				}
+
+				rt.Neighbors = append(rt.Neighbors, peer.AddrInfo{
+					ID:    pid,
+					Addrs: []ma.Multiaddr{},
+				})
+			}
+		}
+
+		r.RoutingTable = rt
+		r.RoutingTableFromAPI = true
+	}
+
 }
