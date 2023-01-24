@@ -7,7 +7,7 @@ import hashlib
 import pandas as pd
 
 from enum import Enum
-from typing import TypeVar
+from typing import TypeVar, List
 
 T = TypeVar('T')
 
@@ -171,9 +171,9 @@ class DBClient:
         return DBClient.__flatten(cur.fetchall())[0]
 
     @cache()
-    def get_peer_id_count(self) -> int:  # DONE
+    def get_visited_peer_id_count(self) -> int:  # DONE
         """
-        get_peer_id_count returns the number of unique peer IDs that
+        get_visited_peer_id_count returns the number of unique peer IDs that
         were visited in the specified time interval
         """
         print("Getting the number of unique peer IDs that were visited in the specified time interval...")
@@ -184,6 +184,26 @@ class DBClient:
             FROM visits v
             WHERE visit_started_at >= {self.start}
               AND visit_started_at < {self.end}
+            """
+        )
+
+        return DBClient.__flatten(cur.fetchall())[0]
+
+    @cache()
+    def get_discovered_peer_id_count(self) -> int:  # DONE
+        """
+        get_discovered_peer_id_count returns the number of unique peer IDs that
+        we discovered in the DHT in the specified time interval.
+        """
+        print("Getting the number of unique peer IDs that were discovered in the DHT in the specified time interval...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT count(DISTINCT peer_id)
+            FROM visits v
+            WHERE visit_started_at >= {self.start}
+              AND visit_started_at < {self.end}
+              AND type = 'crawl'
             """
         )
 
@@ -302,6 +322,69 @@ class DBClient:
             'distinct_agent_versions',
             'distinct_agent_versions_count'
         ])
+
+    @cache()
+    def get_classification_over_time(self, classification: NodeClassification) -> pd.DataFrame:
+        """
+        get_classification_over_time returns the crawl time range and number of peers that fall into each classification
+        in that crawl.
+        """
+        print(f"Getting {classification} peers over time in the specified time interval...")
+        peer_ids = self.node_classification_funcs[classification]()
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            WITH cte AS (SELECT unnest('{{{self.fmt_list(peer_ids)}}}'::INT[]) peer_id)
+            SELECT c.id, c.started_at, c.finished_at, count(DISTINCT v.peer_id)
+            FROM visits v
+                INNER JOIN cte ON cte.peer_id = v.peer_id
+                INNER JOIN crawls c on v.crawl_id = c.id
+            WHERE v.visit_started_at >= {self.start}
+                AND v.visit_started_at < {self.end}
+                AND v.type = 'crawl'
+            GROUP BY c.id
+              """
+        )
+
+        return pd.DataFrame(cur.fetchall(), columns=["id", "started_at", "finished_at", "count"])
+    # @cache()
+    # def get_classification_over_time(self) -> pd.DataFrame:
+    #     """
+    #     get_classification_over_time returns the crawl time range and number of peers that fall into each classification
+    #     in that crawl.
+    #     """
+    #     print("Getting classification over time in the specified time interval...")
+    #     cur = self.conn.cursor()
+    #     online_peer_ids = self.get_online_peer_ids()
+    #     offline_peer_ids = self.get_offline_peer_ids()
+    #     dangling_peer_ids = self.get_dangling_peer_ids()
+    #     oneoff_peer_ids = self.get_oneoff_peer_ids()
+    #     entered_peer_ids = self.get_all_entering_peer_ids()
+    #     left_peer_ids = self.get_all_leaving_peer_ids()
+    #     cur.execute(
+    #         f"""
+    #         SELECT c.started_at,
+    #                c.finished_at,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(online_peer_ids)}) ) online,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(offline_peer_ids)}) ) offline,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(dangling_peer_ids)}) ) dangling,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(oneoff_peer_ids)}) ) oneoff,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(entered_peer_ids)}) ) entered,
+    #                sum(1) FILTER ( WHERE v.peer_id IN ({self.fmt_list(left_peer_ids)}) ) AS "left",
+    #                sum(1) total,
+    #                c.crawled_peers
+    #         FROM visits v
+    #             INNER JOIN crawls c on v.crawl_id = c.id
+    #         WHERE v.visit_started_at >= {self.start}
+    #           AND v.visit_started_at < {self.end}
+    #           AND v.type = 'crawl'
+    #         GROUP BY c.id
+    #         """
+    #     )
+    #
+    #     df = pd.DataFrame(cur.fetchall(), columns=["created_at", "agent_version"])
+    #     df['created_at'] = pd.to_datetime(df['created_at'], unit='s')
+    #     return df
 
     @cache()
     def get_new_agent_versions(self) -> pd.DataFrame:  # DONE
@@ -738,6 +821,28 @@ class DBClient:
         df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
 
         return df
+
+    @cache()
+    def get_crawl_protocols(self) -> pd.DataFrame:  #
+        """
+        get_crawl_protocols returns protocols distributions
+        of the crawls in the specified time interval.
+        """
+        print("Getting crawl properties...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT cp.crawl_id, c.started_at, p.protocol, cp.count
+            FROM crawl_properties cp 
+                INNER JOIN protocols p ON cp.protocol_id = p.id
+                INNER JOIN crawls c ON cp.crawl_id = c.id
+            WHERE c.started_at >= {self.start}
+              AND c.started_at < {self.end}
+              AND cp.protocol_id IS NOT NULL
+            """
+        )
+
+        return pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'protocol', 'count'])
 
     @cache()
     def get_crawl_visit_durations(self):  #

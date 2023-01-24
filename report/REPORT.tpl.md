@@ -33,7 +33,8 @@ The following results show measurement data that were collected in calendar week
 - Number of crawls `{{ crawl_count }}`
 - Number of visits `{{ visit_count }}`
   > Visiting a peer means dialing or connecting to it. Every time the crawler or monitoring process tries to dial or connect to a peer we consider this as _visiting_ it. Regardless of errors that may occur.
-- Number of unique peer IDs visited `{{ peer_id_count }}`
+- Number of unique peer IDs visited `{{ visited_peer_id_count }}`
+- Number of unique peer IDs discovered in the DHT `{{ discovered_peer_id_count }}`
 - Number of unique IP addresses found `{{ ip_address_count }}`
 
 Timestamps are in UTC if not mentioned otherwise.
@@ -85,6 +86,10 @@ A "rotating node" is a node (as identified by its IP address) that was found to 
 
 ![Crawl Overview](./plots-{{ calendar_week }}/crawl-overview.png)
 
+#### Classification
+
+![Crawl Classifications](./plots-{{ calendar_week }}/crawl-classifications.png)
+
 #### Agents
 
 ![Crawl Properties By Agent](./plots-{{ calendar_week }}/crawl-properties.png)
@@ -92,6 +97,10 @@ A "rotating node" is a node (as identified by its IP address) that was found to 
 Only the top 10 kubo versions appear in the right graph (due to lack of colors) based on the average count in the time interval. The `0.8.x` versions **do not** contain disguised storm peers.
 
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
+
+#### Protocols
+
+![Crawl Properties By Protocols](./plots-{{ calendar_week }}/crawl-protocols.png)
 
 ## Churn
 

@@ -1,3 +1,6 @@
+from typing import Dict
+
+import pandas as pd
 import seaborn as sns
 import datetime as dt
 from pandas.io.formats.style import jinja2
@@ -22,7 +25,8 @@ def generate_ipfs_report():
     ##################################
     crawl_count = db_client.get_crawl_count()
     visit_count = db_client.get_visit_count()
-    peer_id_count = db_client.get_peer_id_count()
+    visited_peer_id_count = db_client.get_visited_peer_id_count()
+    discovered_peer_id_count = db_client.get_discovered_peer_id_count()
     ip_address_count = db_client.get_ip_addresses_count()
 
     top_rotating_nodes = db_client.get_top_rotating_nodes()
@@ -67,6 +71,27 @@ def generate_ipfs_report():
     ##################################
     fig = plot_crawl_properties(db_client.get_crawl_properties())
     lib_plot.savefig(fig, "crawl-properties", db_client.calendar_week)
+
+    ##################################
+    fig = plot_crawl_protocols(db_client.get_crawl_protocols())
+    lib_plot.savefig(fig, "crawl-protocols", db_client.calendar_week)
+
+    ##################################
+    node_classes = [
+        NodeClassification.ONLINE,
+        NodeClassification.OFFLINE,
+        NodeClassification.DANGLING,
+        NodeClassification.ONEOFF,
+        NodeClassification.ENTERED,
+        NodeClassification.LEFT
+    ]
+
+    classifications_over_time: Dict[NodeClassification, pd.DataFrame] = {}
+    for node_class in node_classes:
+        df = db_client.get_classification_over_time(node_class)
+        classifications_over_time[node_class] = df
+    fig = plot_crawl_classifications(classifications_over_time)
+    lib_plot.savefig(fig, "crawl-classifications", db_client.calendar_week)
 
     ##################################
     fig = plot_churn(db_client.get_peer_uptime(), int((db_client.half_date-db_client.start_date).seconds/60/60))
@@ -145,7 +170,8 @@ def generate_ipfs_report():
         measurement_end=dt.datetime.strptime(f"{year}-W{calendar_week + 1}" + '-1', "%Y-W%W-%w").date(),
         crawl_count=fmt_thousands(crawl_count),
         visit_count=fmt_thousands(visit_count),
-        peer_id_count=fmt_thousands(peer_id_count),
+        visited_peer_id_count=fmt_thousands(visited_peer_id_count),
+        discovered_peer_id_count=fmt_thousands(discovered_peer_id_count),
         storm_agent_versions=storm_agent_versions,
         storm_star_agent_versions=[av for av in storm_agent_versions if av != "storm"],
         new_agent_versions=db_client.get_new_agent_versions(),
