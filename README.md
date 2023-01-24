@@ -15,7 +15,7 @@ _The crawler was:_
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
 
-📊 A Demo Dashboard can be found [here](http://162.55.187.75:3000/d/CSQsORs7k/nebula)! 📊
+📊 We publish weekly reports [here](https://github.com/dennis-tra/nebula-crawler-reports)! 📊
 
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
