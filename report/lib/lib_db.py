@@ -845,6 +845,32 @@ class DBClient:
         return pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'protocol', 'count'])
 
     @cache()
+    def get_unresponsive_peers_over_time(self) -> pd.DataFrame:  #
+        """
+        get_unresponsive_peers_over_time returns the fraction of peers that are unresponsive (can connect but close stream)
+        over time
+        """
+        print("Getting unresponsive peers over time...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT
+                c.started_at,
+                sum(1) FILTER ( WHERE v.connect_error IS NULL AND v.crawl_error = 'write_on_stream' ) unresponsive,
+                sum(1) FILTER ( WHERE v.is_exposed ) exposed,
+                c.crawled_peers total
+            FROM visits v
+                INNER JOIN crawls c on v.crawl_id = c.id
+            WHERE v.created_at > {self.start}
+              AND v.created_at < {self.end}
+              AND v.type = 'crawl'
+            GROUP BY c.id
+            """
+        )
+
+        return pd.DataFrame(cur.fetchall(), columns=['started_at', 'unresponsive', 'exposed', 'total'])
+
+    @cache()
     def get_crawl_visit_durations(self):  #
         """
         get_crawl_visit_durations returns all durations for connecting

@@ -77,6 +77,10 @@ def generate_ipfs_report():
     lib_plot.savefig(fig, "crawl-protocols", db_client.calendar_week)
 
     ##################################
+    fig = plot_crawl_unresponsive(db_client.get_unresponsive_peers_over_time())
+    lib_plot.savefig(fig, "crawl-unresponsive", db_client.calendar_week)
+
+    ##################################
     node_classes = [
         NodeClassification.ONLINE,
         NodeClassification.OFFLINE,

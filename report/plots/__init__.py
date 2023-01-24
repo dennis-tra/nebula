@@ -14,3 +14,4 @@ from .plot_cloud_agents import plot_cloud_agents
 from .plot_cloud_classification import plot_cloud_classification
 from .plot_crawl_classifications import plot_crawl_classifications
 from .plot_crawl_protocols import plot_crawl_protocols
+from .plot_crawl_unresponsive import plot_crawl_unresponsive
