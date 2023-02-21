@@ -33,18 +33,20 @@ def plot_agents_classification(agents):
                      labels=["%.1f%%" % (100 * val / agent_names_total) for val in peers_regular["count"]])
 
         # find index of storm nodes
-        storm_index = peers_regular["agent_name"][peers_regular["agent_name"] == "storm"].index[0]
+        indexes = peers_regular["agent_name"][peers_regular["agent_name"] == "storm"].index
+        if len(indexes) > 0:
+            storm_index = indexes[0]
 
-        zeros = np.zeros(len(peers_regular["count"]))
-        bottom = zeros.copy()
-        bottom[storm_index] = peers_regular.iloc[storm_index]["count"]
-        for idx, row in peers_storm.iterrows():
-            count = zeros.copy()
-            count[storm_index] = row["count"]
-            bar = ax.bar(peers_regular["agent_name"], count, label=f"{row['agent_name']}", bottom=bottom)
-            ax.bar_label(bar, padding=6,
-                         labels=["%.1f%%" % (100 * val / agent_names_total) if val > 0 else "" for val in count])
-            bottom[storm_index] += row["count"]
+            zeros = np.zeros(len(peers_regular["count"]))
+            bottom = zeros.copy()
+            bottom[storm_index] = peers_regular.iloc[storm_index]["count"]
+            for idx, row in peers_storm.iterrows():
+                count = zeros.copy()
+                count[storm_index] = row["count"]
+                bar = ax.bar(peers_regular["agent_name"], count, label=f"{row['agent_name']}", bottom=bottom)
+                ax.bar_label(bar, padding=6,
+                             labels=["%.1f%%" % (100 * val / agent_names_total) if val > 0 else "" for val in count])
+                bottom[storm_index] += row["count"]
 
         ax.yaxis.set_major_formatter(ticker.StrMethodFormatter('{x:,.0f}'))
         ax.legend(title="Node Type")

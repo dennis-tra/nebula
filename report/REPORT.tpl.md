@@ -56,22 +56,6 @@ Newly discovered protocols:
 {% for _, row in new_protocols.iterrows() %}
 - `{{ row["protocol"] }}` ({{ row["created_at"].strftime("%Y-%m-%d %H:%M:%S") }}){% endfor %}
 
-### Classification
-
-![Peer count by classification](./plots-{{ calendar_week }}/peer-classifications.png)
-
-In the specified time interval from `{{ measurement_start }}` to `{{ measurement_end }}` we visited `{{ peer_id_count }}` unique peer IDs.
-All peer IDs fall into one of the following classifications:
-
-| Classification | Description |
-| --- | --- |
-| `offline` | A peer that was never seen online during the measurement period (always offline) but found in the DHT |
-| `dangling` | A peer that was seen going offline and online multiple times during the measurement period |
-| `oneoff` | A peer that was seen coming online and then going offline **only once** during the measurement period |
-| `online` | A peer that was not seen offline at all during the measurement period (always online) |
-| `left` | A peer that was online at the beginning of the measurement period, did go offline and didn't come back online |
-| `entered` | A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then |
-
 ### Top 10 Rotating Nodes
 
 A "rotating node" is a node (as identified by its IP address) that was found to host multiple peer IDs.
@@ -97,6 +81,22 @@ A "rotating node" is a node (as identified by its IP address) that was found to 
 Only the top 10 kubo versions appear in the right graph (due to lack of colors) based on the average count in the time interval. The `0.8.x` versions **do not** contain disguised storm peers.
 
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
+
+#### Total Peer IDs Discovered Classification
+
+![Peer count by classification](./plots-{{ calendar_week }}/peer-classifications.png)
+
+In the specified time interval from `{{ measurement_start }}` to `{{ measurement_end }}` we visited `{{ peer_id_count }}` unique peer IDs.
+All peer IDs fall into one of the following classifications:
+
+| Classification | Description |
+| --- | --- |
+| `offline` | A peer that was never seen online during the measurement period (always offline) but found in the DHT |
+| `dangling` | A peer that was seen going offline and online multiple times during the measurement period |
+| `oneoff` | A peer that was seen coming online and then going offline **only once** during the measurement period |
+| `online` | A peer that was not seen offline at all during the measurement period (always online) |
+| `left` | A peer that was online at the beginning of the measurement period, did go offline and didn't come back online |
+| `entered` | A peer that was offline at the beginning of the measurement period but appeared within and didn't go offline since then |
 
 #### Protocols
 

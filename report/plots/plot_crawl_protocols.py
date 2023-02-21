@@ -25,7 +25,7 @@ def plot_crawl_protocols(df: pd.DataFrame) -> plt.Figure:
             linestyle = "--"
 
         color = colors[idx % 10]
-        filtered = df[df["protocol"] == protocol]
+        filtered = df[df["protocol"] == protocol].sort_values("started_at")
         ax.plot(filtered["started_at"], filtered["count"], label=protocol, linestyle=linestyle, color=color)
 
     ax.set_xlabel("Date")
