@@ -29,6 +29,8 @@ const (
 	NetworkFilecoin Network = "FILECOIN"
 	NetworkKusama   Network = "KUSAMA"
 	NetworkPolkadot Network = "POLKADOT"
+	NetworkRococo   Network = "ROCOCO"
+	NetworkWestend  Network = "WESTEND"
 )
 
 // configFile contains the path suffix that's appended to
@@ -325,9 +327,6 @@ func (c *Config) apply(ctx *cli.Context) {
 	if ctx.IsSet("db-sslmode") {
 		c.DatabaseSSLMode = ctx.String("db-sslmode")
 	}
-	if ctx.IsSet("protocols") {
-		c.Protocols = ctx.StringSlice("protocols")
-	}
 	if ctx.IsSet("init-rt") {
 		c.RefreshRoutingTable = ctx.Bool("init-rt")
 	}
@@ -355,6 +354,10 @@ func (c *Config) apply(ctx *cli.Context) {
 		c.configureNetwork()
 	} else if len(DefaultConfig.BootstrapPeers) == 0 {
 		c.configureNetwork()
+
+		if ctx.IsSet("protocols") {
+			c.Protocols = ctx.StringSlice("protocols")
+		}
 	}
 
 	// Give CLI option precedence
@@ -374,6 +377,12 @@ func (c *Config) configureNetwork() {
 	case NetworkPolkadot:
 		c.BootstrapPeers = BootstrapPeersPolkadot
 		c.Protocols = []string{"/dot/kad"}
+	case NetworkRococo:
+		c.BootstrapPeers = BootstrapPeersRococo
+		c.Protocols = []string{"/rococo/kad"}
+	case NetworkWestend:
+		c.BootstrapPeers = BootstrapPeersWestend
+		c.Protocols = []string{"/wnd2/kad"}
 	case NetworkIPFS:
 		fallthrough
 	default:

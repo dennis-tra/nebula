@@ -21,7 +21,7 @@ var CrawlCommand = &cli.Command{
 		&cli.StringSliceFlag{
 			Name:    "bootstrap-peers",
 			Usage:   "Comma separated list of multi addresses of bootstrap peers",
-			EnvVars: []string{"NEBULA_BOOTSTRAP_PEERS"},
+			EnvVars: []string{"NEBULA_CRAWL_BOOTSTRAP_PEERS", "NEBULA_BOOTSTRAP_PEERS"},
 		},
 		&cli.IntFlag{
 			Name:        "workers",
