@@ -225,18 +225,36 @@ func (c *Config) DatabaseSourceName() string {
 
 // BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
 func (c *Config) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
-	var pis []peer.AddrInfo
+	peerAddrs := map[peer.ID][]ma.Multiaddr{}
 	for _, maddrStr := range c.BootstrapPeers {
+
 		maddr, err := ma.NewMultiaddr(maddrStr)
 		if err != nil {
 			return nil, err
 		}
+
 		pi, err := peer.AddrInfoFromP2pAddr(maddr)
 		if err != nil {
 			return nil, err
 		}
-		pis = append(pis, *pi)
+
+		_, found := peerAddrs[pi.ID]
+		if found {
+			peerAddrs[pi.ID] = append(peerAddrs[pi.ID], pi.Addrs...)
+		} else {
+			peerAddrs[pi.ID] = pi.Addrs
+		}
 	}
+
+	var pis []peer.AddrInfo
+	for pid, addrs := range peerAddrs {
+		pi := peer.AddrInfo{
+			ID:    pid,
+			Addrs: addrs,
+		}
+		pis = append(pis, pi)
+	}
+
 	return pis, nil
 }
 
