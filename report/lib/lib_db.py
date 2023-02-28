@@ -228,7 +228,7 @@ class DBClient:
                 GROUP BY v.peer_id, unnest(v.multi_address_ids)
             )
             SELECT count(DISTINCT ma.addr)
-            FROM cte INNER JOIN multi_addresses ma ON  ma.id = cte.multi_address_id
+            FROM cte INNER JOIN multi_addresses ma ON ma.id = cte.multi_address_id
             """
         )
 
@@ -798,12 +798,12 @@ class DBClient:
         return df
 
     @cache()
-    def get_crawl_properties(self, threshold=10) -> pd.DataFrame:  #
+    def get_crawl_agent_versions(self, threshold=10) -> pd.DataFrame:  #
         """
-        get_crawl_properties returns agent version distributions
+        get_crawl_agent_versions returns agent version distributions
         of the crawls in the specified time interval.
         """
-        print("Getting crawl properties...")
+        print("Getting crawl agent versions...")
         cur = self.conn.cursor()
         cur.execute(
             f"""
@@ -818,6 +818,57 @@ class DBClient:
         )
 
         df = pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'agent_version', 'count'])
+        df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
+
+        return df
+
+    @cache()
+    def get_connection_errors(self, threshold=10) -> pd.DataFrame:  #
+        """
+        get_connection_errors returns error distributions
+        of the crawls in the specified time interval.
+        """
+        print("Getting connection errors...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT cp.crawl_id, EXTRACT('epoch' FROM c.started_at), cp.error, cp.count
+            FROM crawl_properties cp INNER JOIN crawls c ON cp.crawl_id = c.id
+            WHERE c.started_at > {self.start}
+              AND c.started_at < {self.end}
+              AND cp.error IS NOT NULL
+            ORDER BY c.started_at
+            """
+        )
+
+        df = pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'error', 'count'])
+        df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
+
+        return df
+
+    @cache()
+    def get_crawl_errors(self, threshold=10) -> pd.DataFrame:  #
+        """
+        get_crawl_errors returns error distributions
+        of the crawls in the specified time interval.
+        """
+        print("Getting crawl errors...")
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT c.id, EXTRACT('epoch' FROM c.started_at), v.crawl_error, count(*)
+            FROM visits v
+                INNER JOIN crawls c on v.crawl_id = c.id
+            WHERE v.visit_started_at >= {self.start}
+              AND v.visit_started_at < {self.end}
+              AND v.type = 'crawl'
+              AND v.crawl_error IS NOT NULL
+            GROUP BY c.id, c.started_at, v.crawl_error
+            ORDER BY c.started_at
+            """
+        )
+
+        df = pd.DataFrame(cur.fetchall(), columns=['crawl_id', 'started_at', 'error', 'count'])
         df['started_at'] = pd.to_datetime(df['started_at'], unit='s')
 
         return df

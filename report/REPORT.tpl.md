@@ -82,6 +82,10 @@ Only the top 10 kubo versions appear in the right graph (due to lack of colors) 
 
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
 
+#### Errors
+
+![Crawl Errors](./plots-{{ calendar_week }}/crawl-errors.png)
+
 #### Total Peer IDs Discovered Classification
 
 ![Peer count by classification](./plots-{{ calendar_week }}/peer-classifications.png)
@@ -181,14 +185,6 @@ The classifications are documented [here](#peer-classification). Note that the x
 The number in parentheses in the graph titles show the number of unique peer IDs that went into the specific subgraph.
 
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
-
-## Top Updating Peers
-
-An "updating peer" is a peer that we observed with multiple agent versions.  
-
-| Peer ID           | Final Agent Version     | Number of Transitions | Distinct Agent Versions | Number of Distinct AVs |
-|:----------------- |:------------ | ------------- |:------------ | -------------- |{% for _, tup in top_updating_peers.iterrows() %}
-| `{{ tup["multi_hash"][:16] }}...` | `{{ tup["final_agent_version"] }}` | {{ tup["transition_count"] }}  | {{ '<br/>'.join(tup["distinct_agent_versions"]) }} | {{ tup["distinct_agent_versions_count"] }} |{% endfor %}
 
 ### Peer Classification
 

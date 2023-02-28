@@ -3,6 +3,7 @@ from .plot_agents_kubo import plot_agents_kubo
 from .plot_peer_classifications import plot_peer_classifications, data_node_classifications
 from .plot_crawl_overview import plot_crawl_overview
 from .plot_crawl_properties import plot_crawl_properties
+from .plot_crawl_errors import plot_crawl_errors
 from .plot_churn import plot_churn
 from .plot_inter_arrival_time import plot_inter_arrival_time
 from .plot_geo_unique_ip import plot_geo_unique_ip

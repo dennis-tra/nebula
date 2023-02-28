@@ -30,7 +30,11 @@ def generate_ipfs_report():
     ip_address_count = db_client.get_ip_addresses_count()
 
     top_rotating_nodes = db_client.get_top_rotating_nodes()
-    top_updating_peers = db_client.get_top_updating_peers()
+    # top_updating_peers = db_client.get_top_updating_peers()
+
+    ##################################
+    fig = plot_crawl_errors(db_client.get_connection_errors(), db_client.get_crawl_errors())
+    lib_plot.savefig(fig, "crawl-errors", db_client.calendar_week)
 
     ##################################
     df = db_client.get_agent_versions_distribution()
@@ -69,7 +73,7 @@ def generate_ipfs_report():
     lib_plot.savefig(fig, "crawl-overview", db_client.calendar_week)
 
     ##################################
-    fig = plot_crawl_properties(db_client.get_crawl_properties())
+    fig = plot_crawl_properties(db_client.get_crawl_agent_versions())
     lib_plot.savefig(fig, "crawl-properties", db_client.calendar_week)
 
     ##################################
@@ -182,7 +186,7 @@ def generate_ipfs_report():
         new_protocols=db_client.get_new_protocols(),
         top_rotating_nodes=top_rotating_nodes,
         ip_address_count=fmt_thousands(ip_address_count),
-        top_updating_peers=top_updating_peers,
+        # top_updating_peers=top_updating_peers,
     )
 
     with open(f"report-{calendar_week}.md", "w") as f:
