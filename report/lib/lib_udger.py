@@ -14,8 +14,8 @@ class Datacenter:
 
 class UdgerClient:
 
-    def __init__(self):
-        self.conn = sqlite3.connect("udgerdb_v3.dat")
+    def __init__(self, dbname="udgerdb_v3.dat"):
+        self.conn = sqlite3.connect(dbname)
 
     def get_datacenter(self, id: int) -> Optional[Datacenter]:
         if id is None or np.isnan(id):

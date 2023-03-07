@@ -1,51 +1,22 @@
 #!/usr/bin/env bash
+echo running
 
-# params:
-#  <IPFS_API> . i.e. /ip4/x.x.x.x/tcp/5001
-# this can be passed as an argument or environment variable.
-#
-# 1. Generate reports
-# 2. Pin to IPFS
-# 3. Copy to MFS
-# 4. Pubish to IPNS
+# use supplied year and week or assign defaults
+NEBULA_REPORT_YEAR="${NEBULA_REPORT_YEAR:=$(date +"%Y")}"
+NEBULA_REPORT_WEEK="${NEBULA_REPORT_WEEK:=$(($(date +"%W")-1))}"
 
-if [[ ! $# -ne 1  ]]
+REPORT_DIR_BASE="${REPORT_DIR_BASE:-reports}"
+REPORT_DIR="${REPORT_DIR:-$REPORT_DIR_BASE/$NEBULA_REPORT_YEAR/calendar-week-$NEBULA_REPORT_WEEK/ipfs}"
+
+WORK_DIR="$(mktemp -d)"
+
+# Generate report
+poetry run python main.py "$WORK_DIR"
+if [[ $? != 0 ]]
 then
-	IPFS=$1
-elif [[ ! -z "${IPFS_API}" ]]
-then
-	IPFS="${IPFS_API}"
-else
-	echo "Sorry, I don't know where to upload reports. This is a configuration error. Will not continue." >&2
+ 	echo "Could not generate the report"
 	exit 1
 fi
 
-
-# this is the directory where reports will be generated.
-mkdir reports
-
-# Generate report
-poetry run python main.py
-if [[ $? != 0 ]]
-then
- echo "Error generating reports. I'll publish what I got."
- echo "could not generate the report today. Check runner logs for details." > reports/report-error
-fi
-
-# Make HTML page
-sleep 5
-markdown reports/report-*.md >reports/index.html
-
-REPORTDIR=nebula-$(date +"%y-%m-%d")
-mv reports "${REPORTDIR}"
-
-# Pin to IPFS
-REPORTCID=$(ipfs --api="${IPFS}" add -Qr "${REPORTDIR}")
-echo "pinned report with CID ${REPORTCID}"
-
-# Copy to MFS
-ipfs --api="${IPFS}" files cp -p "/ipfs/${REPORTCID}" "/nebula-reports/${REPORTDIR}"
-MFSHASH=$(ipfs --api="${IPFS}" files stat --hash "/nebula-reports")
-
-# Publish to IPNS
-ipfs --api="${IPFS}" name publish "${MFSHASH}"
+mkdir -p "$REPORT_DIR"
+cp -r "$WORK_DIR"/* "$REPORT_DIR"

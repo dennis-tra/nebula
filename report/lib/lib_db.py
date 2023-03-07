@@ -1,4 +1,3 @@
-import toml
 import os
 import json
 import psycopg2
@@ -27,6 +26,7 @@ class IPResolutionClassification(Enum):
     NO_PUBLIC_IP = "no public ip"
     RELAY_ONLY = "relay_only"
 
+DBConfig = dict[str, str]
 
 def cache():
     """
@@ -91,7 +91,7 @@ class DBClient:
     def fmt_list(items: list[T], type="INT") -> str:
         return ",".join(str(elem) for elem in items)
 
-    def __init__(self, year: int, calendar_week: int, db_toml: str = "./db.toml"):
+    def __init__(self, year: int, calendar_week: int, db_config: DBConfig):
         print("Initializing database client...")
 
         self.year = year
@@ -104,13 +104,14 @@ class DBClient:
         self.end = f"'{self.end_date.strftime('%Y-%m-%d %H:%M:%S')}'::TIMESTAMP"
         self.range = f"'[{self.start_date.strftime('%Y-%m-%d %H:%M:%S')}, {self.end_date.strftime('%Y-%m-%d %H:%M:%S')})'::TSTZRANGE"
 
-        self.config = toml.load(db_toml)['psql']
+        self.config = db_config
         self.conn = psycopg2.connect(
             host=self.config['host'],
             port=self.config['port'],
             database=self.config['database'],
             user=self.config['user'],
             password=self.config['password'],
+            sslmode=self.config['sslmode']
         )
 
         self.node_classification_funcs = {
