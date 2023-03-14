@@ -209,26 +209,37 @@ def generate_ipfs_report():
     env = jinja2.Environment(loader=loader)
     template = env.get_template("REPORT.tpl.md")
     storm_agent_versions = db_client.get_storm_agent_versions()
-    outputText = template.render(
-        year=year,
-        calendar_week=calendar_week,
-        measurement_start=dt.datetime.strptime(f"{year}-W{calendar_week}" + '-1', "%Y-W%W-%w").date(),
-        measurement_end=dt.datetime.strptime(f"{year}-W{calendar_week + 1}" + '-1', "%Y-W%W-%w").date(),
-        crawl_count=fmt_thousands(crawl_count),
-        visit_count=fmt_thousands(visit_count),
-        visited_peer_id_count=fmt_thousands(visited_peer_id_count),
-        discovered_peer_id_count=fmt_thousands(discovered_peer_id_count),
-        storm_agent_versions=storm_agent_versions,
-        storm_star_agent_versions=[av for av in storm_agent_versions if av != "storm"],
-        new_agent_versions=db_client.get_new_agent_versions(),
-        new_protocols=db_client.get_new_protocols(),
-        top_rotating_nodes=top_rotating_nodes,
-        ip_address_count=fmt_thousands(ip_address_count),
-        # top_updating_peers=top_updating_peers,
-    )
 
-    with open(output_file, "w") as f:
-        f.write(outputText)
+    print("Rendering template...")
+    try:
+        outputText = template.render(
+            year=year,
+            calendar_week=calendar_week,
+            measurement_start=dt.datetime.strptime(f"{year}-W{calendar_week}" + '-1', "%Y-W%W-%w").date(),
+            measurement_end=dt.datetime.strptime(f"{year}-W{calendar_week + 1}" + '-1', "%Y-W%W-%w").date(),
+            crawl_count=fmt_thousands(crawl_count),
+            visit_count=fmt_thousands(visit_count),
+            visited_peer_id_count=fmt_thousands(visited_peer_id_count),
+            discovered_peer_id_count=fmt_thousands(discovered_peer_id_count),
+            storm_agent_versions=storm_agent_versions,
+            storm_star_agent_versions=[av for av in storm_agent_versions if av != "storm"],
+            new_agent_versions=db_client.get_new_agent_versions(),
+            new_protocols=db_client.get_new_protocols(),
+            top_rotating_nodes=top_rotating_nodes,
+            ip_address_count=fmt_thousands(ip_address_count),
+            # top_updating_peers=top_updating_peers,
+        )
+    except Exception as e:
+        print(e)
+
+
+    print("Writing templated output...")
+    try:
+        with open(output_file, "w") as f:
+            f.write(outputText)
+    except Exception as e:
+        print(e)
+
 
     db_client.close()
 

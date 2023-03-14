@@ -411,26 +411,29 @@ class DBClient:
 
     @cache()
     def get_new_protocols(self) -> pd.DataFrame:  # DONE
-        """
-        get_new_protocols returns all protocols and their discovery
-        date that were discovered in the specified time interval.
-        """
-        print("Getting new protocols in the specified time interval...")
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT EXTRACT('epoch' FROM p.created_at), p.protocol
-            FROM protocols p
-            WHERE created_at > {self.start}
-              AND created_at < {self.end}
-            ORDER BY p.created_at
+        try:
             """
-        )
+            get_new_protocols returns all protocols and their discovery
+            date that were discovered in the specified time interval.
+            """
+            print("Getting new protocols in the specified time interval...")
+            cur = self.conn.cursor()
+            cur.execute(
+                f"""
+                SELECT EXTRACT('epoch' FROM p.created_at), p.protocol
+                FROM protocols p
+                WHERE created_at > {self.start}
+                  AND created_at < {self.end}
+                ORDER BY p.created_at
+                """
+            )
 
-        df = pd.DataFrame(cur.fetchall(), columns=["created_at", "protocol"])
-        df['created_at'] = pd.to_datetime(df['created_at'], unit='s')
+            df = pd.DataFrame(cur.fetchall(), columns=["created_at", "protocol"])
+            df['created_at'] = pd.to_datetime(df['created_at'], unit='s')
 
-        return df
+            return df
+        except Exception as e:
+            print(e)
 
     @cache()
     def get_storm_protocol_set_ids(self):  # DONE
