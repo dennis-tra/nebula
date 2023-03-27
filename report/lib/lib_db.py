@@ -757,15 +757,19 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            WITH cte AS (
+            WITH peer_ids AS (
+                SELECT t.peer_id
+                FROM unnest('{{{self.fmt_list(peer_ids)}}}'::INT[]) t(peer_id)
+                ORDER BY t.peer_id
+            ), cte AS (
                 SELECT v.peer_id, av.agent_version, v.protocols_set_id IN ({self.fmt_list(self.get_storm_protocol_set_ids())}) is_storm
                 FROM visits v
                     INNER JOIN agent_versions av on av.id = v.agent_version_id
+                    INNER JOIN peer_ids pi ON pi.peer_id = v.peer_id
                 WHERE v.visit_started_at >= {self.start}
                   AND v.visit_started_at < {self.end}
                   AND v.type = 'crawl'
                   AND v.connect_error IS NULL
-                  AND v.peer_id IN ({self.fmt_list(peer_ids)})
             )
             SELECT cte.agent_version, cte.is_storm, count(DISTINCT cte.peer_id) FROM cte
             GROUP BY cte.agent_version, cte.is_storm
