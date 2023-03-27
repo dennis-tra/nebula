@@ -12,8 +12,5 @@ def cdf(series: pd.Series) -> pd.DataFrame:
     })
 
 
-def savefig(fig: plt.Figure, name: str, calendar_week: int):
-    dir_name = f"plots-{calendar_week}"
-    if not os.path.isdir(dir_name):
-        os.mkdir(dir_name)
-    fig.savefig(f"{dir_name}/{name}.png")
+def savefig(fig: plt.Figure, name: str, dir_name='plots'):
+    fig.savefig(os.path.join(dir_name, f"{name}.png"))
