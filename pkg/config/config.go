@@ -31,6 +31,9 @@ const (
 	NetworkPolkadot Network = "POLKADOT"
 	NetworkRococo   Network = "ROCOCO"
 	NetworkWestend  Network = "WESTEND"
+	NetworkArabica  Network = "ARABICA"
+	NetworkMocha    Network = "MOCHA"
+	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
 )
 
 // configFile contains the path suffix that's appended to
@@ -401,6 +404,15 @@ func (c *Config) configureNetwork() {
 	case NetworkWestend:
 		c.BootstrapPeers = BootstrapPeersWestend
 		c.Protocols = []string{"/wnd2/kad"}
+	case NetworkArabica:
+		c.BootstrapPeers = BootstrapPeersArabica
+		c.Protocols = []string{"/celestia/arabica-6/kad/1.0.0"}
+	case NetworkMocha:
+		c.BootstrapPeers = BootstrapPeersMocha
+		c.Protocols = []string{"/celestia/mocha/kad/1.0.0"}
+	case NetworkBlockRa:
+		c.BootstrapPeers = BootstrapPeersBlockspaceRace
+		c.Protocols = []string{"/celestia/blockspacerace-0/kad/1.0.0"}
 	case NetworkIPFS:
 		fallthrough
 	default:
