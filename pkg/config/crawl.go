@@ -40,6 +40,9 @@ type Crawl struct {
 
 	// Whether to skip database interactions
 	DryRun bool
+
+	// File path to the JSON output directory
+	JSONOut string
 }
 
 // ReachedCrawlLimit returns true if the crawl limit is configured (aka != 0) and the crawled peers exceed this limit.

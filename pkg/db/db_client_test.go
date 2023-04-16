@@ -49,16 +49,16 @@ func clearDatabase(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
-func setup(t *testing.T) (context.Context, *Client, func(t *testing.T)) {
+func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 	ctx := context.Background()
 
-	c := config.DefaultConfig
+	c := config.Root{}
 	c.DatabaseName = "nebula_test"
 	c.DatabaseUser = "nebula_test"
 	c.DatabasePassword = "password_test"
 	c.DatabasePort = 2345
 
-	client, err := InitClient(ctx, &c)
+	client, err := InitDBClient(ctx, &c)
 	require.NoError(t, err)
 
 	return ctx, client, func(t *testing.T) {
@@ -251,7 +251,6 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 	visitEnd := time.Now()
 	ivr, err := client.PersistCrawlVisit(
 		ctx,
-		client.Handle(),
 		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -295,7 +294,6 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	visitEnd := time.Now()
 	ivr, err := client.PersistCrawlVisit(
 		ctx,
-		client.Handle(),
 		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -393,7 +391,6 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	visitEnd = time.Now()
 	ivr, err = client.PersistCrawlVisit(
 		ctx,
-		client.Handle(),
 		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -479,7 +476,6 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	visitEnd := time.Now().Add(-100 * time.Hour).Add(time.Second)
 	ivr, err := client.PersistCrawlVisit(
 		ctx,
-		client.Handle(),
 		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},

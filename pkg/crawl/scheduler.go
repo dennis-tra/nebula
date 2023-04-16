@@ -35,7 +35,7 @@ type Scheduler struct {
 	host host.Host
 
 	// The database client
-	dbc *db.Client
+	dbc db.Client
 
 	// The configuration of timeouts etc.
 	config *config.Crawl
@@ -89,7 +89,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(conf *config.Crawl, dbc *db.Client) (*Scheduler, error) {
+func NewScheduler(conf *config.Crawl, dbc db.Client) (*Scheduler, error) {
 
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
@@ -228,7 +228,9 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	}
 
 	// persist all neighbor information
-	s.persistNeighbors()
+	if s.config.PersistNeighbors {
+		s.persistNeighbors(context.Background())
+	}
 
 	return nil
 }

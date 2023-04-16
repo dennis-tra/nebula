@@ -34,7 +34,7 @@ type Scheduler struct {
 	host host.Host
 
 	// The database handle
-	dbc *db.Client
+	dbc *db.DBClient
 
 	// The configuration of timeouts etc.
 	config *config.Monitor
@@ -54,7 +54,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(conf *config.Monitor, dbc *db.Client) (*Scheduler, error) {
+func NewScheduler(conf *config.Monitor, dbc *db.DBClient) (*Scheduler, error) {
 
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)

@@ -81,10 +81,17 @@ var CrawlCommand = &cli.Command{
 		},
 		&cli.BoolFlag{
 			Name:        "dry-run",
-			Usage:       "Don't persist anything to a database (you don't need a running DB)",
+			Usage:       "Don't persist anything",
 			EnvVars:     []string{"NEBULA_CRAWL_DRY_RUN"},
 			Value:       crawlConfig.DryRun,
 			Destination: &crawlConfig.DryRun,
+		},
+		&cli.StringFlag{
+			Name:        "json-out",
+			Usage:       "If set, stores the crawl results as JSON documents at the specified location (takes precedence over database settings).",
+			EnvVars:     []string{"NEBULA_CRAWL_JSON_OUT"},
+			Value:       crawlConfig.JSONOut,
+			Destination: &crawlConfig.JSONOut,
 		},
 		&cli.BoolFlag{
 			Name:        "neighbors",
@@ -116,11 +123,17 @@ func CrawlAction(c *cli.Context) error {
 
 	// Acquire database handle
 	var (
-		dbc *db.Client
+		dbc db.Client
 		err error
 	)
 	if !c.Bool("dry-run") {
-		if dbc, err = db.InitClient(c.Context, rootConfig); err != nil {
+		if crawlConfig.JSONOut == "" {
+			dbc, err = db.InitDBClient(c.Context, rootConfig)
+		} else {
+			dbc, err = db.InitJSONClient(c.Context, crawlConfig.JSONOut)
+		}
+
+		if err != nil {
 			return err
 		}
 	}

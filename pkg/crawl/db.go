@@ -55,11 +55,7 @@ func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
 }
 
 // persistNeighbors fills the neighbors table with topology information
-func (s *Scheduler) persistNeighbors() {
-	if !s.config.PersistNeighbors {
-		return
-	}
-
+func (s *Scheduler) persistNeighbors(ctx context.Context) {
 	log.Infoln("Persisting neighbor information...")
 
 	start := time.Now()
@@ -86,7 +82,7 @@ func (s *Scheduler) persistNeighbors() {
 				peerIDs = append(peerIDs, n.ID)
 			}
 		}
-		if err := s.dbc.PersistNeighbors(s.crawl, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
+		if err := s.dbc.PersistNeighbors(ctx, s.crawl, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
 			log.WithError(err).WithField("peerID", utils.FmtPeerID(p)).Warnln("Could not persist neighbors")
 		}
 	}
