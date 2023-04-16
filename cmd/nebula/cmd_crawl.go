@@ -43,6 +43,11 @@ var CrawlCommand = &cli.Command{
 			crawlConfig.BootstrapPeers = cli.NewStringSlice(c.StringSlice("bootstrap-peers")...)
 		}
 
+		log.Debugln("Using the following configuration:")
+		if log.GetLevel() >= log.DebugLevel {
+			fmt.Println(crawlConfig.String())
+		}
+
 		return nil
 	},
 	Flags: []cli.Flag{

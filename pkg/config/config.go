@@ -94,6 +94,12 @@ type Monitor struct {
 	MonitorWorkerCount int
 }
 
+// String prints the configuration as a json string
+func (m *Monitor) String() string {
+	data, _ := json.MarshalIndent(m, "", "  ")
+	return string(data)
+}
+
 type Resolve struct {
 	Root *Root
 

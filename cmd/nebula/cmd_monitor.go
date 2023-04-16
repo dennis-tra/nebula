@@ -21,6 +21,14 @@ var MonitorCommand = &cli.Command{
 	Name:   "monitor",
 	Usage:  "Monitors the network by periodically dialing previously crawled peers.",
 	Action: MonitorAction,
+	Before: func(c *cli.Context) error {
+		log.Debugln("Using the following configuration:")
+		if log.GetLevel() >= log.DebugLevel {
+			fmt.Println(monitorConfig.String())
+		}
+
+		return nil
+	},
 	Flags: []cli.Flag{
 		&cli.IntFlag{
 			Name:        "workers",

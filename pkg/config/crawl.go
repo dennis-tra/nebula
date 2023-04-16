@@ -37,7 +37,9 @@ type Crawl struct {
 
 	// The network to crawl
 	Network string
-	DryRun  bool
+
+	// Whether to skip database interactions
+	DryRun bool
 }
 
 // ReachedCrawlLimit returns true if the crawl limit is configured (aka != 0) and the crawled peers exceed this limit.
@@ -48,7 +50,7 @@ func (c *Crawl) ReachedCrawlLimit(crawled int) bool {
 // String prints the configuration as a json string
 func (c *Crawl) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
-	return fmt.Sprintf("%s", data)
+	return string(data)
 }
 
 // BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
