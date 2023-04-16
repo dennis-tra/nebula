@@ -1,8 +1,0 @@
-[hosts]
-# use_docker_mirror is relevant for deployments in china where a docker repository mirror must be used.
-127.0.0.2   ansible_connection=ssh    ansible_user=nebula ansible_python_interpreter=/usr/bin/python3 use_docker_mirror=true
-
-[root]
-# hosts that don't have a {{ remote_user_name }} user yet. But you have root access.
-127.0.0.1    ansible_connection=ssh    ansible_user=nebula ansible_python_interpreter=/usr/bin/python3 use_docker_mirror=false
-

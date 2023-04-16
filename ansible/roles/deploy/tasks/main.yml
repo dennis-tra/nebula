@@ -1,9 +1,0 @@
-- name: Starting docker services
-  docker_compose:
-    project_src: /home/{{ remote_user_name }}/docker
-
-# somehow the postgres.init.sh script does not grant the read privileges :/ I'm doing it manually after the deployment here...
-- name: Grant read user permissions after all tables have been created
-  command:
-    cmd: docker run --rm --network nebula -e PGPASSWORD={{ db_password }} postgres:13 psql -U "{{ db_user }}" -h postgres -d nebula_{{ item.name }} -c 'GRANT SELECT ON ALL TABLES IN SCHEMA public TO nebula_{{ item.name }}_read;'
-  with_items: "{{ networks }}"
