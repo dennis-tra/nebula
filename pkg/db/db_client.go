@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"embed"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -25,7 +26,6 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
@@ -337,7 +337,7 @@ func (c *DBClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExe
 	log.WithField("protocol", protocol).Infoln("Upsert protocol")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
 	if row.Err() != nil {
-		return nil, errors.Wrap(row.Err(), "unable to upsert protocol")
+		return nil, fmt.Errorf("unable to upsert protocol: %w", row.Err())
 	}
 
 	var protocolID *int
@@ -434,7 +434,7 @@ func (c *DBClient) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Cont
 	log.WithField("key", hex.EncodeToString([]byte(key))).Infoln("Upsert protocols set")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol_set_id($1)", types.Int64Array(protocolIDs))
 	if row.Err() != nil {
-		return nil, errors.Wrap(row.Err(), "unable to upsert protocols set")
+		return nil, fmt.Errorf("unable to upsert protocols set: %w", row.Err())
 	}
 
 	var protocolsSetID *int
@@ -465,7 +465,7 @@ func (c *DBClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Cont
 	log.WithField("agentVersion", agentVersion).Infoln("Upsert agent version")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
 	if row.Err() != nil {
-		return nil, errors.Wrap(row.Err(), "unable to upsert agent version")
+		return nil, fmt.Errorf("unable to upsert agent version: %w", row.Err())
 	}
 
 	var agentVersionID *int

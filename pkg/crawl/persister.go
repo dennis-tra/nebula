@@ -2,10 +2,10 @@ package crawl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 

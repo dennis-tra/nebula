@@ -3,10 +3,11 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/null/v8"
@@ -84,7 +85,7 @@ func ResolveAction(c *cli.Context) error {
 		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
-			return errors.Wrap(err, "fetching multi addresses")
+			return fmt.Errorf("fetching multi addresses: %w", err)
 		}
 		log.Infof("Fetched %d multi addresses", len(dbmaddrs))
 		if len(dbmaddrs) == 0 {
@@ -114,7 +115,7 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 	logEntry := log.WithField("maddr", dbmaddr.Maddr)
 	txn, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
-		return errors.Wrap(err, "begin txn")
+		return fmt.Errorf("begin txn: %w", err)
 	}
 	defer db.Rollback(txn)
 
@@ -124,7 +125,7 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 		if _, err = dbmaddr.Delete(ctx, txn); err != nil {
 			logEntry.WithError(err).Warnln("Error deleting multi address")
 		}
-		return errors.Wrap(err, "parse multi address")
+		return fmt.Errorf("parse multi address: %w", err)
 	}
 
 	dbmaddr.Resolved = true
@@ -184,13 +185,13 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 			}
 			if err := dbmaddr.AddIPAddresses(ctx, txn, true, ipaddr); err != nil {
 				logEntry.WithError(err).WithField("addr", ipaddr.Address).Warnln("Could not insert ip address")
-				return errors.Wrap(err, "add ip addresses")
+				return fmt.Errorf("add ip addresses: %w", err)
 			}
 		}
 	}
 	if _, err = dbmaddr.Update(ctx, txn, boil.Infer()); err != nil {
 		logEntry.WithError(err).Warnln("Could not update multi address")
-		return errors.Wrap(err, "update multi address")
+		return fmt.Errorf("update multi address: %w", err)
 	}
 
 	return txn.Commit()

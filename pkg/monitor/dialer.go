@@ -2,12 +2,12 @@ package monitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 

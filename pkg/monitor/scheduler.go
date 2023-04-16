@@ -3,6 +3,8 @@ package monitor
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -12,7 +14,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	ma "github.com/multiformats/go-multiaddr"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 
@@ -60,7 +61,7 @@ func NewScheduler(conf *config.Monitor, dbc *db.DBClient) (*Scheduler, error) {
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
 	if err != nil {
-		return nil, errors.Wrap(err, "new resource manager")
+		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
 
 	// Initialize a single libp2p node that's shared between all dialers.
@@ -97,7 +98,7 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
 		d, err := NewDialer(s.host, s.config)
 		if err != nil {
-			return errors.Wrap(err, "new dialer")
+			return fmt.Errorf("new dialer: %w", err)
 		}
 
 		dialers = append(dialers, d)
@@ -206,7 +207,7 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 	// Parse peer ID from database
 	peerID, err := peer.Decode(session.R.Peer.MultiHash)
 	if err != nil {
-		return errors.Wrap(err, "decode peer ID")
+		return fmt.Errorf("decode peer ID: %w", err)
 	}
 	logEntry := log.WithField("peerID", utils.FmtPeerID(peerID))
 

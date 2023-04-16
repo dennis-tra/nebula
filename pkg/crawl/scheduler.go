@@ -2,6 +2,7 @@ package crawl
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -95,13 +95,13 @@ func NewScheduler(conf *config.Crawl, dbc db.Client) (*Scheduler, error) {
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
 	if err != nil {
-		return nil, errors.Wrap(err, "new resource manager")
+		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
 
 	// Initialize a single libp2p node that's shared between all crawlers.
 	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Root.Version()))
 	if err != nil {
-		return nil, errors.Wrap(err, "new libp2p host")
+		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
 
 	s := &Scheduler{
@@ -219,12 +219,12 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 
 	// Persist the crawl results
 	if err := s.updateCrawl(context.Background(), crawlerCtx, len(s.inCrawlQueue) == 0); err != nil {
-		return errors.Wrap(err, "persist crawl")
+		return fmt.Errorf("persist crawl: %w", err)
 	}
 
 	// Persist associated crawl properties
 	if err := s.persistCrawlProperties(context.Background()); err != nil {
-		return errors.Wrap(err, "persist crawl properties")
+		return fmt.Errorf("persist crawl properties: %w", err)
 	}
 
 	// persist all neighbor information
@@ -265,7 +265,7 @@ func (s *Scheduler) initCrawl(ctx context.Context) error {
 	log.Infoln("Initializing crawl...")
 	crawl, err := s.dbc.InitCrawl(ctx)
 	if err != nil {
-		return errors.Wrap(err, "creating crawl in db")
+		return fmt.Errorf("creating crawl in db: %w", err)
 	}
 	s.crawl = crawl
 	s.crawlStart = crawl.StartedAt
@@ -283,7 +283,7 @@ func (s *Scheduler) startCrawlers(ctx context.Context) ([]*Crawler, context.Cont
 		c, err := NewCrawler(s.host, s.config)
 		if err != nil {
 			crawlerCancel()
-			return nil, nil, nil, errors.Wrap(err, "new crawler")
+			return nil, nil, nil, fmt.Errorf("new crawler: %w", err)
 		}
 		crawlers = append(crawlers, c)
 		go c.StartCrawling(crawlerCtx, s.crawlQueue, s.crawlResultsQueue)
@@ -306,7 +306,7 @@ func (s *Scheduler) startPersisters(ctx context.Context) ([]*Persister, context.
 		p, err := NewPersister(s.dbc, s.config, s.crawl)
 		if err != nil {
 			persistersCancel()
-			return nil, nil, errors.Wrap(err, "new persister")
+			return nil, nil, fmt.Errorf("new persister: %w", err)
 		}
 		persisters = append(persisters, p)
 		go p.StartPersisting(persistersCtx, s.persistQueue, s.persistResultsQueue)

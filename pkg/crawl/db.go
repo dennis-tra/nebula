@@ -2,11 +2,11 @@ package crawl
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
