@@ -149,9 +149,9 @@ func (c *DBClient) Close() error {
 }
 
 func (c *DBClient) applyMigrations(conf *config.Root, dbh *sql.DB) {
-	tmpDir, err := os.MkdirTemp("", "nebula-"+conf.Version)
+	tmpDir, err := os.MkdirTemp("", "nebula-"+conf.Version())
 	if err != nil {
-		log.WithError(err).WithField("pattern", "nebula-"+conf.Version).Warnln("Could not create tmp directory for migrations")
+		log.WithError(err).WithField("pattern", "nebula-"+conf.Version()).Warnln("Could not create tmp directory for migrations")
 		return
 	}
 	defer func() {

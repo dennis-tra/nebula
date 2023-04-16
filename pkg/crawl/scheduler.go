@@ -99,7 +99,7 @@ func NewScheduler(conf *config.Crawl, dbc db.Client) (*Scheduler, error) {
 	}
 
 	// Initialize a single libp2p node that's shared between all crawlers.
-	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Root.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Root.Version()))
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}

@@ -6,10 +6,10 @@ test:
 	go test ./...
 
 build:
-	go build -o dist/nebula cmd/nebula/*
+	go build -ldflags "-X main.RawVersion=`cat version`" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
 
-linux-build:
-	GOOS=linux GOARCH=amd64 go build -o dist/nebula cmd/nebula/*
+build-linux:
+	GOOS=linux GOARCH=amd64 make build
 
 format:
 	gofumpt -w -l .
@@ -28,7 +28,7 @@ tools:
 	go install github.com/volatiletech/sqlboiler/v4@v4.13.0
 	go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.13.0
 
-db-reset: migrate-down migrate-up models
+database-reset: migrate-down migrate-up models
 
 database:
 	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14

@@ -3,6 +3,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
+	"strconv"
 	"time"
 )
 
@@ -23,7 +25,7 @@ const (
 // Root contains general user configuration.
 type Root struct {
 	// The version string of nebula
-	Version string
+	RawVersion string
 
 	// Enables debug logging (equivalent to log level 5)
 	Debug bool
@@ -66,6 +68,34 @@ type Root struct {
 
 	// The cache size to hold sets of protocols in memory to skip database queries.
 	ProtocolsSetCacheSize int
+}
+
+// Version returns the actual version string which includes VCS information
+func (r *Root) Version() string {
+	shortCommit := ""
+	dirty := false
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				shortCommit = setting.Value[:7]
+			case "vcs.modified":
+				dirty, _ = strconv.ParseBool(setting.Value)
+			}
+		}
+	}
+
+	versionStr := "v" + r.RawVersion
+
+	if shortCommit != "" {
+		versionStr += "+" + shortCommit
+	}
+
+	if dirty {
+		versionStr += "+dirty"
+	}
+
+	return versionStr
 }
 
 // String prints the configuration as a json string

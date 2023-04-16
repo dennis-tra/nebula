@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,15 +23,12 @@ const (
 
 var (
 	// RawVersion and build tag of the
-	// Nebula command line tool. This is
-	// replaced on build via e.g.:
-	// -ldflags "-X main.RawVersion=${VERSION}"
-	RawVersion  = "dev"
-	ShortCommit = "5f3759df" // quake
+	// Nebula command line tool.
+	RawVersion = "dev"
 )
 
 var rootConfig = &config.Root{
-	Version:                fmt.Sprintf("v%s+%s", RawVersion, ShortCommit),
+	RawVersion:             RawVersion,
 	Debug:                  false,
 	LogLevel:               4,
 	DialTimeout:            time.Minute,
@@ -61,7 +57,7 @@ func main() {
 				Email: "nebula@dtrautwein.eu",
 			},
 		},
-		Version: rootConfig.Version,
+		Version: rootConfig.Version(),
 		Before:  Before,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{

@@ -64,7 +64,7 @@ func NewScheduler(conf *config.Monitor, dbc *db.DBClient) (*Scheduler, error) {
 	}
 
 	// Initialize a single libp2p node that's shared between all dialers.
-	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-monitor/"+conf.Root.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-monitor/"+conf.Root.Version()))
 	if err != nil {
 		return nil, err
 	}
