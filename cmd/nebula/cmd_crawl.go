@@ -88,7 +88,7 @@ var CrawlCommand = &cli.Command{
 		},
 		&cli.StringFlag{
 			Name:        "json-out",
-			Usage:       "If set, stores the crawl results as JSON documents at the specified location (takes precedence over database settings).",
+			Usage:       "If set, stores the crawl results as JSON documents at `DIR` (takes precedence over database settings).",
 			EnvVars:     []string{"NEBULA_CRAWL_JSON_OUT"},
 			Value:       crawlConfig.JSONOut,
 			Destination: &crawlConfig.JSONOut,

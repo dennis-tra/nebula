@@ -9,6 +9,7 @@ import (
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestNewCrawler_correctInit(t *testing.T) {
-	conf := &config.Config{}
+	conf := &config.Crawl{Protocols: cli.NewStringSlice(), Root: &config.Root{}}
 	crawler, err := NewCrawler(nil, conf)
 	require.NoError(t, err)
 
@@ -31,7 +32,7 @@ func TestNewCrawler_correctInit(t *testing.T) {
 }
 
 func TestCrawler_StartCrawling_stopsOnShutdown(t *testing.T) {
-	crawler, err := NewCrawler(nil, &config.Config{})
+	crawler, err := NewCrawler(nil, &config.Crawl{Protocols: cli.NewStringSlice(), Root: &config.Root{}})
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -55,7 +56,7 @@ func TestCrawler_handleCrawlJob_unlinked(t *testing.T) {
 	remote, err := net.GenPeer()
 	require.NoError(t, err)
 
-	crawler, err := NewCrawler(h, &config.Config{})
+	crawler, err := NewCrawler(h, &config.Crawl{Protocols: cli.NewStringSlice(), Root: &config.Root{}})
 	require.NoError(t, err)
 
 	pi := peer.AddrInfo{

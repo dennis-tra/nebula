@@ -10,7 +10,6 @@ import (
 
 func TestInit_BootstrapPeers(t *testing.T) {
 	config := Crawl{
-		Root:           &Root{Protocols: cli.NewStringSlice()},
 		BootstrapPeers: cli.NewStringSlice(),
 		Network:        string(NetworkIPFS),
 	}
@@ -22,7 +21,6 @@ func TestInit_BootstrapPeers(t *testing.T) {
 
 func TestConfig_BootstrapAddrInfos(t *testing.T) {
 	config := Crawl{
-		Root:           &Root{Protocols: cli.NewStringSlice()},
 		BootstrapPeers: cli.NewStringSlice(),
 		Network:        string(NetworkIPFS),
 	}

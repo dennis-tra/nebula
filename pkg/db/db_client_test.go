@@ -52,11 +52,17 @@ func clearDatabase(ctx context.Context, db *sql.DB) error {
 func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 	ctx := context.Background()
 
-	c := config.Root{}
-	c.DatabaseName = "nebula_test"
-	c.DatabaseUser = "nebula_test"
-	c.DatabasePassword = "password_test"
-	c.DatabasePort = 2345
+	c := config.Root{
+		DatabaseHost:           "localhost",
+		DatabasePort:           2345,
+		DatabaseName:           "nebula_test",
+		DatabasePassword:       "password_test",
+		DatabaseUser:           "nebula_test",
+		DatabaseSSLMode:        "disable",
+		AgentVersionsCacheSize: 100,
+		ProtocolsCacheSize:     100,
+		ProtocolsSetCacheSize:  100,
+	}
 
 	client, err := InitDBClient(ctx, &c)
 	require.NoError(t, err)

@@ -7,20 +7,21 @@
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
-A libp2p DHT crawler and monitor that tracks the liveness and availability of peers. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap peers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the [IPFS](https://ipfs.network), [Filecoin](https://filecoin.io), [Polkadot](https://polkadot.network/), and [Kusama](https://kusama.network/) networks.
+A libp2p DHT crawler and monitor that tracks the liveness of peers. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrap peers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the [IPFS](https://ipfs.network), [Filecoin](https://filecoin.io), [Polkadot](https://polkadot.network/), [Kusama](https://kusama.network/), [Rococo](https://substrate.io/developers/rococo-network/), [Westend](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network) networks [and more](https://github.com/dennis-tra/nebula/blob/a33a5fd493caaeb07e92ecc73c32ee87ae9e374f/pkg/config/config.go#L11).
 
 _The crawler was:_
 
-- 🏆 _awarded a prize in the context of the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
+- 🏆 _awarded a prize in the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
 
-📊 We publish weekly reports [here](https://github.com/protocol/network-measurements/tree/master/reports)! 📊
+📊 We publish weekly reports based on the crawl results [here](https://github.com/protocol/network-measurements/tree/master/reports)! 📊
 
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
 ## Table of Contents
 
+- [Table of Contents](#table-of-contents)
 - [Project Status](#project-status)
 - [Usage](#usage)
 - [How does it work?](#how-does-it-work)
@@ -32,7 +33,6 @@ _The crawler was:_
 - [Development](#development)
   - [Database](#database)
   - [Tests](#tests)
-- [Deployment](#deployment)
 - [Report](#report)
 - [Related Efforts](#related-efforts)
 - [Maintainers](#maintainers)
@@ -55,71 +55,56 @@ Nebula is a command line tool and provides the `crawl` sub-command. To simply cr
 nebula crawl --dry-run
 ```
 
-Usually the crawler will persist its result in a postgres database - the `--dry-run` flag prevents it from doing that. One run takes ~5-10 min depending on your internet connection. You can also specify the network you want to crawl by appending, e.g., `--network FILECOIN`.
-
-See the command line help page below for global configuration options or consult the sub-command specific ones:
+The crawler can store its results as JSON documents or in a postgres database - the `--dry-run` flag prevents it from doing either. Nebula will print a summary of the crawl at the end instead. A crawl takes ~5-10 min depending on your internet connection. You can also specify the network you want to crawl by appending, e.g., `--network FILECOIN` and limit the number of peers to crawl by providing the `--limit` flag with the value of, e.g., `1000`. Example:
 
 ```shell
-NAME:
-   nebula - A libp2p DHT crawler, monitor, and measurement tool that exposes timely information about DHT networks.
-
-USAGE:
-   nebula [global options] command [command options] [arguments...]
-
-VERSION:
-   vdev+5f3759df
-
-AUTHOR:
-   Dennis Trautwein <nebula@dtrautwein.eu>
-
-COMMANDS:
-   crawl    Crawls the entire network starting with a set of bootstrap nodes.
-   monitor  Monitors the network by periodically dialing previously crawled peers.
-   resolve  Resolves all multi addresses to their IP addresses and geo location information
-   help, h  Shows a list of commands or help for one command
-
-GLOBAL OPTIONS:
-   --debug                                  Set this flag to enable debug logging (default: false) [$NEBULA_DEBUG]
-   --log-level value                        Set this flag to a value from 0 (least verbose) to 6 (most verbose). Overrides the --debug flag (default: 4) [$NEBULA_LOG_LEVEL]
-   --config FILE                            Load configuration from FILE [$NEBULA_CONFIG_FILE]
-   --dial-timeout value                     How long should be waited before a dial is considered unsuccessful (default: 1m0s) [$NEBULA_DIAL_TIMEOUT]
-   --prom-port value                        On which port should prometheus serve the metrics endpoint (default: 6666) [$NEBULA_PROMETHEUS_PORT]
-   --prom-host value                        Where should prometheus serve the metrics endpoint (default: 0.0.0.0) [$NEBULA_PROMETHEUS_HOST]
-   --pprof-port value                       Enable pprof profiling endpoint on given port (default: disabled) [$NEBULA_PPROF_PORT]
-   --db-host value                          On which host address can nebula reach the database (default: 0.0.0.0) [$NEBULA_DATABASE_HOST]
-   --db-port value                          On which port can nebula reach the database (default: 5432) [$NEBULA_DATABASE_PORT]
-   --db-name value                          The name of the database to use (default: nebula) [$NEBULA_DATABASE_NAME]
-   --db-password value                      The password for the database to use (default: password) [$NEBULA_DATABASE_PASSWORD]
-   --db-user value                          The user with which to access the database to use (default: nebula) [$NEBULA_DATABASE_USER]
-   --db-sslmode value                       The sslmode to use when connecting the the database (default: disable) [$NEBULA_DATABASE_SSL_MODE]
-   --protocols value [ --protocols value ]  Comma separated list of protocols that this crawler should look for (default: IPFS DHT: ) [$NEBULA_PROTOCOLS]
-   --agent-versions-cache-size value        The cache size to hold agent versions in memory (default: 200) [$NEBULA_AGENT_VERSIONS_CACHE_SIZE]
-   --protocols-cache-size value             The cache size to hold protocols in memory (default: 100) [$NEBULA_PROTOCOLS_CACHE_SIZE]
-   --protocols-set-cache-size value         The cache size to hold sets of protocols in memory (default: 200) [$NEBULA_PROTOCOLS_SET_CACHE_SIZE]
-   --help, -h                               show help (default: false)
-   --version, -v                            print the version (default: false)
+nebula crawl --dry-run --network FILECOIN --limit 1000
 ```
+
+To store crawl results as JSON files provide the `--json-out` command line flag like so:
+
+```shell
+nebula crawl --json-out ./results/
+```
+
+After the crawl has finished, you will find the JSON files in the `./results/` subdirectory.
+
+When providing only the `--json-out` command line flag you will see that the `*_neighbors.json` document is empty. This document would contain the full routing table information of each peer in the network which is quite a bit of data (~250MB as of April '23) and is therefore disabled by default. To populate the document you'll need to pass the `--neighbors` flag to the `crawl` subcommand.
+
+```shell
+nebula crawl --neighbors --json-out ./results/
+```
+
+The routing table information forms a graph and graph visualization tools often operate with [adjacency lists](https://en.wikipedia.org/wiki/Adjacency_list). To convert the `*_neighbors.json` document to an adjacency list, you can use [`jq`](https://stedolan.github.io/jq/) and the following command:
+
+```shell
+jq -r '.NeighborIDs[] as $neighbor | [.PeerID, $neighbor] | @csv' ./results/2023-04-16T14:32_neighbors.json > ./results/2023-04-16T14:32_neighbors.csv
+```
+
+There are a few more command line flags that are documented when you run `nebula crawl --help`.
+
+When Nebula is configured to store its results in a postgres database (see below), then it also tracks session information of remote peers.
 
 ## How does it work?
 
 ### `crawl`
 
 The `crawl` sub-command starts by connecting to a set of bootstrap nodes and constructing the routing tables (kademlia _k_-buckets)
-of the remote peers based on their [`PeerIds`](https://docs.libp2p.io/concepts/peer-id/). Then `nebula` builds
-random `PeerIds` with a common prefix length (CPL) and asks each remote peer if they know any peers that are
-closer to the ones `nebula` just constructed (XOR distance). This will effectively yield a list of all `PeerIds` that a peer has
-in its routing table. The process repeats for all found peers until `nebula` does not find any new `PeerIds`.
+of these peers based on their [`PeerIDs`](https://docs.libp2p.io/concepts/peer-id/). Then `nebula` builds
+random `PeerIDs` with common prefix lengths (CPL) that fall each peers buckets, and asks each remote peer if they know any peers that are
+closer (XOR distance) to the ones `nebula` just constructed. This will effectively yield a list of all `PeerIDs` that a peer has
+in its routing table. The process repeats for all found peers until `nebula` does not find any new `PeerIDs`.
 
-This process is heavily inspired by the `basic-crawler` in [libp2p/go-libp2p-kad-dht](https://github.com/libp2p/go-libp2p-kad-dht/tree/master/crawler) from @aschmahmann.
+This process is heavily inspired by the `basic-crawler` in [libp2p/go-libp2p-kad-dht](https://github.com/libp2p/go-libp2p-kad-dht/tree/master/crawler) from [@aschmahmann](https://github.com/aschmahmann).
 
-Every peer that was visited is persisted in the database. The information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
+If Nebula is configured to store its results in a database, every peer that was visited is persisted in it. The visit information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
 also create a `session` instance that contains the following information:
 
 ```sql
 CREATE TABLE sessions (
     -- A unique id that identifies this particular session
     id                      INT GENERATED ALWAYS AS IDENTITY,
-    -- Reference to the remote peer ID.
+    -- Reference to the remote peer ID. (database internal ID)
     peer_id                 INT           NOT NULL,
     -- Timestamp of the first time we were able to visit that peer.
     first_successful_visit  TIMESTAMPTZ   NOT NULL,
@@ -129,7 +114,7 @@ CREATE TABLE sessions (
     next_visit_due_at       TIMESTAMPTZ,
     -- When did we notice that this peer is not reachable.
     first_failed_visit      TIMESTAMPTZ,
-    -- When did we first notice that this peer is not reachable.
+    -- When did we first notice that this peer is not reachable anymore.
     last_failed_visit       TIMESTAMPTZ,
     -- When did we last visit this peer. For indexing purposes.
     last_visited_at         TIMESTAMPTZ   NOT NULL,
@@ -161,8 +146,6 @@ CREATE TABLE sessions (
 ) PARTITION BY LIST (state);
 ```
 
-> Columns are ordered to optimize for storage by minimizing padding.
-
 At the end of each crawl `nebula` persists general statistics about the crawl like the total duration, dialable peers, encountered errors, agent versions etc...
 
 > **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
@@ -177,24 +160,27 @@ USAGE:
    nebula crawl [command options] [arguments...]
 
 OPTIONS:
-   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers [$NEBULA_BOOTSTRAP_PEERS]
+   --bootstrap-peers value [ --bootstrap-peers value ]  Comma separated list of multi addresses of bootstrap peers (default: default IPFS) [$NEBULA_CRAWL_BOOTSTRAP_PEERS, $NEBULA_BOOTSTRAP_PEERS]
+   --protocols value [ --protocols value ]              Comma separated list of protocols that this crawler should look for [$NEBULA_CRAWL_PROTOCOLS, $NEBULA_PROTOCOLS]
    --workers value                                      How many concurrent workers should dial and crawl peers. (default: 1000) [$NEBULA_CRAWL_WORKER_COUNT]
    --limit value                                        Only crawl the specified amount of peers (0 for unlimited) (default: 0) [$NEBULA_CRAWL_PEER_LIMIT]
-   --dry-run                                            Don't persist anything to a database (you don't need a running DB) (default: false) [$NEBULA_CRAWL_DRY_RUN]
+   --dry-run                                            Don't persist anything (default: false) [$NEBULA_CRAWL_DRY_RUN]
+   --json-out DIR                                       If set, stores the crawl results as JSON documents at DIR (takes precedence over database settings). [$NEBULA_CRAWL_JSON_OUT]
    --neighbors                                          Whether to persist all k-bucket entries of a particular peer at the end of a crawl. (default: false) [$NEBULA_CRAWL_NEIGHBORS]
-   --network value                                      Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers. (default: IPFS) [$NEBULA_CRAWL_NETWORK]
-   --help, -h                                           show help (default: false)
+   --check-exposed                                      Whether to check if the Kubo API is exposed. Checking also includes crawling the API. (default: false) [$NEBULA_CRAWL_CHECK_EXPOSED]
+   --network value                                      Which network should be crawled (IPFS, FILECOIN, KUSAMA, POLKADOT). Presets default bootstrap peers and protocol. (default: "IPFS") [$NEBULA_CRAWL_NETWORK]
+   --help, -h                                           show help
 ```
 
 ### `monitor`
 
 The `monitor` sub-command polls every 10 seconds all sessions from the database (see above) that are due to be dialed
-in the next 10 seconds (based on the `NextDialAttempt` timestamp). It attempts to dial all peers using previously
+in the next 10 seconds (based on the `next_visit_due_at` timestamp). It attempts to dial all peers using previously
 saved multi-addresses and updates their `session` instances accordingly if they're dialable or not.
 
-The `NextDialAttempt` timestamp is calculated based on the uptime that `nebula` has observed for that given peer.
+The `next_visit_due_at` timestamp is calculated based on the uptime that `nebula` has observed for that given peer.
 If the peer is up for a long time `nebula` assumes that it stays up and thus decreases the dial frequency aka. sets
-the `NextDialAttempt` timestamp to a time further in the future.
+the `next_visit_due_at` timestamp to a time further in the future.
 
 Command line help page:
 
@@ -207,7 +193,7 @@ USAGE:
 
 OPTIONS:
    --workers value  How many concurrent workers should dial peers. (default: 1000) [$NEBULA_MONITOR_WORKER_COUNT]
-   --help, -h       show help (default: false)
+   --help, -h       show help
 ```
 
 ### `resolve`
@@ -237,7 +223,7 @@ OPTIONS:
 To compile it yourself run:
 
 ```shell
-go install github.com/dennis-tra/nebula/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
+go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
 ```
 
 Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
@@ -247,7 +233,7 @@ Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `ne
 To develop this project you need Go `> 1.16` and the following tools:
 
 - [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.15.2`
-- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.13.0`
+- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.14.2`
 - `docker` to run a local postgres instance
 
 To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
@@ -260,7 +246,7 @@ You need a running postgres instance to persist and/or read the crawl results. R
 docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14
 ```
 
-> **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations.
+> **Info:** You can use the `crawl` sub-command with the `--dry-run` option that skips any database operations or store the results as JSON files with the `--json-out` flag.
 
 The default database settings are:
 
@@ -272,7 +258,9 @@ Host     = "localhost",
 Port     = 5432,
 ```
 
-To apply migrations then run:
+Migrations are applied automatically when `nebula` starts and successfully establishes a database connection.
+
+To run them manually you can run:
 
 ```shell
 # Up migrations
@@ -298,119 +286,6 @@ To run the tests you need a running test database instance:
 make database-test
 go test ./...
 ```
-
-## Deployment
-
-First, you need to build the nebula docker image:
-
-```shell
-make docker
-# OR
-docker build . -t dennis-tra/nebula:latest
-```
-
-The `deploy` subfolder contains a `docker-compose` setup to get up and running quickly. It will start and configure `nebula` (monitoring mode), `postgres`, `prometheus` and `grafana`. The configuration can serve as a starting point to see how things fit together. Then you can start the aforementioned services by changing in the `./deploy` directory and running:
-
-```shell
-docker compose up 
-```
-
-A few seconds later you should be able to access Grafana at `localhost:3000`. The initial credentials are
-
-```text
-USERNAME: admin
-PASSWORD: admin
-```
-
-There is one preconfigured dashboard in the `General` folder with the name `IPFS Dashboard`. To start a crawl that puts its results in the `docker compose` provisioned postgres database run:
-
-```shell
-./deploy/crawl.sh
-# OR
-docker run \
-  --network nebula \
-  --name nebula \
-  --hostname nebula \
-  dennis-tra/nebula:latest \
-  nebula --db-host=postgres crawl
-```
-
-Currently, I'm running the crawler docker-less on a tiny VPS in a 30m interval. The corresponding crontab configuration is:
-
-```text
-*/30 * * * * /some/path/nebula crawl 2> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stderr.log 1> /var/log/nebula/crawl-$(date "+\%w-\%H-\%M")-stdout.log
-```
-
-The logs will rotate every 7 days.
-
---- 
-
-To run the crawler for multiple DHTs the idea is to also start multiple instances of `nebula` with the corresponding configuration. For instance, I'm running the crawler for the IPFS and Filecoin networks. The monitoring commands look like this:
-
-```shell
-nebula --prom-port=6667 monitor # for IPFS
-nebula --prom-port=6669 --config filecoin.json monitor # for Filecoin
-```
-
-The `filecoin.json` file contains the following content:
-
-```json5
- {
-  "BootstrapPeers": [
-    "/ip4/3.224.142.21/tcp/1347/p2p/12D3KooWCVe8MmsEMes2FzgTpt9fXtmCY7wrq91GRiaC8PHSCCBj",
-    "/ip4/107.23.112.60/tcp/1347/p2p/12D3KooWCwevHg1yLCvktf2nvLu7L9894mcrJR4MsBCcm4syShVc",
-    "/ip4/100.25.69.197/tcp/1347/p2p/12D3KooWEWVwHGn2yR36gKLozmb4YjDJGerotAPGxmdWZx2nxMC4",
-    "/ip4/3.123.163.135/tcp/1347/p2p/12D3KooWKhgq8c7NQ9iGjbyK7v7phXvG6492HQfiDaGHLHLQjk7R",
-    "/ip4/18.198.196.213/tcp/1347/p2p/12D3KooWL6PsFNPhYftrJzGgF5U18hFoaVhfGk7xwzD8yVrHJ3Uc",
-    "/ip4/18.195.111.146/tcp/1347/p2p/12D3KooWLFynvDQiUpXoHroV1YxKHhPJgysQGH2k3ZGwtWzR4dFH",
-    "/ip4/52.77.116.139/tcp/1347/p2p/12D3KooWP5MwCiqdMETF9ub1P3MbCvQCcfconnYHbWg6sUJcDRQQ",
-    "/ip4/18.136.2.101/tcp/1347/p2p/12D3KooWRs3aY1p3juFjPy8gPN95PEQChm2QKGUCAdcDCC4EBMKf",
-    "/ip4/13.250.155.222/tcp/1347/p2p/12D3KooWScFR7385LTyR4zU1bYdzSiiAb5rnNABfVahPvVSzyTkR",
-    "/ip4/47.115.22.33/tcp/41778/p2p/12D3KooWGhufNmZHF3sv48aQeS13ng5XVJZ9E6qy2Ms4VzqeUsHk",
-    "/ip4/61.147.123.111/tcp/12757/p2p/12D3KooWGHpBMeZbestVEWkfdnC9u7p6uFHXL1n7m1ZBqsEmiUzz",
-    "/ip4/61.147.123.121/tcp/12757/p2p/12D3KooWQZrGH1PxSNZPum99M1zNvjNFM33d1AAu5DcvdHptuU7u",
-    "/ip4/3.129.112.217/tcp/1235/p2p/12D3KooWBF8cpp65hp2u9LK5mh19x67ftAam84z9LsfaquTDSBpt",
-    "/ip4/36.103.232.198/tcp/34721/p2p/12D3KooWQnwEGNqcM2nAcPtRR9rAX8Hrg4k9kJLCHoTR5chJfz6d",
-    "/ip4/36.103.232.198/tcp/34723/p2p/12D3KooWMKxMkD5DMpSWsW7dBddKxKT7L2GgbNuckz9otxvkvByP"
-  ],
-  "DialTimeout": 60000000000,
-  "CrawlWorkerCount": 1000,
-  "MonitorWorkerCount": 1000,
-  "CrawlLimit": 0,
-  "MinPingInterval": 30000000000,
-  "PrometheusHost": "localhost",
-  "PrometheusPort": 6668, // this is overwritten by the command line arg and only picked up by the crawl command
-  "DatabaseHost": "localhost",
-  "DatabasePort": 5432,
-  "DatabaseName": "nebula_filecoin",
-  "DatabasePassword": "<password>",
-  "DatabaseUser": "nebula_filecoin",
-  "Protocols": [
-    "/fil/kad/testnetnet/kad/1.0.0"
-  ]
-}
-```
-
-This configuration is created upon the first start of nebula in `$XDG_CONFIG_HOME/nebula/config.json` and can be adapted from there. 
-
-The corresponding crawl commands look like:
-
-```shell
-nebula crawl # for IPFS (uses defaults like prom-port 6666)
-nebula --config filecoin.json crawl --network FILECOIN # for Filecoin (uses configuration prom-port 6668)
-```
-
-The `workers` flag configures the amount of concurrent connection/dials. I increased it until I didn't notice any performance improvement anymore.
-
-So this is the prometheus ports configuration:
-
-- `nebula crawl` - `ipfs` - `6666`
-- `nebula monitor` - `ipfs` - `6667`
-- `nebula crawl` - `filecoin` - `6668`
-- `nebula monitor` - `filecoin` - `6669`
-
-Furthermore, `nebula` has a flag called `--pprof-port`. If this flag is set it also serves `pprof` at `localhost:pprof-port` for debugging.
-
 
 ## Report
 
