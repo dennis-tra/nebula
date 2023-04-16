@@ -53,7 +53,7 @@ type Client struct {
 	ctx context.Context
 
 	// Reference to the configuration
-	conf *config.Config
+	conf *config.Root
 
 	// Database handler
 	dbh *sql.DB
@@ -70,7 +70,7 @@ type Client struct {
 
 // InitClient establishes a database connection with the provided configuration and applies any pending
 // migrations
-func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
+func InitClient(ctx context.Context, conf *config.Root) (*Client, error) {
 	log.WithFields(log.Fields{
 		"host": conf.DatabaseHost,
 		"port": conf.DatabasePort,
@@ -81,18 +81,18 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 
 	driverName, err := ocsql.Register("postgres")
 	if err != nil {
-		return nil, errors.Wrap(err, "register ocsql")
+		return nil, fmt.Errorf("register ocsql: %w", err)
 	}
 
 	// Open database handle
 	dbh, err := sql.Open(driverName, conf.DatabaseSourceName())
 	if err != nil {
-		return nil, errors.Wrap(err, "opening database")
+		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
 	// Ping database to verify connection.
 	if err = dbh.Ping(); err != nil {
-		return nil, errors.Wrap(err, "pinging database")
+		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
 	client := &Client{ctx: ctx, conf: conf, dbh: dbh}
@@ -100,29 +100,29 @@ func InitClient(ctx context.Context, conf *config.Config) (*Client, error) {
 
 	client.agentVersions, err = lru.New(conf.AgentVersionsCacheSize)
 	if err != nil {
-		return nil, errors.Wrap(err, "new agent versions lru cache")
+		return nil, fmt.Errorf("new agent versions lru cache: %w", err)
 	}
 
 	client.protocols, err = lru.New(conf.ProtocolsCacheSize)
 	if err != nil {
-		return nil, errors.Wrap(err, "new protocol lru cache")
+		return nil, fmt.Errorf("new protocol lru cache: %w", err)
 	}
 
 	client.protocolsSets, err = lru.New(conf.ProtocolsSetCacheSize)
 	if err != nil {
-		return nil, errors.Wrap(err, "new protocols set lru cache")
+		return nil, fmt.Errorf("new protocols set lru cache: %w", err)
 	}
 
 	if err = client.fillAgentVersionsCache(ctx); err != nil {
-		return nil, errors.Wrap(err, "fill agent versions cache")
+		return nil, fmt.Errorf("fill agent versions cache: %w", err)
 	}
 
 	if err = client.fillProtocolsCache(ctx); err != nil {
-		return nil, errors.Wrap(err, "fill protocols cache")
+		return nil, fmt.Errorf("fill protocols cache: %w", err)
 	}
 
 	if err = client.fillProtocolsSetCache(ctx); err != nil {
-		return nil, errors.Wrap(err, "fill protocols set cache")
+		return nil, fmt.Errorf("fill protocols set cache: %w", err)
 	}
 
 	// Ensure all appropriate partitions exist
@@ -146,7 +146,7 @@ func (c *Client) Close() error {
 	return c.dbh.Close()
 }
 
-func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
+func (c *Client) applyMigrations(conf *config.Root, dbh *sql.DB) {
 	tmpDir, err := os.MkdirTemp("", "nebula-"+conf.Version)
 	if err != nil {
 		log.WithError(err).WithField("pattern", "nebula-"+conf.Version).Warnln("Could not create tmp directory for migrations")
@@ -167,7 +167,7 @@ func (c *Client) applyMigrations(conf *config.Config, dbh *sql.DB) {
 
 		data, err := migrations.ReadFile(path)
 		if err != nil {
-			return errors.Wrap(err, "read file")
+			return fmt.Errorf("read file: %w", err)
 		}
 
 		return os.WriteFile(join, data, 0644)
@@ -341,7 +341,7 @@ func (c *Client) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecu
 
 	var protocolID *int
 	if err := row.Scan(&protocolID); err != nil {
-		return nil, errors.Wrap(err, "unable to scan result from upsert protocol")
+		return nil, fmt.Errorf("unable to scan result from upsert protocol: %w", err)
 	}
 
 	if protocolID == nil {
@@ -416,7 +416,7 @@ func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Contex
 		if errors.Is(err, ErrEmptyProtocol) {
 			continue
 		} else if err != nil {
-			return nil, errors.Wrap(err, "get or create protocol")
+			return nil, fmt.Errorf("get or create protocol: %w", err)
 		}
 		protocolIDs[i] = int64(*protocolID)
 	}
@@ -438,7 +438,7 @@ func (c *Client) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Contex
 
 	var protocolsSetID *int
 	if err := row.Scan(&protocolsSetID); err != nil {
-		return nil, errors.Wrap(err, "unable to scan result from upsert protocol set id")
+		return nil, fmt.Errorf("unable to scan result from upsert protocol set id: %w", err)
 	}
 
 	if protocolsSetID == nil {
@@ -469,7 +469,7 @@ func (c *Client) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Contex
 
 	var agentVersionID *int
 	if err := row.Scan(&agentVersionID); err != nil {
-		return nil, errors.Wrap(err, "unable to scan result from upsert agent version")
+		return nil, fmt.Errorf("unable to scan result from upsert agent version: %w", err)
 	}
 
 	if agentVersionID == nil {

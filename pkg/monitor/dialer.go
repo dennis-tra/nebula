@@ -25,13 +25,13 @@ var dialerID = atomic.NewInt32(0)
 type Dialer struct {
 	id          string
 	host        host.Host
-	config      *config.Config
+	config      *config.Monitor
 	dialedPeers int
 	done        chan struct{}
 }
 
 // NewDialer initializes a new dialer based on the given configuration.
-func NewDialer(h host.Host, conf *config.Config) (*Dialer, error) {
+func NewDialer(h host.Host, conf *config.Monitor) (*Dialer, error) {
 	c := &Dialer{
 		id:     fmt.Sprintf("dialer-%02d", dialerID.Load()),
 		host:   h,

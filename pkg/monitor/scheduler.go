@@ -37,7 +37,7 @@ type Scheduler struct {
 	dbc *db.Client
 
 	// The configuration of timeouts etc.
-	config *config.Config
+	config *config.Monitor
 
 	// The queue of peer.AddrInfo's that need to be dialed to.
 	dialQueue *queue.FIFO[peer.AddrInfo]
@@ -54,7 +54,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
+func NewScheduler(conf *config.Monitor, dbc *db.Client) (*Scheduler, error) {
 
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
@@ -64,7 +64,7 @@ func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 	}
 
 	// Initialize a single libp2p node that's shared between all dialers.
-	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-monitor/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-monitor/"+conf.Root.Version))
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	start := time.Now()
 
 	// Set the timeout for dialing peers
-	ctx = network.WithDialPeerTimeout(ctx, s.config.DialTimeout)
+	ctx = network.WithDialPeerTimeout(ctx, s.config.Root.DialTimeout)
 
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")

@@ -21,7 +21,7 @@ var persisterID = atomic.NewInt32(0)
 // Persister handles the insert/upsert/update operations for a particular crawl result.
 type Persister struct {
 	id             string
-	config         *config.Config
+	config         *config.Crawl
 	dbc            *db.Client
 	crawl          *models.Crawl
 	persistedPeers int
@@ -29,7 +29,7 @@ type Persister struct {
 }
 
 // NewPersister initializes a new persister based on the given configuration.
-func NewPersister(dbc *db.Client, conf *config.Config, crawl *models.Crawl) (*Persister, error) {
+func NewPersister(dbc *db.Client, conf *config.Crawl, crawl *models.Crawl) (*Persister, error) {
 	p := &Persister{
 		id:             fmt.Sprintf("persister-%02d", persisterID.Inc()),
 		config:         conf,

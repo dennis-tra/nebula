@@ -38,7 +38,7 @@ type Scheduler struct {
 	dbc *db.Client
 
 	// The configuration of timeouts etc.
-	config *config.Config
+	config *config.Crawl
 
 	// Instance of this crawl. This instance gets created right at the beginning of the crawl, so we have
 	// an ID that we can link subsequent database entities with.
@@ -89,7 +89,7 @@ type Scheduler struct {
 }
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
-func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
+func NewScheduler(conf *config.Crawl, dbc *db.Client) (*Scheduler, error) {
 
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
@@ -99,7 +99,7 @@ func NewScheduler(conf *config.Config, dbc *db.Client) (*Scheduler, error) {
 	}
 
 	// Initialize a single libp2p node that's shared between all crawlers.
-	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Version))
+	h, err := libp2p.New(libp2p.NoListenAddrs, libp2p.ResourceManager(rm), libp2p.UserAgent("nebula-crawler/"+conf.Root.Version))
 	if err != nil {
 		return nil, errors.Wrap(err, "new libp2p host")
 	}
@@ -134,7 +134,7 @@ func (s *Scheduler) CrawlNetwork(ctx context.Context, bootstrap []peer.AddrInfo)
 	s.crawlStart = time.Now()
 
 	// Set the timeout for dialing peers
-	ctx = network.WithDialPeerTimeout(ctx, s.config.DialTimeout)
+	ctx = network.WithDialPeerTimeout(ctx, s.config.Root.DialTimeout)
 
 	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")

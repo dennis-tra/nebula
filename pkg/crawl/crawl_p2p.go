@@ -12,7 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
-	
+
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
@@ -77,7 +77,10 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 
 			// Extract protocols
 			if protocols, err := ps.GetProtocols(pi.ID); err == nil {
-				result.Protocols = protocols
+				result.Protocols = make([]string, len(protocols))
+				for i := range protocols {
+					result.Protocols[i] = string(protocols[i])
+				}
 			}
 		}
 
@@ -112,7 +115,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.config.DialTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.config.Root.DialTimeout)
 	defer cancel()
 
 	if err := c.host.Connect(ctx, pi); err != nil {

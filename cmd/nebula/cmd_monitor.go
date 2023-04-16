@@ -1,9 +1,7 @@
 package main
 
 import (
-	"strconv"
-
-	"github.com/pkg/errors"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -12,6 +10,11 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
 )
+
+var monitorConfig = &config.Monitor{
+	Root:               rootConfig,
+	MonitorWorkerCount: 1000,
+}
 
 // MonitorCommand contains the monitor sub-command configuration.
 var MonitorCommand = &cli.Command{
@@ -23,8 +26,8 @@ var MonitorCommand = &cli.Command{
 			Name:        "workers",
 			Usage:       "How many concurrent workers should dial peers.",
 			EnvVars:     []string{"NEBULA_MONITOR_WORKER_COUNT"},
-			DefaultText: strconv.Itoa(config.DefaultConfig.MonitorWorkerCount),
-			Value:       config.DefaultConfig.MonitorWorkerCount,
+			Value:       monitorConfig.MonitorWorkerCount,
+			Destination: &monitorConfig.MonitorWorkerCount,
 		},
 	},
 }
@@ -33,22 +36,16 @@ var MonitorCommand = &cli.Command{
 func MonitorAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula monitor...")
 
-	// Load configuration file
-	conf, err := config.Init(c)
-	if err != nil {
-		return err
-	}
-
 	// Acquire database handle
-	dbc, err := db.InitClient(c.Context, conf)
+	dbc, err := db.InitClient(c.Context, rootConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("init db client: %w", err)
 	}
 
 	// Initialize the monitoring task
-	s, err := monitor.NewScheduler(conf, dbc)
+	s, err := monitor.NewScheduler(monitorConfig, dbc)
 	if err != nil {
-		return errors.Wrap(err, "creating new scheduler")
+		return fmt.Errorf("creating new scheduler: %w", err)
 	}
 
 	return s.StartMonitoring(c.Context)

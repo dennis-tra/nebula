@@ -24,7 +24,7 @@ var crawlerID = atomic.NewInt32(0)
 type Crawler struct {
 	id           string
 	host         host.Host
-	config       *config.Config
+	config       *config.Crawl
 	pm           *pb.ProtocolMessenger
 	crawledPeers int
 	client       *api.Client
@@ -32,11 +32,11 @@ type Crawler struct {
 }
 
 // NewCrawler initializes a new crawler based on the given configuration.
-func NewCrawler(h host.Host, conf *config.Config) (*Crawler, error) {
+func NewCrawler(h host.Host, conf *config.Crawl) (*Crawler, error) {
 	ms := &msgSender{
 		h:         h,
-		protocols: protocol.ConvertFromStrings(conf.Protocols),
-		timeout:   conf.DialTimeout,
+		protocols: protocol.ConvertFromStrings(conf.Protocols.Value()),
+		timeout:   conf.Root.DialTimeout,
 	}
 
 	pm, err := pb.NewProtocolMessenger(ms)

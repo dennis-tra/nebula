@@ -19,6 +19,12 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/udger"
 )
 
+var resolveConfig = &config.Resolve{
+	Root:            rootConfig,
+	FilePathUdgerDB: "",
+	BatchSize:       1000,
+}
+
 // ResolveCommand contains the monitor sub-command configuration.
 var ResolveCommand = &cli.Command{
 	Name:   "resolve",
@@ -26,16 +32,17 @@ var ResolveCommand = &cli.Command{
 	Action: ResolveAction,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:    "udger-db",
-			Usage:   "Location of the Udger database v3",
-			EnvVars: []string{"NEBULA_RESOLVE_UDGER_DB"},
+			Name:        "udger-db",
+			Usage:       "Location of the Udger database v3",
+			EnvVars:     []string{"NEBULA_RESOLVE_UDGER_DB"},
+			Destination: &resolveConfig.FilePathUdgerDB,
 		},
 		&cli.IntFlag{
 			Name:        "batch-size",
 			Usage:       "How many database entries should be fetched at each iteration",
 			EnvVars:     []string{"NEBULA_RESOLVE_BATCH_SIZE"},
-			DefaultText: "1000",
-			Value:       1000,
+			Value:       resolveConfig.BatchSize,
+			Destination: &resolveConfig.BatchSize,
 		},
 	},
 }
@@ -44,14 +51,8 @@ var ResolveCommand = &cli.Command{
 func ResolveAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula multi address resolver...")
 
-	// Load configuration file
-	conf, err := config.Init(c)
-	if err != nil {
-		return err
-	}
-
 	// Initialize the database client
-	dbc, err := db.InitClient(c.Context, conf)
+	dbc, err := db.InitClient(c.Context, rootConfig)
 	if err != nil {
 		return err
 	}
@@ -67,8 +68,8 @@ func ResolveAction(c *cli.Context) error {
 	}
 
 	var uclient *udger.Client
-	if conf.FilePathUdgerDB != "" {
-		uclient, err = udger.NewClient(conf.FilePathUdgerDB)
+	if resolveConfig.FilePathUdgerDB != "" {
+		uclient, err = udger.NewClient(resolveConfig.FilePathUdgerDB)
 		if err != nil {
 			return err
 		}
