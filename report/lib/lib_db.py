@@ -335,7 +335,11 @@ class DBClient:
         cur = self.conn.cursor()
         cur.execute(
             f"""
-            WITH cte AS (SELECT unnest('{{{self.fmt_list(peer_ids)}}}'::INT[]) peer_id)
+            WITH cte AS (
+                SELECT t.peer_id
+                FROM unnest('{{{self.fmt_list(peer_ids)}}}'::INT[]) t(peer_id)
+                ORDER BY t.peer_id
+            )
             SELECT c.id, c.started_at, c.finished_at, count(DISTINCT v.peer_id)
             FROM visits v
                 INNER JOIN cte ON cte.peer_id = v.peer_id
