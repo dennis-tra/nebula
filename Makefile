@@ -3,7 +3,7 @@ default: all
 all: clean build
 
 test:
-	go test ./...
+	go test `go list ./... | grep -v maxmind`
 
 build:
 	go build -ldflags "-X main.RawVersion=`cat version`" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula

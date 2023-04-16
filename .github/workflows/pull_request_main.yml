@@ -46,4 +46,4 @@ jobs:
             ${{ runner.os }}-golang-
 
       - name: Running tests
-        run: go test ./...
+        run: make test

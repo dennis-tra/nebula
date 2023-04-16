@@ -7,7 +7,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-X 'main.Version=$(cat version)'" -o nebula cmd/nebula/*
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.RawVersion=`cat version`" -o nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
 
 # Create lightweight container to run nebula
 FROM alpine:latest
