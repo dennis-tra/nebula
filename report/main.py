@@ -26,8 +26,10 @@ def generate_ipfs_report():
     else:
         output_dir = '.'
 
+    # allow name of plots directory to be overridden
+    plots_dirname = os.getenv('NEBULA_PLOTS_DIRNAME', f"plots-{calendar_week}")
     output_file = os.path.join(output_dir, f"report-{calendar_week}.md")
-    plots_dir = os.path.join(output_dir, f"plots-{calendar_week}")
+    plots_dir = os.path.join(output_dir, plots_dirname)
     if not os.path.isdir(plots_dir):
         os.mkdir(plots_dir)
 
@@ -227,6 +229,7 @@ def generate_ipfs_report():
             new_protocols=db_client.get_new_protocols(),
             top_rotating_nodes=top_rotating_nodes,
             ip_address_count=fmt_thousands(ip_address_count),
+            plots_dir=plots_dir,
             # top_updating_peers=top_updating_peers,
         )
     except Exception as e:
