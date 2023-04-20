@@ -5,6 +5,7 @@ import sys
 import pandas as pd
 import seaborn as sns
 import datetime as dt
+import traceback
 from pandas.io.formats.style import jinja2
 
 from lib import DBClient, lib_plot, NodeClassification
@@ -18,8 +19,9 @@ def generate_ipfs_report():
     sns.set_theme()
 
     now = dt.datetime.today()
-    year = os.getenv('NEBULA_REPORT_YEAR', now.year)
-    calendar_week = os.getenv('NEBULA_REPORT_WEEK', now.isocalendar().week - 1)
+    year = os.getenv('NEBULA_REPORT_YEAR', str(now.year))
+    calendar_week = os.getenv('NEBULA_REPORT_WEEK', str(now.isocalendar().week - 1))
+    calendar_week_next = str(int(calendar_week)+1)
 
     if len(sys.argv) > 1:
         output_dir = sys.argv[1]
@@ -218,7 +220,7 @@ def generate_ipfs_report():
             year=year,
             calendar_week=calendar_week,
             measurement_start=dt.datetime.strptime(f"{year}-W{calendar_week}" + '-1', "%Y-W%W-%w").date(),
-            measurement_end=dt.datetime.strptime(f"{year}-W{calendar_week + 1}" + '-1', "%Y-W%W-%w").date(),
+            measurement_end=dt.datetime.strptime(f"{year}-W{calendar_week_next}" + '-1', "%Y-W%W-%w").date(),
             crawl_count=fmt_thousands(crawl_count),
             visit_count=fmt_thousands(visit_count),
             visited_peer_id_count=fmt_thousands(visited_peer_id_count),
@@ -233,7 +235,7 @@ def generate_ipfs_report():
             # top_updating_peers=top_updating_peers,
         )
     except Exception as e:
-        print(e)
+        traceback.print_exc()
 
 
     print("Writing templated output...")
@@ -241,7 +243,7 @@ def generate_ipfs_report():
         with open(output_file, "w") as f:
             f.write(outputText)
     except Exception as e:
-        print(e)
+        traceback.print_exc()
 
 
     db_client.close()
