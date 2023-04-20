@@ -68,15 +68,15 @@ A "rotating node" is a node (as identified by its IP address) that was found to 
 
 #### Overall
 
-![Crawl Overview]({{ plots_dir }}/crawl-overview.png)
+![Crawl Overview](./{{ plots_dirname }}/crawl-overview.png)
 
 #### Classification
 
-![Crawl Classifications]({{ plots_dir }}/crawl-classifications.png)
+![Crawl Classifications](./{{ plots_dirname }}/crawl-classifications.png)
 
 #### Agents
 
-![Crawl Properties By Agent]({{ plots_dir }}/crawl-properties.png)
+![Crawl Properties By Agent](./{{ plots_dirname }}/crawl-properties.png)
 
 Only the top 10 kubo versions appear in the right graph (due to lack of colors) based on the average count in the time interval. The `0.8.x` versions **do not** contain disguised storm peers.
 
@@ -84,11 +84,11 @@ Only the top 10 kubo versions appear in the right graph (due to lack of colors) 
 
 #### Errors
 
-![Crawl Errors]({{ plots_dir }}/crawl-errors.png)
+![Crawl Errors](./{{ plots_dirname }}/crawl-errors.png)
 
 #### Total Peer IDs Discovered Classification
 
-![Peer count by classification]({{ plots_dir }}/peer-classifications.png)
+![Peer count by classification](./{{ plots_dirname }}/peer-classifications.png)
 
 In the specified time interval from `{{ measurement_start }}` to `{{ measurement_end }}` we visited `{{ peer_id_count }}` unique peer IDs.
 All peer IDs fall into one of the following classifications:
@@ -104,11 +104,11 @@ All peer IDs fall into one of the following classifications:
 
 #### Protocols
 
-![Crawl Properties By Protocols]({{ plots_dir }}/crawl-protocols.png)
+![Crawl Properties By Protocols](./{{ plots_dirname }}/crawl-protocols.png)
 
 ## Churn
 
-![Peer Churn]({{ plots_dir }}/peer-churn.png)
+![Peer Churn](./{{ plots_dirname }}/peer-churn.png)
 
 Only the top 10 kubo versions appear in the right graph (due to lack of colors) based on the average count in the time interval. The `0.8.x` versions **do not** contain disguised storm peers. This graph also excludes peers that were online the whole time. You can read this graph as: if I see a peer joining the network, what's the likelihood for it to stay `X` hours in the network.
 
@@ -116,7 +116,7 @@ Only the top 10 kubo versions appear in the right graph (due to lack of colors) 
 
 ## Inter Arrival Time
 
-![Inter Arrival Time]({{ plots_dir }}/peer-inter-arrival-time.png)
+![Inter Arrival Time](./{{ plots_dirname }}/peer-inter-arrival-time.png)
 
 Only the top 10 kubo versions appear in the right graph (due to lack of colors) based on the average count in the time interval. The `0.8.x` versions **do not** contain disguised storm peers.
 
@@ -126,19 +126,19 @@ Only the top 10 kubo versions appear in the right graph (due to lack of colors) 
 
 ### Overall
 
-![Overall Agent Distribution]({{ plots_dir }}/agents-overall.png)
+![Overall Agent Distribution](./{{ plots_dirname }}/agents-overall.png)
 
 Includes all peers that the crawler was able to connect to at least once: `dangling`, `online`, `oneoff`, `entered`. Hence, the total number of peers is lower as the graph excludes `offline` and `left` peers (see [classification](#peer-classification)).
 
 ### Kubo
 
-![Kubo Agent Distribution]({{ plots_dir }}/agents-kubo.png)
+![Kubo Agent Distribution](./{{ plots_dirname }}/agents-kubo.png)
 
 `storm` shows the `go-ipfs/0.8.0/48f94e2` peers that support at least one [storm specific protocol](#storm-specific-protocols).
 
 ### Classification
 
-![Agents by Classification]({{ plots_dir }}/agents-classification.png)
+![Agents by Classification](./{{ plots_dirname }}/agents-classification.png)
 
 The classifications are documented [here](#peer-classification).
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
@@ -147,20 +147,20 @@ The classifications are documented [here](#peer-classification).
 
 ### Unique IP Addresses
 
-![Unique IP addresses]({{ plots_dir }}/geo-unique-ip.png)
+![Unique IP addresses](./{{ plots_dirname }}/geo-unique-ip.png)
 
 This graph shows all IP addresses that we found from `{{ measurement_start }}` to `{{ measurement_end }}` in the DHT and their geolocation distribution by country.
 
 ### Classification
 
-![Peer Geolocation By Classification]({{ plots_dir }}/geo-peer-classification.png)
+![Peer Geolocation By Classification](./{{ plots_dirname }}/geo-peer-classification.png)
 
 The classifications are documented [here](#peer-classification). 
 The number in parentheses in the graph titles show the number of unique peer IDs that went into the specific subgraph.
 
 ### Agents
 
-![Peer Geolocation By Agent]({{ plots_dir }}/geo-peer-agents.png)
+![Peer Geolocation By Agent](./{{ plots_dirname }}/geo-peer-agents.png)
 
 `storm*` are `{{ ", ".join(storm_star_agent_versions) }}` peers that support at least one [storm specific protocol](#storm-specific-protocols).
 
@@ -168,19 +168,19 @@ The number in parentheses in the graph titles show the number of unique peer IDs
 
 ### Overall
 
-![Overall Datacenter Distribution]({{ plots_dir }}/cloud-overall.png)
+![Overall Datacenter Distribution](./{{ plots_dirname }}/cloud-overall.png)
 
 This graph shows all IP addresses that we found from `{{ measurement_start }}` to `{{ measurement_end }}` in the DHT and their datacenter association.
 
 ### Classification
 
-![Datacenter Distribution By Classification]({{ plots_dir }}/cloud-classification.png)
+![Datacenter Distribution By Classification](./{{ plots_dirname }}/cloud-classification.png)
 
 The classifications are documented [here](#peer-classification). Note that the x-axes are different.
 
 ### Agents
 
-![Datacenter Distribution By Agent]({{ plots_dir }}/cloud-agents.png)
+![Datacenter Distribution By Agent](./{{ plots_dirname }}/cloud-agents.png)
 
 The number in parentheses in the graph titles show the number of unique peer IDs that went into the specific subgraph.
 

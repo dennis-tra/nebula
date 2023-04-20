@@ -231,7 +231,7 @@ def generate_ipfs_report():
             new_protocols=db_client.get_new_protocols(),
             top_rotating_nodes=top_rotating_nodes,
             ip_address_count=fmt_thousands(ip_address_count),
-            plots_dir=plots_dir,
+            plots_dirname=plots_dirname,
             # top_updating_peers=top_updating_peers,
         )
     except Exception as e:
