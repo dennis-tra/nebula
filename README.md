@@ -24,12 +24,12 @@ _The crawler was:_
 - [Table of Contents](#table-of-contents)
 - [Project Status](#project-status)
 - [Usage](#usage)
+- [Install](#install)
+  - [From source](#from-source)
 - [How does it work?](#how-does-it-work)
   - [`crawl`](#crawl)
   - [`monitor`](#monitor)
   - [`resolve`](#resolve)
-- [Install](#install)
-  - [From source](#from-source)
 - [Development](#development)
   - [Database](#database)
   - [Tests](#tests)
@@ -46,6 +46,19 @@ _The crawler was:_
 The crawler is used for a couple of academic project, and I'm running it since July '21 continuously.
 
 The gathered numbers about the IPFS network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
+
+
+## Install
+
+### From source
+
+To compile it yourself run:
+
+```shell
+go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
+```
+
+Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
 
 ## Usage
 
@@ -215,18 +228,6 @@ OPTIONS:
    --batch-size value  How many database entries should be fetched at each iteration (default: 100) [$NEBULA_RESOLVE_BATCH_SIZE]
    --help, -h          show help (default: false)
 ```
-
-## Install
-
-### From source
-
-To compile it yourself run:
-
-```shell
-go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
-```
-
-Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
 
 ## Development
 
