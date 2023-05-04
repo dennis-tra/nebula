@@ -48,6 +48,7 @@ func (c *Client) handleIPv4(ip net.IP) (int, error) {
 	} else if rows.Err() != nil {
 		return 0, errors.Wrap(err, "query ip4 datacenter")
 	}
+	defer rows.Close()
 
 	if !rows.Next() {
 		return 0, sql.ErrNoRows
@@ -87,6 +88,7 @@ func (c *Client) handleIPv6(ip net.IP) (int, error) {
 	} else if rows.Err() != nil {
 		return 0, errors.Wrap(err, "query ip6 datacenter")
 	}
+	defer rows.Close()
 
 	if !rows.Next() {
 		return 0, sql.ErrNoRows
