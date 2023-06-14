@@ -7,7 +7,7 @@ require (
 	github.com/friendsofgo/errors v0.9.2
 	github.com/golang-migrate/migrate/v4 v4.15.2
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/lib/pq v1.10.8
+	github.com/lib/pq v1.10.9
 	github.com/libp2p/go-libp2p v0.28.0
 	github.com/libp2p/go-libp2p-kad-dht v0.23.0
 	github.com/libp2p/go-libp2p-kbucket v0.5.0
@@ -18,14 +18,14 @@ require (
 	github.com/prometheus/client_golang v1.15.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
-	github.com/urfave/cli/v2 v2.25.1
+	github.com/urfave/cli/v2 v2.25.6
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.14.2
 	github.com/volatiletech/strmangle v0.0.4
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
 	golang.org/x/sync v0.2.0
-	modernc.org/sqlite v1.21.1
+	modernc.org/sqlite v1.23.1
 )
 
 require (
@@ -145,7 +145,7 @@ require (
 	lukechampine.com/uint128 v1.3.0 // indirect
 	modernc.org/cc/v3 v3.40.0 // indirect
 	modernc.org/ccgo/v3 v3.16.13 // indirect
-	modernc.org/libc v1.22.3 // indirect
+	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect
 	modernc.org/opt v0.1.3 // indirect
