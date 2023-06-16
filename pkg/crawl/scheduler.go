@@ -76,7 +76,7 @@ type Scheduler struct {
 	protocols map[string]int
 
 	// A map of errors that happened during the crawl.
-	errors map[string]int
+	connErrs map[string]int
 
 	// A map that keeps track of all k-bucket entries of a particular peer.
 	routingTables map[peer.ID]*RoutingTable
@@ -116,7 +116,7 @@ func NewScheduler(conf *config.Crawl, dbc db.Client) (*Scheduler, error) {
 		persistResultsQueue: queue.NewFIFO[*db.InsertVisitResult](),
 		agentVersion:        map[string]int{},
 		protocols:           map[string]int{},
-		errors:              map[string]int{},
+		connErrs:            map[string]int{},
 		routingTables:       map[peer.ID]*RoutingTable{},
 		peerMappings:        map[peer.ID]int{},
 	}
@@ -402,7 +402,7 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 		}
 	} else if cr.ConnectError != nil {
 		// Log and count connection errors
-		s.errors[cr.ConnectErrorStr] += 1
+		s.connErrs[cr.ConnectErrorStr] += 1
 		if cr.ConnectErrorStr == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(cr.ConnectError)
 		} else {
@@ -412,7 +412,6 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 
 	if cr.ConnectError == nil && cr.CrawlError != nil {
 		// Log and count crawl errors
-		s.errors[cr.CrawlErrorStr] += 1
 		if cr.CrawlErrorStr == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(cr.CrawlError)
 		} else {
@@ -453,7 +452,7 @@ func (s *Scheduler) logSummary() {
 	log.Infoln("Logging crawl results...")
 
 	log.Infoln("")
-	for err, count := range s.errors {
+	for err, count := range s.connErrs {
 		log.WithField("count", count).WithField("value", err).Infoln("Dial Error")
 	}
 	log.Infoln("")
@@ -477,7 +476,7 @@ func (s *Scheduler) logSummary() {
 // TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.
 func (s *Scheduler) TotalErrors() int {
 	sum := 0
-	for _, count := range s.errors {
+	for _, count := range s.connErrs {
 		sum += count
 	}
 	return sum

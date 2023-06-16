@@ -40,7 +40,7 @@ func TestScheduler_TotalErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &Scheduler{errors: tt.errors}
+			s := &Scheduler{connErrs: tt.errors}
 			assert.Equal(t, tt.want, s.TotalErrors())
 		})
 	}

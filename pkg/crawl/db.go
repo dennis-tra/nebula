@@ -48,7 +48,7 @@ func (s *Scheduler) persistCrawlProperties(ctx context.Context) error {
 	pps := map[string]map[string]int{
 		"agent_version": avFull,
 		"protocol":      s.protocols,
-		"error":         s.errors,
+		"error":         s.connErrs,
 	}
 
 	return s.dbc.PersistCrawlProperties(ctx, s.crawl, pps)
