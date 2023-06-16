@@ -408,7 +408,9 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 		} else {
 			logEntry = logEntry.WithField("dialErr", cr.ConnectErrorStr)
 		}
-	} else if cr.CrawlError != nil {
+	}
+
+	if cr.ConnectError == nil && cr.CrawlError != nil {
 		// Log and count crawl errors
 		s.errors[cr.CrawlErrorStr] += 1
 		if cr.CrawlErrorStr == models.NetErrorUnknown {
