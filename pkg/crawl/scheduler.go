@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	log "github.com/sirupsen/logrus"
 
@@ -32,7 +32,7 @@ import (
 //	              persister directly consume the results queue would not allow that.
 type Scheduler struct {
 	// The libp2p node that's used to crawl the network. This one is also passed to all crawlers.
-	host host.Host
+	host *basichost.BasicHost
 
 	// The database client
 	dbc db.Client
@@ -105,7 +105,7 @@ func NewScheduler(conf *config.Crawl, dbc db.Client) (*Scheduler, error) {
 	}
 
 	s := &Scheduler{
-		host:                h,
+		host:                h.(*basichost.BasicHost),
 		dbc:                 dbc,
 		config:              conf,
 		inCrawlQueue:        map[peer.ID]peer.AddrInfo{},

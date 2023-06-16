@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	mocknet "github.com/libp2p/go-libp2p/p2p/net/mock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestCrawler_handleCrawlJob_unlinked(t *testing.T) {
 	remote, err := net.GenPeer()
 	require.NoError(t, err)
 
-	crawler, err := NewCrawler(h, &config.Crawl{Protocols: cli.NewStringSlice(), Root: &config.Root{}})
+	crawler, err := NewCrawler(h.(*basichost.BasicHost), &config.Crawl{Protocols: cli.NewStringSlice(), Root: &config.Root{}})
 	require.NoError(t, err)
 
 	pi := peer.AddrInfo{

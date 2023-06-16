@@ -9,6 +9,7 @@ import (
 	"github.com/friendsofgo/errors"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
@@ -44,6 +45,12 @@ type P2PResult struct {
 
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ConnectEndTime time.Time
+
+	// All connections that the remote peer claims to listen on
+	// this can be different from the ones that we received from another peer
+	// e.g., they could miss quic-v1 addresses if the reporting peer doesn't
+	// know about that protocol.
+	ListenAddrs []ma.Multiaddr
 }
 
 func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResult {
@@ -67,6 +74,9 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 				result.CrawlErrorStr = db.NetError(result.CrawlError)
 			}
 
+			// wait for the Identify exchange to complete
+			c.identifyWait(ctx, pi)
+
 			// Extract information from peer store
 			ps := c.host.Peerstore()
 
@@ -82,6 +92,9 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 					result.Protocols[i] = string(protocols[i])
 				}
 			}
+
+			// Extract listen addresses
+			result.ListenAddrs = ps.Addrs(pi.ID)
 		}
 
 		// if there was a connection error, parse it to a known one
@@ -94,7 +107,7 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 			log.WithError(err).WithField("remoteID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
 		}
 
-		// send result back and close channel
+		// send the result back and close channel
 		select {
 		case resultCh <- result:
 		case <-ctx.Done():
@@ -194,4 +207,40 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*Routin
 	}
 
 	return routingTable, err
+}
+
+// identifyWait waits until any connection to a peer passed the Identify
+// exchange successfully or all identification attempts have failed.
+// The call to IdentifyWait returns immediately if the connection was
+// identified in the past. We detect a successful identification if an
+// AgentVersion is stored in the peer store
+func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
+	idCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for _, conn := range c.host.Network().ConnsToPeer(pi.ID) {
+		conn := conn
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			select {
+			case <-idCtx.Done():
+			case <-c.host.IDService().IdentifyWait(conn):
+
+				// check if identification was successful by looking for
+				// the AgentVersion key. If it exists, we cancel the
+				// identification of the remaining connections.
+				agent, err := c.host.Peerstore().Get(pi.ID, "AgentVersion")
+				if err == nil && agent.(string) != "" {
+					cancel()
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 }

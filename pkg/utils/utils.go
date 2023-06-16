@@ -26,6 +26,20 @@ func MaddrsToAddrs(maddrs []ma.Multiaddr) []string {
 	return addrs
 }
 
+// AddrsToMaddrs maps a slice of addresses to their multiaddress representation.
+func AddrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
+	maddrs := make([]ma.Multiaddr, len(addrs))
+	for i, addr := range addrs {
+		maddr, err := ma.NewMultiaddr(addr)
+		if err != nil {
+			return nil, err
+		}
+		maddrs[i] = maddr
+	}
+
+	return maddrs, nil
+}
+
 // FilterPrivateMaddrs strips private multiaddrs from the given peer address information.
 func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	filtered := peer.AddrInfo{
