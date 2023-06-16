@@ -410,7 +410,10 @@ func (s *Scheduler) handleResult(ctx context.Context, cr Result) {
 		}
 	}
 
-	if cr.ConnectError == nil && cr.CrawlError != nil {
+	if cr.CrawlError != nil {
+		// Don't count this against the "dialability" errors - for now.
+		// s.connErrs[cr.CrawlErrorStr] += 1
+
 		// Log and count crawl errors
 		if cr.CrawlErrorStr == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(cr.CrawlError)
