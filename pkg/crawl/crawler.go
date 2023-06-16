@@ -6,9 +6,9 @@ import (
 	"time"
 
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 
@@ -23,7 +23,7 @@ var crawlerID = atomic.NewInt32(0)
 // Crawler encapsulates a libp2p host that crawls the network.
 type Crawler struct {
 	id           string
-	host         host.Host
+	host         *basichost.BasicHost
 	config       *config.Crawl
 	pm           *pb.ProtocolMessenger
 	crawledPeers int
@@ -32,7 +32,7 @@ type Crawler struct {
 }
 
 // NewCrawler initializes a new crawler based on the given configuration.
-func NewCrawler(h host.Host, conf *config.Crawl) (*Crawler, error) {
+func NewCrawler(h *basichost.BasicHost, conf *config.Crawl) (*Crawler, error) {
 	ms := &msgSender{
 		h:         h,
 		protocols: protocol.ConvertFromStrings(conf.Protocols.Value()),

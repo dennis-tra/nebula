@@ -3,6 +3,7 @@ package crawl
 import (
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/volatiletech/null/v8"
@@ -92,6 +93,22 @@ func (r *Result) Merge(p2pRes P2PResult, apiRes APIResult) {
 	if apiRes.ID != nil && (r.Agent == "" || len(r.Protocols) == 0) {
 		r.Agent = apiRes.ID.AgentVersion
 		r.Protocols = apiRes.ID.Protocols
+	}
+
+	var apiResMaddrs []ma.Multiaddr
+	if apiRes.ID != nil {
+		maddrs, err := utils.AddrsToMaddrs(apiRes.ID.Addresses)
+		if err == nil {
+			apiResMaddrs = maddrs
+		}
+	}
+
+	if len(apiResMaddrs) > 0 {
+		r.Peer.Addrs = apiResMaddrs
+		r.Peer = utils.FilterPrivateMaddrs(r.Peer)
+	} else if len(p2pRes.ListenAddrs) > 0 {
+		r.Peer.Addrs = p2pRes.ListenAddrs
+		r.Peer = utils.FilterPrivateMaddrs(r.Peer)
 	}
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {
