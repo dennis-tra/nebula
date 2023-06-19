@@ -215,7 +215,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*Routin
 // identified in the past. We detect a successful identification if an
 // AgentVersion is stored in the peer store
 func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
-	idCtx, cancel := context.WithCancel(ctx)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -227,7 +227,7 @@ func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
 			defer wg.Done()
 
 			select {
-			case <-idCtx.Done():
+			case <-timeoutCtx.Done():
 			case <-c.host.IDService().IdentifyWait(conn):
 
 				// check if identification was successful by looking for
