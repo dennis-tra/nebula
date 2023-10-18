@@ -170,6 +170,7 @@ func main() {
 			CrawlCommand,
 			MonitorCommand,
 			ResolveCommand,
+			EthCommand,
 		},
 	}
 

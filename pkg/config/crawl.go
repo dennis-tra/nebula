@@ -117,6 +117,9 @@ func (c *Crawl) ConfigureNetwork() error {
 	case NetworkBlockRa:
 		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		c.Protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
+	case NetworkEthereum:
+		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereum...)
+		c.Protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS:
 		bps := []string{}
 		for _, maddr := range dht.DefaultBootstrapPeers {

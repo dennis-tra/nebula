@@ -13,6 +13,7 @@ type Network string
 const (
 	NetworkIPFS     Network = "IPFS"
 	NetworkFilecoin Network = "FILECOIN"
+	NetworkEthereum Network = "ETHEREUM" // TODO: be more specific CL vs EL?
 	NetworkKusama   Network = "KUSAMA"
 	NetworkPolkadot Network = "POLKADOT"
 	NetworkRococo   Network = "ROCOCO"
