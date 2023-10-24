@@ -1,10 +1,12 @@
-package crawl
+package libp2p
 
 import (
 	"context"
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
 
 	"github.com/friendsofgo/errors"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
@@ -20,7 +22,7 @@ import (
 )
 
 type P2PResult struct {
-	RoutingTable *RoutingTable
+	RoutingTable *core.RoutingTable[PeerInfo]
 
 	// The agent version of the crawled peer
 	Agent string
@@ -53,40 +55,40 @@ type P2PResult struct {
 	ListenAddrs []ma.Multiaddr
 }
 
-func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResult {
+func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 	resultCh := make(chan P2PResult)
 
 	go func() {
 		result := P2PResult{
-			RoutingTable: &RoutingTable{PeerID: pi.ID},
+			RoutingTable: &core.RoutingTable[PeerInfo]{PeerID: pi.ID()},
 		}
 
 		result.ConnectStartTime = time.Now()
-		result.ConnectError = c.connect(ctx, pi) // use filtered addr list
+		result.ConnectError = c.connect(ctx, pi.AddrInfo) // use filtered addr list
 		result.ConnectEndTime = time.Now()
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
 			// Fetch all neighbors
-			result.RoutingTable, result.CrawlError = c.fetchNeighbors(ctx, pi)
+			result.RoutingTable, result.CrawlError = c.fetchNeighbors(ctx, pi.AddrInfo)
 			if result.CrawlError != nil {
 				result.CrawlErrorStr = db.NetError(result.CrawlError)
 			}
 
 			// wait for the Identify exchange to complete
-			c.identifyWait(ctx, pi)
+			c.identifyWait(ctx, pi.AddrInfo)
 
 			// Extract information from peer store
 			ps := c.host.Peerstore()
 
 			// Extract agent
-			if agent, err := ps.Get(pi.ID, "AgentVersion"); err == nil {
+			if agent, err := ps.Get(pi.ID(), "AgentVersion"); err == nil {
 				result.Agent = agent.(string)
 			}
 
 			// Extract protocols
-			if protocols, err := ps.GetProtocols(pi.ID); err == nil {
+			if protocols, err := ps.GetProtocols(pi.ID()); err == nil {
 				result.Protocols = make([]string, len(protocols))
 				for i := range protocols {
 					result.Protocols[i] = string(protocols[i])
@@ -94,7 +96,7 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 			}
 
 			// Extract listen addresses
-			result.ListenAddrs = ps.Addrs(pi.ID)
+			result.ListenAddrs = ps.Addrs(pi.ID())
 		}
 
 		// if there was a connection error, parse it to a known one
@@ -103,8 +105,8 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi peer.AddrInfo) <-chan P2PResu
 		}
 
 		// Free connection resources
-		if err := c.host.Network().ClosePeer(pi.ID); err != nil {
-			log.WithError(err).WithField("remoteID", utils.FmtPeerID(pi.ID)).Warnln("Could not close connection to peer")
+		if err := c.host.Network().ClosePeer(pi.ID()); err != nil {
+			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
 		}
 
 		// send the result back and close channel
@@ -128,7 +130,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.config.Root.DialTimeout)
+	ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
 	defer cancel()
 
 	if err := c.host.Connect(ctx, pi); err != nil {
@@ -141,7 +143,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
 // of 15 random peer IDs with increasing common prefix lengths (CPL).
-func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*RoutingTable, error) {
+func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.RoutingTable[PeerInfo], error) {
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
 		return nil, err
@@ -195,15 +197,15 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*Routin
 	err = errg.Wait()
 	metrics.FetchedNeighborsCount.Observe(float64(len(allNeighbors)))
 
-	routingTable := &RoutingTable{
+	routingTable := &core.RoutingTable[PeerInfo]{
 		PeerID:    pi.ID,
-		Neighbors: []peer.AddrInfo{},
+		Neighbors: []PeerInfo{},
 		ErrorBits: uint16(errorBits.Load()),
 		Error:     err,
 	}
 
 	for _, n := range allNeighbors {
-		routingTable.Neighbors = append(routingTable.Neighbors, n)
+		routingTable.Neighbors = append(routingTable.Neighbors, PeerInfo{AddrInfo: n})
 	}
 
 	return routingTable, err

@@ -18,8 +18,6 @@ import (
 )
 
 type JSONClient struct {
-	ctx context.Context
-
 	out string
 
 	prefix string
@@ -35,10 +33,10 @@ type JSONClient struct {
 var _ Client = (*JSONClient)(nil)
 
 // InitJSONClient .
-func InitJSONClient(ctx context.Context, out string) (Client, error) {
+func InitJSONClient(out string) (Client, error) {
 	log.WithField("out", out).Infoln("Initializing JSON client")
 
-	if err := os.MkdirAll(out, 0755); err != nil {
+	if err := os.MkdirAll(out, 0o755); err != nil {
 		return nil, fmt.Errorf("make json out directory: %w", err)
 	}
 	prefix := path.Join(out, time.Now().Format("2006-01-02T15:04"))
@@ -54,7 +52,6 @@ func InitJSONClient(ctx context.Context, out string) (Client, error) {
 	}
 
 	client := &JSONClient{
-		ctx:              ctx,
 		out:              out,
 		prefix:           prefix,
 		visitEncoder:     json.NewEncoder(vf),
@@ -80,7 +77,7 @@ func (c *JSONClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 		return nil, fmt.Errorf("marshal crawl json: %w", err)
 	}
 
-	if err = os.WriteFile(c.prefix+"_crawl.json", data, 0644); err != nil {
+	if err = os.WriteFile(c.prefix+"_crawl.json", data, 0o644); err != nil {
 		return nil, fmt.Errorf("write crawl json: %w", err)
 	}
 
@@ -93,7 +90,7 @@ func (c *JSONClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
 		return fmt.Errorf("marshal crawl json: %w", err)
 	}
 
-	if err = os.WriteFile(c.prefix+"_crawl.json", data, 0644); err != nil {
+	if err = os.WriteFile(c.prefix+"_crawl.json", data, 0o644); err != nil {
 		return fmt.Errorf("write crawl json: %w", err)
 	}
 
@@ -106,7 +103,7 @@ func (c *JSONClient) PersistCrawlProperties(ctx context.Context, crawl *models.C
 		return fmt.Errorf("marshal properties json: %w", err)
 	}
 
-	if err = os.WriteFile(c.prefix+"_crawl_properties.json", data, 0644); err != nil {
+	if err = os.WriteFile(c.prefix+"_crawl_properties.json", data, 0o644); err != nil {
 		return fmt.Errorf("write properties json: %w", err)
 	}
 

@@ -1,11 +1,10 @@
-package crawl
+package libp2p
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/libp2p/go-libp2p/core/peer"
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -24,18 +23,18 @@ type APIResult struct {
 	RoutingTable *api.RoutingTableResponse
 }
 
-func (c *Crawler) crawlAPI(ctx context.Context, pi peer.AddrInfo) <-chan APIResult {
+func (c *Crawler) crawlAPI(ctx context.Context, pi PeerInfo) <-chan APIResult {
 	resultCh := make(chan APIResult)
 
 	// if Nebula is configured to not check for an exposed API return early
-	if !c.config.CheckExposed {
+	if !c.cfg.CheckExposed {
 		close(resultCh)
 		return resultCh
 	}
 
 	go func() {
 		crawledIPs := map[string]struct{}{}
-		for _, maddr := range pi.Addrs {
+		for _, maddr := range pi.Addrs() {
 
 			// extract IP address from multi address
 			ip, err := manet.ToIP(maddr)
@@ -73,7 +72,7 @@ func (c *Crawler) crawlAPI(ctx context.Context, pi peer.AddrInfo) <-chan APIResu
 			// Only crawl routing table if we actually want to persist neighbors. The result from this API
 			// call cannot be used to continue our crawls because the response does not contain multiaddresses
 			// of remote peers.
-			if c.config.PersistNeighbors {
+			if c.cfg.TrackNeighbors {
 				errg.Go(func() error {
 					rtResp, err = c.client.RoutingTable(tCtx, ip.String())
 					if err != nil {

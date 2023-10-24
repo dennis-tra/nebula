@@ -16,7 +16,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 var dialerID = atomic.NewInt32(0)
@@ -78,7 +77,7 @@ func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
 		"dialerID":  d.id,
-		"remoteID":  utils.FmtPeerID(pi.ID),
+		"remoteID":  pi.ID.ShortString(),
 		"dialCount": d.dialedPeers,
 	})
 	logEntry.Debugln("Dialing peer")

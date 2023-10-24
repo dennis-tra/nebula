@@ -22,7 +22,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 	"github.com/dennis-tra/nebula-crawler/pkg/queue"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The Scheduler handles the scheduling and managing of
@@ -56,7 +55,6 @@ type Scheduler struct {
 
 // NewScheduler initializes a new libp2p host and scheduler instance.
 func NewScheduler(conf *config.Monitor, dbc *db.DBClient) (*Scheduler, error) {
-
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
@@ -148,7 +146,7 @@ func (s *Scheduler) readResultsQueue(ctx context.Context) {
 func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
 	logEntry := log.WithFields(log.Fields{
 		"dialerID": dr.DialerID,
-		"remoteID": utils.FmtPeerID(dr.Peer.ID),
+		"remoteID": dr.Peer.ID.ShortString(),
 		"alive":    dr.Error == nil,
 	})
 	if dr.Error != nil {
@@ -209,7 +207,7 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 	if err != nil {
 		return fmt.Errorf("decode peer ID: %w", err)
 	}
-	logEntry := log.WithField("peerID", utils.FmtPeerID(peerID))
+	logEntry := log.WithField("peerID", peerID.ShortString())
 
 	// Parse multi addresses from database
 	pi := peer.AddrInfo{ID: peerID}

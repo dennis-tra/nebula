@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	contrib.go.opencensus.io/integrations/ocsql v0.1.7
+	github.com/davecgh/go-spew v1.1.1
 	github.com/ethereum/go-ethereum v1.13.4
 	github.com/friendsofgo/errors v0.9.2
 	github.com/golang-migrate/migrate/v4 v4.15.2
@@ -25,6 +26,8 @@ require (
 	github.com/volatiletech/strmangle v0.0.4
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
+	golang.org/x/crypto v0.14.0
+	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/sync v0.3.0
 	modernc.org/sqlite v1.23.1
 )
@@ -38,7 +41,6 @@ require (
 	github.com/containerd/cgroups v1.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -141,8 +143,6 @@ require (
 	go.uber.org/fx v1.19.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect

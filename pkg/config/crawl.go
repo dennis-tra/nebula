@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	dht "github.com/libp2p/go-libp2p-kad-dht"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 )
 
@@ -23,6 +21,9 @@ type Crawl struct {
 	// How many parallel workers should crawl the network.
 	CrawlWorkerCount int
 
+	// How many parallel workers should write crawl results to the database
+	WriteWorkerCount int
+
 	// Only crawl the specified amount of peers
 	CrawlLimit int
 
@@ -37,58 +38,12 @@ type Crawl struct {
 
 	// The network to crawl
 	Network string
-
-	// Whether to skip database interactions
-	DryRun bool
-
-	// File path to the JSON output directory
-	JSONOut string
-}
-
-// ReachedCrawlLimit returns true if the crawl limit is configured (aka != 0) and the crawled peers exceed this limit.
-func (c *Crawl) ReachedCrawlLimit(crawled int) bool {
-	return c.CrawlLimit > 0 && crawled >= c.CrawlLimit
 }
 
 // String prints the configuration as a json string
 func (c *Crawl) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
 	return string(data)
-}
-
-// BootstrapAddrInfos parses the configured multi address strings to proper multi addresses.
-func (c *Crawl) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
-	peerAddrs := map[peer.ID][]ma.Multiaddr{}
-	for _, maddrStr := range c.BootstrapPeers.Value() {
-
-		maddr, err := ma.NewMultiaddr(maddrStr)
-		if err != nil {
-			return nil, err
-		}
-
-		pi, err := peer.AddrInfoFromP2pAddr(maddr)
-		if err != nil {
-			return nil, err
-		}
-
-		_, found := peerAddrs[pi.ID]
-		if found {
-			peerAddrs[pi.ID] = append(peerAddrs[pi.ID], pi.Addrs...)
-		} else {
-			peerAddrs[pi.ID] = pi.Addrs
-		}
-	}
-
-	var pis []peer.AddrInfo
-	for pid, addrs := range peerAddrs {
-		pi := peer.AddrInfo{
-			ID:    pid,
-			Addrs: addrs,
-		}
-		pis = append(pis, pi)
-	}
-
-	return pis, nil
 }
 
 func (c *Crawl) ConfigureNetwork() error {

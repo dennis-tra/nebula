@@ -10,23 +10,24 @@ import (
 
 // KnownErrors contains a list of known errors. Property key + string to match for
 var KnownErrors = map[string]string{
-	models.NetErrorIoTimeout:                  "i/o timeout",
-	models.NetErrorNoRecentNetworkActivity:    "no recent network activity",
-	models.NetErrorConnectionRefused:          "connection refused",
-	models.NetErrorProtocolNotSupported:       "protocol not supported",
-	models.NetErrorPeerIDMismatch:             "peer id mismatch",
-	models.NetErrorNoRouteToHost:              "no route to host",
-	models.NetErrorNetworkUnreachable:         "network is unreachable",
-	models.NetErrorNoGoodAddresses:            "no good addresses",
-	models.NetErrorContextDeadlineExceeded:    "context deadline exceeded",
-	models.NetErrorNoPublicIP:                 "no public IP address",
-	models.NetErrorMaxDialAttemptsExceeded:    "max dial attempts exceeded",
-	models.NetErrorHostIsDown:                 "host is down",
-	models.NetErrorStreamReset:                "stream reset",
-	models.NetErrorNegotiateSecurityProtocol:  "failed to negotiate security protocol",
-	models.NetErrorNegotiateStreamMultiplexer: "failed to negotiate stream multiplexer",
-	models.NetErrorResourceLimitExceeded:      "resource limit exceeded",
-	models.NetErrorWriteOnStream:              "Write on stream",
+	"i/o timeout":                            models.NetErrorIoTimeout,
+	"RPC timeout":                            models.NetErrorIoTimeout,
+	"no recent network activity":             models.NetErrorNoRecentNetworkActivity,
+	"connection refused":                     models.NetErrorConnectionRefused,
+	"protocol not supported":                 models.NetErrorProtocolNotSupported,
+	"peer id mismatch":                       models.NetErrorPeerIDMismatch,
+	"no route to host":                       models.NetErrorNoRouteToHost,
+	"network is unreachable":                 models.NetErrorNetworkUnreachable,
+	"no good addresses":                      models.NetErrorNoGoodAddresses,
+	"context deadline exceeded":              models.NetErrorContextDeadlineExceeded,
+	"no public IP address":                   models.NetErrorNoPublicIP,
+	"max dial attempts exceeded":             models.NetErrorMaxDialAttemptsExceeded,
+	"host is down":                           models.NetErrorHostIsDown,
+	"stream reset":                           models.NetErrorStreamReset,
+	"failed to negotiate security protocol":  models.NetErrorNegotiateSecurityProtocol,
+	"failed to negotiate stream multiplexer": models.NetErrorNegotiateStreamMultiplexer,
+	"resource limit exceeded":                models.NetErrorResourceLimitExceeded,
+	"Write on stream":                        models.NetErrorWriteOnStream,
 }
 
 // NetError extracts the appropriate error type from the given error.
@@ -35,7 +36,7 @@ func NetError(err error) string {
 		return NetError(netErr.Cause)
 	}
 
-	for key, errStr := range KnownErrors {
+	for errStr, key := range KnownErrors {
 		if strings.Contains(err.Error(), errStr) {
 			return key
 		}

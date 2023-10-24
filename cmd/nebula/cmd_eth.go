@@ -76,12 +76,11 @@ func EthAction(c *cli.Context) error {
 	var wg sync.WaitGroup
 	for _, distance := range lookup {
 		wg.Add(1)
-		distance := distance
 		go func() {
 			defer wg.Done()
 
 			log.Infoln("Request Distance", distance)
-			nodes, err := dv5Listener.FindNode(EthBootnodes[3], []uint{distance})
+			nodes, err := dv5Listener.FindNode(EthBootnodes[2], []uint{distance})
 			if err != nil {
 				log.WithError(err).Warnln("Error...")
 				return

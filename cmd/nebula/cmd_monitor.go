@@ -45,7 +45,7 @@ func MonitorAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula monitor...")
 
 	// Acquire database handle
-	dbc, err := db.InitDBClient(c.Context, rootConfig)
+	dbc, err := db.InitDBClient(c.Context, rootConfig.Database)
 	if err != nil {
 		return fmt.Errorf("init db client: %w", err)
 	}

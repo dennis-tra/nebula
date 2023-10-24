@@ -53,7 +53,7 @@ type DBClient struct {
 	ctx context.Context
 
 	// Reference to the configuration
-	conf *config.Root
+	cfg *config.Database
 
 	// Database handler
 	dbh *sql.DB
@@ -72,13 +72,13 @@ var _ Client = (*DBClient)(nil)
 
 // InitDBClient establishes a database connection with the provided configuration and applies any pending
 // migrations
-func InitDBClient(ctx context.Context, conf *config.Root) (*DBClient, error) {
+func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) {
 	log.WithFields(log.Fields{
-		"host": conf.DatabaseHost,
-		"port": conf.DatabasePort,
-		"name": conf.DatabaseName,
-		"user": conf.DatabaseUser,
-		"ssl":  conf.DatabaseSSLMode,
+		"host": cfg.DatabaseHost,
+		"port": cfg.DatabasePort,
+		"name": cfg.DatabaseName,
+		"user": cfg.DatabaseUser,
+		"ssl":  cfg.DatabaseSSLMode,
 	}).Infoln("Initializing database client")
 
 	driverName, err := ocsql.Register("postgres")
@@ -87,7 +87,7 @@ func InitDBClient(ctx context.Context, conf *config.Root) (*DBClient, error) {
 	}
 
 	// Open database handle
-	dbh, err := sql.Open(driverName, conf.DatabaseSourceName())
+	dbh, err := sql.Open(driverName, cfg.DatabaseSourceName())
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
@@ -97,20 +97,20 @@ func InitDBClient(ctx context.Context, conf *config.Root) (*DBClient, error) {
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
-	client := &DBClient{ctx: ctx, conf: conf, dbh: dbh}
-	client.applyMigrations(conf, dbh)
+	client := &DBClient{ctx: ctx, cfg: cfg, dbh: dbh}
+	client.applyMigrations(cfg, dbh)
 
-	client.agentVersions, err = lru.New(conf.AgentVersionsCacheSize)
+	client.agentVersions, err = lru.New(cfg.AgentVersionsCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("new agent versions lru cache: %w", err)
 	}
 
-	client.protocols, err = lru.New(conf.ProtocolsCacheSize)
+	client.protocols, err = lru.New(cfg.ProtocolsCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("new protocol lru cache: %w", err)
 	}
 
-	client.protocolsSets, err = lru.New(conf.ProtocolsSetCacheSize)
+	client.protocolsSets, err = lru.New(cfg.ProtocolsSetCacheSize)
 	if err != nil {
 		return nil, fmt.Errorf("new protocols set lru cache: %w", err)
 	}
@@ -148,10 +148,10 @@ func (c *DBClient) Close() error {
 	return c.dbh.Close()
 }
 
-func (c *DBClient) applyMigrations(conf *config.Root, dbh *sql.DB) {
-	tmpDir, err := os.MkdirTemp("", "nebula-"+conf.Version())
+func (c *DBClient) applyMigrations(cfg *config.Database, dbh *sql.DB) {
+	tmpDir, err := os.MkdirTemp("", "nebula")
 	if err != nil {
-		log.WithError(err).WithField("pattern", "nebula-"+conf.Version()).Warnln("Could not create tmp directory for migrations")
+		log.WithError(err).WithField("pattern", "nebula").Warnln("Could not create tmp directory for migrations")
 		return
 	}
 	defer func() {
@@ -164,7 +164,7 @@ func (c *DBClient) applyMigrations(conf *config.Root, dbh *sql.DB) {
 	err = fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, err error) error {
 		join := filepath.Join(tmpDir, path)
 		if d.IsDir() {
-			return os.MkdirAll(join, 0755)
+			return os.MkdirAll(join, 0o755)
 		}
 
 		data, err := migrations.ReadFile(path)
@@ -172,7 +172,7 @@ func (c *DBClient) applyMigrations(conf *config.Root, dbh *sql.DB) {
 			return fmt.Errorf("read file: %w", err)
 		}
 
-		return os.WriteFile(join, data, 0644)
+		return os.WriteFile(join, data, 0o644)
 	})
 	if err != nil {
 		log.WithError(err).Warnln("Could not create migrations files")
@@ -186,7 +186,7 @@ func (c *DBClient) applyMigrations(conf *config.Root, dbh *sql.DB) {
 		return
 	}
 
-	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations"), conf.DatabaseName, driver)
+	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations"), cfg.DatabaseName, driver)
 	if err != nil {
 		log.WithError(err).Warnln("Could not create migrate instance")
 		return
@@ -221,7 +221,7 @@ func (c *DBClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.WithError(err).Warnln("could not load most recent crawl")
 	}
-	var maxCrawlID = 0
+	maxCrawlID := 0
 	if crawl != nil {
 		maxCrawlID = crawl.ID
 	}
@@ -357,11 +357,11 @@ func (c *DBClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExe
 // fillProtocolsCache fetches all rows until protocol cache size from the protocols table and
 // initializes the DB clients protocols cache.
 func (c *DBClient) fillProtocolsCache(ctx context.Context) error {
-	if c.conf.ProtocolsCacheSize == 0 {
+	if c.cfg.ProtocolsCacheSize == 0 {
 		return nil
 	}
 
-	prots, err := models.Protocols(qm.Limit(c.conf.ProtocolsCacheSize)).All(ctx, c.dbh)
+	prots, err := models.Protocols(qm.Limit(c.cfg.ProtocolsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -376,11 +376,11 @@ func (c *DBClient) fillProtocolsCache(ctx context.Context) error {
 // fillProtocolsSetCache fetches all rows until protocolSet cache size from the protocolsSets table and
 // initializes the DB clients protocolsSets cache.
 func (c *DBClient) fillProtocolsSetCache(ctx context.Context) error {
-	if c.conf.ProtocolsSetCacheSize == 0 {
+	if c.cfg.ProtocolsSetCacheSize == 0 {
 		return nil
 	}
 
-	protSets, err := models.ProtocolsSets(qm.Limit(c.conf.ProtocolsSetCacheSize)).All(ctx, c.dbh)
+	protSets, err := models.ProtocolsSets(qm.Limit(c.cfg.ProtocolsSetCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -485,11 +485,11 @@ func (c *DBClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Cont
 // fillAgentVersionsCache fetches all rows until agent version cache size from the agent_versions table and
 // initializes the DB clients agent version cache.
 func (c *DBClient) fillAgentVersionsCache(ctx context.Context) error {
-	if c.conf.AgentVersionsCacheSize == 0 {
+	if c.cfg.AgentVersionsCacheSize == 0 {
 		return nil
 	}
 
-	avs, err := models.AgentVersions(qm.Limit(c.conf.AgentVersionsCacheSize)).All(ctx, c.dbh)
+	avs, err := models.AgentVersions(qm.Limit(c.cfg.AgentVersionsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}

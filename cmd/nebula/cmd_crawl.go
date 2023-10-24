@@ -14,6 +14,7 @@ import (
 var crawlConfig = &config.Crawl{
 	Root:             rootConfig,
 	CrawlWorkerCount: 1000,
+	WriteWorkerCount: 10,
 	CrawlLimit:       0,
 	PersistNeighbors: false,
 	CheckExposed:     false,
@@ -21,7 +22,6 @@ var crawlConfig = &config.Crawl{
 	Network:          string(config.NetworkIPFS),
 	BootstrapPeers:   cli.NewStringSlice(),
 	Protocols:        cli.NewStringSlice("/ipfs/kad/1.0.0"),
-	DryRun:           false,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -73,25 +73,19 @@ var CrawlCommand = &cli.Command{
 			Destination: &crawlConfig.CrawlWorkerCount,
 		},
 		&cli.IntFlag{
+			Name:        "write-workers",
+			Usage:       "How many concurrent workers should write crawl results to the database.",
+			EnvVars:     []string{"NEBULA_CRAWL_WRITE_WORKER_COUNT"},
+			Value:       crawlConfig.WriteWorkerCount,
+			Destination: &crawlConfig.WriteWorkerCount,
+			Hidden:      true,
+		},
+		&cli.IntFlag{
 			Name:        "limit",
 			Usage:       "Only crawl the specified amount of peers (0 for unlimited)",
 			EnvVars:     []string{"NEBULA_CRAWL_PEER_LIMIT"},
 			Value:       crawlConfig.CrawlLimit,
 			Destination: &crawlConfig.CrawlLimit,
-		},
-		&cli.BoolFlag{
-			Name:        "dry-run",
-			Usage:       "Don't persist anything",
-			EnvVars:     []string{"NEBULA_CRAWL_DRY_RUN"},
-			Value:       crawlConfig.DryRun,
-			Destination: &crawlConfig.DryRun,
-		},
-		&cli.StringFlag{
-			Name:        "json-out",
-			Usage:       "If set, stores the crawl results as JSON documents at `DIR` (takes precedence over database settings).",
-			EnvVars:     []string{"NEBULA_CRAWL_JSON_OUT"},
-			Value:       crawlConfig.JSONOut,
-			Destination: &crawlConfig.JSONOut,
 		},
 		&cli.BoolFlag{
 			Name:        "neighbors",
@@ -121,34 +115,15 @@ var CrawlCommand = &cli.Command{
 func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 
-	// Acquire database handle
-	var (
-		dbc db.Client
-		err error
-	)
-	if !c.Bool("dry-run") {
-		if crawlConfig.JSONOut == "" {
-			dbc, err = db.InitDBClient(c.Context, rootConfig)
-		} else {
-			dbc, err = db.InitJSONClient(c.Context, crawlConfig.JSONOut)
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
-	// Parse bootstrap info
-	pis, err := crawlConfig.BootstrapAddrInfos()
+	dbc, err := db.NewClient(c.Context, rootConfig.Database)
 	if err != nil {
-		return fmt.Errorf("parsing multi addresses to peer addresses: %w", err)
+		return fmt.Errorf("new database client: %w", err)
 	}
 
-	// Initialize scheduler that handles crawling the network.
-	s, err := crawl.NewScheduler(crawlConfig, dbc)
+	crawl, err := crawl.New(c.Context, dbc, crawlConfig)
 	if err != nil {
-		return fmt.Errorf("creating new scheduler: %w", err)
+		return fmt.Errorf("new crawl: %w", err)
 	}
 
-	return s.CrawlNetwork(c.Context, pis)
+	return crawl.CrawlNetwork(c.Context)
 }

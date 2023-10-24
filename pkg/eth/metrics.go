@@ -39,7 +39,7 @@ var (
 )
 
 func init() {
-	for i := 0; i < nBuckets; i++ {
+	for i := 0; i < NBuckets; i++ {
 		bucketsCounter = append(bucketsCounter, metrics.NewRegisteredCounter(fmt.Sprintf("%s/bucket/%d/count", moduleName, i), nil))
 	}
 }

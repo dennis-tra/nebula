@@ -47,8 +47,8 @@ const (
 	// We keep buckets for the upper 1/15 of distances because
 	// it's very unlikely we'll ever encounter a node that's closer.
 	HashBits          = len(common.Hash{}) * 8
-	nBuckets          = HashBits / 15       // Number of buckets
-	BucketMinDistance = HashBits - nBuckets // Log distance of closest bucket
+	NBuckets          = HashBits / 15       // Number of buckets
+	BucketMinDistance = HashBits - NBuckets // Log distance of closest bucket
 
 	// IP address limits.
 	bucketIPLimit, bucketSubnet = 2, 24 // at most 2 addresses from the same /24
@@ -65,7 +65,7 @@ const (
 // records when announcements of a new record version are received.
 type Table struct {
 	mutex   sync.Mutex        // protects buckets, bucket content, nursery, rand
-	buckets [nBuckets]*bucket // index of known nodes by distance
+	buckets [NBuckets]*bucket // index of known nodes by distance
 	nursery []*node           // bootstrap nodes
 	rand    *mrand.Rand       // source of randomness, periodically reseeded
 	ips     netutil.DistinctNetSet

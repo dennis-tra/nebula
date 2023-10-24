@@ -43,32 +43,8 @@ type Root struct {
 	// Determines the port where prometheus and pprof serve the metrics endpoint.
 	TelemetryPort int
 
-	// Determines the host address of the database.
-	DatabaseHost string
-
-	// Determines the port of the database.
-	DatabasePort int
-
-	// Determines the name of the database that should be used.
-	DatabaseName string
-
-	// Determines the password with which we access the database.
-	DatabasePassword string
-
-	// Determines the username with which we access the database.
-	DatabaseUser string
-
-	// Postgres SSL mode (should be one supported in https://www.postgresql.org/docs/current/libpq-ssl.html)
-	DatabaseSSLMode string
-
-	// The cache size to hold agent versions in memory to skip database queries.
-	AgentVersionsCacheSize int
-
-	// The cache size to hold protocols in memory to skip database queries.
-	ProtocolsCacheSize int
-
-	// The cache size to hold sets of protocols in memory to skip database queries.
-	ProtocolsSetCacheSize int
+	// Contains all configuration parameters for interacting with the database
+	Database *Database
 }
 
 // Version returns the actual version string which includes VCS information
@@ -103,19 +79,6 @@ func (r *Root) Version() string {
 func (r *Root) String() string {
 	data, _ := json.MarshalIndent(r, "", "  ")
 	return fmt.Sprintf("%s", data)
-}
-
-// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
-func (r *Root) DatabaseSourceName() string {
-	return fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
-		r.DatabaseHost,
-		r.DatabasePort,
-		r.DatabaseName,
-		r.DatabaseUser,
-		r.DatabasePassword,
-		r.DatabaseSSLMode,
-	)
 }
 
 type Monitor struct {

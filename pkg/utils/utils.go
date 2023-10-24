@@ -9,14 +9,6 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 )
 
-// IDLength is here as a variable so that it can be decreased for tests with mocknet where IDs are way shorter.
-// The call to FmtPeerID would panic if this value stayed at 16.
-var IDLength = 16
-
-func FmtPeerID(id peer.ID) string {
-	return id.String()[:IDLength]
-}
-
 // MaddrsToAddrs maps a slice of multi addresses to their string representation.
 func MaddrsToAddrs(maddrs []ma.Multiaddr) []string {
 	addrs := make([]string, len(maddrs))
