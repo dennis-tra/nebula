@@ -18,10 +18,6 @@ func InitNoopClient() *NoopClient {
 	return &NoopClient{}
 }
 
-func (n NoopClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
-	return []peer.AddrInfo{}, nil
-}
-
 func (n NoopClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	return &models.Crawl{ID: 1}, nil
 }

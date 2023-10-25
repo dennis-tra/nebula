@@ -18,23 +18,23 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
-type Crawl struct {
-	cfg *config.Crawl
+type Monitor struct {
+	cfg *config.Monitor
 	dbc db.Client
 }
 
-func New(dbc db.Client, cfg *config.Crawl) (*Crawl, error) {
-	return &Crawl{
+func New(dbc db.Client, cfg *config.Monitor) (*Monitor, error) {
+	return &Monitor{
 		cfg: cfg,
 		dbc: dbc,
 	}, nil
 }
 
-func (c *Crawl) CrawlNetwork(ctx context.Context) error {
+func (c *Monitor) MonitorNetwork(ctx context.Context) error {
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	dbCrawl, err := c.dbc.InitCrawl(ctx)
+	dbMonitor, err := c.dbc.InitMonitor(ctx)
 	if err != nil {
 		return fmt.Errorf("creating crawl in db: %w", err)
 	}
@@ -46,15 +46,15 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
 
-		stack, err := discv5.NewStack(c.dbc, dbCrawl, stackCfg)
+		stack, err := discv5.NewStack(c.dbc, dbMonitor, stackCfg)
 		if err != nil {
 			return fmt.Errorf("new stack: %w", err)
 		}
 
 		engineCfg := &core.EngineConfig{
-			CrawlerCount:   c.cfg.CrawlWorkerCount,
+			MonitorerCount: c.cfg.MonitorWorkerCount,
 			WriterCount:    c.cfg.WriteWorkerCount,
-			Limit:          c.cfg.CrawlLimit,
+			Limit:          c.cfg.MonitorLimit,
 			TrackNeighbors: c.cfg.PersistNeighbors,
 		}
 
@@ -81,15 +81,15 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
 
-		stack, err := libp2p.NewStack(c.dbc, dbCrawl, stackCfg)
+		stack, err := libp2p.NewStack(c.dbc, dbMonitor, stackCfg)
 		if err != nil {
 			return fmt.Errorf("new stack: %w", err)
 		}
 
 		engineCfg := &core.EngineConfig{
-			CrawlerCount:   c.cfg.CrawlWorkerCount,
+			MonitorerCount: c.cfg.MonitorWorkerCount,
 			WriterCount:    c.cfg.WriteWorkerCount,
-			Limit:          c.cfg.CrawlLimit,
+			Limit:          c.cfg.MonitorLimit,
 			TrackNeighbors: c.cfg.PersistNeighbors,
 		}
 
@@ -112,7 +112,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 		}
 
 		// Persist the crawl results
-		if err := updateCrawl(cleanupCtx, c.dbc, dbCrawl, ctx, runData); err != nil {
+		if err := updateMonitor(cleanupCtx, c.dbc, dbMonitor, ctx, runData); err != nil {
 			return fmt.Errorf("persist crawl: %w", err)
 		}
 
@@ -121,28 +121,28 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 	return nil
 }
 
-// updateCrawl writes crawl statistics to the database
-func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, crawlCtx context.Context, runData *core.RunData[I]) error {
+// updateMonitor writes crawl statistics to the database
+func updateMonitor[I core.PeerInfo](ctx context.Context, dbc db.Client, dbMonitor *models.Monitor, crawlCtx context.Context, runData *core.RunData[I]) error {
 	log.Infoln("Persisting crawl result...")
 
-	dbCrawl.FinishedAt = null.TimeFrom(time.Now())
-	dbCrawl.CrawledPeers = null.IntFrom(runData.CrawledPeers)
-	dbCrawl.DialablePeers = null.IntFrom(runData.CrawledPeers - runData.TotalErrors())
-	dbCrawl.UndialablePeers = null.IntFrom(runData.TotalErrors())
+	dbMonitor.FinishedAt = null.TimeFrom(time.Now())
+	dbMonitor.MonitoredPeers = null.IntFrom(runData.MonitoredPeers)
+	dbMonitor.DialablePeers = null.IntFrom(runData.MonitoredPeers - runData.TotalErrors())
+	dbMonitor.UndialablePeers = null.IntFrom(runData.TotalErrors())
 
 	if runData.QueuedPeers == 0 {
-		dbCrawl.State = models.CrawlStateSucceeded
+		dbMonitor.State = models.MonitorStateSucceeded
 	} else if errors.Is(crawlCtx.Err(), context.Canceled) {
-		dbCrawl.State = models.CrawlStateCancelled
+		dbMonitor.State = models.MonitorStateCancelled
 	} else {
-		dbCrawl.State = models.CrawlStateFailed
+		dbMonitor.State = models.MonitorStateFailed
 	}
 
-	return dbc.UpdateCrawl(ctx, dbCrawl)
+	return dbc.UpdateMonitor(ctx, dbMonitor)
 }
 
 // storeNeighbors fills the neighbors table with topology information
-func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) {
+func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbMonitor *models.Monitor, runData *core.RunData[I]) {
 	log.Infoln("Persisting neighbor information...")
 
 	start := time.Now()
@@ -169,7 +169,7 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 				peerIDs = append(peerIDs, n.ID())
 			}
 		}
-		if err := dbc.PersistNeighbors(ctx, dbCrawl, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
+		if err := dbc.PersistNeighbors(ctx, dbMonitor, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
 			log.WithError(err).WithField("peerID", p.ShortString()).Warnln("Could not persist neighbors")
 		}
 	}

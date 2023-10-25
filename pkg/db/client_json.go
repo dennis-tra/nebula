@@ -62,10 +62,6 @@ func InitJSONClient(out string) (Client, error) {
 	return client, nil
 }
 
-func (c *JSONClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
-	return []peer.AddrInfo{}, nil
-}
-
 func (c *JSONClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 	crawl := &models.Crawl{
 		State:     models.CrawlStateStarted,

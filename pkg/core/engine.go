@@ -14,7 +14,7 @@ import (
 
 // The EngineConfig object configures the core Nebula [Engine] below.
 type EngineConfig struct {
-	// the number of internal crawlers. This translates to how many peers to crawl in parallel.
+	// the number of internal crawlers. This translates to how many peers we crawl in parallel.
 	CrawlerCount int
 
 	// the number of internal writers that store the crawl results to disk.
@@ -27,6 +27,30 @@ type EngineConfig struct {
 	// configurations of all peers in memory and write them to disk after the
 	// crawl has finished.
 	TrackNeighbors bool
+}
+
+// DefaultEngineConfig returns a default engine configuration that can and
+// should be adjusted for different networks.
+func DefaultEngineConfig() *EngineConfig {
+	return &EngineConfig{
+		CrawlerCount:   100,
+		WriterCount:    10,
+		Limit:          0,
+		TrackNeighbors: false,
+	}
+}
+
+// Validate verifies the engine configuration's invariants.
+func (cfg *EngineConfig) Validate() error {
+	if cfg.CrawlerCount <= 0 {
+		return fmt.Errorf("crawler count must not be zero or negative")
+	}
+
+	if cfg.WriterCount <= 0 {
+		return fmt.Errorf("writer count must not be zero or negative")
+	}
+
+	return nil
 }
 
 // Engine is the integral data structure for orchestrating the communication
@@ -68,6 +92,12 @@ type Engine[I PeerInfo] struct {
 // NewEngine initializes a new crawl engine. See the [Engine] documentation for
 // more information.
 func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error) {
+	if cfg == nil {
+		cfg = DefaultEngineConfig()
+	} else if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("validate config: %w", err)
+	}
+
 	// initialize the configured number of crawl workers.
 	crawlers := make([]Worker[I, CrawlResult[I]], cfg.CrawlerCount)
 	for i := 0; i < cfg.CrawlerCount; i++ {
@@ -268,7 +298,7 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	// Schedule crawls of all found neighbors unless we got the routing table from the API.
 	// In this case the routing table information won't include any MultiAddresses. This means
 	// we can't use these peers for further crawls.
-	if !cr.RoutingTableFromAPI {
+	if !cr.RoutingTableFromAPI && cr.RoutingTable != nil {
 		for _, n := range cr.RoutingTable.Neighbors {
 			// Don't add this peer to the queue if it's already in it
 			if _, inCrawlQueue := e.crawlQueue[string(n.ID())]; inCrawlQueue {

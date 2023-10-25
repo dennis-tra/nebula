@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"testing"
 
-	nt "github.com/dennis-tra/nebula-crawler/pkg/nebtest"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPoolNoWorker(t *testing.T) {
@@ -22,7 +22,7 @@ func TestPoolNoWorker(t *testing.T) {
 func TestPoolSingleWorker(t *testing.T) {
 	t.Run("no work", func(t *testing.T) {
 		tasks := make(chan string)
-		pool := NewPool[string, int](nt.NewWorker())
+		pool := NewPool[string, int](newTestWorker[string, int]())
 		assert.Equal(t, 1, pool.Size())
 		results := pool.Start(context.Background(), tasks)
 		close(tasks)
@@ -30,28 +30,37 @@ func TestPoolSingleWorker(t *testing.T) {
 	})
 
 	t.Run("performs work", func(t *testing.T) {
+		ctx := context.Background()
+		worker := newTestWorker[string, int]()
+		worker.On("Work", mock.Anything, "4").Return(4, nil)
+		pool := NewPool[string, int](worker)
 		tasks := make(chan string)
-		pool := NewPool[string, int](nt.NewWorker())
-		results := pool.Start(context.Background(), tasks)
+		results := pool.Start(ctx, tasks)
 		tasks <- "4"
 		close(tasks)
-		<-results
-		<-results
+		_, more := <-results
+		assert.True(t, more)
+		_, more = <-results
+		assert.False(t, more)
 	})
 
 	t.Run("multiple starts", func(t *testing.T) {
 		tasks := make(chan string)
-		pool := NewPool[string, int](nt.NewWorker())
 
+		pool := NewPool[string, int](newAtoiWorker(t))
 		results := pool.Start(context.Background(), tasks)
 		results = pool.Start(context.Background(), tasks)
+
 		go func() { results = pool.Start(context.Background(), tasks) }()
 		go func() { results = pool.Start(context.Background(), tasks) }()
+
 		tasks <- "4"
 		close(tasks)
+
 		val, more := <-results
 		assert.True(t, more)
 		assert.Equal(t, 4, val.Value)
+
 		_, more = <-results
 		assert.False(t, more)
 	})
@@ -61,7 +70,7 @@ func TestPoolMultipleWorkers(t *testing.T) {
 	t.Run("equal workers and tasks", func(t *testing.T) {
 		ctx := context.Background()
 		tasks := make(chan string)
-		pool := NewPool[string, int](nt.NewWorker(), nt.NewWorker())
+		pool := NewPool[string, int](newAtoiWorker(t), newAtoiWorker(t))
 		assert.Equal(t, 2, pool.Size())
 		results := pool.Start(ctx, tasks)
 		tasks <- "1"
@@ -76,7 +85,7 @@ func TestPoolMultipleWorkers(t *testing.T) {
 	t.Run("few workers and many tasks", func(t *testing.T) {
 		ctx := context.Background()
 		tasks := make(chan string)
-		pool := NewPool[string, int](nt.NewWorker(), nt.NewWorker(), nt.NewWorker())
+		pool := NewPool[string, int](newAtoiWorker(t), newAtoiWorker(t), newAtoiWorker(t))
 		assert.Equal(t, 3, pool.Size())
 		results := pool.Start(ctx, tasks)
 
@@ -100,40 +109,36 @@ func TestPoolMultipleWorkers(t *testing.T) {
 		ctx := context.Background()
 		tasks := make(chan string)
 
-		workerHook1 := make(chan struct{})
-		workerHook2 := make(chan struct{})
-		workerHook3 := make(chan struct{})
-		pool := NewPool[string, int](
-			&nt.Worker{
-				WorkHook: func(ctx context.Context, task string) (int, error) {
-					<-workerHook1
-					return strconv.Atoi(task)
-				},
-			},
-			&nt.Worker{
-				WorkHook: func(ctx context.Context, task string) (int, error) {
-					<-workerHook2
-					return strconv.Atoi(task)
-				},
-			},
-			&nt.Worker{
-				WorkHook: func(ctx context.Context, task string) (int, error) {
-					<-workerHook3
-					return strconv.Atoi(task)
-				},
-			},
-		)
+		workerCount := 3
+
+		hooks := make([]chan struct{}, workerCount)
+		workers := make([]*testWorker[string, int], workerCount)
+		for i := 0; i < workerCount; i++ {
+			hook := make(chan struct{})
+			hooks[i] = hook
+
+			worker := newTestWorker[string, int]()
+			workerCall := worker.On("Work", mock.Anything, mock.Anything)
+			workerCall.RunFn = func(args mock.Arguments) {
+				<-hook
+				val, err := strconv.Atoi(args.String(1))
+				require.NoError(t, err)
+				workerCall.ReturnArguments = mock.Arguments{val, nil}
+			}
+			workers[i] = worker
+		}
+
+		pool := NewPool[string, int](workers[0], workers[1], workers[2])
 		results := pool.Start(ctx, tasks)
-		tasks <- "1"
-		tasks <- "2"
-		tasks <- "3"
+		for i := 0; i < workerCount; i++ {
+			tasks <- strconv.Itoa(i)
+		}
 		close(tasks)
-		close(workerHook1)
-		<-results
-		close(workerHook2)
-		<-results
-		close(workerHook3)
-		<-results
+		for i := 0; i < workerCount; i++ {
+			close(hooks[i])
+			_, more := <-results
+			assert.True(t, more)
+		}
 
 		_, more := <-results
 		assert.False(t, more)
