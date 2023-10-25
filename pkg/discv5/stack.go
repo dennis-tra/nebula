@@ -6,22 +6,19 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net"
-	"sync"
-
-	log "github.com/sirupsen/logrus"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	log "github.com/sirupsen/logrus"
 
-	discover "github.com/dennis-tra/nebula-crawler/pkg/eth"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/eth"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 type PeerInfo struct {
@@ -31,11 +28,6 @@ type PeerInfo struct {
 }
 
 var _ core.PeerInfo = (*PeerInfo)(nil)
-
-var (
-	mapMu   sync.RWMutex
-	mappppp map[enode.ID]peer.ID = make(map[enode.ID]peer.ID)
-)
 
 func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	pubkey := node.Pubkey()
@@ -71,14 +63,6 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		maddrs = append(maddrs, maddr)
 	}
 
-	//mapMu.Lock()
-	//if existing, found := mappppp[node.ID()]; found && existing == peerID {
-	//	fmt.Println("Asdfasfdasdf")
-	//} else {
-	//	mappppp[node.ID()] = peerID
-	//}
-	//mapMu.Unlock()
-
 	return PeerInfo{
 		Node:   node,
 		peerID: peerID,
@@ -87,6 +71,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 }
 
 func (p PeerInfo) ID() peer.ID {
+	return peer.ID(p.Node.ID().String())
 	return p.peerID
 }
 
@@ -143,12 +128,12 @@ func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]],
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discv5Cfg := discover.Config{
+	discv5Cfg := eth.Config{
 		PrivateKey:   priv,
 		ValidSchemes: enode.ValidSchemes,
 	}
 
-	listener, err := discover.ListenV5(conn, ethNode, discv5Cfg)
+	listener, err := eth.ListenV5(conn, ethNode, discv5Cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}

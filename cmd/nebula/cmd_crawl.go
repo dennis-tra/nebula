@@ -100,6 +100,7 @@ var CrawlCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_CRAWL_CHECK_EXPOSED"},
 			Value:       crawlConfig.CheckExposed,
 			Destination: &crawlConfig.CheckExposed,
+			Category:    flagCategoryNetwork,
 		},
 		&cli.StringFlag{
 			Name:        "network",
@@ -115,15 +116,20 @@ var CrawlCommand = &cli.Command{
 func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 
+	// initialize new database client based on the given configuration. Options
+	// are Postgres, JSON, and noop (dry-run).
 	dbc, err := db.NewClient(c.Context, rootConfig.Database)
 	if err != nil {
 		return fmt.Errorf("new database client: %w", err)
 	}
 
-	crawl, err := crawl.New(c.Context, dbc, crawlConfig)
+	// initialize crawl instance that is responsible for setting up the internal
+	// bits and pieces (engine, network stack, etc.).
+	crawl, err := crawl.New(dbc, crawlConfig)
 	if err != nil {
 		return fmt.Errorf("new crawl: %w", err)
 	}
 
+	// instruct the crawl instance to, well, crawl the network.
 	return crawl.CrawlNetwork(c.Context)
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/params"
+
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/urfave/cli/v2"
 )
@@ -73,9 +75,9 @@ func (c *Crawl) ConfigureNetwork() error {
 		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		c.Protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthereum:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereum...)
+		c.BootstrapPeers = cli.NewStringSlice(params.V5Bootnodes...)
 		c.Protocols = cli.NewStringSlice("discv5") // TODO
-	case NetworkIPFS:
+	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range dht.DefaultBootstrapPeers {
 			bps = append(bps, maddr.String())

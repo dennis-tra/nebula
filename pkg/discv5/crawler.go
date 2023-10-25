@@ -105,6 +105,10 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi PeerInfo) (*core.Routin
 			)
 
 			for retry := 0; retry < 2; retry++ {
+				err = c.listener.Ping(pi.Node)
+				if err != nil {
+					break
+				}
 				neighbors, err = c.listener.FindNode(pi.Node, []uint{distance})
 				if err == nil {
 					break

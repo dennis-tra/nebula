@@ -28,7 +28,7 @@ type Crawl struct {
 	dbc db.Client
 }
 
-func New(ctx context.Context, dbc db.Client, cfg *config.Crawl) (*Crawl, error) {
+func New(dbc db.Client, cfg *config.Crawl) (*Crawl, error) {
 	return &Crawl{
 		cfg: cfg,
 		dbc: dbc,

@@ -15,7 +15,6 @@ import (
 )
 
 type Client interface {
-	QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error)
 	InitCrawl(ctx context.Context) (*models.Crawl, error)
 	UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
 	PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error
@@ -23,13 +22,22 @@ type Client interface {
 	PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error
 }
 
+// NewClient will initialize the right database client based on the given
+// configuration. This can either be a Postgres, JSON, or noop client. The noop
+// client is a dummy implementation of the [Client] interface that does nothing
+// when the methods are called. That's the one used if the user specifies
+// `--dry-run` on the command line. The JSON client is used when the user
+// specifies a JSON output directory. Then JSON files with crawl information
+// are written to that directory. In any other case, the Postgres client is
+// used.
 func NewClient(ctx context.Context, cfg *config.Database) (Client, error) {
-	// Acquire database handle
 	var (
 		dbc Client
 		err error
 	)
 
+	// dry run has presedence. Then, if a JSON output directory is given, use
+	// the JSON client. In any other case, use the Postgres database client.
 	if cfg.DryRun {
 		dbc = InitNoopClient()
 	} else if cfg.JSONOut != "" {

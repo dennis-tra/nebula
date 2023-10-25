@@ -5,34 +5,58 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
-
+	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
+// The EngineConfig object configures the core Nebula [Engine] below.
 type EngineConfig struct {
-	CrawlerCount   int
-	WriterCount    int
-	Limit          int
+	// the number of internal crawlers. This translates to how many peers to crawl in parallel.
+	CrawlerCount int
+
+	// the number of internal writers that store the crawl results to disk.
+	WriterCount int
+
+	// maximum number of peers to crawl before stopping the engine.
+	Limit int
+
+	// a flag that indicates whether we want to track and keep routing table
+	// configurations of all peers in memory and write them to disk after the
+	// crawl has finished.
 	TrackNeighbors bool
 }
 
+// Engine is the integral data structure for orchestrating the communication
+// with peers and writing the crawl results to disk. It maintains a worker pool
+// of crawlers and writers that are concurrently crawling peers and writing
+// the results to disk. The engine is responsible for scheduling which peer
+// to crawl next, making sure to not crawl the same peer twice. At the same time
+// it buffers the crawl results and schedules crawl results to be stored and
+// distributes these jobs to the writers when they have capacity. The engine
+// can be configured with the [EngineConfig] struct.
 type Engine[I PeerInfo] struct {
-	cfg   *EngineConfig
+	// this engine's configuration
+	cfg *EngineConfig
+
+	// the networking stack that this engine should operate with
 	stack Stack[I]
 
+	// worker pools for internal crawlers/writers.
 	crawlerPool *Pool[I, CrawlResult[I]]
 	writerPool  *Pool[CrawlResult[I], WriteResult]
 
+	// queues of jobs that need to be performed. Either peers to crawl or
+	// crawl results to write to disk.
 	crawlQueue map[string]I
 	writeQueue map[string]CrawlResult[I]
 
+	// data structure that captures aggregate information about the engine's run
 	runData *RunData[I]
 
+	// a map that keeps track of all peers we are currently communicating with.
 	inflight map[string]struct{}
 
 	// A map from a peer's ID to further peer information. This map will
@@ -41,8 +65,10 @@ type Engine[I PeerInfo] struct {
 	crawled map[string]struct{}
 }
 
-// NewEngine initializes a new crawl engine.
+// NewEngine initializes a new crawl engine. See the [Engine] documentation for
+// more information.
 func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error) {
+	// initialize the configured number of crawl workers.
 	crawlers := make([]Worker[I, CrawlResult[I]], cfg.CrawlerCount)
 	for i := 0; i < cfg.CrawlerCount; i++ {
 		crawler, err := stack.NewCrawler()
@@ -52,6 +78,7 @@ func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error
 		crawlers[i] = crawler
 	}
 
+	// initialize the configured amount of writers that write crawl results to disk
 	writers := make([]Worker[CrawlResult[I], WriteResult], cfg.WriterCount)
 	for i := 0; i < cfg.WriterCount; i++ {
 		writer, err := stack.NewWriter()
@@ -61,6 +88,7 @@ func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error
 		writers[i] = writer
 	}
 
+	// initialize empty maps for the different queues etc.
 	return &Engine[I]{
 		cfg:         cfg,
 		stack:       stack,
@@ -78,6 +106,14 @@ func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error
 	}, nil
 }
 
+// Run is a blocking call that starts the crawler and writer worker pools to
+// accept and perform tasks. It then starts by asking the network stack for a
+// set of bootstrap nodes to start the crawl from. Then it sends these bootstrap
+// peers to the crawl workers which then perform the act of crawling that peer
+// and sending back the result which is then sent to one of the writer workers
+// which in turn stores the crawl result. The engine, in the meantime, keeps
+// track and exposes prometheus metrics, as well as gathers aggregate
+// information about the entire crawl itself in [RunData].
 func (e *Engine[I]) Run(ctx context.Context) (*RunData[I], error) {
 	defer e.stack.OnClose()
 	defer func() {
@@ -85,30 +121,39 @@ func (e *Engine[I]) Run(ctx context.Context) (*RunData[I], error) {
 		e.runData.CrawledPeers = len(e.crawled)
 	}()
 
+	// initialize the task queues that the crawler and writer will read from
 	crawlTasks := make(chan I)
 	writeTasks := make(chan CrawlResult[I])
 
+	// start the crawler and writer worker pools to read from their respective
+	// task channel. The returned result channels are used to signal back any
+	// task completion from any worker of the respective pool.
 	crawlResults := e.crawlerPool.Start(ctx, crawlTasks)
 	writeResults := e.writerPool.Start(ctx, writeTasks)
 
+	// ask the networking stack for bootstrap peers to start the crawl from.
 	bps, err := e.stack.BootstrapPeers()
 	if err != nil {
 		return e.runData, fmt.Errorf("get bootstrap peers: %w", err)
 	}
 
+	// put these bootstrap peers in the crawl queue, so they'll be properly scheduled.
 	for _, bp := range bps {
 		e.crawlQueue[string(bp.ID())] = bp
 	}
 
+	// start the core loop
 	for {
 		// get a random peer to crawl and a random crawl result that we
 		// should store in the database
 		crawlTask, crawlOk := peekItem(e.crawlQueue)
 		writeTask, writeOk := peekItem(e.writeQueue)
 
-		// if we don't have any more peers to crawl and the crawlTasks channel
-		// wasn't closed previously, we close it and set it to nil. Setting the
-		// channel to nil prevents sending the crawlTask zero value to it.
+		// if we still have crawl tasks to do, set the inner queue to the
+		// original one, so that we'll try to send on that channel in the below
+		// select statement. Otherwise, if the crawlTasks queue wasn't already
+		// closed in the past and we don't have any requests still inflight,
+		// close the channel and invalidate the variable -> we're done crawling.
 		var innerCrawlTasks chan I
 		if crawlOk {
 			innerCrawlTasks = crawlTasks
@@ -117,6 +162,12 @@ func (e *Engine[I]) Run(ctx context.Context) (*RunData[I], error) {
 			crawlTasks = nil
 		}
 
+		// if we still have write tasks to do, set the inner queue to the
+		// original one, sot that we'll try to send on that channel in the below
+		// select statement. Otherwise, if the crawlTasks queue was invalidated
+		// (we don't have anything to crawl) and the writeTasks queue was not
+		// invalidated yet, do exactly that -> we're done writing results to
+		// disk, and there isn't anything left to do.
 		var innerWriteTasks chan CrawlResult[I]
 		if writeOk {
 			innerWriteTasks = writeTasks
@@ -127,6 +178,7 @@ func (e *Engine[I]) Run(ctx context.Context) (*RunData[I], error) {
 
 		select {
 		case <-ctx.Done():
+			// the engine was asked to stop. Clean up resources.
 			e.stack.OnClose()
 			close(crawlTasks)
 			close(writeTasks)
@@ -134,32 +186,60 @@ func (e *Engine[I]) Run(ctx context.Context) (*RunData[I], error) {
 			<-writeResults
 			return e.runData, ctx.Err()
 		case innerCrawlTasks <- crawlTask:
+			// a crawl worker was ready to accept a new task -> perform internal bookkeeping.
 			delete(e.crawlQueue, string(crawlTask.ID()))
 			e.inflight[string(crawlTask.ID())] = struct{}{}
 		case innerWriteTasks <- writeTask:
+			// a write worker was ready to accept a new task -> perform internal bookkeeping.
 			delete(e.writeQueue, string(writeTask.Info.ID()))
 		case result, more := <-crawlResults:
 			if !more {
+				// the crawlResults queue was closed. This means all crawl workers
+				// have exited their go routine and scheduling new tasks would block
+				// indefinitely because no one would read from the channel.
+				// To avoid a hot spinning loop we set the channel to nil which
+				// will keep the select statement to block. If crawlResults and
+				// writeResults are nil, no work will be performed, and we can
+				// exit this for loop. This is checked below.
 				crawlResults = nil
 				break
 			}
+
+			// a crawl worker finished a crawl task by contacting a peer. Handle it.
 			e.handleCrawlResult(result.Value, result.Error)
 		case result, more := <-writeResults:
 			if !more {
+				// the writeResults queue was closed. This means all write workers
+				// have exited their go routine and scheduling new tasks would block
+				// indefinitely because no one would read from the channel.
+				// To avoid a hot spinning loop we set the channel to nil which
+				// will keep the select statement to block. If writeResults and
+				// crawlResults are nil, no work will be performed, and we can
+				// exit this for loop. This is checked below.
 				writeResults = nil
 				break
 			}
+
+			// a write worker finished writing data to disk. Handle this event.
 			e.handleWriteResult(result.Value, result.Error)
 		}
 
+		// break the for loop after 1) all workers have stopped or 2) we have
+		// reached the configured maximum amount of peers we wanted to crawl.
 		if (crawlResults == nil && writeResults == nil) || e.reachedCrawlLimit() {
 			break
 		}
 	}
 
+	// return aggregate run information. Check the above defer statement for
+	// how other fields are populated.
 	return e.runData, nil
 }
 
+// handleCrawlResult performs internal bookkeeping after a worker from the
+// crawler pool has published a crawl result. Here, we update several internal
+// bookkeeping maps and prometheus metrics as well as scheduling new peers to
+// crawl.
 func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  cr.CrawlerID,
@@ -168,6 +248,7 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	})
 	logEntry.Debugln("Handling crawl result from worker", cr.CrawlerID)
 
+	// This crawl operation for this peer is not inflight anymore -> delete it.
 	delete(e.inflight, string(cr.Info.ID()))
 
 	// Keep track that this peer was crawled, so we don't do it again during this run
@@ -180,8 +261,8 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	// Publish crawl result to persist queue so that the data is saved into the DB.
 	e.writeQueue[string(cr.Info.ID())] = cr
 
-	// Give the stack a chance to handle the result and keep track of network
-	// specific metrics
+	// Give the stack a chance to handle the result and keep track of
+	// network-specific metrics
 	e.stack.OnPeerCrawled(cr, err)
 
 	// Schedule crawls of all found neighbors unless we got the routing table from the API.
@@ -201,7 +282,6 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 
 			// Schedule crawl for peer
 			e.crawlQueue[string(n.ID())] = n
-			e.runData.QueuedPeers += 1
 		}
 
 		// Track new peer in queue with prometheus
@@ -240,7 +320,7 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	logEntry.WithFields(map[string]interface{}{
 		"inCrawlQueue": len(e.crawlQueue),
 		"crawled":      len(e.crawled),
-	}).Infoln("Handled crawl result from worker", cr.CrawlerID)
+	}).Infoln("Handled crawl result from", cr.CrawlerID)
 }
 
 func (e *Engine[I]) handleWriteResult(cr WriteResult, err error) {
@@ -287,6 +367,9 @@ func (d *RunData[I]) TotalErrors() int {
 	return sum
 }
 
+// peekItem is a helper function that returns an arbitrary element from a map.
+// It returns true if the map still contained at least one element or false if
+// the map is empty.
 func peekItem[K comparable, V any](queue map[K]V) (V, bool) {
 	for _, item := range queue {
 		return item, true

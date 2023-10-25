@@ -59,7 +59,7 @@ func (w *Writer[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteResult,
 		WithField("persisted", w.writtenPeers).
 		WithField("success", err == nil).
 		WithField("duration", time.Since(start)).
-		Infoln("Persisted result from worker", w.id)
+		Infoln("Written result to disk", w.id)
 
 	return WriteResult{InsertVisitResult: ivr}, nil
 }

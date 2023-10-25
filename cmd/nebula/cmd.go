@@ -19,10 +19,10 @@ const (
 	flagCategoryDatabase  = "Database Configuration:"
 	flagCategoryDebugging = "Debugging Configuration:"
 	flagCategoryCache     = "Cache Configuration:"
+	flagCategoryNetwork   = "Network Specific Configuration:"
 )
 
-// RawVersion and build tag of the
-// Nebula command line tool.
+// RawVersion and build tag of the Nebula command line tool.
 var RawVersion = "dev"
 
 var rootConfig = &config.Root{
@@ -185,7 +185,6 @@ func main() {
 			CrawlCommand,
 			MonitorCommand,
 			ResolveCommand,
-			EthCommand,
 		},
 	}
 
@@ -195,7 +194,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	go func() {
 		sig := <-sigs
-		log.Printf("Received %s signal - Stopping...\n", sig.String())
+		log.Infof("Received %s signal - Stopping...\n", sig.String())
 		signal.Stop(sigs)
 		cancel()
 	}()

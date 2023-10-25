@@ -70,8 +70,8 @@ type DBClient struct {
 
 var _ Client = (*DBClient)(nil)
 
-// InitDBClient establishes a database connection with the provided configuration and applies any pending
-// migrations
+// InitDBClient establishes a database connection with the provided configuration
+// and applies any pending migrations.
 func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) {
 	log.WithFields(log.Fields{
 		"host": cfg.DatabaseHost,
