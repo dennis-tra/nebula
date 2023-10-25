@@ -535,7 +535,7 @@ func (t *UDPv5) dispatch() {
 		case ct := <-t.respTimeoutCh:
 			active := t.activeCallByNode[ct.c.id]
 			if ct.c == active && ct.timer == active.timeout {
-				ct.c.err <- errTimeout
+				ct.c.err <- ErrTimeout
 			}
 
 		case c := <-t.callDoneCh:

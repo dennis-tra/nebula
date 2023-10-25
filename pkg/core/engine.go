@@ -129,6 +129,8 @@ func NewEngine[I PeerInfo](stack Stack[I], cfg *EngineConfig) (*Engine[I], error
 		runData: &RunData[I]{
 			PeerMappings:  make(map[peer.ID]int),
 			RoutingTables: make(map[peer.ID]*RoutingTable[I]),
+			AgentVersion:  make(map[string]int),
+			Protocols:     make(map[string]int),
 			ConnErrs:      make(map[string]int),
 		},
 		inflight: make(map[string]struct{}),
@@ -295,6 +297,14 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	// network-specific metrics
 	e.stack.OnPeerCrawled(cr, err)
 
+	// Track agent versions
+	e.runData.AgentVersion[cr.Agent] += 1
+
+	// Track seen protocols
+	for _, p := range cr.Protocols {
+		e.runData.Protocols[p] += 1
+	}
+
 	// Schedule crawls of all found neighbors unless we got the routing table from the API.
 	// In this case the routing table information won't include any MultiAddresses. This means
 	// we can't use these peers for further crawls.
@@ -302,6 +312,11 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 		for _, n := range cr.RoutingTable.Neighbors {
 			// Don't add this peer to the queue if it's already in it
 			if _, inCrawlQueue := e.crawlQueue[string(n.ID())]; inCrawlQueue {
+				continue
+			}
+
+			// Don't add this peer to the queue if we're currently querying it
+			if _, isInflight := e.inflight[string(n.ID())]; isInflight {
 				continue
 			}
 
@@ -348,8 +363,9 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	}
 
 	logEntry.WithFields(map[string]interface{}{
-		"inCrawlQueue": len(e.crawlQueue),
-		"crawled":      len(e.crawled),
+		"queued":   len(e.crawlQueue),
+		"inflight": len(e.inflight),
+		"crawled":  len(e.crawled),
 	}).Infoln("Handled crawl result from", cr.CrawlerID)
 }
 
@@ -377,6 +393,12 @@ type RunData[I PeerInfo] struct {
 
 	// A map that keeps track of all k-bucket entries of a particular peer.
 	RoutingTables map[peer.ID]*RoutingTable[I]
+
+	// A map of agent versions and their occurrences that happened during the crawl.
+	AgentVersion map[string]int
+
+	// A map of protocols and their occurrences that happened during the crawl.
+	Protocols map[string]int
 
 	// A map of errors that happened during the crawl.
 	ConnErrs map[string]int

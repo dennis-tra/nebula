@@ -3,6 +3,9 @@ package crawl
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/friendsofgo/errors"
@@ -68,7 +71,9 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			return fmt.Errorf("running crawl engine: %w", err)
 		}
 
-		_ = runData
+		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, runData); err != nil {
+			return fmt.Errorf("persist crawl information: %w", err)
+		}
 
 		return nil
 	default:
@@ -103,19 +108,41 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			return fmt.Errorf("running crawl engine: %w", err)
 		}
 
-		// construct a new cleanup context
-		cleanupCtx := ctx
-		if ctx.Err() != nil {
-			var cancel context.CancelFunc
-			cleanupCtx, cancel = context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
+		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, runData); err != nil {
+			return fmt.Errorf("persist crawl information: %w", err)
 		}
+	}
 
-		// Persist the crawl results
-		if err := updateCrawl(cleanupCtx, c.dbc, dbCrawl, ctx, runData); err != nil {
-			return fmt.Errorf("persist crawl: %w", err)
-		}
+	return nil
+}
 
+func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
+	// construct a new cleanup context to store the crawl results even
+	// if the user cancelled the process.
+	sigs := make(chan os.Signal, 1)
+	cleanupCtx, cancel := context.WithCancel(context.Background())
+
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
+	go func() {
+		sig := <-sigs
+		log.Infof("Received %s signal - Stopping...\n", sig.String())
+		signal.Stop(sigs)
+		cancel()
+	}()
+
+	// Persist the crawl results
+	if err := updateCrawl(cleanupCtx, dbc, dbCrawl, ctx, runData); err != nil {
+		return fmt.Errorf("persist crawl: %w", err)
+	}
+
+	// Persist associated crawl properties
+	if err := persistCrawlProperties(cleanupCtx, dbc, dbCrawl, runData); err != nil {
+		return fmt.Errorf("persist crawl properties: %w", err)
+	}
+
+	// persist all neighbor information
+	if err := storeNeighbors(cleanupCtx, dbc, dbCrawl, runData); err != nil {
+		return fmt.Errorf("store neighbors: %w", err)
 	}
 
 	return nil
@@ -141,8 +168,31 @@ func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *m
 	return dbc.UpdateCrawl(ctx, dbCrawl)
 }
 
+// persistCrawlProperties writes crawl property statistics to the database.
+func persistCrawlProperties[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
+	log.Infoln("Persisting crawl properties...")
+
+	// Extract full and core agent versionc. Core agent versions are just strings like 0.8.0 or 0.5.0
+	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
+	avFull := map[string]int{}
+	for version, count := range runData.AgentVersion {
+		avFull[version] += count
+	}
+	pps := map[string]map[string]int{
+		"agent_version": avFull,
+		"protocol":      runData.Protocols,
+		"error":         runData.ConnErrs,
+	}
+
+	return dbc.PersistCrawlProperties(ctx, dbCrawl, pps)
+}
+
 // storeNeighbors fills the neighbors table with topology information
-func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) {
+func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
+	if len(runData.RoutingTables) == 0 {
+		return nil
+	}
+
 	log.Infoln("Persisting neighbor information...")
 
 	start := time.Now()
@@ -170,7 +220,7 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 			}
 		}
 		if err := dbc.PersistNeighbors(ctx, dbCrawl, dbPeerID, p, routingTable.ErrorBits, dbPeerIDs, peerIDs); err != nil {
-			log.WithError(err).WithField("peerID", p.ShortString()).Warnln("Could not persist neighbors")
+			return fmt.Errorf("persiting neighbor information: %w", err)
 		}
 	}
 	log.WithFields(log.Fields{
@@ -179,4 +229,5 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 		"peers":          len(runData.RoutingTables),
 		"totalNeighbors": neighborsCount,
 	}).Infoln("Finished persisting neighbor information")
+	return nil
 }

@@ -41,7 +41,7 @@ var (
 	errExpired          = errors.New("expired")
 	errUnsolicitedReply = errors.New("unsolicited reply")
 	errUnknownNode      = errors.New("unknown node")
-	errTimeout          = errors.New("RPC timeout")
+	ErrTimeout          = errors.New("RPC timeout")
 	errClockWarp        = errors.New("reply deadline too far in the future")
 	errClosed           = errors.New("socket closed")
 	errLowPort          = errors.New("low port")
@@ -328,7 +328,7 @@ func (t *UDPv4) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubke
 	// enough nodes the reply matcher will time out waiting for the second reply, but
 	// there's no need for an error in that case.
 	err := <-rm.errc
-	if errors.Is(err, errTimeout) && rm.reply != nil {
+	if errors.Is(err, ErrTimeout) && rm.reply != nil {
 		err = nil
 	}
 	return nodes, err
@@ -479,7 +479,7 @@ func (t *UDPv4) loop() {
 			for el := plist.Front(); el != nil; el = el.Next() {
 				p := el.Value.(*replyMatcher)
 				if now.After(p.deadline) || now.Equal(p.deadline) {
-					p.errc <- errTimeout
+					p.errc <- ErrTimeout
 					plist.Remove(el)
 					contTimeouts++
 				}

@@ -155,7 +155,7 @@ func (t *pingRecorder) ping(n *enode.Node) (seq uint64, err error) {
 
 	t.pinged[n.ID()] = true
 	if t.dead[n.ID()] {
-		return 0, errTimeout
+		return 0, ErrTimeout
 	}
 	if t.records[n.ID()] != nil {
 		seq = t.records[n.ID()].Seq()
@@ -169,7 +169,7 @@ func (t *pingRecorder) RequestENR(n *enode.Node) (*enode.Node, error) {
 	defer t.mu.Unlock()
 
 	if t.dead[n.ID()] || t.records[n.ID()] == nil {
-		return nil, errTimeout
+		return nil, ErrTimeout
 	}
 	return t.records[n.ID()], nil
 }

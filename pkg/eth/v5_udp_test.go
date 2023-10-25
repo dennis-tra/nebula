@@ -244,8 +244,8 @@ func TestUDPv5_pingCall(t *testing.T) {
 		done <- err
 	}()
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, _ v5wire.Nonce) {})
-	if err := <-done; err != errTimeout {
-		t.Fatalf("want errTimeout, got %q", err)
+	if err := <-done; err != ErrTimeout {
+		t.Fatalf("want ErrTimeout, got %q", err)
 	}
 
 	// This ping works.
@@ -269,8 +269,8 @@ func TestUDPv5_pingCall(t *testing.T) {
 		wrongAddr := &net.UDPAddr{IP: net.IP{33, 44, 55, 22}, Port: 10101}
 		test.packetInFrom(test.remotekey, wrongAddr, &v5wire.Pong{ReqID: p.ReqID})
 	})
-	if err := <-done; err != errTimeout {
-		t.Fatalf("want errTimeout for reply from wrong IP, got %q", err)
+	if err := <-done; err != ErrTimeout {
+		t.Fatalf("want ErrTimeout for reply from wrong IP, got %q", err)
 	}
 }
 
@@ -382,7 +382,7 @@ func TestUDPv5_multipleHandshakeRounds(t *testing.T) {
 	test.waitPacketOut(func(p *v5wire.Ping, addr *net.UDPAddr, nonce v5wire.Nonce) {
 		test.packetIn(&v5wire.Whoareyou{Nonce: nonce})
 	})
-	if err := <-done; err != errTimeout {
+	if err := <-done; err != ErrTimeout {
 		t.Fatalf("unexpected ping error: %q", err)
 	}
 }
@@ -491,8 +491,8 @@ func TestUDPv5_talkRequest(t *testing.T) {
 		done <- err
 	}()
 	test.waitPacketOut(func(p *v5wire.TalkRequest, addr *net.UDPAddr, _ v5wire.Nonce) {})
-	if err := <-done; err != errTimeout {
-		t.Fatalf("want errTimeout, got %q", err)
+	if err := <-done; err != ErrTimeout {
+		t.Fatalf("want ErrTimeout, got %q", err)
 	}
 
 	// This request works.
@@ -825,7 +825,7 @@ func (test *udpV5Test) waitPacketOut(validate interface{}) (closed bool) {
 	if err == errClosed {
 		return true
 	}
-	if err == errTimeout {
+	if err == ErrTimeout {
 		test.t.Fatalf("timed out waiting for %v", exptype)
 		return false
 	}

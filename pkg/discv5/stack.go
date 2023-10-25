@@ -39,14 +39,20 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	if err != nil {
 		return PeerInfo{}, err
 	}
+
 	peerID, err := peer.IDFromPublicKey(ppk)
 	if err != nil {
 		return PeerInfo{}, fmt.Errorf("peer ID from public key: %w", err)
 	}
 
+	ipScheme := "ip4"
+	if node.IP().To16() != nil {
+		ipScheme = "ip6"
+	}
+
 	maddrs := []ma.Multiaddr{}
 	if node.UDP() != 0 {
-		maddrStr := fmt.Sprintf("/ip4/%s/udp/%d", node.IP(), node.UDP())
+		maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, node.IP(), node.UDP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
 		if err != nil {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
@@ -55,7 +61,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	}
 
 	if node.TCP() != 0 {
-		maddrStr := fmt.Sprintf("/ip4/%s/tcp/%d", node.IP(), node.TCP())
+		maddrStr := fmt.Sprintf("/%s/%s/tcp/%d", ipScheme, node.IP(), node.TCP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
 		if err != nil {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
@@ -116,6 +122,7 @@ func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, err
 }
 
 func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
+	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
 	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)

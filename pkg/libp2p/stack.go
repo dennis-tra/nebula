@@ -1,11 +1,8 @@
 package libp2p
 
 import (
-	"context"
 	"fmt"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -60,12 +57,6 @@ type Stack struct {
 	crawl        *models.Crawl
 	crawlerCount int
 	writerCount  int
-
-	// A map of agent versions and their occurrences that happened during the crawl.
-	agentVersion map[string]int
-
-	// A map of protocols and their occurrences that happened during the crawl.
-	protocols map[string]int
 }
 
 var _ core.Stack[PeerInfo] = (*Stack)(nil)
@@ -95,8 +86,6 @@ func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, err
 		crawl:        crawl,
 		crawlerCount: 0,
 		writerCount:  0,
-		agentVersion: make(map[string]int),
-		protocols:    make(map[string]int),
 	}, nil
 }
 
@@ -171,32 +160,6 @@ func (s *Stack) BootstrapPeers() ([]PeerInfo, error) {
 }
 
 func (s *Stack) OnPeerCrawled(cr core.CrawlResult[PeerInfo], err error) {
-	// Track agent versions
-	s.agentVersion[cr.Agent] += 1
-
-	// Track seen protocols
-	for _, p := range cr.Protocols {
-		s.protocols[p] += 1
-	}
 }
 
 func (s *Stack) OnClose() {}
-
-// persistCrawlProperties writes crawl property statistics to the database.
-func (s *Stack) persistCrawlProperties(ctx context.Context) error {
-	log.Infoln("Persisting crawl properties...")
-
-	// Extract full and core agent versionc. Core agent versions are just strings like 0.8.0 or 0.5.0
-	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
-	avFull := map[string]int{}
-	for version, count := range s.agentVersion {
-		avFull[version] += count
-	}
-	pps := map[string]map[string]int{
-		"agent_version": avFull,
-		"protocol":      s.protocols,
-		//"error":         s.connErrs,
-	}
-
-	return s.dbc.PersistCrawlProperties(ctx, s.crawl, pps)
-}
