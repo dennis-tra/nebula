@@ -122,6 +122,7 @@ var CrawlCommand = &cli.Command{
 // CrawlAction is the function that is called when running `nebula crawl`.
 func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
+	defer log.Infoln("Stopped Nebula crawler.")
 
 	// initialize new database client based on the given configuration. Options
 	// are Postgres, JSON, and noop (dry-run).
@@ -129,6 +130,11 @@ func CrawlAction(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("new database client: %w", err)
 	}
+	defer func() {
+		if err := dbc.Close(); err != nil {
+			log.WithError(err).Warnln("Failed closing database handle")
+		}
+	}()
 
 	// initialize crawl instance that is responsible for setting up the internal
 	// bits and pieces (engine, network stack, etc.).

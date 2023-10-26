@@ -93,7 +93,7 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, eng.handler)
 		assert.NotNil(t, handler.PeerMappings)
 		assert.NotNil(t, handler.RoutingTables)
-		assert.NotNil(t, handler.ConnErrs)
+		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
 		assert.NotNil(t, eng.processed)
 	})
@@ -127,7 +127,7 @@ func TestNewEngine_Run(t *testing.T) {
 		assert.Equal(t, 0, handler.CrawledPeers)
 		assert.Len(t, handler.RoutingTables, 0)
 		assert.Len(t, handler.PeerMappings, 0)
-		assert.Len(t, handler.ConnErrs, 0)
+		assert.Len(t, handler.CrawlErrs, 0)
 	})
 
 	t.Run("single peer", func(t *testing.T) {
@@ -183,6 +183,6 @@ func TestNewEngine_Run(t *testing.T) {
 		assert.Equal(t, 1, handler.CrawledPeers)
 		assert.Len(t, handler.RoutingTables, 0)
 		assert.Len(t, handler.PeerMappings, 0)
-		assert.Len(t, handler.ConnErrs, 0)
+		assert.Len(t, handler.CrawlErrs, 0)
 	})
 }

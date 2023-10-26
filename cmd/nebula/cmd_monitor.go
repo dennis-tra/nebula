@@ -67,18 +67,24 @@ var MonitorCommand = &cli.Command{
 // MonitorAction is the function that is called when running `nebula monitor`.
 func MonitorAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula monitor...")
+	defer log.Infoln("Stopped Nebula monitor.")
 
 	// Acquire database handle
 	dbc, err := db.InitDBClient(c.Context, rootConfig.Database)
 	if err != nil {
 		return fmt.Errorf("init db client: %w", err)
 	}
+	defer func() {
+		if err := dbc.Close(); err != nil {
+			log.WithError(err).Warnln("Failed closing database handle")
+		}
+	}()
 
 	// Initialize the monitoring task
-	s, err := monitor.NewScheduler(monitorConfig, dbc)
+	s, err := monitor.New(dbc, monitorConfig)
 	if err != nil {
-		return fmt.Errorf("creating new scheduler: %w", err)
+		return fmt.Errorf("new monitor: %w", err)
 	}
 
-	return s.StartMonitoring(c.Context)
+	return s.MonitorNetwork(c.Context)
 }

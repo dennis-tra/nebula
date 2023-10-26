@@ -197,14 +197,6 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 		}
 
 		select {
-		case <-ctx.Done():
-			// the engine was asked to stop. Clean up resources.
-			e.driver.Close()
-			close(peerTasks)
-			close(writeTasks)
-			<-workerResults
-			<-writerResults
-			return e.peerQueue, ctx.Err()
 		case task, more := <-e.tasksChan:
 			if !more {
 				e.tasksChan = nil
@@ -251,6 +243,18 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 
 			// a write worker finished writing data to disk. Handle this event.
 			e.handleWriteResult(result)
+		case <-ctx.Done():
+			// the engine was asked to stop. Clean up resources.
+			e.driver.Close()
+			close(peerTasks)
+			close(writeTasks)
+			// drain results channels. They'll be closed after all workers have
+			// stopped working
+			for range workerResults {
+			}
+			for range writerResults {
+			}
+			return e.peerQueue, ctx.Err()
 		}
 
 		// break the for loop after 1) all workers have stopped or 2) we have

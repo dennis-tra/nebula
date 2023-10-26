@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
@@ -15,6 +16,7 @@ import (
 )
 
 type Client interface {
+	io.Closer
 	InitCrawl(ctx context.Context) (*models.Crawl, error)
 	UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
 	PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error
