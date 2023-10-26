@@ -31,8 +31,33 @@ type DialResult[I PeerInfo] struct {
 	DialEndTime time.Time
 }
 
+var _ WorkResult[PeerInfo] = DialResult[PeerInfo]{}
+
+func (r DialResult[I]) PeerInfo() I {
+	return r.Info
+}
+
+func (r DialResult[I]) LogEntry() *log.Entry {
+	logEntry := log.WithFields(log.Fields{
+		"dialerID": r.DialerID,
+		"remoteID": r.Info.ID().ShortString(),
+		"alive":    r.Error == nil,
+		"dialDur":  r.DialDuration(),
+	})
+
+	if r.Error != nil {
+		if r.DialError == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(r.Error)
+		} else {
+			logEntry = logEntry.WithField("dialErr", r.DialError)
+		}
+	}
+
+	return logEntry
+}
+
 // DialDuration returns the time it took to dial the peer
-func (r *DialResult[I]) DialDuration() time.Duration {
+func (r DialResult[I]) DialDuration() time.Duration {
 	return r.DialEndTime.Sub(r.DialStartTime)
 }
 
@@ -44,7 +69,7 @@ type DialWriter[I PeerInfo] struct {
 
 var _ Worker[DialResult[PeerInfo], WriteResult] = (*DialWriter[PeerInfo])(nil)
 
-func NewDialWriter[I PeerInfo](id string, dbc *db.DBClient, dbCrawlID int) *DialWriter[I] {
+func NewDialWriter[I PeerInfo](id string, dbc *db.DBClient) *DialWriter[I] {
 	return &DialWriter[I]{
 		id:  id,
 		dbc: dbc,
@@ -53,11 +78,7 @@ func NewDialWriter[I PeerInfo](id string, dbc *db.DBClient, dbCrawlID int) *Dial
 
 // Work takes a crawl result (persist job) and inserts a denormalized database entry of the results.
 func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResult, error) {
-	logEntry := log.WithFields(log.Fields{
-		"dialerID": task.DialerID,
-		"remoteID": task.Info.ID().ShortString(),
-		"alive":    task.Error == nil,
-	})
+	logEntry := task.LogEntry()
 	if task.Error != nil {
 		if task.DialError == models.NetErrorUnknown {
 			logEntry = logEntry.WithError(task.Error)
@@ -76,11 +97,10 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 		task.DialError,
 	)
 	if err != nil {
-		logEntry.WithError(err).Warnln("Could not persist dial result")
+		logEntry.WithError(err).Warnln("Could not write dial result")
 	}
 
 	logEntry.
-		WithField("dialDur", task.DialDuration()).
 		WithField("persistDur", time.Since(start)).
 		Infoln("Handled dial result from", task.DialerID)
 	return WriteResult{InsertVisitResult: ivr}, nil

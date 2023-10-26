@@ -81,16 +81,16 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, eng)
 		assert.NoError(t, err)
 
-		assert.Len(t, eng.crawlerPool.workers, cfg.CrawlerCount)
+		assert.Len(t, eng.workerPool.workers, cfg.CrawlerCount)
 		assert.Len(t, eng.writerPool.workers, cfg.WriterCount)
-		assert.NotNil(t, eng.crawlQueue)
+		assert.NotNil(t, eng.peerQueue)
 		assert.NotNil(t, eng.writeQueue)
 		assert.NotNil(t, eng.runData)
 		assert.NotNil(t, eng.runData.PeerMappings)
 		assert.NotNil(t, eng.runData.RoutingTables)
 		assert.NotNil(t, eng.runData.ConnErrs)
 		assert.NotNil(t, eng.inflight)
-		assert.NotNil(t, eng.crawled)
+		assert.NotNil(t, eng.processed)
 	})
 }
 

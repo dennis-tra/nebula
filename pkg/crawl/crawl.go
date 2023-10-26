@@ -42,42 +42,49 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 		return fmt.Errorf("creating crawl in db: %w", err)
 	}
 
+	handlerCfg := &core.CrawlHandlerConfig{
+		TrackNeighbors: c.cfg.PersistNeighbors,
+	}
+
+	engineCfg := &core.EngineConfig{
+		WorkerCount: c.cfg.CrawlWorkerCount,
+		WriterCount: c.cfg.WriteWorkerCount,
+		Limit:       c.cfg.CrawlLimit,
+	}
+
 	switch c.cfg.Network {
 	case string(config.NetworkEthereum):
-		stackCfg := &discv5.StackConfig{
+		driverCfg := &discv5.DriverConfig{
 			TrackNeighbors:    c.cfg.PersistNeighbors,
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
 
-		stack, err := discv5.NewStack(c.dbc, dbCrawl, stackCfg)
+		driver, err := discv5.NewCrawlDriver(c.dbc, dbCrawl, driverCfg)
 		if err != nil {
-			return fmt.Errorf("new stack: %w", err)
+			return fmt.Errorf("new driver: %w", err)
 		}
 
-		engineCfg := &core.EngineConfig{
-			CrawlerCount:   c.cfg.CrawlWorkerCount,
-			WriterCount:    c.cfg.WriteWorkerCount,
-			Limit:          c.cfg.CrawlLimit,
-			TrackNeighbors: c.cfg.PersistNeighbors,
-		}
+		handler := core.NewCrawlHandler[discv5.PeerInfo](handlerCfg)
 
-		eng, err := core.NewEngine[discv5.PeerInfo](stack, engineCfg)
+		eng, err := core.NewEngine[discv5.PeerInfo, core.CrawlResult[discv5.PeerInfo]](driver, handler, engineCfg)
 		if err != nil {
 			return fmt.Errorf("new engine: %w", err)
 		}
 
-		runData, err := eng.Run(ctx)
+		queuedPeers, err := eng.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("running crawl engine: %w", err)
 		}
 
-		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, runData); err != nil {
+		handler.QueuedPeers = len(queuedPeers)
+
+		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, handler); err != nil {
 			return fmt.Errorf("persist crawl information: %w", err)
 		}
 
 		return nil
 	default:
-		stackCfg := &libp2p.CrawlStackConfig{
+		driverCfg := &libp2p.CrawlDriverConfig{
 			Version:           c.cfg.Root.Version(),
 			Protocols:         c.cfg.Protocols.Value(),
 			DialTimeout:       c.cfg.Root.DialTimeout,
@@ -86,29 +93,25 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
 
-		stack, err := libp2p.NewCrawlStack(c.dbc, dbCrawl, stackCfg)
+		driver, err := libp2p.NewCrawlDriver(c.dbc, dbCrawl, driverCfg)
 		if err != nil {
-			return fmt.Errorf("new stack: %w", err)
+			return fmt.Errorf("new driver: %w", err)
 		}
 
-		engineCfg := &core.EngineConfig{
-			CrawlerCount:   c.cfg.CrawlWorkerCount,
-			WriterCount:    c.cfg.WriteWorkerCount,
-			Limit:          c.cfg.CrawlLimit,
-			TrackNeighbors: c.cfg.PersistNeighbors,
-		}
-
-		eng, err := core.NewEngine[libp2p.PeerInfo](stack, engineCfg)
+		handler := core.NewCrawlHandler[libp2p.PeerInfo](handlerCfg)
+		eng, err := core.NewEngine[libp2p.PeerInfo, core.CrawlResult[libp2p.PeerInfo]](driver, handler, engineCfg)
 		if err != nil {
 			return fmt.Errorf("new engine: %w", err)
 		}
 
-		runData, err := eng.Run(ctx)
+		queuedPeers, err := eng.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("running crawl engine: %w", err)
 		}
 
-		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, runData); err != nil {
+		handler.QueuedPeers = len(queuedPeers)
+
+		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, handler); err != nil {
 			return fmt.Errorf("persist crawl information: %w", err)
 		}
 	}
@@ -116,7 +119,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 	return nil
 }
 
-func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
+func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, driver *core.CrawlHandler[I]) error {
 	// construct a new cleanup context to store the crawl results even
 	// if the user cancelled the process.
 	sigs := make(chan os.Signal, 1)
@@ -131,17 +134,17 @@ func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client
 	}()
 
 	// Persist the crawl results
-	if err := updateCrawl(cleanupCtx, dbc, dbCrawl, ctx, runData); err != nil {
+	if err := updateCrawl(cleanupCtx, dbc, dbCrawl, ctx, driver); err != nil {
 		return fmt.Errorf("persist crawl: %w", err)
 	}
 
 	// Persist associated crawl properties
-	if err := persistCrawlProperties(cleanupCtx, dbc, dbCrawl, runData); err != nil {
+	if err := persistCrawlProperties(cleanupCtx, dbc, dbCrawl, driver); err != nil {
 		return fmt.Errorf("persist crawl properties: %w", err)
 	}
 
 	// persist all neighbor information
-	if err := storeNeighbors(cleanupCtx, dbc, dbCrawl, runData); err != nil {
+	if err := storeNeighbors(cleanupCtx, dbc, dbCrawl, driver); err != nil {
 		return fmt.Errorf("store neighbors: %w", err)
 	}
 
@@ -149,15 +152,15 @@ func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client
 }
 
 // updateCrawl writes crawl statistics to the database
-func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, crawlCtx context.Context, runData *core.RunData[I]) error {
+func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, crawlCtx context.Context, driver *core.CrawlHandler[I]) error {
 	log.Infoln("Persisting crawl result...")
 
 	dbCrawl.FinishedAt = null.TimeFrom(time.Now())
-	dbCrawl.CrawledPeers = null.IntFrom(runData.CrawledPeers)
-	dbCrawl.DialablePeers = null.IntFrom(runData.CrawledPeers - runData.TotalErrors())
-	dbCrawl.UndialablePeers = null.IntFrom(runData.TotalErrors())
+	dbCrawl.CrawledPeers = null.IntFrom(driver.CrawledPeers)
+	dbCrawl.DialablePeers = null.IntFrom(driver.CrawledPeers - driver.TotalErrors())
+	dbCrawl.UndialablePeers = null.IntFrom(driver.TotalErrors())
 
-	if runData.QueuedPeers == 0 {
+	if driver.QueuedPeers == 0 {
 		dbCrawl.State = models.CrawlStateSucceeded
 	} else if errors.Is(crawlCtx.Err(), context.Canceled) {
 		dbCrawl.State = models.CrawlStateCancelled
@@ -169,27 +172,27 @@ func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *m
 }
 
 // persistCrawlProperties writes crawl property statistics to the database.
-func persistCrawlProperties[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
+func persistCrawlProperties[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, driver *core.CrawlHandler[I]) error {
 	log.Infoln("Persisting crawl properties...")
 
 	// Extract full and core agent versionc. Core agent versions are just strings like 0.8.0 or 0.5.0
 	// The full agent versions have much more information e.g., /go-ipfs/0.4.21-dev/789dab3
 	avFull := map[string]int{}
-	for version, count := range runData.AgentVersion {
+	for version, count := range driver.AgentVersion {
 		avFull[version] += count
 	}
 	pps := map[string]map[string]int{
 		"agent_version": avFull,
-		"protocol":      runData.Protocols,
-		"error":         runData.ConnErrs,
+		"protocol":      driver.Protocols,
+		"error":         driver.ConnErrs,
 	}
 
 	return dbc.PersistCrawlProperties(ctx, dbCrawl, pps)
 }
 
 // storeNeighbors fills the neighbors table with topology information
-func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runData *core.RunData[I]) error {
-	if len(runData.RoutingTables) == 0 {
+func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, driver *core.CrawlHandler[I]) error {
+	if len(driver.RoutingTables) == 0 {
 		return nil
 	}
 
@@ -198,7 +201,7 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 	start := time.Now()
 	neighborsCount := 0
 	i := 0
-	for p, routingTable := range runData.RoutingTables {
+	for p, routingTable := range driver.RoutingTables {
 		if i%100 == 0 && i > 0 {
 			log.Infof("Persisted %d peers and their neighbors", i)
 		}
@@ -206,14 +209,14 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 		neighborsCount += len(routingTable.Neighbors)
 
 		var dbPeerID *int
-		if id, found := runData.PeerMappings[p]; found {
+		if id, found := driver.PeerMappings[p]; found {
 			dbPeerID = &id
 		}
 
 		dbPeerIDs := []int{}
 		peerIDs := []peer.ID{}
 		for _, n := range routingTable.Neighbors {
-			if id, found := runData.PeerMappings[n.ID()]; found {
+			if id, found := driver.PeerMappings[n.ID()]; found {
 				dbPeerIDs = append(dbPeerIDs, id)
 			} else {
 				peerIDs = append(peerIDs, n.ID())
@@ -225,8 +228,8 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 	}
 	log.WithFields(log.Fields{
 		"duration":       time.Since(start),
-		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(runData.RoutingTables))*1000),
-		"peers":          len(runData.RoutingTables),
+		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(driver.RoutingTables))*1000),
+		"peers":          len(driver.RoutingTables),
 		"totalNeighbors": neighborsCount,
 	}).Infoln("Finished persisting neighbor information")
 	return nil

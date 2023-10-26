@@ -29,7 +29,7 @@ type testStack struct {
 	mock.Mock
 }
 
-var _ Stack[*testPeerInfo] = (*testStack)(nil)
+var _ Driver[*testPeerInfo] = (*testStack)(nil)
 
 func (s *testStack) NewCrawler() (Worker[*testPeerInfo, CrawlResult[*testPeerInfo]], error) {
 	args := s.Called()

@@ -226,6 +226,9 @@ type Monitor struct {
 	// How many parallel workers should crawl the network.
 	MonitorWorkerCount int
 
+	// How many parallel workers should write crawl results to the database
+	WriteWorkerCount int
+
 	// The network to crawl
 	Network string
 

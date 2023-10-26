@@ -85,34 +85,54 @@ func (p PeerInfo) Addrs() []ma.Multiaddr {
 	return p.maddrs
 }
 
-type StackConfig struct {
+type DriverConfig struct {
 	TrackNeighbors    bool
 	BootstrapPeerStrs []string
 }
 
-func (cfg *StackConfig) CrawlerConfig() *CrawlerConfig {
+func (cfg *DriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{}
 }
 
-type Stack struct {
-	cfg          *StackConfig
+type CrawlStack struct {
+	cfg          *DriverConfig
 	dbc          db.Client
 	dbCrawl      *models.Crawl
+	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
 	crawlerCount int
 	writerCount  int
 	crawler      []*Crawler
 }
 
-var _ core.Stack[PeerInfo] = (*Stack)(nil)
+var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlStack)(nil)
 
-func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, error) {
+func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *DriverConfig) (*CrawlStack, error) {
 	peerstore, err := enode.OpenDB("") // in memory db
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory peerstore: %w", err)
 	}
 
-	return &Stack{
+	nodesMap := map[enode.ID]*enode.Node{}
+	for _, enrs := range cfg.BootstrapPeerStrs {
+		n, err := enode.Parse(enode.ValidSchemes, enrs)
+		if err != nil {
+			return nil, fmt.Errorf("parse bootstrap enr: %w", err)
+		}
+		nodesMap[n.ID()] = n
+	}
+
+	tasksChan := make(chan PeerInfo, len(nodesMap))
+	for _, node := range nodesMap {
+		pi, err := NewPeerInfo(node)
+		if err != nil {
+			return nil, fmt.Errorf("new peer info from enr: %w", err)
+		}
+		tasksChan <- pi
+	}
+	close(tasksChan)
+
+	return &CrawlStack{
 		cfg:       cfg,
 		dbc:       dbc,
 		dbCrawl:   crawl,
@@ -121,7 +141,7 @@ func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, err
 	}, nil
 }
 
-func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
+func (s *CrawlStack) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
 	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), rand.Reader)
 	if err != nil {
@@ -163,38 +183,17 @@ func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]],
 	return c, nil
 }
 
-func (s *Stack) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
+func (s *CrawlStack) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
 	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", s.writerCount), s.dbc, s.dbCrawl.ID)
 	s.writerCount += 1
 	return w, nil
 }
 
-func (s *Stack) BootstrapPeers() ([]PeerInfo, error) {
-	nodesMap := map[enode.ID]*enode.Node{}
-	for _, enrs := range s.cfg.BootstrapPeerStrs {
-		n, err := enode.Parse(enode.ValidSchemes, enrs)
-		if err != nil {
-			return nil, fmt.Errorf("parse bootstrap enr: %w", err)
-		}
-		nodesMap[n.ID()] = n
-	}
-
-	pis := make([]PeerInfo, 0, len(s.cfg.BootstrapPeerStrs))
-	for _, node := range nodesMap {
-		pi, err := NewPeerInfo(node)
-		if err != nil {
-			return nil, fmt.Errorf("new peer info from enr: %w", err)
-		}
-		pis = append(pis, pi)
-	}
-
-	return pis, nil
+func (s *CrawlStack) Tasks() <-chan PeerInfo {
+	return s.tasksChan
 }
 
-func (s *Stack) OnPeerCrawled(cr core.CrawlResult[PeerInfo], err error) {
-}
-
-func (s *Stack) OnClose() {
+func (s *CrawlStack) Close() {
 	for _, c := range s.crawler {
 		c.listener.Close()
 	}

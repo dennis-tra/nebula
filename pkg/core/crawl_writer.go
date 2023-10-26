@@ -9,6 +9,7 @@ import (
 	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
@@ -63,6 +64,39 @@ type CrawlResult[I PeerInfo] struct {
 	IsExposed null.Bool
 }
 
+var _ WorkResult[PeerInfo] = CrawlResult[PeerInfo]{}
+
+func (r CrawlResult[I]) PeerInfo() I {
+	return r.Info
+}
+
+func (r CrawlResult[I]) LogEntry() *log.Entry {
+	logEntry := log.WithFields(log.Fields{
+		"crawlerID":  r.CrawlerID,
+		"remoteID":   r.Info.ID().ShortString(),
+		"isDialable": r.ConnectError == nil && r.CrawlError == nil,
+	})
+
+	if r.ConnectError != nil {
+		if r.ConnectErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(r.ConnectError)
+		} else {
+			logEntry = logEntry.WithField("dialErr", r.ConnectErrorStr)
+		}
+	}
+
+	if r.CrawlError != nil {
+		// Log and count crawl errors
+		if r.CrawlErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(r.CrawlError)
+		} else {
+			logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
+		}
+	}
+
+	return logEntry
+}
+
 // CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
 func (r CrawlResult[I]) CrawlDuration() time.Duration {
 	return r.CrawlEndTime.Sub(r.CrawlStartTime)
@@ -109,7 +143,21 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 
 	start := time.Now()
 
-	ivr, err := w.insertVisit(ctx, task)
+	ivr, err := w.dbc.PersistCrawlVisit(
+		ctx,
+		w.dbCrawlID,
+		task.Info.ID(),
+		task.Info.Addrs(),
+		task.Protocols,
+		task.Agent,
+		task.ConnectDuration(),
+		task.CrawlDuration(),
+		task.CrawlStartTime,
+		task.CrawlEndTime,
+		task.ConnectErrorStr,
+		task.CrawlErrorStr,
+		task.IsExposed,
+	)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
 	} else {
@@ -122,23 +170,4 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		Infoln("Written result to disk", w.id)
 
 	return WriteResult{InsertVisitResult: ivr}, nil
-}
-
-// insertVisit builds up a visit database entry.
-func (w *CrawlWriter[I]) insertVisit(ctx context.Context, cr CrawlResult[I]) (*db.InsertVisitResult, error) {
-	return w.dbc.PersistCrawlVisit(
-		ctx,
-		w.dbCrawlID,
-		cr.Info.ID(),
-		cr.Info.Addrs(),
-		cr.Protocols,
-		cr.Agent,
-		cr.ConnectDuration(),
-		cr.CrawlDuration(),
-		cr.CrawlStartTime,
-		cr.CrawlEndTime,
-		cr.ConnectErrorStr,
-		cr.CrawlErrorStr,
-		cr.IsExposed,
-	)
 }

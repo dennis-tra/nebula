@@ -6,41 +6,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	log "github.com/sirupsen/logrus"
-	"go.uber.org/atomic"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/sirupsen/logrus"
 )
-
-var dialerID = atomic.NewInt32(0)
 
 // Dialer encapsulates a libp2p host that dials peers.
 type Dialer struct {
 	id          string
 	host        host.Host
-	config      *config.Monitor
-	dialedPeers int
+	dialedPeers uint64
 }
 
 var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)
-
-// NewDialer initializes a new dialer based on the given configuration.
-func NewDialer(h host.Host, conf *config.Monitor) (*Dialer, error) {
-	c := &Dialer{
-		id:     fmt.Sprintf("dialer-%02d", dialerID.Load()),
-		host:   h,
-		config: conf,
-	}
-	dialerID.Inc()
-
-	return c, nil
-}
 
 // Work TODO
 func (d *Dialer) Work(ctx context.Context, task PeerInfo) (core.DialResult[PeerInfo], error) {
@@ -129,6 +111,9 @@ retryLoop:
 	}
 
 	dr.DialEndTime = time.Now()
+
+	d.dialedPeers += 1
+
 	return dr, nil
 }
 

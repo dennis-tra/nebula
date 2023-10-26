@@ -2,14 +2,16 @@ package monitor
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"time"
+	"fmt"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/libp2p/go-libp2p/core/network"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/discv5"
+	"github.com/dennis-tra/nebula-crawler/pkg/libp2p"
 )
 
 type Monitor struct {
@@ -25,37 +27,64 @@ func New(dbc *db.DBClient, cfg *config.Monitor) (*Monitor, error) {
 }
 
 func (m *Monitor) MonitorNetwork(ctx context.Context) error {
+	handlerCfg := &core.DialHandlerConfig{}
+
+	engineCfg := &core.EngineConfig{
+		WorkerCount:         m.cfg.MonitorWorkerCount,
+		WriterCount:         m.cfg.WriteWorkerCount,
+		Limit:               0,
+		DuplicateProcessing: true,
+	}
+
 	switch m.cfg.Network {
 	case string(config.NetworkEthereum):
+		driverCfg := &discv5.DialDriverConfig{
+			Version: m.cfg.Root.Version(),
+		}
+
+		driver, err := discv5.NewDialDriver(m.dbc, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new driver: %w", err)
+		}
+
+		handler := core.NewDialHandler[discv5.PeerInfo](handlerCfg)
+		eng, err := core.NewEngine[discv5.PeerInfo, core.DialResult[discv5.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		_, err = eng.Run(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("running crawl engine: %w", err)
+		}
+
 	default:
+		driverCfg := &libp2p.DialDriverConfig{
+			Version: m.cfg.Root.Version(),
+		}
+
+		driver, err := libp2p.NewDialDriver(m.dbc, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new driver: %w", err)
+		}
+
+		handler := core.NewDialHandler[libp2p.PeerInfo](handlerCfg)
+		eng, err := core.NewEngine[libp2p.PeerInfo, core.DialResult[libp2p.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		// Set the timeout for dialing peers
+		ctx = network.WithDialPeerTimeout(ctx, m.cfg.Root.DialTimeout)
+
+		// Force direct dials will prevent swarm to run into dial backoff
+		// errors. It also prevents proxied connections.
+		ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+
+		_, err = eng.Run(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("running crawl engine: %w", err)
+		}
 	}
 	return nil
-}
-
-// monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
-func (m *Monitor) monitorDatabase(ctx context.Context) {
-	for {
-		log.Infof("Looking for sessions to check...")
-		sessions, err := m.dbc.FetchDueOpenSessions(ctx)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			log.WithError(err).Warnln("Could not fetch sessions")
-			goto TICK
-		}
-
-		// For every session schedule that it gets pushed into the dialQueue
-		for _, session := range sessions {
-			if err = s.scheduleDial(ctx, session); err != nil {
-				log.WithError(err).Warnln("Could not schedule dial")
-			}
-		}
-		log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
-
-	TICK:
-		select {
-		case <-time.Tick(10 * time.Second):
-			continue
-		case <-ctx.Done():
-			return
-		}
-	}
 }

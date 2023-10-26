@@ -12,11 +12,11 @@ import (
 )
 
 func TestStack_BootstrapPeers(t *testing.T) {
-	cfg := &CrawlStackConfig{
+	cfg := &CrawlDriverConfig{
 		BootstrapPeerStrs: config.BootstrapPeersFilecoin,
 	}
 
-	s, err := NewCrawlStack(db.InitNoopClient(), nil, cfg)
+	s, err := NewCrawlDriver(db.InitNoopClient(), nil, cfg)
 	require.NoError(t, err)
 
 	addrInfos, err := s.BootstrapPeers()

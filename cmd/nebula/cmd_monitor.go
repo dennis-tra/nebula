@@ -53,6 +53,14 @@ var MonitorCommand = &cli.Command{
 			Value:       monitorConfig.MonitorWorkerCount,
 			Destination: &monitorConfig.MonitorWorkerCount,
 		},
+		&cli.IntFlag{
+			Name:        "write-workers",
+			Usage:       "How many concurrent workers should write results to the database.",
+			EnvVars:     []string{"NEBULA_MONITOR_WRITE_WORKER_COUNT"},
+			Value:       monitorConfig.WriteWorkerCount,
+			Destination: &monitorConfig.WriteWorkerCount,
+			Hidden:      true,
+		},
 	},
 }
 
