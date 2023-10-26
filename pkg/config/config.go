@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/params"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/urfave/cli/v2"
 )
@@ -204,7 +203,7 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthereum:
-		bootstrapPeers = cli.NewStringSlice(params.V5Bootnodes...)
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereum...)
 		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}

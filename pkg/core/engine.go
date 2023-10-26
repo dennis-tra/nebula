@@ -251,6 +251,7 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			e.handleWriteResult(result)
 		case <-ctx.Done():
 			// the engine was asked to stop. Clean up resources.
+			log.Infoln("Closing driver...")
 			e.driver.Close()
 			close(peerTasks)
 			close(writeTasks)
@@ -266,6 +267,7 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 		}
 
 		if workerResults == nil && writerResults == nil {
+			log.Infoln("Closing driver...")
 			e.driver.Close()
 			return e.peerQueue, nil // no work to do, natural end
 		}

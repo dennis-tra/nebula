@@ -62,7 +62,9 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 
 	switch c.cfg.Network {
 	case string(config.NetworkEthereum):
-		driverCfg := &discv5.DriverConfig{
+		driverCfg := &discv5.CrawlDriverConfig{
+			Version:           c.cfg.Root.Version(),
+			DialTimeout:       c.cfg.Root.DialTimeout,
 			TrackNeighbors:    c.cfg.PersistNeighbors,
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
