@@ -163,11 +163,12 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 	} else {
 		w.writtenPeers++
 	}
-	logEntry.
-		WithField("persisted", w.writtenPeers).
-		WithField("success", err == nil).
-		WithField("duration", time.Since(start)).
-		Infoln("Written result to disk", w.id)
 
-	return WriteResult{InsertVisitResult: ivr}, nil
+	return WriteResult{
+		InsertVisitResult: ivr,
+		WriterID:          w.id,
+		PeerID:            task.Info.ID(),
+		Duration:          time.Since(start),
+		Error:             err,
+	}, nil
 }

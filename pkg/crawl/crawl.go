@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/network"
+
 	"github.com/friendsofgo/errors"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
@@ -42,6 +44,12 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 		return fmt.Errorf("creating crawl in db: %w", err)
 	}
 
+	// Set the timeout for dialing peers
+	ctx = network.WithDialPeerTimeout(ctx, c.cfg.Root.DialTimeout)
+
+	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
+	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+
 	handlerCfg := &core.CrawlHandlerConfig{
 		TrackNeighbors: c.cfg.PersistNeighbors,
 	}
@@ -71,14 +79,11 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			return fmt.Errorf("new engine: %w", err)
 		}
 
-		queuedPeers, err := eng.Run(ctx)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return fmt.Errorf("running crawl engine: %w", err)
-		}
+		queuedPeers, runErr := eng.Run(ctx)
 
 		handler.QueuedPeers = len(queuedPeers)
 
-		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, handler); err != nil {
+		if err := persistCrawlInformation(c.dbc, dbCrawl, handler, runErr); err != nil {
 			return fmt.Errorf("persist crawl information: %w", err)
 		}
 
@@ -104,14 +109,9 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			return fmt.Errorf("new engine: %w", err)
 		}
 
-		queuedPeers, err := eng.Run(ctx)
-		if err != nil && !errors.Is(err, context.Canceled) {
-			return fmt.Errorf("running crawl engine: %w", err)
-		}
-
+		queuedPeers, runErr := eng.Run(ctx)
 		handler.QueuedPeers = len(queuedPeers)
-
-		if err := persistCrawlInformation(ctx, c.dbc, dbCrawl, handler); err != nil {
+		if err := persistCrawlInformation(c.dbc, dbCrawl, handler, runErr); err != nil {
 			return fmt.Errorf("persist crawl information: %w", err)
 		}
 	}
@@ -119,7 +119,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 	return nil
 }
 
-func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) error {
+func persistCrawlInformation[I core.PeerInfo](dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I], runErr error) error {
 	// construct a new cleanup context to store the crawl results even
 	// if the user cancelled the process.
 	sigs := make(chan os.Signal, 1)
@@ -134,7 +134,7 @@ func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client
 	}()
 
 	// Persist the crawl results
-	if err := updateCrawl(cleanupCtx, dbc, dbCrawl, ctx, handler); err != nil {
+	if err := updateCrawl(cleanupCtx, dbc, dbCrawl, runErr, handler); err != nil {
 		return fmt.Errorf("persist crawl: %w", err)
 	}
 
@@ -154,7 +154,7 @@ func persistCrawlInformation[I core.PeerInfo](ctx context.Context, dbc db.Client
 }
 
 // updateCrawl writes crawl statistics to the database
-func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, crawlCtx context.Context, handler *core.CrawlHandler[I]) error {
+func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runErr error, handler *core.CrawlHandler[I]) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
@@ -166,9 +166,9 @@ func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *m
 	dbCrawl.DialablePeers = null.IntFrom(handler.CrawledPeers - handler.TotalErrors())
 	dbCrawl.UndialablePeers = null.IntFrom(handler.TotalErrors())
 
-	if handler.QueuedPeers == 0 {
+	if runErr == nil {
 		dbCrawl.State = models.CrawlStateSucceeded
-	} else if errors.Is(crawlCtx.Err(), context.Canceled) {
+	} else if errors.Is(runErr, context.Canceled) {
 		dbCrawl.State = models.CrawlStateCancelled
 	} else {
 		dbCrawl.State = models.CrawlStateFailed

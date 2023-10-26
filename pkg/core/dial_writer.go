@@ -100,8 +100,11 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 		logEntry.WithError(err).Warnln("Could not write dial result")
 	}
 
-	logEntry.
-		WithField("persistDur", time.Since(start)).
-		Infoln("Handled dial result from", task.DialerID)
-	return WriteResult{InsertVisitResult: ivr}, nil
+	return WriteResult{
+		InsertVisitResult: ivr,
+		WriterID:          w.id,
+		PeerID:            task.Info.ID(),
+		Duration:          time.Since(start),
+		Error:             err,
+	}, nil
 }

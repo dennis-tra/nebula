@@ -15,6 +15,7 @@ import (
 var monitorConfig = &config.Monitor{
 	Root:               rootConfig,
 	MonitorWorkerCount: 1000,
+	WriteWorkerCount:   10,
 	Network:            string(config.NetworkIPFS),
 	Protocols:          cli.NewStringSlice(string(kaddht.ProtocolDHT)),
 }

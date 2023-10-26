@@ -102,8 +102,8 @@ func (h *CrawlHandler[I]) HandleWorkResult(result Result[CrawlResult[I]]) []I {
 func (h *CrawlHandler[I]) HandleWriteResult(result Result[WriteResult]) {
 	wr := result.Value
 
-	if wr.InsertVisitResult != nil && wr.PeerID != nil {
-		h.PeerMappings[wr.PID] = *wr.PeerID
+	if wr.InsertVisitResult != nil && wr.InsertVisitResult.PeerID != nil {
+		h.PeerMappings[wr.PID] = *wr.InsertVisitResult.PeerID
 	}
 }
 

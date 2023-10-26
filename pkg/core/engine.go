@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 )
 
@@ -89,6 +91,9 @@ type Engine[I PeerInfo, R WorkResult[I]] struct {
 	// A set of peer IDs that indicates which peers have already been processed
 	// in the past, so we don't put them in the peer queue again.
 	processed map[string]struct{}
+
+	// a counter that tracks the number of handled write results
+	writeCount int
 }
 
 // NewEngine initializes a new engine. See the [Engine] documentation for
@@ -148,7 +153,8 @@ func NewEngine[I PeerInfo, R WorkResult[I]](driver Driver[I, R], handler Handler
 // Each result is passed to a handler that may return additional peers to
 // process.
 func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
-	defer e.driver.Close()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// initialize the task queues that the workers and writers will read from
 	peerTasks := make(chan I)
@@ -248,23 +254,28 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			e.driver.Close()
 			close(peerTasks)
 			close(writeTasks)
+
 			// drain results channels. They'll be closed after all workers have
 			// stopped working
 			for range workerResults {
 			}
 			for range writerResults {
 			}
+
 			return e.peerQueue, ctx.Err()
+		}
+
+		if workerResults == nil && writerResults == nil {
+			e.driver.Close()
+			return e.peerQueue, nil // no work to do, natural end
 		}
 
 		// break the for loop after 1) all workers have stopped or 2) we have
 		// reached the configured maximum amount of peers we wanted to process.
 		if (workerResults == nil && writerResults == nil) || e.reachedProcessingLimit() {
-			break
+			cancel()
 		}
 	}
-
-	return e.peerQueue, nil
 }
 
 // handleWorkResult performs internal bookkeeping after a worker from the pool
@@ -323,6 +334,14 @@ func (e *Engine[I, R]) handleWorkResult(result Result[R]) {
 
 func (e *Engine[I, R]) handleWriteResult(result Result[WriteResult]) {
 	e.handler.HandleWriteResult(result)
+	e.writeCount += 1
+	log.WithFields(log.Fields{
+		"writerID": result.Value.WriterID,
+		"remoteID": result.Value.PeerID.ShortString(),
+		"success":  result.Value.Error == nil,
+		"written":  e.writeCount,
+		"duration": result.Value.Duration,
+	}).Infoln("Wrote result to disk")
 }
 
 // reachedProcessingLimit returns true if the processing limit is configured

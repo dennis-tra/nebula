@@ -1,6 +1,8 @@
 package core
 
 import (
+	"time"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -88,4 +90,8 @@ type WorkResult[I PeerInfo] interface {
 // WriteResult must be returned by write workers.
 type WriteResult struct {
 	*db.InsertVisitResult
+	WriterID string
+	PeerID   peer.ID
+	Duration time.Duration
+	Error    error
 }
