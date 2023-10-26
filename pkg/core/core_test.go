@@ -25,33 +25,44 @@ func (p *testPeerInfo) ID() peer.ID {
 	return p.peerID
 }
 
-type testStack struct {
+type testDriver struct {
 	mock.Mock
 }
 
-var _ Driver[*testPeerInfo] = (*testStack)(nil)
+var _ Driver[*testPeerInfo, CrawlResult[*testPeerInfo]] = (*testDriver)(nil)
 
-func (s *testStack) NewCrawler() (Worker[*testPeerInfo, CrawlResult[*testPeerInfo]], error) {
+func (s *testDriver) NewWorker() (Worker[*testPeerInfo, CrawlResult[*testPeerInfo]], error) {
 	args := s.Called()
 	return args.Get(0).(Worker[*testPeerInfo, CrawlResult[*testPeerInfo]]), args.Error(1)
 }
 
-func (s *testStack) NewWriter() (Worker[CrawlResult[*testPeerInfo], WriteResult], error) {
+func (s *testDriver) NewWriter() (Worker[CrawlResult[*testPeerInfo], WriteResult], error) {
 	args := s.Called()
 	return args.Get(0).(Worker[CrawlResult[*testPeerInfo], WriteResult]), args.Error(1)
 }
 
-func (s *testStack) BootstrapPeers() ([]*testPeerInfo, error) {
+func (s *testDriver) Tasks() <-chan *testPeerInfo {
 	args := s.Called()
-	return args.Get(0).([]*testPeerInfo), args.Error(1)
+	return args.Get(0).(<-chan *testPeerInfo)
 }
 
-func (s *testStack) OnPeerCrawled(result CrawlResult[*testPeerInfo], err error) {
-	s.Called(result, err)
-}
-
-func (s *testStack) OnClose() {
+func (s *testDriver) Close() {
 	s.Called()
+}
+
+type testHandler struct {
+	mock.Mock
+}
+
+var _ Handler[*testPeerInfo, CrawlResult[*testPeerInfo]] = (*testHandler)(nil)
+
+func (h *testHandler) HandleWorkResult(r Result[CrawlResult[*testPeerInfo]]) []*testPeerInfo {
+	args := h.Called()
+	return args.Get(0).([]*testPeerInfo)
+}
+
+func (h *testHandler) HandleWriteResult(r Result[WriteResult]) {
+	h.Called()
 }
 
 type testWorker[IN any, OUT any] struct {

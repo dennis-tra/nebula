@@ -126,11 +126,13 @@ func NewEngine[I PeerInfo, R WorkResult[I]](driver Driver[I, R], handler Handler
 		cfg:        cfg,
 		driver:     driver,
 		tasksChan:  driver.Tasks(),
+		handler:    handler,
 		workerPool: NewPool[I, R](workers...),
 		writerPool: NewPool[R, WriteResult](writers...),
 		peerQueue:  make(map[string]I),
 		writeQueue: make(map[string]R),
 		inflight:   make(map[string]struct{}),
+		processed:  make(map[string]struct{}),
 	}, nil
 }
 

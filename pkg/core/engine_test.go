@@ -4,16 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/mock"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,11 +22,11 @@ func TestEngineConfig_Validate(t *testing.T) {
 
 	t.Run("zero or negative crawlers", func(t *testing.T) {
 		cfg := DefaultEngineConfig()
-		cfg.CrawlerCount = 0
+		cfg.WorkerCount = 0
 		assert.Error(t, cfg.Validate())
-		cfg.CrawlerCount = -1
+		cfg.WorkerCount = -1
 		assert.Error(t, cfg.Validate())
-		cfg.CrawlerCount = 1
+		cfg.WorkerCount = 1
 		assert.NoError(t, cfg.Validate())
 	})
 
@@ -55,40 +52,48 @@ func TestEngineConfig_Validate(t *testing.T) {
 }
 
 func TestNewEngine(t *testing.T) {
-	stack := &testStack{}
-	stack.On("NewCrawler").Return(newTestCrawler(), nil)
-	stack.On("NewCrawlWriter").Return(newTestWriter(), nil)
+	driver := &testDriver{}
+	driver.On("NewWorker").Return(newTestCrawler(), nil)
+	driver.On("NewWriter").Return(newTestWriter(), nil)
+	driver.On("Tasks").Return(make(<-chan *testPeerInfo))
+
+	handlerCfg := &CrawlHandlerConfig{
+		TrackNeighbors: true,
+	}
 
 	t.Run("nil config", func(t *testing.T) {
-		eng, err := NewEngine[*testPeerInfo](stack, nil)
+		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
+		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, nil)
 		assert.NotNil(t, eng)
 		assert.NoError(t, err)
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
 		cfg := DefaultEngineConfig()
-		cfg.CrawlerCount = 0
+		cfg.WorkerCount = 0
 		assert.Error(t, cfg.Validate())
 
-		eng, err := NewEngine[*testPeerInfo](stack, cfg)
+		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
+		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		assert.Nil(t, eng)
 		assert.Error(t, err)
 	})
 
 	t.Run("valid config", func(t *testing.T) {
 		cfg := DefaultEngineConfig()
-		eng, err := NewEngine[*testPeerInfo](stack, cfg)
+		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
+		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		assert.NotNil(t, eng)
 		assert.NoError(t, err)
 
-		assert.Len(t, eng.workerPool.workers, cfg.CrawlerCount)
+		assert.Len(t, eng.workerPool.workers, cfg.WorkerCount)
 		assert.Len(t, eng.writerPool.workers, cfg.WriterCount)
 		assert.NotNil(t, eng.peerQueue)
 		assert.NotNil(t, eng.writeQueue)
-		assert.NotNil(t, eng.runData)
-		assert.NotNil(t, eng.runData.PeerMappings)
-		assert.NotNil(t, eng.runData.RoutingTables)
-		assert.NotNil(t, eng.runData.ConnErrs)
+		assert.NotNil(t, eng.handler)
+		assert.NotNil(t, handler.PeerMappings)
+		assert.NotNil(t, handler.RoutingTables)
+		assert.NotNil(t, handler.ConnErrs)
 		assert.NotNil(t, eng.inflight)
 		assert.NotNil(t, eng.processed)
 	})
@@ -98,28 +103,37 @@ func TestNewEngine_Run(t *testing.T) {
 	logrus.SetLevel(logrus.PanicLevel)
 
 	t.Run("no bootstrap", func(t *testing.T) {
-		stack := &testStack{}
-		stack.On("NewCrawler").Return(newTestCrawler(), nil)
-		stack.On("NewCrawlWriter").Return(newTestWriter(), nil)
-		stack.On("OnClose").Times(1)
-		stack.On("BootstrapPeers").Return([]*testPeerInfo{}, nil)
+		tasksChan := make(chan *testPeerInfo)
+		driver := &testDriver{}
+		driver.On("NewWorker").Return(newTestCrawler(), nil)
+		driver.On("NewWriter").Return(newTestWriter(), nil)
+		driver.On("Close").Times(1)
+		driver.On("Tasks").Return((<-chan *testPeerInfo)(tasksChan))
 
+		close(tasksChan)
+
+		handlerCfg := &CrawlHandlerConfig{
+			TrackNeighbors: true,
+		}
+		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 		cfg := DefaultEngineConfig()
-		eng, err := NewEngine[*testPeerInfo](stack, cfg)
+		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		data, err := eng.Run(context.Background())
+		queuedPeers, err := eng.Run(context.Background())
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, data.QueuedPeers)
-		assert.Equal(t, 0, data.CrawledPeers)
-		assert.Len(t, data.RoutingTables, 0)
-		assert.Len(t, data.PeerMappings, 0)
-		assert.Len(t, data.ConnErrs, 0)
+		assert.Equal(t, 0, len(queuedPeers))
+		assert.Equal(t, 0, handler.CrawledPeers)
+		assert.Len(t, handler.RoutingTables, 0)
+		assert.Len(t, handler.PeerMappings, 0)
+		assert.Len(t, handler.ConnErrs, 0)
 	})
 
 	t.Run("single peer", func(t *testing.T) {
 		ctx := context.Background()
+
+		tasksChan := make(chan *testPeerInfo, 1)
 
 		testMaddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/3000")
 		require.NoError(t, err)
@@ -128,9 +142,13 @@ func TestNewEngine_Run(t *testing.T) {
 			peerID: peer.ID("test-peer"),
 			addrs:  []ma.Multiaddr{testMaddr},
 		}
+
+		tasksChan <- testPeer
+
 		cr := CrawlResult[*testPeerInfo]{
-			CrawlerID: "1",
-			Info:      testPeer,
+			CrawlerID:    "1",
+			Info:         testPeer,
+			RoutingTable: &RoutingTable[*testPeerInfo]{},
 		}
 
 		crawler := newTestCrawler()
@@ -141,24 +159,30 @@ func TestNewEngine_Run(t *testing.T) {
 			InsertVisitResult: &db.InsertVisitResult{},
 		}, nil)
 
-		stack := &testStack{}
-		stack.On("NewCrawler").Return(crawler, nil)
-		stack.On("NewCrawlWriter").Return(writer, nil)
-		stack.On("OnPeerCrawled", cr, nil).Times(1)
-		stack.On("OnClose").Times(1)
-		stack.On("BootstrapPeers").Return([]*testPeerInfo{testPeer}, nil)
+		driver := &testDriver{}
+		driver.On("NewWorker").Return(crawler, nil)
+		driver.On("NewWriter").Return(writer, nil)
+		driver.On("Close").Times(1)
+		driver.On("Tasks").Return((<-chan *testPeerInfo)(tasksChan))
+
+		close(tasksChan)
+
+		handlerCfg := &CrawlHandlerConfig{
+			TrackNeighbors: false,
+		}
+		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 
 		cfg := DefaultEngineConfig()
-		eng, err := NewEngine[*testPeerInfo](stack, cfg)
+		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		data, err := eng.Run(ctx)
+		queuedPeers, err := eng.Run(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, data.QueuedPeers)
-		assert.Equal(t, 1, data.CrawledPeers)
-		assert.Len(t, data.RoutingTables, 0)
-		assert.Len(t, data.PeerMappings, 0)
-		assert.Len(t, data.ConnErrs, 0)
+		assert.Equal(t, 0, len(queuedPeers))
+		assert.Equal(t, 1, handler.CrawledPeers)
+		assert.Len(t, handler.RoutingTables, 0)
+		assert.Len(t, handler.PeerMappings, 0)
+		assert.Len(t, handler.ConnErrs, 0)
 	})
 }
