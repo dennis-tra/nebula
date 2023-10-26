@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	libp2p2 "github.com/dennis-tra/nebula-crawler/pkg/libp2p"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -92,9 +94,9 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
 
 	// Start all dialers
-	var dialers []*Dialer
+	var dialers []*libp2p2.Dialer
 	for i := 0; i < s.config.MonitorWorkerCount; i++ {
-		d, err := NewDialer(s.host, s.config)
+		d, err := libp2p2.NewDialer(s.host, s.config)
 		if err != nil {
 			return fmt.Errorf("new dialer: %w", err)
 		}
@@ -120,55 +122,6 @@ func (s *Scheduler) StartMonitoring(ctx context.Context) error {
 	}).Infoln("Finished monitoring")
 
 	return nil
-}
-
-// readResultsQueue listens for dial results on the resultsQueue and handles any
-// entries in handleResult. If the scheduler is shut down it schedules a cleanup of resources.
-func (s *Scheduler) readResultsQueue(ctx context.Context) {
-	for {
-		// Give the shutdown signal precedence
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		select {
-		case r := <-s.resultsQueue.Consume():
-			s.handleResult(ctx, r)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// handleResult takes the result of dialing a peer, logs general information and inserts this visit into the database.
-func (s *Scheduler) handleResult(ctx context.Context, dr Result) {
-	logEntry := log.WithFields(log.Fields{
-		"dialerID": dr.DialerID,
-		"remoteID": dr.Peer.ID.ShortString(),
-		"alive":    dr.Error == nil,
-	})
-	if dr.Error != nil {
-		if dr.DialError == models.NetErrorUnknown {
-			logEntry = logEntry.WithError(dr.Error)
-		} else {
-			logEntry = logEntry.WithField("error", dr.DialError)
-		}
-	}
-	start := time.Now()
-	if _, err := s.insertVisit(dr); err != nil {
-		logEntry.WithError(err).Warnln("Could not persist dial result")
-	}
-
-	// Update maps
-	s.inDialQueue.Delete(dr.Peer.ID)
-	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Dec()))
-
-	logEntry.
-		WithField("dialDur", dr.DialDuration()).
-		WithField("persistDur", time.Since(start)).
-		Infoln("Handled dial result from dialer", dr.DialerID)
 }
 
 // monitorDatabase checks every 10 seconds if there are peer sessions that are due to be renewed.
@@ -232,16 +185,4 @@ func (s *Scheduler) scheduleDial(ctx context.Context, session *models.SessionsOp
 	metrics.VisitQueueLength.With(metrics.DialLabel).Set(float64(s.inDialQueueCount.Inc()))
 
 	return nil
-}
-
-// insertRawVisit builds up a raw_visit database entry.
-func (s *Scheduler) insertVisit(cr Result) (*db.InsertVisitResult, error) {
-	return s.dbc.PersistDialVisit(
-		cr.Peer.ID,
-		cr.Peer.Addrs,
-		cr.DialDuration(),
-		cr.DialStartTime,
-		cr.DialEndTime,
-		cr.DialError,
-	)
 }

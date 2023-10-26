@@ -293,10 +293,6 @@ func (e *Engine[I]) handleCrawlResult(cr CrawlResult[I], err error) {
 	// Publish crawl result to persist queue so that the data is saved into the DB.
 	e.writeQueue[string(cr.Info.ID())] = cr
 
-	// Give the stack a chance to handle the result and keep track of
-	// network-specific metrics
-	e.stack.OnPeerCrawled(cr, err)
-
 	// Track agent versions
 	e.runData.AgentVersion[cr.Agent] += 1
 

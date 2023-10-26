@@ -9,11 +9,14 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
 
 var monitorConfig = &config.Monitor{
 	Root:               rootConfig,
 	MonitorWorkerCount: 1000,
+	Network:            string(config.NetworkIPFS),
+	Protocols:          cli.NewStringSlice(string(kaddht.ProtocolDHT)),
 }
 
 // MonitorCommand contains the monitor sub-command configuration.
@@ -22,6 +25,19 @@ var MonitorCommand = &cli.Command{
 	Usage:  "Monitors the network by periodically dialing previously crawled peers.",
 	Action: MonitorAction,
 	Before: func(c *cli.Context) error {
+		// based on the network setting, return the default bootstrap peers and protocols
+		_, protocols, err := config.ConfigureNetwork(monitorConfig.Network)
+		if err != nil {
+			return err
+		}
+
+		// Give CLI option precedence
+		if c.IsSet("protocols") {
+			monitorConfig.Protocols = cli.NewStringSlice(c.StringSlice("protocols")...)
+		} else {
+			monitorConfig.Protocols = protocols
+		}
+
 		log.Debugln("Using the following configuration:")
 		if log.GetLevel() >= log.DebugLevel {
 			fmt.Println(monitorConfig.String())

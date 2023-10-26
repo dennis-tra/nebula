@@ -77,7 +77,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 
 		return nil
 	default:
-		stackCfg := &libp2p.StackConfig{
+		stackCfg := &libp2p.CrawlStackConfig{
 			Version:           c.cfg.Root.Version(),
 			Protocols:         c.cfg.Protocols.Value(),
 			DialTimeout:       c.cfg.Root.DialTimeout,
@@ -86,7 +86,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
 		}
 
-		stack, err := libp2p.NewStack(c.dbc, dbCrawl, stackCfg)
+		stack, err := libp2p.NewCrawlStack(c.dbc, dbCrawl, stackCfg)
 		if err != nil {
 			return fmt.Errorf("new stack: %w", err)
 		}

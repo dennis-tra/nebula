@@ -164,7 +164,7 @@ func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]],
 }
 
 func (s *Stack) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewWriter[PeerInfo](fmt.Sprintf("writer-%02d", s.writerCount), s.dbc, s.dbCrawl.ID)
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", s.writerCount), s.dbc, s.dbCrawl.ID)
 	s.writerCount += 1
 	return w, nil
 }

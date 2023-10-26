@@ -1,4 +1,4 @@
-package monitor
+package libp2p
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/dennis-tra/nebula-crawler/pkg/queue"
 )
 
 var dialerID = atomic.NewInt32(0)
@@ -26,8 +26,9 @@ type Dialer struct {
 	host        host.Host
 	config      *config.Monitor
 	dialedPeers int
-	done        chan struct{}
 }
+
+var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)
 
 // NewDialer initializes a new dialer based on the given configuration.
 func NewDialer(h host.Host, conf *config.Monitor) (*Dialer, error) {
@@ -35,60 +36,31 @@ func NewDialer(h host.Host, conf *config.Monitor) (*Dialer, error) {
 		id:     fmt.Sprintf("dialer-%02d", dialerID.Load()),
 		host:   h,
 		config: conf,
-		done:   make(chan struct{}),
 	}
 	dialerID.Inc()
 
 	return c, nil
 }
 
-// StartDialing enters an endless loop and consumes dial jobs from the dial queue
-// and publishes its result on the results queue until it is told to stop or the
-// dial queue was closed.
-func (d *Dialer) StartDialing(ctx context.Context, dialQueue *queue.FIFO[peer.AddrInfo], resultsQueue *queue.FIFO[Result]) {
-	defer close(d.done)
-	for {
-		// Give the shutdown signal precedence
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case pi, ok := <-dialQueue.Consume():
-			if !ok {
-				// The crawl queue was closed
-				return
-			}
-			result := d.handleDialJob(ctx, pi)
-			resultsQueue.Push(result)
-		}
-	}
-}
-
-// handleCrawlJob takes a crawl result, aggregates crawl information and publishes the result
-// to the persist queue, so that the persisters can persist the information in the database.
-// It also looks into the result and publishes new crawl jobs based on whether the found peers
-// weren't crawled before or are not already in the queue.
-func (d *Dialer) handleDialJob(ctx context.Context, pi peer.AddrInfo) Result {
+// Work TODO
+func (d *Dialer) Work(ctx context.Context, task PeerInfo) (core.DialResult[PeerInfo], error) {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
 		"dialerID":  d.id,
-		"remoteID":  pi.ID.ShortString(),
+		"remoteID":  task.ID().ShortString(),
 		"dialCount": d.dialedPeers,
 	})
 	logEntry.Debugln("Dialing peer")
 	defer logEntry.Debugln("Dialed peer")
 
 	// Initialize dial result
-	dr := Result{
+	dr := core.DialResult[PeerInfo]{
 		DialerID:      d.id,
-		Peer:          pi,
+		Info:          task,
 		DialStartTime: time.Now(),
 	}
+
+	pi := task.AddrInfo
 
 	// Try to dial the peer 3 times
 retryLoop:
@@ -157,7 +129,7 @@ retryLoop:
 	}
 
 	dr.DialEndTime = time.Now()
-	return dr
+	return dr, nil
 }
 
 func (d *Dialer) dial(ctx context.Context, peerID peer.ID) error {

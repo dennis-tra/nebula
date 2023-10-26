@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/params"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/urfave/cli/v2"
 )
 
@@ -172,47 +172,52 @@ func (c *Crawl) String() string {
 	return string(data)
 }
 
-func (c *Crawl) ConfigureNetwork() error {
-	switch Network(c.Network) {
+func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error) {
+	var (
+		bootstrapPeers *cli.StringSlice
+		protocols      *cli.StringSlice
+	)
+
+	switch Network(network) {
 	case NetworkFilecoin:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersFilecoin...)
-		c.Protocols = cli.NewStringSlice("/fil/kad/testnetnet/kad/1.0.0")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersFilecoin...)
+		protocols = cli.NewStringSlice("/fil/kad/testnetnet/kad/1.0.0")
 	case NetworkKusama:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersKusama...)
-		c.Protocols = cli.NewStringSlice("/ksmcc3/kad")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersKusama...)
+		protocols = cli.NewStringSlice("/ksmcc3/kad")
 	case NetworkPolkadot:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersPolkadot...)
-		c.Protocols = cli.NewStringSlice("/dot/kad")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPolkadot...)
+		protocols = cli.NewStringSlice("/dot/kad")
 	case NetworkRococo:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersRococo...)
-		c.Protocols = cli.NewStringSlice("/rococo/kad")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersRococo...)
+		protocols = cli.NewStringSlice("/rococo/kad")
 	case NetworkWestend:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersWestend...)
-		c.Protocols = cli.NewStringSlice("/wnd2/kad")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWestend...)
+		protocols = cli.NewStringSlice("/wnd2/kad")
 	case NetworkArabica:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersArabica...)
-		c.Protocols = cli.NewStringSlice("/celestia/arabica-6/kad/1.0.0")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersArabica...)
+		protocols = cli.NewStringSlice("/celestia/arabica-6/kad/1.0.0")
 	case NetworkMocha:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersMocha...)
-		c.Protocols = cli.NewStringSlice("/celestia/mocha/kad/1.0.0")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersMocha...)
+		protocols = cli.NewStringSlice("/celestia/mocha/kad/1.0.0")
 	case NetworkBlockRa:
-		c.BootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
-		c.Protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
+		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthereum:
-		c.BootstrapPeers = cli.NewStringSlice(params.V5Bootnodes...)
-		c.Protocols = cli.NewStringSlice("discv5") // TODO
+		bootstrapPeers = cli.NewStringSlice(params.V5Bootnodes...)
+		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
-		for _, maddr := range dht.DefaultBootstrapPeers {
+		for _, maddr := range kaddht.DefaultBootstrapPeers {
 			bps = append(bps, maddr.String())
 		}
-		c.BootstrapPeers = cli.NewStringSlice(bps...)
-		c.Protocols = cli.NewStringSlice("/ipfs/kad/1.0.0")
+		bootstrapPeers = cli.NewStringSlice(bps...)
+		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
 	default:
-		return fmt.Errorf("unknown network identifier: %s", c.Network)
+		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}
 
-	return nil
+	return bootstrapPeers, protocols, nil
 }
 
 type Monitor struct {
@@ -220,6 +225,12 @@ type Monitor struct {
 
 	// How many parallel workers should crawl the network.
 	MonitorWorkerCount int
+
+	// The network to crawl
+	Network string
+
+	// The list of protocols that this crawler should look for.
+	Protocols *cli.StringSlice
 }
 
 // String prints the configuration as a json string

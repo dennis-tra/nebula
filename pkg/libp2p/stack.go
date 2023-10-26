@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/host"
+
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
@@ -33,7 +35,7 @@ func (p PeerInfo) Addrs() []ma.Multiaddr {
 	return p.AddrInfo.Addrs
 }
 
-type StackConfig struct {
+type CrawlStackConfig struct {
 	Version           string
 	Protocols         []string
 	DialTimeout       time.Duration
@@ -42,7 +44,7 @@ type StackConfig struct {
 	BootstrapPeerStrs []string
 }
 
-func (cfg *StackConfig) CrawlerConfig() *CrawlerConfig {
+func (cfg *CrawlStackConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
 		TrackNeighbors: cfg.TrackNeighbors,
 		DialTimeout:    cfg.DialTimeout,
@@ -50,8 +52,8 @@ func (cfg *StackConfig) CrawlerConfig() *CrawlerConfig {
 	}
 }
 
-type Stack struct {
-	cfg          *StackConfig
+type CrawlStack struct {
+	cfg          *CrawlStackConfig
 	host         *basichost.BasicHost
 	dbc          db.Client
 	crawl        *models.Crawl
@@ -59,9 +61,9 @@ type Stack struct {
 	writerCount  int
 }
 
-var _ core.Stack[PeerInfo] = (*Stack)(nil)
+var _ core.Stack[PeerInfo] = (*CrawlStack)(nil)
 
-func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, error) {
+func NewCrawlStack(dbc db.Client, crawl *models.Crawl, cfg *CrawlStackConfig) (*CrawlStack, error) {
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
@@ -79,7 +81,7 @@ func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, err
 		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
 
-	return &Stack{
+	return &CrawlStack{
 		cfg:          cfg,
 		host:         h.(*basichost.BasicHost),
 		dbc:          dbc,
@@ -89,7 +91,7 @@ func NewStack(dbc db.Client, crawl *models.Crawl, cfg *StackConfig) (*Stack, err
 	}, nil
 }
 
-func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
+func (s *CrawlStack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	ms := &msgSender{
 		h:         s.host,
 		protocols: protocol.ConvertFromStrings(s.cfg.Protocols),
@@ -114,14 +116,14 @@ func (s *Stack) NewCrawler() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]],
 	return c, nil
 }
 
-func (s *Stack) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
+func (s *CrawlStack) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
 	id := fmt.Sprintf("writer-%02d", s.writerCount)
-	w := core.NewWriter[PeerInfo](id, s.dbc, s.crawl.ID)
+	w := core.NewCrawlWriter[PeerInfo](id, s.dbc, s.crawl.ID)
 	s.writerCount += 1
 	return w, nil
 }
 
-func (s *Stack) BootstrapPeers() ([]PeerInfo, error) {
+func (s *CrawlStack) BootstrapPeers() ([]PeerInfo, error) {
 	peerAddrs := map[peer.ID][]ma.Multiaddr{}
 	for _, maddrStr := range s.cfg.BootstrapPeerStrs {
 
@@ -159,7 +161,44 @@ func (s *Stack) BootstrapPeers() ([]PeerInfo, error) {
 	return pis, nil
 }
 
-func (s *Stack) OnPeerCrawled(cr core.CrawlResult[PeerInfo], err error) {
+func (s *CrawlStack) OnClose() {}
+
+type DialStackConfig struct {
+	Version string
+	// Protocols         []string
+	// DialTimeout       time.Duration
+	// TrackNeighbors    bool
+	// CheckExposed      bool
+	// BootstrapPeerStrs []string
 }
 
-func (s *Stack) OnClose() {}
+type DialStack struct {
+	cfg  *DialStackConfig
+	host host.Host
+	dbc  db.Client
+}
+
+func NewDialStack(dbc db.Client, cfg *DialStackConfig) (*DialStack, error) {
+	// Configure the resource manager to not limit anything
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, fmt.Errorf("new resource manager: %w", err)
+	}
+
+	// Initialize a single libp2p node that's shared between all dialers.
+	h, err := libp2p.New(
+		libp2p.NoListenAddrs,
+		libp2p.ResourceManager(rm),
+		libp2p.UserAgent("nebula/"+cfg.Version),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DialStack{
+		cfg:  cfg,
+		host: h,
+		dbc:  dbc,
+	}, nil
+}

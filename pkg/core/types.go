@@ -3,6 +3,8 @@ package core
 import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
 )
 
 // PeerInfo is the interface that any peer information struct must conform to.
@@ -33,11 +35,6 @@ type Stack[I PeerInfo] interface {
 	// implemented. If the need arises, we might want to pass a context here.
 	BootstrapPeers() ([]I, error)
 
-	// OnPeerCrawled gives the stack a chance to perform some bookkeeping of
-	// the crawl result. This method is called everytime after we have contacted
-	// a peer.
-	OnPeerCrawled(result CrawlResult[I], err error)
-
 	// OnClose is called when the engine is about to shut down. This gives the
 	// stack a chance to clean up internal resources.
 	OnClose()
@@ -57,4 +54,8 @@ type RoutingTable[I PeerInfo] struct {
 	// 0000 0000 0000 0001 - An error has occurred at CPL 0
 	// 1000 0000 0000 0001 - An error has occurred at CPL 0 and 15
 	ErrorBits uint16
+}
+
+type WriteResult struct {
+	*db.InsertVisitResult
 }

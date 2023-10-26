@@ -9,6 +9,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
 
 var crawlConfig = &config.Crawl{
@@ -21,7 +22,7 @@ var crawlConfig = &config.Crawl{
 	FilePathUdgerDB:  "",
 	Network:          string(config.NetworkIPFS),
 	BootstrapPeers:   cli.NewStringSlice(),
-	Protocols:        cli.NewStringSlice("/ipfs/kad/1.0.0"),
+	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -30,17 +31,23 @@ var CrawlCommand = &cli.Command{
 	Usage:  "Crawls the entire network starting with a set of bootstrap nodes.",
 	Action: CrawlAction,
 	Before: func(c *cli.Context) error {
-		if err := crawlConfig.ConfigureNetwork(); err != nil {
+		// based on the network setting, return the default bootstrap peers and protocols
+		bootstrapPeers, protocols, err := config.ConfigureNetwork(crawlConfig.Network)
+		if err != nil {
 			return err
 		}
 
 		// Give CLI option precedence
 		if c.IsSet("protocols") {
 			crawlConfig.Protocols = cli.NewStringSlice(c.StringSlice("protocols")...)
+		} else {
+			crawlConfig.Protocols = protocols
 		}
 
 		if c.IsSet("bootstrap-peers") {
 			crawlConfig.BootstrapPeers = cli.NewStringSlice(c.StringSlice("bootstrap-peers")...)
+		} else {
+			crawlConfig.BootstrapPeers = bootstrapPeers
 		}
 
 		log.Debugln("Using the following configuration:")

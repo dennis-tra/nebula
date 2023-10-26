@@ -57,7 +57,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 func TestNewEngine(t *testing.T) {
 	stack := &testStack{}
 	stack.On("NewCrawler").Return(newTestCrawler(), nil)
-	stack.On("NewWriter").Return(newTestWriter(), nil)
+	stack.On("NewCrawlWriter").Return(newTestWriter(), nil)
 
 	t.Run("nil config", func(t *testing.T) {
 		eng, err := NewEngine[*testPeerInfo](stack, nil)
@@ -100,7 +100,7 @@ func TestNewEngine_Run(t *testing.T) {
 	t.Run("no bootstrap", func(t *testing.T) {
 		stack := &testStack{}
 		stack.On("NewCrawler").Return(newTestCrawler(), nil)
-		stack.On("NewWriter").Return(newTestWriter(), nil)
+		stack.On("NewCrawlWriter").Return(newTestWriter(), nil)
 		stack.On("OnClose").Times(1)
 		stack.On("BootstrapPeers").Return([]*testPeerInfo{}, nil)
 
@@ -143,7 +143,7 @@ func TestNewEngine_Run(t *testing.T) {
 
 		stack := &testStack{}
 		stack.On("NewCrawler").Return(crawler, nil)
-		stack.On("NewWriter").Return(writer, nil)
+		stack.On("NewCrawlWriter").Return(writer, nil)
 		stack.On("OnPeerCrawled", cr, nil).Times(1)
 		stack.On("OnClose").Times(1)
 		stack.On("BootstrapPeers").Return([]*testPeerInfo{testPeer}, nil)
