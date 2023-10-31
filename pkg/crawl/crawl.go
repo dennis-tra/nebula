@@ -55,9 +55,11 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 	}
 
 	engineCfg := &core.EngineConfig{
-		WorkerCount: c.cfg.CrawlWorkerCount,
-		WriterCount: c.cfg.WriteWorkerCount,
-		Limit:       c.cfg.CrawlLimit,
+		WorkerCount:         c.cfg.CrawlWorkerCount,
+		WriterCount:         c.cfg.WriteWorkerCount,
+		Limit:               c.cfg.CrawlLimit,
+		AddrDialType:        c.cfg.AddrDialType(),
+		DuplicateProcessing: false,
 	}
 
 	switch c.cfg.Network {
@@ -67,6 +69,8 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			DialTimeout:       c.cfg.Root.DialTimeout,
 			TrackNeighbors:    c.cfg.PersistNeighbors,
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
+			AddrDialType:      c.cfg.AddrDialType(),
+			AddrTrackType:     c.cfg.AddrTrackType(),
 		}
 
 		driver, err := discv5.NewCrawlDriver(c.dbc, dbCrawl, driverCfg)
@@ -97,6 +101,8 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 			TrackNeighbors:    c.cfg.PersistNeighbors,
 			CheckExposed:      c.cfg.CheckExposed,
 			BootstrapPeerStrs: c.cfg.BootstrapPeers.Value(),
+			AddrDialType:      c.cfg.AddrDialType(),
+			AddrTrackType:     c.cfg.AddrTrackType(),
 		}
 
 		driver, err := libp2p.NewCrawlDriver(c.dbc, dbCrawl, driverCfg)
@@ -120,7 +126,7 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 	return nil
 }
 
-func persistCrawlInformation[I core.PeerInfo](dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I], runErr error) error {
+func persistCrawlInformation[I core.PeerInfo[I]](dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I], runErr error) error {
 	// construct a new cleanup context to store the crawl results even
 	// if the user cancelled the process.
 	sigs := make(chan os.Signal, 1)
@@ -155,7 +161,7 @@ func persistCrawlInformation[I core.PeerInfo](dbc db.Client, dbCrawl *models.Cra
 }
 
 // updateCrawl writes crawl statistics to the database
-func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runErr error, handler *core.CrawlHandler[I]) error {
+func updateCrawl[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, runErr error, handler *core.CrawlHandler[I]) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
@@ -179,7 +185,7 @@ func updateCrawl[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *m
 }
 
 // persistCrawlProperties writes crawl property statistics to the database.
-func persistCrawlProperties[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) error {
+func persistCrawlProperties[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
@@ -202,7 +208,7 @@ func persistCrawlProperties[I core.PeerInfo](ctx context.Context, dbc db.Client,
 }
 
 // storeNeighbors fills the neighbors table with topology information
-func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) error {
+func storeNeighbors[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
@@ -251,7 +257,7 @@ func storeNeighbors[I core.PeerInfo](ctx context.Context, dbc db.Client, dbCrawl
 }
 
 // logSummary logs the final results of the crawl.
-func logSummary[I core.PeerInfo](dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) {
+func logSummary[I core.PeerInfo[I]](dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) {
 	log.Infoln("Logging crawl results...")
 
 	log.Infoln("")

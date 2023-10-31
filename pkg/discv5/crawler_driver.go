@@ -11,10 +11,9 @@ import (
 	"net"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
-
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -29,10 +28,12 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/eth"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 type PeerInfo struct {
@@ -47,7 +48,7 @@ type PeerInfo struct {
 	syncnets        string
 }
 
-var _ core.PeerInfo = (*PeerInfo)(nil)
+var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
 
 func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	pubKey := node.Pubkey()
@@ -140,16 +141,30 @@ func (p PeerInfo) Addrs() []ma.Multiaddr {
 	return p.maddrs
 }
 
+func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
+	p.maddrs = utils.MergeMaddrs(p.maddrs, other.maddrs)
+	return p // TODO: merge
+}
+
 type CrawlDriverConfig struct {
 	Version           string
 	TrackNeighbors    bool
 	DialTimeout       time.Duration
 	BootstrapPeerStrs []string
+	AddrDialType      config.AddrType
+	AddrTrackType     config.AddrType
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		DialTimeout: cfg.DialTimeout,
+		DialTimeout:  cfg.DialTimeout,
+		AddrDialType: cfg.AddrDialType,
+	}
+}
+
+func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
+	return &core.CrawlWriterConfig{
+		AddrTrackType: cfg.AddrTrackType,
 	}
 }
 
@@ -279,7 +294,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID)
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }

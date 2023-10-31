@@ -15,7 +15,7 @@ type CrawlHandlerConfig struct {
 
 // CrawlHandler is the default implementation for a [Handler] that can be used
 // as the basis for crawl operations.
-type CrawlHandler[I PeerInfo] struct {
+type CrawlHandler[I PeerInfo[I]] struct {
 	cfg *CrawlHandlerConfig
 
 	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
@@ -45,9 +45,7 @@ type CrawlHandler[I PeerInfo] struct {
 	CrawledPeers int
 }
 
-var _ Handler[PeerInfo, CrawlResult[PeerInfo]] = (*CrawlHandler[PeerInfo])(nil)
-
-func NewCrawlHandler[I PeerInfo](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
+func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 	return &CrawlHandler[I]{
 		cfg:           cfg,
 		PeerMappings:  make(map[peer.ID]int),
@@ -61,7 +59,7 @@ func NewCrawlHandler[I PeerInfo](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 	}
 }
 
-func (h *CrawlHandler[I]) HandleWorkResult(result Result[CrawlResult[I]]) []I {
+func (h *CrawlHandler[I]) HandlePeerResult(result Result[CrawlResult[I]]) []I {
 	cr := result.Value
 
 	// count the number of peers that we have crawled

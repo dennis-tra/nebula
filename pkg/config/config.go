@@ -43,6 +43,14 @@ func Networks() []Network {
 	}
 }
 
+type AddrType string
+
+const (
+	AddrTypePrivate AddrType = "private"
+	AddrTypePublic  AddrType = "public"
+	AddrTypeAny     AddrType = "any"
+)
+
 // Root contains general user configuration.
 type Root struct {
 	// The version string of nebula
@@ -182,6 +190,20 @@ type Crawl struct {
 
 	// The network to crawl
 	Network string
+
+	// Which type addresses should be stored to the database (private, public, both)
+	AddrTrackTypeStr string
+
+	// Which type of addresses should Nebula try to dial (private, public, both)
+	AddrDialTypeStr string
+}
+
+func (c *Crawl) AddrTrackType() AddrType {
+	return AddrType(c.AddrTrackTypeStr)
+}
+
+func (c *Crawl) AddrDialType() AddrType {
+	return AddrType(c.AddrDialTypeStr)
 }
 
 // String prints the configuration as a json string

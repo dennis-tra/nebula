@@ -2,7 +2,10 @@ package libp2p
 
 import (
 	"context"
+	"fmt"
 	"time"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -12,6 +15,7 @@ import (
 	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/api"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
@@ -20,6 +24,7 @@ type CrawlerConfig struct {
 	TrackNeighbors bool
 	DialTimeout    time.Duration
 	CheckExposed   bool
+	AddrDialType   config.AddrType
 }
 
 type Crawler struct {
@@ -44,17 +49,37 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:      c.id,
-		Info:           PeerInfo{AddrInfo: utils.FilterPrivateMaddrs(task.AddrInfo)},
+		Info:           task,
 		CrawlStartTime: time.Now(),
 	}
 
+	// adhere to the addr-dial-type command line flag and only work with
+	// private/public addresses if the user asked for it.
+	crawlInfo := task
+	switch c.cfg.AddrDialType {
+	case config.AddrTypePrivate:
+		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPublicMaddrs(task.AddrInfo)}
+	case config.AddrTypePublic:
+		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPrivateMaddrs(task.AddrInfo)}
+	default:
+		// use any address
+	}
+
 	// start crawling both ways
-	p2pResultCh := c.crawlP2P(ctx, cr.Info)
-	apiResultCh := c.crawlAPI(ctx, cr.Info)
+	p2pResultCh := c.crawlP2P(ctx, crawlInfo)
+	apiResultCh := c.crawlAPI(ctx, crawlInfo)
 
 	p2pResult := <-p2pResultCh
 	cr.CrawlEndTime = time.Now() // for legacy/consistency reasons we track the crawl end time here (without the API)
 	apiResult := <-apiResultCh
+
+	if p2pResult.CrawlErrorStr == models.NetErrorNoPublicIP {
+		fmt.Println(task.Addrs())
+		fmt.Println(crawlInfo.Addrs())
+	} else if p2pResult.ConnectErrorStr == models.NetErrorNoPublicIP {
+		fmt.Println(task.Addrs())
+		fmt.Println(crawlInfo.Addrs())
+	}
 
 	// merge both results
 	mergeResults(&cr, p2pResult, apiResult)
@@ -102,10 +127,8 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 
 	if len(apiResMaddrs) > 0 {
 		r.Info.AddrInfo.Addrs = apiResMaddrs
-		r.Info.AddrInfo = utils.FilterPrivateMaddrs(r.Info.AddrInfo)
 	} else if len(p2pRes.ListenAddrs) > 0 {
 		r.Info.AddrInfo.Addrs = p2pRes.ListenAddrs
-		r.Info.AddrInfo = utils.FilterPrivateMaddrs(r.Info.AddrInfo)
 	}
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {

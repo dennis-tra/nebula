@@ -5,9 +5,21 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/mock"
+)
+
+// interface assertions
+var (
+	_ Handler[*testPeerInfo, DialResult[*testPeerInfo]]  = (*DialHandler[*testPeerInfo])(nil)
+	_ Handler[*testPeerInfo, CrawlResult[*testPeerInfo]] = (*CrawlHandler[*testPeerInfo])(nil)
+	_ WorkResult[*testPeerInfo]                          = CrawlResult[*testPeerInfo]{}
+	_ WorkResult[*testPeerInfo]                          = DialResult[*testPeerInfo]{}
+	_ Worker[CrawlResult[*testPeerInfo], WriteResult]    = (*CrawlWriter[*testPeerInfo])(nil)
+	_ Worker[DialResult[*testPeerInfo], WriteResult]     = (*DialWriter[*testPeerInfo])(nil)
 )
 
 type testPeerInfo struct {
@@ -15,7 +27,7 @@ type testPeerInfo struct {
 	addrs  []ma.Multiaddr
 }
 
-var _ PeerInfo = (*testPeerInfo)(nil)
+var _ PeerInfo[*testPeerInfo] = (*testPeerInfo)(nil)
 
 func (p *testPeerInfo) Addrs() []ma.Multiaddr {
 	return p.addrs
@@ -23,6 +35,17 @@ func (p *testPeerInfo) Addrs() []ma.Multiaddr {
 
 func (p *testPeerInfo) ID() peer.ID {
 	return p.peerID
+}
+
+func (p *testPeerInfo) Merge(other *testPeerInfo) *testPeerInfo {
+	if p.peerID != other.peerID {
+		panic("merge peer ID mismatch")
+	}
+
+	return &testPeerInfo{
+		peerID: p.peerID,
+		addrs:  utils.MergeMaddrs(p.addrs, other.addrs),
+	}
 }
 
 type testDriver struct {

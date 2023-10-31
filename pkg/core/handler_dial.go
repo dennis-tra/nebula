@@ -2,25 +2,18 @@ package core
 
 type DialHandlerConfig struct{}
 
-type DialHandler[I PeerInfo] struct {
+type DialHandler[I PeerInfo[I]] struct {
 	cfg *DialHandlerConfig
 }
 
-var _ Handler[PeerInfo, DialResult[PeerInfo]] = (*DialHandler[PeerInfo])(nil)
-
-func NewDialHandler[I PeerInfo](cfg *DialHandlerConfig) *DialHandler[I] {
+func NewDialHandler[I PeerInfo[I]](cfg *DialHandlerConfig) *DialHandler[I] {
 	return &DialHandler[I]{
 		cfg: cfg,
 	}
 }
 
-func (h *DialHandler[I]) HandleWorkResult(result Result[DialResult[I]]) []I {
-	dr := result.Value
-	_ = dr
+func (h *DialHandler[I]) HandlePeerResult(result Result[DialResult[I]]) []I {
 	return nil
 }
 
-func (h *DialHandler[I]) HandleWriteResult(result Result[WriteResult]) {
-	wr := result.Value
-	_ = wr
-}
+func (h *DialHandler[I]) HandleWriteResult(result Result[WriteResult]) {}

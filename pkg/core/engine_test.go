@@ -4,6 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/nebtest"
+
 	"go.uber.org/goleak"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -97,6 +101,7 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, handler.RoutingTables)
 		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
+		assert.NotNil(t, eng.parkedQueue)
 		assert.NotNil(t, eng.processed)
 	})
 }
@@ -193,20 +198,15 @@ func TestNewEngine_Run(t *testing.T) {
 	})
 }
 
-func MustMultiaddr(t testing.TB, maddrStr string) ma.Multiaddr {
-	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/3000")
-	require.NoError(t, err)
-	return maddr
-}
-
 func TestNewEngine_Run_parking_peers(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakIgnore...)
+	logrus.SetLevel(logrus.PanicLevel)
 
 	ctx, _ := context.WithCancel(context.Background())
 
 	bootstrapPeer := &testPeerInfo{
 		peerID: peer.ID("bootstrap"),
-		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
+		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
 	}
 	targetPeerWithoutAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
@@ -214,11 +214,11 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	}
 	intermediatePeer := &testPeerInfo{
 		peerID: peer.ID("intermediate"),
-		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
+		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
 	}
 	targetPeerWithAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
-		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
+		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
 	}
 
 	tasksChan := make(chan *testPeerInfo, 1)
@@ -262,14 +262,17 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	}
 
 	crawler := newTestCrawler()
-	writer := NewCrawlWriter[*testPeerInfo]("1", db.InitNoopClient(), 1)
+	writerCfg := &CrawlWriterConfig{
+		AddrTrackType: config.AddrTypeAny,
+	}
+	writer := NewCrawlWriter[*testPeerInfo]("1", db.InitNoopClient(), 1, writerCfg)
 
-	crawler.On("Work", mock.IsType(ctx), mock.IsType(bootstrapPeer)).
-		Return(bootstrapPeerCrawlResult, nil)
-	crawler.On("Work", mock.IsType(ctx), mock.IsType(intermediatePeer)).
-		Return(intermediatePeerCrawlResult, nil)
-	crawler.On("Work", mock.IsType(ctx), mock.IsType(targetPeerWithAddrs)).
-		Return(targetPeerCrawlResult, nil)
+	crawler.On("Work", mock.IsType(ctx), bootstrapPeer).
+		Return(bootstrapPeerCrawlResult, nil).Times(1)
+	crawler.On("Work", mock.IsType(ctx), intermediatePeer).
+		Return(intermediatePeerCrawlResult, nil).Times(1)
+	crawler.On("Work", mock.IsType(ctx), targetPeerWithAddrs).
+		Return(targetPeerCrawlResult, nil).Times(1)
 
 	driver := &testDriver{}
 	driver.On("NewWorker").Return(crawler, nil)

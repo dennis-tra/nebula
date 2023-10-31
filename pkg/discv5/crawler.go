@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/friendsofgo/errors"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -22,7 +24,8 @@ import (
 )
 
 type CrawlerConfig struct {
-	DialTimeout time.Duration
+	DialTimeout  time.Duration
+	AddrDialType config.AddrType
 }
 
 type Crawler struct {

@@ -32,8 +32,8 @@ func AddrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
 	return maddrs, nil
 }
 
-// FilterPrivateMaddrs strips private multiaddrs from the given peer address information.
-func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
+// AddrInfoFilterPrivateMaddrs strips private multiaddrs from the given peer address information.
+func AddrInfoFilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	filtered := peer.AddrInfo{
 		ID:    pi.ID,
 		Addrs: []ma.Multiaddr{},
@@ -48,6 +48,73 @@ func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	}
 
 	return filtered
+}
+
+// AddrInfoFilterPublicMaddrs strips public multiaddrs from the given peer address information.
+func AddrInfoFilterPublicMaddrs(pi peer.AddrInfo) peer.AddrInfo {
+	filtered := peer.AddrInfo{
+		ID:    pi.ID,
+		Addrs: []ma.Multiaddr{},
+	}
+
+	// Just keep public multi addresses
+	for _, maddr := range pi.Addrs {
+		if manet.IsPublicAddr(maddr) {
+			continue
+		}
+		filtered.Addrs = append(filtered.Addrs, maddr)
+	}
+
+	return filtered
+}
+
+// FilterPrivateMaddrs strips private multiaddrs from the given peer address information.
+func FilterPrivateMaddrs(maddrs []ma.Multiaddr) []ma.Multiaddr {
+	var filtered []ma.Multiaddr
+	for _, maddr := range maddrs {
+		if manet.IsPrivateAddr(maddr) {
+			continue
+		}
+		filtered = append(filtered, maddr)
+	}
+	return filtered
+}
+
+// FilterPublicMaddrs strips public multiaddrs from the given peer address information.
+func FilterPublicMaddrs(maddrs []ma.Multiaddr) []ma.Multiaddr {
+	var filtered []ma.Multiaddr
+	for _, maddr := range maddrs {
+		if manet.IsPublicAddr(maddr) {
+			continue
+		}
+		filtered = append(filtered, maddr)
+	}
+	return filtered
+}
+
+// MergeMaddrs strips private multiaddrs from the given peer address information.
+func MergeMaddrs(maddrSet1 []ma.Multiaddr, maddrSet2 []ma.Multiaddr) []ma.Multiaddr {
+	maddrSetOut := map[string]ma.Multiaddr{}
+	for _, maddr := range maddrSet1 {
+		if _, found := maddrSetOut[maddr.String()]; found {
+			continue
+		}
+		maddrSetOut[maddr.String()] = maddr
+	}
+
+	for _, maddr := range maddrSet2 {
+		if _, found := maddrSetOut[maddr.String()]; found {
+			continue
+		}
+		maddrSetOut[maddr.String()] = maddr
+	}
+
+	maddrsOut := make([]ma.Multiaddr, 0, len(maddrSetOut))
+	for _, maddr := range maddrSetOut {
+		maddrsOut = append(maddrsOut, maddr)
+	}
+
+	return maddrsOut
 }
 
 // IsResourceLimitExceeded returns true if the given error represents an error

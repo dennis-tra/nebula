@@ -11,7 +11,7 @@ import (
 )
 
 // DialResult captures data that is gathered from pinging a single peer.
-type DialResult[I PeerInfo] struct {
+type DialResult[I PeerInfo[I]] struct {
 	// The dialer that generated this result
 	DialerID string
 
@@ -30,8 +30,6 @@ type DialResult[I PeerInfo] struct {
 	// When did this crawl end
 	DialEndTime time.Time
 }
-
-var _ WorkResult[PeerInfo] = DialResult[PeerInfo]{}
 
 func (r DialResult[I]) PeerInfo() I {
 	return r.Info
@@ -62,14 +60,12 @@ func (r DialResult[I]) DialDuration() time.Duration {
 }
 
 // DialWriter handles the insert/upsert/update operations for a particular crawl result.
-type DialWriter[I PeerInfo] struct {
+type DialWriter[I PeerInfo[I]] struct {
 	id  string
 	dbc *db.DBClient
 }
 
-var _ Worker[DialResult[PeerInfo], WriteResult] = (*DialWriter[PeerInfo])(nil)
-
-func NewDialWriter[I PeerInfo](id string, dbc *db.DBClient) *DialWriter[I] {
+func NewDialWriter[I PeerInfo[I]](id string, dbc *db.DBClient) *DialWriter[I] {
 	return &DialWriter[I]{
 		id:  id,
 		dbc: dbc,

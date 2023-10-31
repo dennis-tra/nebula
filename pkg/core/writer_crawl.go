@@ -5,16 +5,17 @@ import (
 	"errors"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
-type CrawlResult[I PeerInfo] struct {
+type CrawlResult[I PeerInfo[I]] struct {
 	// The crawler that generated this result
 	CrawlerID string
 
@@ -65,8 +66,6 @@ type CrawlResult[I PeerInfo] struct {
 	IsExposed null.Bool
 }
 
-var _ WorkResult[PeerInfo] = CrawlResult[PeerInfo]{}
-
 func (r CrawlResult[I]) PeerInfo() I {
 	return r.Info
 }
@@ -108,19 +107,23 @@ func (r CrawlResult[I]) ConnectDuration() time.Duration {
 	return r.ConnectEndTime.Sub(r.ConnectStartTime)
 }
 
+type CrawlWriterConfig struct {
+	AddrTrackType config.AddrType
+}
+
 // CrawlWriter handles the insert/upsert/update operations for a particular crawl result.
-type CrawlWriter[I PeerInfo] struct {
+type CrawlWriter[I PeerInfo[I]] struct {
 	id           string
+	cfg          *CrawlWriterConfig
 	dbc          db.Client
 	dbCrawlID    int
 	writtenPeers int
 }
 
-var _ Worker[CrawlResult[PeerInfo], WriteResult] = (*CrawlWriter[PeerInfo])(nil)
-
-func NewCrawlWriter[I PeerInfo](id string, dbc db.Client, dbCrawlID int) *CrawlWriter[I] {
+func NewCrawlWriter[I PeerInfo[I]](id string, dbc db.Client, dbCrawlID int, cfg *CrawlWriterConfig) *CrawlWriter[I] {
 	return &CrawlWriter[I]{
 		id:           id,
+		cfg:          cfg,
 		dbc:          dbc,
 		dbCrawlID:    dbCrawlID,
 		writtenPeers: 0,
@@ -142,13 +145,22 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 	logEntry.Debugln("Storing peer")
 	defer logEntry.Debugln("Stored peer")
 
-	start := time.Now()
+	maddrs := task.Info.Addrs()
+	switch w.cfg.AddrTrackType {
+	case config.AddrTypePrivate:
+		maddrs = utils.FilterPublicMaddrs(maddrs)
+	case config.AddrTypePublic:
+		maddrs = utils.FilterPrivateMaddrs(maddrs)
+	default:
+		// noop
+	}
 
+	start := time.Now()
 	ivr, err := w.dbc.PersistCrawlVisit(
 		ctx,
 		w.dbCrawlID,
 		task.Info.ID(),
-		task.Info.Addrs(),
+		maddrs,
 		task.Protocols,
 		task.Agent,
 		task.ConnectDuration(),

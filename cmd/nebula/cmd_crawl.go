@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/crawl"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
 
 var crawlConfig = &config.Crawl{
@@ -23,6 +24,8 @@ var crawlConfig = &config.Crawl{
 	Network:          string(config.NetworkIPFS),
 	BootstrapPeers:   cli.NewStringSlice(),
 	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
+	AddrTrackTypeStr: "public",
+	AddrDialTypeStr:  "public",
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -53,6 +56,28 @@ var CrawlCommand = &cli.Command{
 		if log.GetLevel() >= log.DebugLevel {
 			log.Debugln("Using the following configuration:")
 			fmt.Println(crawlConfig.String())
+		}
+
+		switch config.AddrType(strings.ToLower(crawlConfig.AddrTrackTypeStr)) {
+		case config.AddrTypePrivate:
+			crawlConfig.AddrTrackTypeStr = string(config.AddrTypePrivate)
+		case config.AddrTypePublic:
+			crawlConfig.AddrTrackTypeStr = string(config.AddrTypePublic)
+		case config.AddrTypeAny:
+			crawlConfig.AddrTrackTypeStr = string(config.AddrTypeAny)
+		default:
+			return fmt.Errorf("unknown type of addresses to track: %s (supported values are private, public, any)", crawlConfig.AddrTrackTypeStr)
+		}
+
+		switch config.AddrType(strings.ToLower(crawlConfig.AddrDialTypeStr)) {
+		case config.AddrTypePrivate:
+			crawlConfig.AddrDialTypeStr = string(config.AddrTypePrivate)
+		case config.AddrTypePublic:
+			crawlConfig.AddrDialTypeStr = string(config.AddrTypePublic)
+		case config.AddrTypeAny:
+			crawlConfig.AddrDialTypeStr = string(config.AddrTypeAny)
+		default:
+			return fmt.Errorf("unknown type of addresses to dial: %s (supported values are private, public, any)", crawlConfig.AddrDialTypeStr)
 		}
 
 		return nil
@@ -108,6 +133,20 @@ var CrawlCommand = &cli.Command{
 			Value:       crawlConfig.CheckExposed,
 			Destination: &crawlConfig.CheckExposed,
 			Category:    flagCategoryNetwork,
+		},
+		&cli.StringFlag{
+			Name:        "addr-track-type",
+			Usage:       "Which type addresses should be stored to the database (private, public, any)",
+			EnvVars:     []string{"NEBULA_CRAWL_ADDR_TRACK_TYPE"},
+			Value:       crawlConfig.AddrTrackTypeStr,
+			Destination: &crawlConfig.AddrTrackTypeStr,
+		},
+		&cli.StringFlag{
+			Name:        "addr-dial-type",
+			Usage:       "Which type of addresses should Nebula try to dial (private, public, any)",
+			EnvVars:     []string{"NEBULA_CRAWL_ADDR_DIAL_TYPE"},
+			Value:       crawlConfig.AddrDialTypeStr,
+			Destination: &crawlConfig.AddrDialTypeStr,
 		},
 		&cli.StringFlag{
 			Name:        "network",

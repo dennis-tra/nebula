@@ -11,17 +11,22 @@ import (
 )
 
 // PeerInfo is the interface that any peer information struct must conform to.
-type PeerInfo interface {
+type PeerInfo[T any] interface {
 	// ID should return the peer's/node's identifier mapped into a libp2p peer.ID.
 	ID() peer.ID
 
 	// Addrs should return all addresses that this peer is reachable at in multi address format.
 	Addrs() []multiaddr.Multiaddr
+
+	// Merge takes another peer info and merges it information into the callee
+	// peer info struct. The implementation of Merge may panic if the peer IDs
+	// don't match.
+	Merge(other T) T
 }
 
 // A Driver is a data structure that provides the necessary implementations and
 // tasks for the engine to operate.
-type Driver[I PeerInfo, R WorkResult[I]] interface {
+type Driver[I PeerInfo[I], R WorkResult[I]] interface {
 	// NewWorker returns a new [Worker] that takes a [PeerInfo], performs its
 	// duties by contacting that peer, and returns the resulting WorkResult.
 	NewWorker() (Worker[I, R], error)
@@ -49,11 +54,11 @@ type Driver[I PeerInfo, R WorkResult[I]] interface {
 
 // Handler defines the interface that the engine will call every time
 // it has received a result from any of its workers.
-type Handler[I PeerInfo, R WorkResult[I]] interface {
-	// HandleWorkResult is called when the worker that has processed a peer
+type Handler[I PeerInfo[I], R WorkResult[I]] interface {
+	// HandlePeerResult is called when the worker that has processed a peer
 	// has emitted a new processing result. This can be a [CrawlResult] or
 	// [DialResult] at the moment.
-	HandleWorkResult(Result[R]) []I
+	HandlePeerResult(Result[R]) []I
 
 	// HandleWriteResult is called when the writer has written a [CrawlResult]
 	// or [DialResult] to disk.
@@ -61,7 +66,7 @@ type Handler[I PeerInfo, R WorkResult[I]] interface {
 }
 
 // RoutingTable captures the routing table information and crawl error of a particular peer
-type RoutingTable[I PeerInfo] struct {
+type RoutingTable[I PeerInfo[I]] struct {
 	// PeerID is the peer whose neighbors (routing table entries) are in the array below.
 	PeerID peer.ID
 	// The peers that are in the routing table of the above peer
@@ -79,7 +84,7 @@ type RoutingTable[I PeerInfo] struct {
 
 // WorkResult must be implemented by the result that a Worker which processes
 // peers returns.
-type WorkResult[I PeerInfo] interface {
+type WorkResult[I PeerInfo[I]] interface {
 	// PeerInfo returns information of the peer that was processed
 	PeerInfo() I
 

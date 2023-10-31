@@ -4,26 +4,28 @@ import (
 	"fmt"
 	"time"
 
-	ma "github.com/multiformats/go-multiaddr"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/api"
-	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/libp2p/go-libp2p"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	ma "github.com/multiformats/go-multiaddr"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/api"
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
+	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 type PeerInfo struct {
 	peer.AddrInfo
 }
 
-var _ core.PeerInfo = (*PeerInfo)(nil)
+var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
 
 func (p PeerInfo) ID() peer.ID {
 	return p.AddrInfo.ID
@@ -33,6 +35,19 @@ func (p PeerInfo) Addrs() []ma.Multiaddr {
 	return p.AddrInfo.Addrs
 }
 
+func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
+	if p.AddrInfo.ID != other.AddrInfo.ID {
+		panic("merge peer ID mismatch")
+	}
+
+	return PeerInfo{
+		AddrInfo: peer.AddrInfo{
+			ID:    p.AddrInfo.ID,
+			Addrs: utils.MergeMaddrs(p.AddrInfo.Addrs, other.AddrInfo.Addrs),
+		},
+	}
+}
+
 type CrawlDriverConfig struct {
 	Version           string
 	Protocols         []string
@@ -40,6 +55,8 @@ type CrawlDriverConfig struct {
 	TrackNeighbors    bool
 	CheckExposed      bool
 	BootstrapPeerStrs []string
+	AddrTrackType     config.AddrType
+	AddrDialType      config.AddrType
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -47,6 +64,13 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 		TrackNeighbors: cfg.TrackNeighbors,
 		DialTimeout:    cfg.DialTimeout,
 		CheckExposed:   cfg.CheckExposed,
+		AddrDialType:   cfg.AddrDialType,
+	}
+}
+
+func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
+	return &core.CrawlWriterConfig{
+		AddrTrackType: cfg.AddrTrackType,
 	}
 }
 
@@ -151,8 +175,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	id := fmt.Sprintf("writer-%02d", d.writerCount)
-	w := core.NewCrawlWriter[PeerInfo](id, d.dbc, d.dbCrawl.ID)
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
