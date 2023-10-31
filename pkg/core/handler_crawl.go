@@ -13,6 +13,8 @@ type CrawlHandlerConfig struct {
 	TrackNeighbors bool
 }
 
+// CrawlHandler is the default implementation for a [Handler] that can be used
+// as the basis for crawl operations.
 type CrawlHandler[I PeerInfo] struct {
 	cfg *CrawlHandlerConfig
 

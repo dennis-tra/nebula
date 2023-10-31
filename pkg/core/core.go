@@ -47,7 +47,7 @@ type Driver[I PeerInfo, R WorkResult[I]] interface {
 	Close()
 }
 
-// Handler defines the interface that the engine will operate on every time
+// Handler defines the interface that the engine will call every time
 // it has received a result from any of its workers.
 type Handler[I PeerInfo, R WorkResult[I]] interface {
 	// HandleWorkResult is called when the worker that has processed a peer

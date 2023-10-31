@@ -50,8 +50,8 @@ var CrawlCommand = &cli.Command{
 			crawlConfig.BootstrapPeers = bootstrapPeers
 		}
 
-		log.Debugln("Using the following configuration:")
 		if log.GetLevel() >= log.DebugLevel {
+			log.Debugln("Using the following configuration:")
 			fmt.Println(crawlConfig.String())
 		}
 
@@ -59,7 +59,7 @@ var CrawlCommand = &cli.Command{
 	},
 	Flags: []cli.Flag{
 		&cli.StringSliceFlag{
-			Name:        "bootstrap-peers",
+			Name:        "bootstrap-peers", // TODO: rename to bootstrappers
 			Usage:       "Comma separated list of multi addresses of bootstrap peers",
 			EnvVars:     []string{"NEBULA_CRAWL_BOOTSTRAP_PEERS", "NEBULA_BOOTSTRAP_PEERS" /* legacy */},
 			Destination: crawlConfig.BootstrapPeers,
@@ -124,8 +124,8 @@ func CrawlAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula crawler...")
 	defer log.Infoln("Stopped Nebula crawler.")
 
-	// initialize new database client based on the given configuration. Options
-	// are Postgres, JSON, and noop (dry-run).
+	// initialize a new database client based on the given configuration.
+	// Options are Postgres, JSON, and noop (dry-run).
 	dbc, err := db.NewClient(c.Context, rootConfig.Database)
 	if err != nil {
 		return fmt.Errorf("new database client: %w", err)

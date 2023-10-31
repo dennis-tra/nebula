@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,6 +31,7 @@ var rootConfig = &config.Root{
 	RawVersion:    RawVersion,
 	Debug:         false,
 	LogLevel:      4,
+	LogFormat:     "text",
 	DialTimeout:   time.Minute,
 	TelemetryHost: "0.0.0.0",
 	TelemetryPort: 6666,
@@ -50,7 +53,7 @@ var rootConfig = &config.Root{
 func main() {
 	app := &cli.App{
 		Name:      "nebula",
-		Usage:     "A libp2p DHT crawler, monitor, and measurement tool that exposes timely information about DHT networks.",
+		Usage:     "A DHT crawler, monitor, and measurement tool that exposes timely information about DHT networks.",
 		UsageText: "nebula [global options] command [command options] [arguments...]",
 		Authors: []*cli.Author{
 			{
@@ -78,6 +81,14 @@ func main() {
 				Category:    flagCategoryDebugging,
 			},
 			&cli.StringFlag{
+				Name:        "log-format",
+				Usage:       "Define the formatting of the log output (values: text, json)",
+				EnvVars:     []string{"NEBULA_LOG_FORMAT"},
+				Value:       rootConfig.LogFormat,
+				Destination: &rootConfig.LogFormat,
+				Category:    flagCategoryDebugging,
+			},
+			&cli.StringFlag{
 				Name:        "telemetry-host",
 				Usage:       "To which network address should the telemetry (prometheus, pprof) server bind",
 				EnvVars:     []string{"NEBULA_TELEMETRY_HOST"},
@@ -99,6 +110,7 @@ func main() {
 				EnvVars:     []string{"NEBULA_DRY_RUN", "NEBULA_CRAWL_DRY_RUN" /*<-legacy*/},
 				Value:       rootConfig.Database.DryRun,
 				Destination: &rootConfig.Database.DryRun,
+				Category:    flagCategoryDatabase,
 			},
 			&cli.StringFlag{
 				Name:        "json-out",
@@ -106,6 +118,7 @@ func main() {
 				EnvVars:     []string{"NEBULA_JSON_OUT", "NEBULA_CRAWL_JSON_OUT" /*<-legacy*/},
 				Value:       rootConfig.Database.JSONOut,
 				Destination: &rootConfig.Database.JSONOut,
+				Category:    flagCategoryDatabase,
 			},
 			&cli.StringFlag{
 				Name:        "db-host",
@@ -185,6 +198,7 @@ func main() {
 			CrawlCommand,
 			MonitorCommand,
 			ResolveCommand,
+			NetworksCommand,
 		},
 	}
 
@@ -217,6 +231,17 @@ func Before(c *cli.Context) error {
 		log.SetLevel(log.Level(ll))
 		if ll == int(log.TraceLevel) {
 			boil.DebugMode = true
+		}
+	}
+
+	if c.IsSet("log-format") {
+		switch strings.ToLower(c.String("log-format")) {
+		case "text":
+			log.SetFormatter(&log.TextFormatter{})
+		case "json":
+			log.SetFormatter(&log.JSONFormatter{})
+		default:
+			return fmt.Errorf("unknown log format: %q", c.String("log-format"))
 		}
 	}
 

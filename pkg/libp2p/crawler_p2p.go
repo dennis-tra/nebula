@@ -6,8 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/core"
-
 	"github.com/friendsofgo/errors"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -16,6 +14,7 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"

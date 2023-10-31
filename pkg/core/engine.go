@@ -253,8 +253,12 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			// the engine was asked to stop. Clean up resources.
 			log.Infoln("Closing driver...")
 			e.driver.Close()
-			close(peerTasks)
-			close(writeTasks)
+			if peerTasks != nil {
+				close(peerTasks)
+			}
+			if writeTasks != nil {
+				close(writeTasks)
+			}
 
 			// drain results channels. They'll be closed after all workers have
 			// stopped working
@@ -337,13 +341,18 @@ func (e *Engine[I, R]) handleWorkResult(result Result[R]) {
 func (e *Engine[I, R]) handleWriteResult(result Result[WriteResult]) {
 	e.handler.HandleWriteResult(result)
 	e.writeCount += 1
+
+	if result.Value.Duration == 0 {
+		return
+	}
+
 	log.WithFields(log.Fields{
 		"writerID": result.Value.WriterID,
 		"remoteID": result.Value.PeerID.ShortString(),
 		"success":  result.Value.Error == nil,
 		"written":  e.writeCount,
 		"duration": result.Value.Duration,
-	}).Infoln("Wrote result to disk")
+	}).Infoln("Handled writer result")
 }
 
 // reachedProcessingLimit returns true if the processing limit is configured

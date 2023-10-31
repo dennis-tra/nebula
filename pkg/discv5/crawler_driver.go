@@ -4,7 +4,10 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	crand "crypto/rand"
+	"encoding/binary"
+	"encoding/hex"
 	"fmt"
+	"math/bits"
 	"net"
 	"time"
 
@@ -34,8 +37,14 @@ import (
 
 type PeerInfo struct {
 	*enode.Node
-	peerID peer.ID
-	maddrs []ma.Multiaddr
+	peerID          peer.ID
+	maddrs          []ma.Multiaddr
+	nextForkVersion string
+	nextForkEpoch   string
+	forkDigest      string
+	attnetsNum      int
+	attnets         string
+	syncnets        string
 }
 
 var _ core.PeerInfo = (*PeerInfo)(nil)
@@ -83,11 +92,44 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		maddrs = append(maddrs, maddr)
 	}
 
-	return PeerInfo{
-		Node:   node,
-		peerID: peerID,
-		maddrs: maddrs,
-	}, nil
+	pi := PeerInfo{
+		Node:       node,
+		peerID:     peerID,
+		maddrs:     maddrs,
+		attnetsNum: -1,
+	}
+
+	var enrEntryEth2 ENREntryEth2
+	if err := node.Load(&enrEntryEth2); err == nil {
+		if beaconData, err := enrEntryEth2.Data(); err == nil {
+			// genesis defines the network
+			// genesis + fork: defines which network a peer belongs to
+
+			pi.forkDigest = beaconData.ForkDigest.String()
+
+			// ...
+			// https://github.com/migalabs/armiarma/blob/master/pkg/networks/ethereum/remoteendpoint/utils.go#L17
+			pi.nextForkVersion = beaconData.NextForkVersion.String()
+			pi.nextForkEpoch = beaconData.NextForkEpoch.String()
+		}
+	}
+
+	var enrEntryAttnets ENREntryAttnets
+	if err := node.Load(&enrEntryAttnets); err == nil {
+		rawInt := binary.BigEndian.Uint64(enrEntryAttnets)
+		pi.attnetsNum = bits.OnesCount64(rawInt)
+		pi.attnets = hex.EncodeToString(enrEntryAttnets)
+	}
+
+	var enrEntrySyncCommsSubnet ENREntrySyncCommsSubnet
+	if err := node.Load(&enrEntrySyncCommsSubnet); err == nil {
+		// check out https://github.com/prysmaticlabs/prysm/blob/203dc5f63b060821c2706f03a17d66b3813c860c/beacon-chain/p2p/subnets.go#L221
+		pi.syncnets = hex.EncodeToString(enrEntrySyncCommsSubnet)
+	}
+
+	// TODO: missing keys?
+
+	return pi, nil
 }
 
 func (p PeerInfo) ID() peer.ID {
@@ -138,8 +180,8 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		return nil, fmt.Errorf("generate secp256k1 key: %w", err)
 	}
 
-	pubBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaKey.X, ecdsaKey.Y)
-	secpKey := (*crypto.Secp256k1PrivateKey)(secp256k1v4.PrivKeyFromBytes(pubBytes))
+	privBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaKey.X, ecdsaKey.Y)
+	secpKey := (*crypto.Secp256k1PrivateKey)(secp256k1v4.PrivKeyFromBytes(privBytes))
 
 	// Initialize a single libp2p node that's shared between all crawlers.
 	h, err := libp2p.New(

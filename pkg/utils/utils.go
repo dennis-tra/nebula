@@ -50,6 +50,8 @@ func FilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	return filtered
 }
 
+// IsResourceLimitExceeded returns true if the given error represents an error
+// related to a limit of the local resource manager.
 func IsResourceLimitExceeded(err error) bool {
 	return err != nil && strings.HasSuffix(err.Error(), network.ErrResourceLimitExceeded.Error())
 }

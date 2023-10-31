@@ -75,7 +75,6 @@ func (c *Crawl) CrawlNetwork(ctx context.Context) error {
 		}
 
 		handler := core.NewCrawlHandler[discv5.PeerInfo](handlerCfg)
-
 		eng, err := core.NewEngine[discv5.PeerInfo, core.CrawlResult[discv5.PeerInfo]](driver, handler, engineCfg)
 		if err != nil {
 			return fmt.Errorf("new engine: %w", err)

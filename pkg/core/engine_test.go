@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"go.uber.org/goleak"
+
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
@@ -103,6 +105,8 @@ func TestNewEngine_Run(t *testing.T) {
 	logrus.SetLevel(logrus.PanicLevel)
 
 	t.Run("no bootstrap", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
+
 		tasksChan := make(chan *testPeerInfo)
 		driver := &testDriver{}
 		driver.On("NewWorker").Return(newTestCrawler(), nil)
@@ -131,7 +135,9 @@ func TestNewEngine_Run(t *testing.T) {
 	})
 
 	t.Run("single peer", func(t *testing.T) {
-		ctx := context.Background()
+		defer goleak.VerifyNone(t, goleakIgnore...)
+
+		ctx, _ := context.WithCancel(context.Background())
 
 		tasksChan := make(chan *testPeerInfo, 1)
 
@@ -185,4 +191,100 @@ func TestNewEngine_Run(t *testing.T) {
 		assert.Len(t, handler.PeerMappings, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
+}
+
+func MustMultiaddr(t testing.TB, maddrStr string) ma.Multiaddr {
+	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.1/tcp/3000")
+	require.NoError(t, err)
+	return maddr
+}
+
+func TestNewEngine_Run_parking_peers(t *testing.T) {
+	defer goleak.VerifyNone(t, goleakIgnore...)
+
+	ctx, _ := context.WithCancel(context.Background())
+
+	bootstrapPeer := &testPeerInfo{
+		peerID: peer.ID("bootstrap"),
+		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
+	}
+	targetPeerWithoutAddrs := &testPeerInfo{
+		peerID: peer.ID("target"),
+		addrs:  []ma.Multiaddr{},
+	}
+	intermediatePeer := &testPeerInfo{
+		peerID: peer.ID("intermediate"),
+		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
+	}
+	targetPeerWithAddrs := &testPeerInfo{
+		peerID: peer.ID("target"),
+		addrs:  []ma.Multiaddr{MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
+	}
+
+	tasksChan := make(chan *testPeerInfo, 1)
+	tasksChan <- bootstrapPeer
+	close(tasksChan)
+
+	bootstrapPeerCrawlResult := CrawlResult[*testPeerInfo]{
+		CrawlerID: "1",
+		Info:      bootstrapPeer,
+		RoutingTable: &RoutingTable[*testPeerInfo]{
+			PeerID: bootstrapPeer.peerID,
+			Neighbors: []*testPeerInfo{
+				targetPeerWithoutAddrs,
+				intermediatePeer,
+			},
+		},
+	}
+
+	intermediatePeerCrawlResult := CrawlResult[*testPeerInfo]{
+		CrawlerID: "1",
+		Info:      intermediatePeer,
+		RoutingTable: &RoutingTable[*testPeerInfo]{
+			PeerID: intermediatePeer.peerID,
+			Neighbors: []*testPeerInfo{
+				targetPeerWithAddrs,
+				bootstrapPeer,
+			},
+		},
+	}
+
+	targetPeerCrawlResult := CrawlResult[*testPeerInfo]{
+		CrawlerID: "1",
+		Info:      targetPeerWithAddrs,
+		RoutingTable: &RoutingTable[*testPeerInfo]{
+			PeerID: targetPeerWithAddrs.peerID,
+			Neighbors: []*testPeerInfo{
+				intermediatePeer,
+				bootstrapPeer,
+			},
+		},
+	}
+
+	crawler := newTestCrawler()
+	writer := NewCrawlWriter[*testPeerInfo]("1", db.InitNoopClient(), 1)
+
+	crawler.On("Work", mock.IsType(ctx), mock.IsType(bootstrapPeer)).
+		Return(bootstrapPeerCrawlResult, nil)
+	crawler.On("Work", mock.IsType(ctx), mock.IsType(intermediatePeer)).
+		Return(intermediatePeerCrawlResult, nil)
+	crawler.On("Work", mock.IsType(ctx), mock.IsType(targetPeerWithAddrs)).
+		Return(targetPeerCrawlResult, nil)
+
+	driver := &testDriver{}
+	driver.On("NewWorker").Return(crawler, nil)
+	driver.On("NewWriter").Return(writer, nil)
+	driver.On("Close").Times(1)
+	driver.On("Tasks").Return((<-chan *testPeerInfo)(tasksChan))
+
+	handler := NewCrawlHandler[*testPeerInfo](&CrawlHandlerConfig{})
+
+	cfg := DefaultEngineConfig()
+	eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
+	require.NoError(t, err)
+
+	queuedPeers, err := eng.Run(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, queuedPeers, 0)
 }

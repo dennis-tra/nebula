@@ -9,7 +9,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
+
+var goleakIgnore = []goleak.Option{
+	// https://github.com/census-instrumentation/opencensus-go/issues/1191
+	goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
+	// could be solved with ipfslog.WriterGroup.Close()
+	goleak.IgnoreTopFunction("github.com/ipfs/go-log/writer.(*MirrorWriter).logRoutine"),
+}
 
 func TestPoolNoWorker(t *testing.T) {
 	tasks := make(chan string)
@@ -21,6 +29,7 @@ func TestPoolNoWorker(t *testing.T) {
 
 func TestPoolSingleWorker(t *testing.T) {
 	t.Run("no work", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		tasks := make(chan string)
 		pool := NewPool[string, int](newTestWorker[string, int]())
 		assert.Equal(t, 1, pool.Size())
@@ -30,6 +39,7 @@ func TestPoolSingleWorker(t *testing.T) {
 	})
 
 	t.Run("performs work", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		ctx := context.Background()
 		worker := newTestWorker[string, int]()
 		worker.On("Work", mock.Anything, "4").Return(4, nil)
@@ -45,6 +55,7 @@ func TestPoolSingleWorker(t *testing.T) {
 	})
 
 	t.Run("multiple starts", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		tasks := make(chan string)
 
 		pool := NewPool[string, int](newAtoiWorker(t))
@@ -68,6 +79,7 @@ func TestPoolSingleWorker(t *testing.T) {
 
 func TestPoolMultipleWorkers(t *testing.T) {
 	t.Run("equal workers and tasks", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		ctx := context.Background()
 		tasks := make(chan string)
 		pool := NewPool[string, int](newAtoiWorker(t), newAtoiWorker(t))
@@ -83,6 +95,7 @@ func TestPoolMultipleWorkers(t *testing.T) {
 	})
 
 	t.Run("few workers and many tasks", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		ctx := context.Background()
 		tasks := make(chan string)
 		pool := NewPool[string, int](newAtoiWorker(t), newAtoiWorker(t), newAtoiWorker(t))
@@ -106,6 +119,7 @@ func TestPoolMultipleWorkers(t *testing.T) {
 	})
 
 	t.Run("work is distributed", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleakIgnore...)
 		ctx := context.Background()
 		tasks := make(chan string)
 

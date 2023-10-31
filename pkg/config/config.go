@@ -27,6 +27,22 @@ const (
 	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
 )
 
+func Networks() []Network {
+	return []Network{
+		NetworkIPFS,
+		NetworkAmino,
+		NetworkFilecoin,
+		NetworkEthereum,
+		NetworkKusama,
+		NetworkPolkadot,
+		NetworkRococo,
+		NetworkWestend,
+		NetworkArabica,
+		NetworkMocha,
+		NetworkBlockRa,
+	}
+}
+
 // Root contains general user configuration.
 type Root struct {
 	// The version string of nebula
@@ -37,6 +53,9 @@ type Root struct {
 
 	// Specific log level from 0 (least verbose) to 6 (most verbose)
 	LogLevel int
+
+	// Specify the log format (text or json)
+	LogFormat string
 
 	// The time to wait until a dial attempt is aborted.
 	DialTimeout time.Duration

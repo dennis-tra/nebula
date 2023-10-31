@@ -65,7 +65,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		ConnectError:        libp2pResult.ConnectError,
 		ConnectErrorStr:     libp2pResult.ConnectErrorStr,
 		CrawlError:          discV5Result.Error,
-		CrawlErrorStr:       "",
+		CrawlErrorStr:       discV5Result.ErrorStr,
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    libp2pResult.ConnectStartTime,
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
@@ -82,10 +82,10 @@ type Libp2pResult struct {
 	ConnectStartTime time.Time
 	ConnectEndTime   time.Time
 	ConnectError     error
+	ConnectErrorStr  string
 	Agent            string
 	Protocols        []string
 	ListenAddrs      []ma.Multiaddr
-	ConnectErrorStr  string
 }
 
 func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResult {
@@ -160,10 +160,11 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+	// timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 1400*time.Millisecond)
 	defer cancel()
 
-	if err := c.host.Connect(ctx, pi); err != nil {
+	if err := c.host.Connect(timeoutCtx, pi); err != nil {
 		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return err
 	}
@@ -222,6 +223,9 @@ type DiscV5Result struct {
 
 	// The combined error of crawling the peer's buckets
 	Error error
+
+	// The above error mapped to a known string
+	ErrorStr string
 }
 
 func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Result {
@@ -298,6 +302,11 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 
 		result.DoneAt = time.Now()
 		result.Error = err
+
+		// if there was a connection error, parse it to a known one
+		if result.Error != nil {
+			result.ErrorStr = db.NetError(result.Error)
+		}
 
 		// send the result back and close channel
 		select {

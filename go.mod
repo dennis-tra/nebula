@@ -19,6 +19,8 @@ require (
 	github.com/multiformats/go-multiaddr-dns v0.3.1
 	github.com/oschwald/geoip2-golang v1.8.0
 	github.com/prometheus/client_golang v1.15.0
+	github.com/protolambda/zrnt v0.30.0
+	github.com/protolambda/ztyp v0.2.2
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.4
 	github.com/urfave/cli/v2 v2.25.7
@@ -27,6 +29,7 @@ require (
 	github.com/volatiletech/strmangle v0.0.4
 	go.opencensus.io v0.24.0
 	go.uber.org/atomic v1.11.0
+	go.uber.org/goleak v1.1.12
 	golang.org/x/crypto v0.14.0
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9
 	golang.org/x/sync v0.3.0
@@ -80,6 +83,7 @@ require (
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
@@ -120,6 +124,7 @@ require (
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
+	github.com/protolambda/bls12-381-util v0.0.0-20220416220906-d8552aa452c7 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect

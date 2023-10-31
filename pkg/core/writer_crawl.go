@@ -5,11 +5,12 @@ import (
 	"errors"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
