@@ -45,7 +45,7 @@ func DefaultEngineConfig() *EngineConfig {
 		WriterCount:         10,
 		Limit:               0,
 		DuplicateProcessing: false,
-		AddrDialType:        config.AddrTypePublic,
+		AddrDialType:        config.AddrTypeAny,
 	}
 }
 
@@ -92,14 +92,8 @@ type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 
 	// queues of jobs that need to be performed. Either peers to process or
 	// processing results to write to disk.
-	peerQueue  map[string]I
-	writeQueue map[string]R
-
-	// parkedQueue contains peers that we found in the DHT but don't have any usable
-	// addresses for. For example, the peer record/ENR only contained private
-	// IP addresses. We keep them around for the duration of the crawl and move
-	// them in the queue as soon as we have found addresses to work with.
-	parkedQueue map[string]I
+	peerQueue  *PriorityQueue[I]
+	writeQueue *PriorityQueue[R]
 
 	// a map that keeps track of all peers we are currently communicating with.
 	inflight map[string]struct{}
@@ -162,9 +156,8 @@ func NewEngine[I PeerInfo[I], R WorkResult[I]](driver Driver[I, R], handler Hand
 		workerPool:  NewPool[I, R](workers...),
 		writerPool:  NewPool[R, WriteResult](writers...),
 		maddrFilter: maddrFilter,
-		peerQueue:   make(map[string]I),
-		writeQueue:  make(map[string]R),
-		parkedQueue: make(map[string]I),
+		peerQueue:   NewPriorityQueue[I](),
+		writeQueue:  NewPriorityQueue[R](),
 		inflight:    make(map[string]struct{}),
 		processed:   make(map[string]struct{}),
 	}, nil
@@ -199,9 +192,8 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 	for {
 		// get a random peer to process and a random processing result that we
 		// should store in the database
-		peerTask, peerOk := peekItem(e.peerQueue)
-		parkedTask, parkedOk := peekItem(e.parkedQueue)
-		writeTask, writeOk := peekItem(e.writeQueue)
+		peerTask, peerOk := e.peerQueue.Peek()
+		writeTask, writeOk := e.writeQueue.Peek()
 
 		// if we still have peers to process, set the inner queue to the
 		// original one, so that we'll try to send on that channel in the below
@@ -212,8 +204,6 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 		// processing peers.
 		var innerPeerTasks chan I
 		if peerOk {
-			innerPeerTasks = peerTasks
-		} else if parkedOk {
 			innerPeerTasks = peerTasks
 		} else if peerTasks != nil && len(e.inflight) == 0 && e.tasksChan == nil {
 			close(peerTasks)
@@ -243,14 +233,14 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			if _, found := e.inflight[string(task.ID())]; found {
 				break
 			}
-			e.peerQueue[string(task.ID())] = task
+			e.peerQueue.Push(string(task.ID()), task, 1)
 		case innerPeerTasks <- peerTask:
 			// a worker was ready to accept a new task -> perform internal bookkeeping.
-			delete(e.peerQueue, string(peerTask.ID()))
+			e.peerQueue.Drop(string(peerTask.ID()))
 			e.inflight[string(peerTask.ID())] = struct{}{}
 		case innerWriteTasks <- writeTask:
 			// a write worker was ready to accept a new task -> perform internal bookkeeping.
-			delete(e.writeQueue, string(writeTask.PeerInfo().ID()))
+			e.writeQueue.Drop(string(writeTask.PeerInfo().ID()))
 		case result, more := <-peerResults:
 			if !more {
 				// the peerResults queue was closed. This means all workers
@@ -295,17 +285,19 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			// drain results channels. They'll be closed after all workers have
 			// stopped working
 			for range peerResults {
+				// drop result
 			}
 			for range writerResults {
+				// drop result
 			}
 
-			return e.peerQueue, ctx.Err()
+			return e.peerQueue.All(), ctx.Err()
 		}
 
 		if peerResults == nil && writerResults == nil {
 			log.Infoln("Closing driver...")
 			e.driver.Close()
-			return e.peerQueue, nil // no work to do, natural end
+			return e.peerQueue.All(), nil // no work to do, natural end
 		}
 
 		// break the for loop after 1) all workers have stopped or 2) we have
@@ -337,7 +329,7 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 
 	// Publish the processing result to the writer queue so that the data is
 	// saved to disk.
-	e.writeQueue[string(wr.PeerInfo().ID())] = wr
+	e.writeQueue.Push(string(wr.PeerInfo().ID()), wr, 0)
 
 	// let the handler work on the new peer result
 	newTasks := e.handler.HandlePeerResult(result)
@@ -345,11 +337,6 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 	// process the new tasks that came out of handling the peer result
 	for _, task := range newTasks {
 		mapKey := string(task.ID())
-
-		// Don't add this peer to the queue if it's already in it
-		if _, inPeerQueue := e.peerQueue[mapKey]; inPeerQueue {
-			continue
-		}
 
 		// Don't add this peer to the queue if we're currently querying it
 		if _, isInflight := e.inflight[mapKey]; isInflight {
@@ -361,37 +348,35 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 			continue
 		}
 
-		// merge the current task with any parkedQueue task and check if we still
-		// want to keep the task parkedQueue
-		if parkedTask, found := e.parkedQueue[mapKey]; found {
-			task = task.Merge(parkedTask)
-			if len(e.maddrFilter(task.Addrs())) == 0 {
-				e.parkedQueue[mapKey] = task
-				continue
-			}
-
-			// merging had an effect -> delete from parkedQueue queue,
-			// and add it to the peerQueue below.
-			delete(e.parkedQueue, mapKey)
-
-		} else if len(e.maddrFilter(task.Addrs())) == 0 {
-			// not found task in parkedQueue queue but task has no
-			// valid addrs -> park it.
-			e.parkedQueue[mapKey] = task
-			continue
+		// Check if we have already queued this peer. If so, merge the new
+		// information with the already existing ones.
+		queuedTask, isQueued := e.peerQueue.Find(mapKey)
+		if isQueued {
+			task = task.Merge(queuedTask)
 		}
 
-		// Schedule processing of peer
-		e.peerQueue[mapKey] = task
+		// If we don't know any multi addresses for the peer yet, we push it
+		// to the end of our priority queue by giving it a low priority.
+		priority := 1
+		if len(e.maddrFilter(task.Addrs())) == 0 {
+			priority = 0
+		}
+
+		// If the peer was already queued we only update its priority. If the
+		// peer wasn't queued, we push it to the queue.
+		if isQueued {
+			e.peerQueue.Update(mapKey, task, priority)
+		} else {
+			e.peerQueue.Push(string(task.ID()), task, priority)
+		}
 	}
 
 	// Track new peer in queue with prometheus
-	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(len(e.peerQueue)))
+	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(e.peerQueue.Len()))
 
 	logEntry.WithFields(map[string]interface{}{
-		"queued":      len(e.peerQueue),
-		"inflight":    len(e.inflight),
-		"parkedQueue": len(e.parkedQueue),
+		"queued":   e.peerQueue.Len(),
+		"inflight": len(e.inflight),
 	}).Infoln("Handled worker result")
 }
 

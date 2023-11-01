@@ -258,7 +258,7 @@ func storeNeighbors[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, dbCr
 
 // logSummary logs the final results of the crawl.
 func logSummary[I core.PeerInfo[I]](dbCrawl *models.Crawl, handler *core.CrawlHandler[I]) {
-	log.Infoln("Logging crawl results...")
+	log.Infoln("Crawl summary:")
 
 	log.Infoln("")
 	for err, count := range handler.ConnErrs {

@@ -75,6 +75,7 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 		"crawlerID":  r.CrawlerID,
 		"remoteID":   r.Info.ID().ShortString(),
 		"isDialable": r.ConnectError == nil && r.CrawlError == nil,
+		"duration":   r.CrawlDuration(),
 	})
 
 	if r.ConnectError != nil {

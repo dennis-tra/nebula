@@ -2,10 +2,7 @@ package libp2p
 
 import (
 	"context"
-	"fmt"
 	"time"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
 
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -72,14 +69,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	p2pResult := <-p2pResultCh
 	cr.CrawlEndTime = time.Now() // for legacy/consistency reasons we track the crawl end time here (without the API)
 	apiResult := <-apiResultCh
-
-	if p2pResult.CrawlErrorStr == models.NetErrorNoPublicIP {
-		fmt.Println(task.Addrs())
-		fmt.Println(crawlInfo.Addrs())
-	} else if p2pResult.ConnectErrorStr == models.NetErrorNoPublicIP {
-		fmt.Println(task.Addrs())
-		fmt.Println(crawlInfo.Addrs())
-	}
 
 	// merge both results
 	mergeResults(&cr, p2pResult, apiResult)

@@ -101,7 +101,6 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, handler.RoutingTables)
 		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
-		assert.NotNil(t, eng.parkedQueue)
 		assert.NotNil(t, eng.processed)
 	})
 }
@@ -142,7 +141,8 @@ func TestNewEngine_Run(t *testing.T) {
 	t.Run("single peer", func(t *testing.T) {
 		defer goleak.VerifyNone(t, goleakIgnore...)
 
-		ctx, _ := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(context.Background()) // cancelCtx to satisfy mock.IsType below
+		defer cancel()
 
 		tasksChan := make(chan *testPeerInfo, 1)
 
@@ -202,7 +202,8 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	defer goleak.VerifyNone(t, goleakIgnore...)
 	logrus.SetLevel(logrus.PanicLevel)
 
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) // cancelCtx to satisfy mock.IsType below
+	defer cancel()
 
 	bootstrapPeer := &testPeerInfo{
 		peerID: peer.ID("bootstrap"),
@@ -283,6 +284,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	handler := NewCrawlHandler[*testPeerInfo](&CrawlHandlerConfig{})
 
 	cfg := DefaultEngineConfig()
+	cfg.WorkerCount = 1
 	eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 	require.NoError(t, err)
 
