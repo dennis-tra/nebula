@@ -37,7 +37,7 @@ func (m *Monitor) MonitorNetwork(ctx context.Context) error {
 	}
 
 	switch m.cfg.Network {
-	case string(config.NetworkEthereum):
+	case string(config.NetworkEthCons):
 		driverCfg := &discv5.DialDriverConfig{
 			Version: m.cfg.Root.Version(),
 		}

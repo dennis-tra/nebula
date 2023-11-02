@@ -123,10 +123,10 @@ type JSONVisit struct {
 	VisitEndedAt    time.Time
 	ConnectErrorStr string
 	CrawlErrorStr   string
-	IsExposed       null.Bool
+	Properties      null.JSON
 }
 
-func (c *JSONClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, isExposed null.Bool) (*InsertVisitResult, error) {
+func (c *JSONClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, properties null.JSON) (*InsertVisitResult, error) {
 	data := JSONVisit{
 		PeerID:          peerID,
 		Maddrs:          maddrs,
@@ -138,7 +138,7 @@ func (c *JSONClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID 
 		VisitEndedAt:    visitEndedAt,
 		ConnectErrorStr: connectErrorStr,
 		CrawlErrorStr:   crawlErrorStr,
-		IsExposed:       isExposed,
+		Properties:      properties,
 	}
 
 	if err := c.visitEncoder.Encode(data); err != nil {

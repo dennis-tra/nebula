@@ -282,7 +282,7 @@ func (c *DBClient) PersistCrawlVisit(
 	visitEndedAt time.Time,
 	connectErrorStr string,
 	crawlErrorStr string,
-	isExposed null.Bool,
+	properties null.JSON,
 ) (*InsertVisitResult, error) {
 	var agentVersionID, protocolsSetID *int
 	var avidErr, psidErr error
@@ -319,7 +319,7 @@ func (c *DBClient) PersistCrawlVisit(
 		models.VisitTypeCrawl,
 		connectErrorStr,
 		crawlErrorStr,
-		isExposed,
+		properties,
 	)
 }
 
@@ -501,9 +501,9 @@ func (c *DBClient) fillAgentVersionsCache(ctx context.Context) error {
 	return nil
 }
 
-func (c *DBClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID null.Int, isExposed null.Bool) (int, error) {
+func (c *DBClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID null.Int, properties null.JSON) (int, error) {
 	rows, err := queries.Raw("SELECT upsert_peer($1, $2, $3, $4)",
-		mh, agentVersionID, protocolSetID, isExposed,
+		mh, agentVersionID, protocolSetID, properties,
 	).Query(c.dbh)
 	if err != nil {
 		return 0, err
@@ -549,7 +549,7 @@ func (c *DBClient) PersistDialVisit(
 		models.VisitTypeDial,
 		errorStr,
 		"",
-		null.BoolFromPtr(nil),
+		null.JSONFromPtr(nil),
 	)
 }
 
@@ -567,7 +567,7 @@ func (c *DBClient) insertVisit(
 	visitType string,
 	connectErrorStr string,
 	crawlErrorStr string,
-	isExposed null.Bool,
+	properties null.JSON,
 ) (*InsertVisitResult, error) {
 	maddrStrs := utils.MaddrsToAddrs(maddrs)
 
@@ -586,7 +586,7 @@ func (c *DBClient) insertVisit(
 		visitType,
 		null.NewString(connectErrorStr, connectErrorStr != ""),
 		null.NewString(crawlErrorStr, crawlErrorStr != ""),
-		isExposed,
+		properties,
 	).Query(c.dbh)
 	metrics.InsertVisitHistogram.With(prometheus.Labels{
 		"type":    visitType,

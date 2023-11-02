@@ -1,0 +1,1 @@
+ALTER TYPE net_error ADD VALUE 'connection_reset_by_peer';

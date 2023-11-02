@@ -2,19 +2,18 @@ package libp2p
 
 import (
 	"context"
+	"encoding/json"
 	"time"
-
-	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
-	"github.com/libp2p/go-libp2p/core/peer"
-	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
-	ma "github.com/multiformats/go-multiaddr"
-	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/api"
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/utils"
+	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
+	"github.com/libp2p/go-libp2p/core/peer"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	ma "github.com/multiformats/go-multiaddr"
+	log "github.com/sirupsen/logrus"
 )
 
 type CrawlerConfig struct {
@@ -95,10 +94,17 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.CrawlError = p2pRes.CrawlError
 	r.CrawlErrorStr = p2pRes.CrawlErrorStr
 
+	properties := map[string]any{}
 	// If we attempted to crawl the API (only if we had at least one IP address for the peer)
 	// and we received either the ID or routing table information
 	if apiRes.Attempted {
-		r.IsExposed = null.BoolFrom(apiRes.ID != nil || apiRes.RoutingTable != nil)
+		properties["is_exposed"] = apiRes.ID != nil || apiRes.RoutingTable != nil
+	}
+
+	var err error
+	r.Properties, err = json.Marshal(properties)
+	if err != nil {
+		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
 	if apiRes.ID != nil && (r.Agent == "" || len(r.Protocols) == 0) {

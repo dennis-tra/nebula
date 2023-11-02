@@ -2,21 +2,23 @@ package discv5
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"math/bits"
 	"sync"
 	"time"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/friendsofgo/errors"
 	"github.com/libp2p/go-libp2p/core/peer"
-	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 	"go.uber.org/atomic"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	discover "github.com/dennis-tra/nebula-crawler/pkg/eth"
@@ -72,13 +74,50 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    libp2pResult.ConnectStartTime,
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
-		IsExposed:           null.NewBool(false, false),
+		Properties:          c.PeerProperties(task.Node),
 	}
 
 	// We've now crawled this peer, so increment
 	c.crawledPeers++
 
 	return cr, nil
+}
+
+func (c *Crawler) PeerProperties(node *enode.Node) json.RawMessage {
+	properties := map[string]any{}
+
+	properties["seq"] = node.Record().Seq()
+	properties["signature"] = node.Record().Signature()
+
+	var enrEntryEth2 ENREntryEth2
+	if err := node.Load(&enrEntryEth2); err == nil {
+		if beaconData, err := enrEntryEth2.Data(); err == nil {
+			properties["fork_digest"] = beaconData.ForkDigest.String()
+			properties["next_fork_version"] = beaconData.NextForkVersion.String()
+			properties["next_fork_epoch"] = beaconData.NextForkEpoch.String()
+		}
+	}
+
+	var enrEntryAttnets ENREntryAttnets
+	if err := node.Load(&enrEntryAttnets); err == nil {
+		rawInt := binary.BigEndian.Uint64(enrEntryAttnets)
+		properties["attnets_num"] = bits.OnesCount64(rawInt)
+		properties["attnets"] = hex.EncodeToString(enrEntryAttnets)
+	}
+
+	var enrEntrySyncCommsSubnet ENREntrySyncCommsSubnet
+	if err := node.Load(&enrEntrySyncCommsSubnet); err == nil {
+		// check out https://github.com/prysmaticlabs/prysm/blob/203dc5f63b060821c2706f03a17d66b3813c860c/beacon-chain/p2p/subnets.go#L221
+		properties["syncnets"] = hex.EncodeToString(enrEntrySyncCommsSubnet)
+	}
+
+	data, err := json.Marshal(properties)
+	if err != nil {
+		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
+		return nil
+	}
+
+	return data
 }
 
 type Libp2pResult struct {
@@ -163,8 +202,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
-	// timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-	timeoutCtx, cancel := context.WithTimeout(ctx, 1400*time.Millisecond)
+	timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
 	defer cancel()
 
 	if err := c.host.Connect(timeoutCtx, pi); err != nil {

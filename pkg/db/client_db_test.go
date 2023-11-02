@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -52,11 +53,11 @@ func clearDatabase(ctx context.Context, db *sql.DB) error {
 func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 	ctx := context.Background()
 
-	c := config.Root{
+	c := config.Database{
 		DatabaseHost:           "localhost",
 		DatabasePort:           2345,
 		DatabaseName:           "nebula_test",
-		DatabasePassword:       "password_test",
+		DatabasePassword:       "password",
 		DatabaseUser:           "nebula_test",
 		DatabaseSSLMode:        "disable",
 		AgentVersionsCacheSize: 100,
@@ -268,7 +269,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		visitEnd,
 		models.NetErrorIoTimeout,
 		"",
-		null.BoolFrom(true),
+		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
 	)
 	require.NoError(t, err)
 
@@ -298,6 +299,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
+
 	ivr, err := client.PersistCrawlVisit(
 		ctx,
 		crawl.ID,
@@ -311,7 +313,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		null.BoolFrom(true),
+		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
 	)
 	require.NoError(t, err)
 
@@ -320,7 +322,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
 	assert.Equal(t, dbPeer.MultiHash, peerID.String())
 	assert.Len(t, dbPeer.R.MultiAddresses, 2)
-	assert.True(t, dbPeer.IsExposed.Bool)
+	assert.True(t, unmarshalProperties(t, dbPeer.Properties.JSON)["is_exposed"].(bool))
 
 	for _, ma := range dbPeer.R.MultiAddresses {
 		assert.True(t, ma.Maddr == ma1.String() || ma.Maddr == ma2.String())
@@ -350,7 +352,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 
-	assert.True(t, dbPeer.IsExposed.Bool)
+	assert.True(t, dbPeer.Properties.Valid)
 
 	session = dbPeer.R.SessionsOpen
 	assert.Equal(t, session.PeerID, dbPeer.ID)
@@ -395,6 +397,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	require.NoError(t, err)
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
+
 	ivr, err = client.PersistCrawlVisit(
 		ctx,
 		crawl.ID,
@@ -408,7 +411,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		null.BoolFrom(false),
+		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
 	)
 	require.NoError(t, err)
 
@@ -478,8 +481,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	protocols := []string{"protocol-2", "protocol-3"}
 	agentVersion := "agent-1"
 
-	visitStart := time.Now().Add(-100 * time.Hour)
-	visitEnd := time.Now().Add(-100 * time.Hour).Add(time.Second)
+	visitStart := time.Now()
+	visitEnd := time.Now().Add(time.Second)
 	ivr, err := client.PersistCrawlVisit(
 		ctx,
 		crawl.ID,
@@ -493,11 +496,11 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		visitEnd,
 		"",
 		"",
-		null.BoolFrom(false),
+		null.JSONFrom(marshalProperties(t, "is_exposed", false)),
 	)
 	require.NoError(t, err)
-	visitStart = time.Now().Add(-time.Hour)
-	visitEnd = time.Now().Add(-time.Hour).Add(time.Second)
+	visitStart = time.Now().Add(100 * time.Hour)
+	visitEnd = time.Now().Add(100 * time.Hour).Add(time.Second)
 	ivr, err = client.PersistDialVisit(
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -507,8 +510,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		"",
 	)
 
-	visitStart = time.Now().Add(-time.Second)
-	visitEnd = time.Now()
+	visitStart = time.Now().Add(101 * time.Hour).Add(time.Second)
+	visitEnd = time.Now().Add(101 * time.Hour)
 	ivr, err = client.PersistDialVisit(
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -576,46 +579,46 @@ func TestClient_UpsertPeer(t *testing.T) {
 	peerID, err := lp2ptest.RandPeerID()
 	require.NoError(t, err)
 
-	dbPeerID, err := client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.BoolFromPtr(nil))
+	dbPeerID, err := client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.JSONFromPtr(nil))
 	require.NoError(t, err)
 	assert.NotZero(t, dbPeerID)
 
 	dbPeer := fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.True(t, dbPeer.AgentVersionID.IsZero())
 	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
-	assert.True(t, dbPeer.IsExposed.IsZero())
+	assert.True(t, dbPeer.Properties.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(nil), null.BoolFromPtr(nil))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(nil), null.JSONFromPtr(nil))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.True(t, dbPeer.ProtocolsSetID.IsZero())
-	assert.True(t, dbPeer.IsExposed.IsZero())
+	assert.True(t, dbPeer.Properties.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.BoolFromPtr(nil))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.JSONFromPtr(nil))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
-	assert.True(t, dbPeer.IsExposed.IsZero())
+	assert.True(t, dbPeer.Properties.IsZero())
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.BoolFrom(false))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(dbProtocolsSetID), null.JSONFrom(marshalProperties(t, "is_exposed", false)))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
-	assert.False(t, dbPeer.IsExposed.Bool)
+	assert.False(t, unmarshalProperties(t, dbPeer.Properties.JSON)["is_exposed"].(bool))
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.BoolFromPtr(nil))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(nil), null.IntFromPtr(nil), null.JSONFromPtr(nil))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
-	assert.False(t, dbPeer.IsExposed.Bool)
+	assert.False(t, unmarshalProperties(t, dbPeer.Properties.JSON)["is_exposed"].(bool))
 
 	dbAgentVersionID, err = client.GetOrCreateAgentVersionID(ctx, client.Handle(), "agent-2")
 	require.NoError(t, err)
@@ -623,13 +626,13 @@ func TestClient_UpsertPeer(t *testing.T) {
 	dbProtocolsSetID, err = client.GetOrCreateProtocolsSetID(ctx, client.Handle(), []string{"protocol-3", "protocol-2"})
 	require.NoError(t, err)
 
-	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(dbProtocolsSetID), null.BoolFrom(true))
+	dbPeerID, err = client.UpsertPeer(peerID.String(), null.IntFromPtr(dbAgentVersionID), null.IntFromPtr(dbProtocolsSetID), null.JSONFrom(marshalProperties(t, "is_exposed", true)))
 	require.NoError(t, err)
 
 	dbPeer = fetchPeer(t, ctx, client.Handle(), dbPeerID)
 	assert.Equal(t, dbPeer.AgentVersionID.Int, *dbAgentVersionID)
 	assert.Equal(t, dbPeer.ProtocolsSetID.Int, *dbProtocolsSetID)
-	assert.True(t, dbPeer.IsExposed.Bool)
+	assert.True(t, unmarshalProperties(t, dbPeer.Properties.JSON)["is_exposed"].(bool))
 }
 
 func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbPeerID int) *models.Peer {
@@ -642,4 +645,30 @@ func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbP
 	).One(ctx, exec)
 	require.NoError(t, err)
 	return dbPeer
+}
+
+func marshalProperties(t testing.TB, args ...any) []byte {
+	if len(args)%2 != 0 {
+		t.Fatal("args must be multiple of 2")
+	}
+
+	properties := map[string]any{}
+	for i := 0; i < len(args); i += 2 {
+		key, ok := args[i].(string)
+		require.True(t, ok)
+		value := args[i+1]
+
+		properties[key] = value
+	}
+
+	data, err := json.Marshal(properties)
+	require.NoError(t, err)
+	return data
+}
+
+func unmarshalProperties(t testing.TB, data []byte) map[string]any {
+	properties := map[string]any{}
+	err := json.Unmarshal(data, &properties)
+	require.NoError(t, err)
+	return properties
 }

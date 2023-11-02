@@ -37,7 +37,7 @@ func (n *NoopClient) PersistCrawlProperties(ctx context.Context, crawl *models.C
 	return nil
 }
 
-func (n *NoopClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, isExposed null.Bool) (*InsertVisitResult, error) {
+func (n *NoopClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, properties null.JSON) (*InsertVisitResult, error) {
 	return &InsertVisitResult{PID: peerID}, nil
 }
 

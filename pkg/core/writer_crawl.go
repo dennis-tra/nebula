@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -60,10 +61,7 @@ type CrawlResult[I PeerInfo[I]] struct {
 	ConnectEndTime time.Time
 
 	// Additional properties of that specific peer we have crawled
-	// Properties json.RawMessage
-
-	// Whether kubos RPC API is exposed
-	IsExposed null.Bool
+	Properties json.RawMessage
 }
 
 func (r CrawlResult[I]) PeerInfo() I {
@@ -170,7 +168,7 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		task.CrawlEndTime,
 		task.ConnectErrorStr,
 		task.CrawlErrorStr,
-		task.IsExposed,
+		null.JSONFrom(task.Properties),
 	)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")

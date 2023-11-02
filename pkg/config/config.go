@@ -17,7 +17,6 @@ const (
 	NetworkIPFS     Network = "IPFS"
 	NetworkAmino    Network = "AMINO"
 	NetworkFilecoin Network = "FILECOIN"
-	NetworkEthereum Network = "ETHEREUM" // TODO: be more specific CL vs EL?
 	NetworkKusama   Network = "KUSAMA"
 	NetworkPolkadot Network = "POLKADOT"
 	NetworkRococo   Network = "ROCOCO"
@@ -25,6 +24,7 @@ const (
 	NetworkArabica  Network = "ARABICA"
 	NetworkMocha    Network = "MOCHA"
 	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
+	NetworkEthCons  Network = "ETHEREUM_CONSENSUS"
 )
 
 func Networks() []Network {
@@ -32,7 +32,6 @@ func Networks() []Network {
 		NetworkIPFS,
 		NetworkAmino,
 		NetworkFilecoin,
-		NetworkEthereum,
 		NetworkKusama,
 		NetworkPolkadot,
 		NetworkRococo,
@@ -40,6 +39,7 @@ func Networks() []Network {
 		NetworkArabica,
 		NetworkMocha,
 		NetworkBlockRa,
+		NetworkEthCons,
 	}
 }
 
@@ -243,7 +243,7 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkBlockRa:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
-	case NetworkEthereum:
+	case NetworkEthCons:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereum...)
 		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS, NetworkAmino:
