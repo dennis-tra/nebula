@@ -28,21 +28,25 @@ tools:
 	go install github.com/volatiletech/sqlboiler/v4@v4.13.0
 	go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.13.0
 
-database-reset: migrate-down migrate-up models
+database-reset: database-stop databased migrate-up models
 
 database:
-	docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula -e POSTGRES_DB=nebula postgres:14
+	docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
 
-database-test:
-	docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password_test -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test postgres:14
+databased:
+	docker run --rm -d -p 2345:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
+	sleep 1
+
+database-stop:
+	docker stop nebula_test_db || true
 
 models:
 	sqlboiler --no-tests psql
 
 migrate-up:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path pkg/db/migrations up
+	migrate -database 'postgres://nebula_test:password@localhost:2345/nebula_test?sslmode=disable' -path pkg/db/migrations up
 
 migrate-down:
-	migrate -database 'postgres://nebula:password@localhost:5432/nebula?sslmode=disable' -path pkg/db/migrations down
+	migrate -database 'postgres://nebula_test:password@localhost:2345/nebula_test?sslmode=disable' -path pkg/db/migrations down
 
 .PHONY: all clean test format tools models migrate-up migrate-down
