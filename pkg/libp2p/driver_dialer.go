@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
-
-	log "github.com/sirupsen/logrus"
-
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	ma "github.com/multiformats/go-multiaddr"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"

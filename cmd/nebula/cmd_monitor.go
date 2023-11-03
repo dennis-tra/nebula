@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
-	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
 
 var monitorConfig = &config.Monitor{

@@ -2,14 +2,20 @@ package discv5
 
 import (
 	"context"
+	"crypto/ecdsa"
+	crand "crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
+	"net"
 	"time"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/eth"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
@@ -23,6 +29,7 @@ type DialDriverConfig struct {
 type DialDriver struct {
 	cfg         *DialDriverConfig
 	dbc         *db.DBClient
+	peerstore   *enode.DB
 	taskQueue   chan PeerInfo
 	start       chan struct{}
 	shutdown    chan struct{}
@@ -34,9 +41,15 @@ type DialDriver struct {
 var _ core.Driver[PeerInfo, core.DialResult[PeerInfo]] = (*DialDriver)(nil)
 
 func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error) {
+	peerstore, err := enode.OpenDB("") // in memory db
+	if err != nil {
+		return nil, fmt.Errorf("open in-memory peerstore: %w", err)
+	}
+
 	d := &DialDriver{
 		cfg:       cfg,
 		dbc:       dbc,
+		peerstore: peerstore,
 		taskQueue: make(chan PeerInfo),
 		start:     make(chan struct{}),
 		shutdown:  make(chan struct{}),
@@ -49,8 +62,32 @@ func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error)
 }
 
 func (d *DialDriver) NewWorker() (core.Worker[PeerInfo, core.DialResult[PeerInfo]], error) {
+	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
+	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
+	}
+
+	ethNode := enode.NewLocalNode(d.peerstore, priv)
+
+	conn, err := net.ListenUDP("udp", nil)
+	if err != nil {
+		return nil, fmt.Errorf("listen on udp port: %w", err)
+	}
+
+	discv5Cfg := eth.Config{
+		PrivateKey:   priv,
+		ValidSchemes: enode.ValidSchemes,
+	}
+
+	listener, err := eth.ListenV5(conn, ethNode, discv5Cfg)
+	if err != nil {
+		return nil, fmt.Errorf("listen discv5: %w", err)
+	}
+
 	dialer := &Dialer{
-		id: fmt.Sprintf("dialer-%02d", d.dialerCount),
+		id:       fmt.Sprintf("dialer-%02d", d.dialerCount),
+		listener: listener,
 	}
 
 	d.dialerCount += 1

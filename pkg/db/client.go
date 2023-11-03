@@ -6,12 +6,11 @@ import (
 	"io"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/volatiletech/null/v8"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 

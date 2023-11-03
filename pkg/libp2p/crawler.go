@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/api"
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/core"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/api"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 type CrawlerConfig struct {

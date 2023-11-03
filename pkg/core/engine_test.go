@@ -4,20 +4,17 @@ import (
 	"context"
 	"testing"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-
-	"github.com/dennis-tra/nebula-crawler/pkg/nebtest"
-
-	"go.uber.org/goleak"
-
-	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/stretchr/testify/assert"
+	"github.com/dennis-tra/nebula-crawler/pkg/nebtest"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
 func TestEngineConfig_Validate(t *testing.T) {

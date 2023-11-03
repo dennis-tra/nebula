@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-
 	"github.com/libp2p/go-libp2p"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -15,6 +13,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/api"
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"

@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
 	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	log "github.com/sirupsen/logrus"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.

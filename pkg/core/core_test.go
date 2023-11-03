@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // interface assertions

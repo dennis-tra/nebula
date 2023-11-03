@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/utils"
-
 	ma "github.com/multiformats/go-multiaddr"
-
 	log "github.com/sirupsen/logrus"
 
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/pkg/utils"
 )
 
 // The EngineConfig object configures the core Nebula [Engine] below.
@@ -23,8 +21,9 @@ type EngineConfig struct {
 	// the number of internal writers that store the results to disk.
 	WriterCount int
 
-	// maximum number of peers to crawl before stopping the engine. 0 means
-	// to process peers until there are no more in the work queue.
+	// maximum number of peers to process before stopping the engine. 0 means
+	// to process peers until there are no more in the work queue. If
+	// [DuplicateProcessing] is true, process indefinitely.
 	Limit int
 
 	// if set to true, the engine won't keep track of which peers were already

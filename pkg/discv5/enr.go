@@ -3,10 +3,9 @@ package discv5
 import (
 	"bytes"
 
-	"github.com/protolambda/ztyp/codec"
-
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	beacon "github.com/protolambda/zrnt/eth2/beacon/common"
+	"github.com/protolambda/ztyp/codec"
 )
 
 // ENREntryAttnets is the ENR key of the subnet bitfield in the enr.

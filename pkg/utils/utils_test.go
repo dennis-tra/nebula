@@ -4,11 +4,10 @@ import (
 	"sort"
 	"testing"
 
-	nt "github.com/dennis-tra/nebula-crawler/pkg/nebtest"
-
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
-	ma "github.com/multiformats/go-multiaddr"
+	nt "github.com/dennis-tra/nebula-crawler/pkg/nebtest"
 )
 
 func TestMergeMaddrs(t *testing.T) {

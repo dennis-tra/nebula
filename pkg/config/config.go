@@ -247,7 +247,7 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthCons:
-		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereum...)
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumConsensus...)
 		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}

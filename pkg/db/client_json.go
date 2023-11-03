@@ -9,8 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/friendsofgo/errors"
-
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -172,7 +170,7 @@ func (n *JSONClient) Close() error {
 	err1 := n.visitsFile.Close()
 	err2 := n.neighborsFile.Close()
 	if err1 != nil && err2 != nil {
-		return fmt.Errorf("failed closing JSON files: %w", errors.Wrap(err1, err2.Error()+" (neighbors)"))
+		return fmt.Errorf("failed closing JSON files: %w", fmt.Errorf("%s: %w (neighbors)", err1, err2))
 	} else if err1 != nil {
 		return fmt.Errorf("failed closing visits file: %w", err1)
 	} else if err2 != nil {
