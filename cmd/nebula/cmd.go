@@ -28,13 +28,14 @@ const (
 var RawVersion = "dev"
 
 var rootConfig = &config.Root{
-	RawVersion:    RawVersion,
-	Debug:         false,
-	LogLevel:      4,
-	LogFormat:     "text",
-	DialTimeout:   5 * time.Second,
-	TelemetryHost: "0.0.0.0",
-	TelemetryPort: 6666,
+	RawVersion:      RawVersion,
+	Debug:           false,
+	LogLevel:        4,
+	LogFormat:       "text",
+	LogDisableColor: false,
+	DialTimeout:     5 * time.Second,
+	TelemetryHost:   "0.0.0.0",
+	TelemetryPort:   6666,
 	Database: &config.Database{
 		DryRun:                 false,
 		JSONOut:                "",
@@ -86,6 +87,14 @@ func main() {
 				EnvVars:     []string{"NEBULA_LOG_FORMAT"},
 				Value:       rootConfig.LogFormat,
 				Destination: &rootConfig.LogFormat,
+				Category:    flagCategoryDebugging,
+			},
+			&cli.BoolFlag{
+				Name:        "log-disable-color",
+				Usage:       "Whether to have colorized log output (only text log format)",
+				EnvVars:     []string{"NEBULA_LOG_COLOR"},
+				Value:       rootConfig.LogDisableColor,
+				Destination: &rootConfig.LogDisableColor,
 				Category:    flagCategoryDebugging,
 			},
 			&cli.StringFlag{
@@ -234,15 +243,15 @@ func Before(c *cli.Context) error {
 		}
 	}
 
-	if c.IsSet("log-format") {
-		switch strings.ToLower(c.String("log-format")) {
-		case "text":
-			log.SetFormatter(&log.TextFormatter{})
-		case "json":
-			log.SetFormatter(&log.JSONFormatter{})
-		default:
-			return fmt.Errorf("unknown log format: %q", c.String("log-format"))
-		}
+	switch strings.ToLower(c.String("log-format")) {
+	case "text":
+		log.SetFormatter(&log.TextFormatter{
+			DisableColors: c.Bool("log-disable-color"),
+		})
+	case "json":
+		log.SetFormatter(&log.JSONFormatter{})
+	default:
+		return fmt.Errorf("unknown log format: %q", c.String("log-format"))
 	}
 
 	// Start prometheus metrics endpoint

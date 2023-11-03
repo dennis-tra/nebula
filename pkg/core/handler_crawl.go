@@ -1,10 +1,106 @@
 package core
 
 import (
+	"encoding/json"
 	"math"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/sirupsen/logrus"
 )
+
+// CrawlResult captures data that is gathered from crawling a single peer.
+type CrawlResult[I PeerInfo[I]] struct {
+	// The crawler that generated this result
+	CrawlerID string
+
+	// Information about crawled peer
+	Info I
+
+	// The neighbors of the crawled peer
+	RoutingTable *RoutingTable[I]
+
+	// The agent version of the crawled peer
+	Agent string
+
+	// The protocols the peer supports
+	Protocols []string
+
+	// Indicates whether the above routing table information was queried through the API.
+	// The API routing table does not include MultiAddresses, so we won't use them for further crawls.
+	RoutingTableFromAPI bool
+
+	// Any error that has occurred when connecting to the peer
+	ConnectError error
+
+	// The above error transferred to a known error
+	ConnectErrorStr string
+
+	// Any error that has occurred during fetching neighbor information
+	CrawlError error
+
+	// The above error transferred to a known error
+	CrawlErrorStr string
+
+	// When was the crawl started
+	CrawlStartTime time.Time
+
+	// When did this crawl end
+	CrawlEndTime time.Time
+
+	// When was the connection attempt made
+	ConnectStartTime time.Time
+
+	// As it can take some time to handle the result we track the timestamp explicitly
+	ConnectEndTime time.Time
+
+	// Additional properties of that specific peer we have crawled
+	Properties json.RawMessage
+}
+
+func (r CrawlResult[I]) PeerInfo() I {
+	return r.Info
+}
+
+func (r CrawlResult[I]) LogEntry() *log.Entry {
+	logEntry := log.WithFields(log.Fields{
+		"crawlerID":  r.CrawlerID,
+		"remoteID":   r.Info.ID().ShortString(),
+		"isDialable": r.ConnectError == nil && r.CrawlError == nil,
+		"duration":   r.CrawlDuration(),
+	})
+
+	if r.ConnectError != nil {
+		logEntry = logEntry.WithField("connErr", r.ConnectError)
+		//if r.ConnectErrorStr == models.NetErrorUnknown {
+		//	logEntry = logEntry.WithError(r.ConnectError)
+		//} else {
+		//	logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
+		//}
+	}
+
+	if r.CrawlError != nil {
+		logEntry = logEntry.WithField("crawlErr", r.CrawlError)
+		// Log and count crawl errors
+		//if r.CrawlErrorStr == models.NetErrorUnknown {
+		//	logEntry = logEntry.WithError(r.CrawlError)
+		//} else {
+		//	logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
+		//}
+	}
+
+	return logEntry
+}
+
+// CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
+func (r CrawlResult[I]) CrawlDuration() time.Duration {
+	return r.CrawlEndTime.Sub(r.CrawlStartTime)
+}
+
+// ConnectDuration returns the time it took to connect to the peer. This includes dialing and the identity protocol.
+func (r CrawlResult[I]) ConnectDuration() time.Duration {
+	return r.ConnectEndTime.Sub(r.ConnectStartTime)
+}
 
 type CrawlHandlerConfig struct {
 	// a flag that indicates whether we want to track and keep routing table

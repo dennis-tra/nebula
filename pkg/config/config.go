@@ -65,6 +65,9 @@ type Root struct {
 	// Specify the log format (text or json)
 	LogFormat string
 
+	// Whether to have colorized log output
+	LogDisableColor bool
+
 	// The time to wait until a dial attempt is aborted.
 	DialTimeout time.Duration
 
