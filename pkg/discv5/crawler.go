@@ -207,7 +207,8 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	retry := 0
 	maxRetries := 1
 	for {
-		timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+		timeout := time.Duration(c.cfg.DialTimeout.Nanoseconds() / int64(retry+1))
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 		err := c.host.Connect(timeoutCtx, pi)
 		cancel()
 
@@ -223,7 +224,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 			return err
 		}
 
-		if retry == maxRetries-1 {
+		if retry == maxRetries {
 			metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 			return err
 		}
