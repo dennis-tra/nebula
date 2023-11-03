@@ -7,6 +7,8 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/models"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
@@ -71,22 +73,20 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	})
 
 	if r.ConnectError != nil {
-		logEntry = logEntry.WithField("connErr", r.ConnectError)
-		//if r.ConnectErrorStr == models.NetErrorUnknown {
-		//	logEntry = logEntry.WithError(r.ConnectError)
-		//} else {
-		//	logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
-		//}
+		if r.ConnectErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(r.ConnectError)
+		} else {
+			logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
+		}
 	}
 
 	if r.CrawlError != nil {
-		logEntry = logEntry.WithField("crawlErr", r.CrawlError)
 		// Log and count crawl errors
-		//if r.CrawlErrorStr == models.NetErrorUnknown {
-		//	logEntry = logEntry.WithError(r.CrawlError)
-		//} else {
-		//	logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
-		//}
+		if r.CrawlErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithError(r.CrawlError)
+		} else {
+			logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
+		}
 	}
 
 	return logEntry

@@ -33,7 +33,7 @@ var rootConfig = &config.Root{
 	LogLevel:        4,
 	LogFormat:       "text",
 	LogDisableColor: false,
-	DialTimeout:     5 * time.Second,
+	DialTimeout:     time.Minute,
 	TelemetryHost:   "0.0.0.0",
 	TelemetryPort:   6666,
 	Database: &config.Database{
@@ -96,6 +96,13 @@ func main() {
 				Value:       rootConfig.LogDisableColor,
 				Destination: &rootConfig.LogDisableColor,
 				Category:    flagCategoryDebugging,
+			},
+			&cli.DurationFlag{
+				Name:        "dial-timeout",
+				Usage:       "Global timeout when trying to connect to or dial another peer in the network.",
+				EnvVars:     []string{"NEBULA_DIAL_TIMEOUT"},
+				Value:       rootConfig.DialTimeout,
+				Destination: &rootConfig.DialTimeout,
 			},
 			&cli.StringFlag{
 				Name:        "telemetry-host",

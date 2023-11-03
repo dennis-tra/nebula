@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/friendsofgo/errors"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -165,7 +164,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 			rpi, err := rt.GenRandPeerID(count)
 			if err != nil {
 				errorBits.Add(1 << count)
-				return errors.Wrapf(err, "generating random peer ID with CPL %d", count)
+				return fmt.Errorf("generating random peer ID with CPL %d: %w", count, err)
 			}
 
 			var neighbors []*peer.AddrInfo
@@ -175,14 +174,44 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 					break
 				}
 
+				sleepDur := time.Second * time.Duration(5*(retry+1))
+
 				if utils.IsResourceLimitExceeded(err) {
-					// other node has indicated that it's out of resources. Wait a bit and try again.
-					time.Sleep(time.Second * time.Duration(5*(retry+1))) // may add jitter here
+					// the other node has indicated that it's out of resources. Wait a bit and try again.
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(sleepDur): // may add jitter here
+						continue
+					}
+				}
+
+				// This error happens in: https://github.com/libp2p/go-libp2p/blob/4e2a16dd3f4f980bf9429572b3d2aed885594ec4/p2p/host/basic/basic_host.go#L645
+				if err.Error() == "connection failed" {
+					// This means we were connected to the peer, tried to open
+					// a stream but then failed to do so.
+
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(sleepDur): // may add jitter here
+						// fall through
+					}
+
+					ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+					defer cancel()
+
+					if err := c.host.Connect(ctx, pi); err != nil {
+						metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
+						return err
+					}
+
 					continue
 				}
 
 				errorBits.Add(1 << count)
-				return errors.Wrapf(err, "getting closest peer with CPL %d", count)
+
+				return fmt.Errorf("getting closest peer with CPL %d: %w", count, err)
 			}
 
 			allNeighborsLk.Lock()
