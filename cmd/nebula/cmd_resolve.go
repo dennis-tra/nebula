@@ -53,7 +53,7 @@ func ResolveAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula multi address resolver...")
 
 	// Initialize the database client
-	dbc, err := db.InitDBClient(c.Context, rootConfig)
+	dbc, err := db.InitDBClient(c.Context, rootConfig.Database)
 	if err != nil {
 		return err
 	}

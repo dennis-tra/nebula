@@ -18,7 +18,7 @@ jobs:
         ports:
           - "2345:5432"
         env:
-          POSTGRES_PASSWORD: password_test
+          POSTGRES_PASSWORD: password
           POSTGRES_USER: nebula_test
           POSTGRES_DB: nebula_test
         options: >-
