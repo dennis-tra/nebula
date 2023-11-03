@@ -12,10 +12,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-X main.RawVersion=`cat version`
 # Create lightweight container to run nebula
 FROM alpine:latest
 
-# Create user ot
+# Create user nebula
 RUN adduser -D -H nebula
 WORKDIR /home/nebula
-RUN mkdir .config && chown nebula:nebula .config
 USER nebula
 
 COPY --from=builder /build/nebula /usr/local/bin/nebula
