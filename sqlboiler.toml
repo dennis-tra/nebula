@@ -2,10 +2,66 @@ output   = "pkg/models"
 wipe     = true
 
 [psql]
-dbname = "nebula"
+dbname = "nebula_ipfs"
 host = "localhost"
 port = 5432
-user = "nebula"
+user = "nebula_ipfs"
 pass = "password"
-sslmode = "disable"
-blacklist = ["schema_migrations"]
+sslmode = "require"
+blacklist = [
+    "schema_migrations",
+    "visits_2023_11",
+    "visits_old",
+    "visits_old_2022_12",
+    "visits_old_2023_01",
+    "visits_old_2023_02",
+    "visits_old_2023_03",
+    "visits_old_2023_04",
+    "visits_old_2023_05",
+    "visits_old_2023_06",
+    "visits_old_2023_07",
+    "visits_old_2023_08",
+    "visits_old_2023_09",
+    "visits_old_2023_10",
+    "visits_old_2023_11",
+    "peer_logs_2022_12",
+    "peer_logs_2023_01",
+    "peer_logs_2023_02",
+    "peer_logs_2023_03",
+    "peer_logs_2023_04",
+    "peer_logs_2023_05",
+    "peer_logs_2023_06",
+    "peer_logs_2023_07",
+    "peer_logs_2023_08",
+    "peer_logs_2023_09",
+    "peer_logs_2023_10",
+    "peer_logs_2023_11",
+    "neighbors_0_1000",
+    "neighbors_1000_2000",
+    "neighbors_2000_3000",
+    "neighbors_3000_4000",
+    "neighbors_4000_5000",
+    "neighbors_5000_6000",
+    "neighbors_6000_7000",
+    "neighbors_7000_8000",
+    "neighbors_8000_9000",
+    "neighbors_9000_10000",
+    "neighbors_10000_11000",
+    "neighbors_11000_12000",
+    "neighbors_12000_13000",
+    "neighbors_13000_14000",
+    "neighbors_14000_15000",
+    "neighbors_15000_16000",
+    "sessions_closed_2022_12",
+    "sessions_closed_2023_01",
+    "sessions_closed_2023_02",
+    "sessions_closed_2023_03",
+    "sessions_closed_2023_04",
+    "sessions_closed_2023_05",
+    "sessions_closed_2023_06",
+    "sessions_closed_2023_07",
+    "sessions_closed_2023_08",
+    "sessions_closed_2023_09",
+    "sessions_closed_2023_10",
+    "sessions_closed_2023_11",
+]
