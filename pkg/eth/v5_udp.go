@@ -86,10 +86,10 @@ type UDPv5 struct {
 	unhandled     chan<- ReadPacket
 
 	// state of dispatch
-	codec            codecV5
-	activeCallByNode map[enode.ID]*callV5
-	activeCallByAuth map[v5wire.Nonce]*callV5
-	callQueue        map[enode.ID][]*callV5
+	codec             codecV5
+	activeCallsByNode map[enode.ID]map[string]*callV5
+	activeCallByAuth  map[v5wire.Nonce]*callV5
+	callQueue         map[enode.ID][]*callV5
 
 	// shutdown stuff
 	closeOnce      sync.Once
@@ -165,10 +165,10 @@ func newUDPv5(conn UDPConn, ln *enode.LocalNode, cfg Config) (*UDPv5, error) {
 		respTimeoutCh: make(chan *callTimeout),
 		unhandled:     cfg.Unhandled,
 		// state of dispatch
-		codec:            v5wire.NewCodec(ln, cfg.PrivateKey, cfg.Clock, cfg.V5ProtocolID),
-		activeCallByNode: make(map[enode.ID]*callV5),
-		activeCallByAuth: make(map[v5wire.Nonce]*callV5),
-		callQueue:        make(map[enode.ID][]*callV5),
+		codec:             v5wire.NewCodec(ln, cfg.PrivateKey, cfg.Clock, cfg.V5ProtocolID),
+		activeCallsByNode: make(map[enode.ID]map[string]*callV5),
+		activeCallByAuth:  make(map[v5wire.Nonce]*callV5),
+		callQueue:         make(map[enode.ID][]*callV5),
 		// shutdown
 		closeCtx:       closeCtx,
 		cancelCloseCtx: cancelCloseCtx,
@@ -526,6 +526,7 @@ func (t *UDPv5) dispatch() {
 	// Arm first read.
 	t.readNextCh <- struct{}{}
 
+LOOP:
 	for {
 		select {
 		case c := <-t.callCh:
@@ -533,20 +534,32 @@ func (t *UDPv5) dispatch() {
 			t.sendNextCall(c.id)
 
 		case ct := <-t.respTimeoutCh:
-			active := t.activeCallByNode[ct.c.id]
-			if ct.c == active && ct.timer == active.timeout {
-				ct.c.err <- ErrTimeout
+			activeCalls := t.activeCallsByNode[ct.c.id]
+			for _, call := range activeCalls {
+				if ct.c == call && ct.timer == call.timeout {
+					ct.c.err <- ErrTimeout
+					break
+				}
 			}
 
 		case c := <-t.callDoneCh:
-			active := t.activeCallByNode[c.id]
-			if active != c {
-				panic("BUG: callDone for inactive call")
+			activeCalls := t.activeCallsByNode[c.id]
+			for _, call := range activeCalls {
+				if call != c {
+					continue
+				}
+
+				c.timeout.Stop()
+				delete(t.activeCallByAuth, c.nonce)
+				delete(t.activeCallsByNode[c.id], string(call.reqid))
+				if len(t.activeCallsByNode[c.id]) == 0 {
+					delete(t.activeCallsByNode, c.id)
+				}
+				t.sendNextCall(c.id)
+				continue LOOP
 			}
-			c.timeout.Stop()
-			delete(t.activeCallByAuth, c.nonce)
-			delete(t.activeCallByNode, c.id)
-			t.sendNextCall(c.id)
+
+			panic("BUG: callDone for inactive call")
 
 		case r := <-t.sendCh:
 			t.send(r.destID, r.destAddr, r.msg, nil)
@@ -564,10 +577,16 @@ func (t *UDPv5) dispatch() {
 				}
 				delete(t.callQueue, id)
 			}
-			for id, c := range t.activeCallByNode {
-				c.err <- errClosed
-				delete(t.activeCallByNode, id)
-				delete(t.activeCallByAuth, c.nonce)
+
+			for id, activeCalls := range t.activeCallsByNode {
+				for _, call := range activeCalls {
+					call.err <- errClosed
+					delete(t.activeCallsByNode[id], string(call.reqid))
+					if len(t.activeCallsByNode[id]) == 0 {
+						delete(t.activeCallsByNode, id)
+					}
+					delete(t.activeCallByAuth, call.nonce)
+				}
 			}
 			return
 		}
@@ -597,11 +616,15 @@ func (t *UDPv5) startResponseTimeout(c *callV5) {
 // sendNextCall sends the next call in the call queue if there is no active call.
 func (t *UDPv5) sendNextCall(id enode.ID) {
 	queue := t.callQueue[id]
-	if len(queue) == 0 || t.activeCallByNode[id] != nil {
+	if len(queue) == 0 || len(t.activeCallsByNode[id]) > NBuckets {
 		return
 	}
-	t.activeCallByNode[id] = queue[0]
-	t.sendCall(t.activeCallByNode[id])
+	if len(t.activeCallsByNode[id]) == 0 {
+		t.activeCallsByNode[id] = make(map[string]*callV5)
+	}
+	newCall := queue[0]
+	t.activeCallsByNode[id][string(newCall.reqid)] = newCall
+	t.sendCall(newCall)
 	if len(queue) == 1 {
 		delete(t.callQueue, id)
 	} else {
@@ -721,22 +744,28 @@ func (t *UDPv5) handlePacket(rawpacket []byte, fromAddr *net.UDPAddr) error {
 
 // handleCallResponse dispatches a response packet to the call waiting for it.
 func (t *UDPv5) handleCallResponse(fromID enode.ID, fromAddr *net.UDPAddr, p v5wire.Packet) bool {
-	ac := t.activeCallByNode[fromID]
-	if ac == nil || !bytes.Equal(p.RequestID(), ac.reqid) {
-		t.log.Debug(fmt.Sprintf("Unsolicited/late %s response", p.Name()), "id", fromID, "addr", fromAddr)
-		return false
+	activeCalls := t.activeCallsByNode[fromID]
+
+	for _, ac := range activeCalls {
+		if !bytes.Equal(p.RequestID(), ac.reqid) {
+			continue
+		}
+
+		if !fromAddr.IP.Equal(ac.addr.IP) || fromAddr.Port != ac.addr.Port {
+			continue
+		}
+
+		if p.Kind() != ac.responseType {
+			continue
+		}
+
+		t.startResponseTimeout(ac)
+		ac.ch <- p
+		return true
 	}
-	if !fromAddr.IP.Equal(ac.addr.IP) || fromAddr.Port != ac.addr.Port {
-		t.log.Debug(fmt.Sprintf("%s from wrong endpoint", p.Name()), "id", fromID, "addr", fromAddr)
-		return false
-	}
-	if p.Kind() != ac.responseType {
-		t.log.Debug(fmt.Sprintf("Wrong discv5 response type %s", p.Name()), "id", fromID, "addr", fromAddr)
-		return false
-	}
-	t.startResponseTimeout(ac)
-	ac.ch <- p
-	return true
+
+	t.log.Debug(fmt.Sprintf("Unsolicited/late %s response", p.Name()), "id", fromID, "addr", fromAddr)
+	return false
 }
 
 // getNode looks for a node record in table and database.
