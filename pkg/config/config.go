@@ -244,10 +244,10 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/celestia/celestia/kad/1.0.0")
 	case NetworkArabica:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersArabica...)
-		protocols = cli.NewStringSlice("/celestia/arabica-6/kad/1.0.0")
+		protocols = cli.NewStringSlice("/celestia/arabica-10/kad/1.0.0") // the `-10` suffix seems to be variable
 	case NetworkMocha:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersMocha...)
-		protocols = cli.NewStringSlice("/celestia/mocha/kad/1.0.0")
+		protocols = cli.NewStringSlice("/celestia/mocha-4/kad/1.0.0") // the `-4` suffix seems to be variable
 	case NetworkBlockRa:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBlockspaceRace...)
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")

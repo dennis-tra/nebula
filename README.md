@@ -16,10 +16,9 @@ A DHT crawler and monitor that tracks the liveness of peers. The crawler connect
 - [Kusama](https://kusama.network/)
 - [Rococo](https://substrate.io/developers/rococo-network/)
 - [Westend](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network)
-- [Arabica](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
-- [Blockspace Race](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L51C11-L51C11)
 - [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/)
-
+- [Celestia](https://celestia.org/) - [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
+- [Celestia](https://celestia.org/) - [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet)
 
 _The crawler was:_
 
