@@ -2,8 +2,6 @@ package core
 
 import (
 	"container/heap"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // An item is something we manage in a priority queue.
@@ -93,9 +91,6 @@ func (tq *PriorityQueue[T]) Update(key string, value T, priority int) bool {
 	item, found := tq.lookup[key]
 	if !found {
 		return false
-	}
-	if item.priority < priority {
-		log.Error("FIXEd")
 	}
 	item.priority = priority
 	item.value = value
