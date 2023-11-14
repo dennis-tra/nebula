@@ -21,6 +21,7 @@ const (
 	NetworkPolkadot Network = "POLKADOT"
 	NetworkRococo   Network = "ROCOCO"
 	NetworkWestend  Network = "WESTEND"
+	NetworkCelestia Network = "CELESTIA"
 	NetworkArabica  Network = "ARABICA"
 	NetworkMocha    Network = "MOCHA"
 	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
@@ -36,6 +37,7 @@ func Networks() []Network {
 		NetworkPolkadot,
 		NetworkRococo,
 		NetworkWestend,
+		NetworkCelestia,
 		NetworkArabica,
 		NetworkMocha,
 		NetworkBlockRa,
@@ -237,6 +239,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkWestend:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWestend...)
 		protocols = cli.NewStringSlice("/wnd2/kad")
+	case NetworkCelestia:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersCelestia...)
+		protocols = cli.NewStringSlice("/celestia/celestia/kad/1.0.0")
 	case NetworkArabica:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersArabica...)
 		protocols = cli.NewStringSlice("/celestia/arabica-6/kad/1.0.0")
