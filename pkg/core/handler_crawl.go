@@ -206,7 +206,7 @@ func (h *CrawlHandler[I]) HandleWriteResult(result Result[WriteResult]) {
 // TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.
 func (h *CrawlHandler[I]) TotalErrors() int {
 	sum := 0
-	for _, count := range h.CrawlErrs {
+	for _, count := range h.ConnErrs {
 		sum += count
 	}
 	return sum
