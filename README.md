@@ -112,7 +112,7 @@ default. To populate the document, you'll need to pass the `--neighbors` flag to
 the `crawl` subcommand.
 
 ```shell
-nebula crawl --neighbors --json-out ./results/
+nebula --json-out ./results/ crawl --neighbors
 ```
 
 The routing table information forms a graph and graph visualization tools often
@@ -276,7 +276,7 @@ To install the necessary tools you can run `make tools`. This will use the `go i
 You need a running postgres instance to persist and/or read the crawl results. Run `make database` or use the following command to start a local instance of postgres:
 
 ```shell
-docker run --rm -p 2345:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
 ```
 
 > **Info:** You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations or store the results as JSON files with the `--json-out` flag.
@@ -288,7 +288,7 @@ Name     = "nebula_test"
 Password = "password"
 User     = "nebula_test"
 Host     = "localhost"
-Port     = 2345
+Port     = 5432
 ```
 
 Migrations are applied automatically when `nebula` starts and successfully establishes a database connection.

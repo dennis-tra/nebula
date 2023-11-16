@@ -4,7 +4,7 @@ wipe     = true
 [psql]
 dbname = "nebula_test"
 host = "localhost"
-port = 2345
+port = 5432
 user = "nebula_test"
 pass = "password"
 sslmode = "disable"

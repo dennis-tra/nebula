@@ -68,7 +68,9 @@ func (cfg *EngineConfig) Validate() error {
 // to process next, making sure to not process the same peer twice. At the same
 // time, it buffers the processing results and schedules results to be stored
 // and distributes these tasks to the writers when they have capacity. The engine
-// can be configured with the [EngineConfig] struct.
+// can be configured with the [EngineConfig] struct. It is generic on the peer
+// information type ([PeerInfo]) and the result that the peer workers return
+// ([WorkResult]).
 type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 	// this engine's configuration
 	cfg *EngineConfig
@@ -90,7 +92,16 @@ type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 	writerPool *Pool[R, WriteResult]
 
 	// queues of jobs that need to be performed. Either peers to process or
-	// processing results to write to disk.
+	// processing results to write to disk. We're using a [PriorityQueue] in
+	// both cases, although writeQueue is only [PriorityQueue] because of
+	// symmetry reasons. There's no technical reason right now - it could also
+	// be just a map[string]struct{}. The peerQueue on the other hand is a
+	// [PriorityQueue] because we insert peers with a lower priority in it that
+	// don't have any dialable multiaddresses (determined by if the resulting
+	// list of multiaddresses is empty after maddrFilter was applied). The idea
+	// is that we might find more multiaddresses for an undialable peer during
+	// processing other peers in the network. When we find more multiaddresses,
+	// we update that peer and give it a higher priority.
 	peerQueue  *PriorityQueue[I]
 	writeQueue *PriorityQueue[R]
 
@@ -98,7 +109,8 @@ type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 	inflight map[string]struct{}
 
 	// A set of peer IDs that indicates which peers have already been processed
-	// in the past, so we don't put them in the peer queue again.
+	// in the past, so we don't put them in the peer queue again. This map is
+	// irrelevant in the case [EngineConfig.DuplicateProcessing] is true.
 	processed map[string]struct{}
 
 	// a counter that tracks the number of handled write results
@@ -282,7 +294,8 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			}
 
 			// drain results channels. They'll be closed after all workers have
-			// stopped working
+			// stopped working. That's the point in time where we exit these for
+			// loops
 			for range peerResults {
 				// drop result
 			}
@@ -366,7 +379,7 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 		if isQueued {
 			e.peerQueue.Update(mapKey, task, priority)
 		} else {
-			e.peerQueue.Push(string(task.ID()), task, priority)
+			e.peerQueue.Push(mapKey, task, priority)
 		}
 	}
 

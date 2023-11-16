@@ -29,6 +29,8 @@ type PeerInfo[T any] interface {
 type Driver[I PeerInfo[I], R WorkResult[I]] interface {
 	// NewWorker returns a new [Worker] that takes a [PeerInfo], performs its
 	// duties by contacting that peer, and returns the resulting WorkResult.
+	// In the current implementation, this could be either a "peer crawl" (when
+	// you run "nebula crawl") or a "peer dial" (when you run "nebula monitor").
 	NewWorker() (Worker[I, R], error)
 
 	// NewWriter returns a new [Worker] that takes a [WorkResult], performs its
@@ -42,7 +44,7 @@ type Driver[I PeerInfo[I], R WorkResult[I]] interface {
 	// channel signals the engine that we don't anticipate to schedule any more
 	// tasks. However, this doesn't mean that the engine will stop right away.
 	// It will first process all remaining tasks it has in its queue. If you
-	// want to preemptively stop the engine, cancel the context you passed into
+	// want to prematurely stop the engine, cancel the context you passed into
 	// [Engine.Run].
 	Tasks() <-chan I
 
