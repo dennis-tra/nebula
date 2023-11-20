@@ -74,7 +74,7 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 				result.CrawlErrorStr = db.NetError(result.CrawlError)
 			}
 
-			// wait for the Identify exchange to complete
+			// wait for the Identify exchange to complete (no-op if already done)
 			c.identifyWait(ctx, pi.AddrInfo)
 
 			// Extract information from peer store
@@ -189,7 +189,8 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 				// This error happens in: https://github.com/libp2p/go-libp2p/blob/4e2a16dd3f4f980bf9429572b3d2aed885594ec4/p2p/host/basic/basic_host.go#L645
 				if err.Error() == "connection failed" {
 					// This means we were connected to the peer, tried to open
-					// a stream but then failed to do so.
+					// a stream but then failed to do so. Try to reconnect as
+					// the peer appears to be online
 
 					select {
 					case <-ctx.Done():

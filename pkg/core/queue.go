@@ -4,17 +4,18 @@ import (
 	"container/heap"
 )
 
-// An item is something we manage in a priority queue.
-type item[T any] struct {
-	value    T // The value of the item; arbitrary.
-	key      string
-	priority int // The priority of the item in the queue.
-	index    int // The index of the item in the heap.
-}
-
+// PriorityQueue is can take unique items and pops them according to their priority.
 type PriorityQueue[T any] struct {
 	queue  *priorityQueue[T]
 	lookup map[string]*item[T]
+}
+
+// An item is something we manage in a priority queue.
+type item[T any] struct {
+	value    T      // The value of the item; arbitrary.
+	key      string // The key belonging to the value
+	priority int    // The priority of the item in the queue.
+	index    int    // The index of the item in the heap.
 }
 
 func NewPriorityQueue[T any]() *PriorityQueue[T] {

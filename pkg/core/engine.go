@@ -368,7 +368,10 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 		}
 
 		// If we don't know any multi addresses for the peer yet, we push it
-		// to the end of our priority queue by giving it a low priority.
+		// to the end of our priority queue by giving it a low priority. If we
+		// find that peer again in another routing table, we might find another
+		// multi address. In that case, we update the set of addresses and
+		// increase the priority.
 		priority := 1
 		if len(e.maddrFilter(task.Addrs())) == 0 {
 			priority = 0

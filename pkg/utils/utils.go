@@ -92,7 +92,8 @@ func FilterPublicMaddrs(maddrs []ma.Multiaddr) []ma.Multiaddr {
 	return filtered
 }
 
-// MergeMaddrs strips private multiaddrs from the given peer address information.
+// MergeMaddrs takes two slices of multi addresses and merges them into a single
+// one.
 func MergeMaddrs(maddrSet1 []ma.Multiaddr, maddrSet2 []ma.Multiaddr) []ma.Multiaddr {
 	maddrSetOut := make(map[string]ma.Multiaddr, len(maddrSet1))
 	for _, maddr := range maddrSet1 {

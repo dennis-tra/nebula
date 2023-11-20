@@ -5,10 +5,7 @@ import (
 	"sync"
 )
 
-type Worker[T any, R any] interface {
-	Work(ctx context.Context, task T) (R, error)
-}
-
+// A Pool manages a set of Workers
 type Pool[T any, R any] struct {
 	start   sync.Once
 	results chan Result[R]
@@ -22,6 +19,10 @@ func NewPool[T any, R any](workers ...Worker[T, R]) *Pool[T, R] {
 	}
 }
 
+// Start takes a channel on which tasks will be scheduled. It is guaranteed that
+// the Pool reads from this channel as fast as possible. To stop the worker pool
+// you need to close the channel. To wait until all Workers have finished, wait
+// until the results channel returned from this method was closed as well.
 func (w *Pool[T, R]) Start(ctx context.Context, tasks <-chan T) <-chan Result[R] {
 	w.start.Do(func() {
 		var wg sync.WaitGroup
@@ -51,9 +52,4 @@ func (w *Pool[T, R]) Start(ctx context.Context, tasks <-chan T) <-chan Result[R]
 
 func (w *Pool[T, R]) Size() int {
 	return len(w.workers)
-}
-
-type Result[R any] struct {
-	Value R
-	Error error
 }

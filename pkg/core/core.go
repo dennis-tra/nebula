@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -54,6 +55,14 @@ type Driver[I PeerInfo[I], R WorkResult[I]] interface {
 	Close()
 }
 
+// A Worker processes tasks of type T and returns results of type R or an error.
+// Workers are used to process a single peer or store a crawl result to the
+// database. It is the unit of concurrency in this system.
+type Worker[T any, R any] interface {
+	// Work instructs the Worker to process the task and produce a result.
+	Work(ctx context.Context, task T) (R, error)
+}
+
 // Handler defines the interface that the engine will call every time
 // it has received a result from any of its workers.
 type Handler[I PeerInfo[I], R WorkResult[I]] interface {
@@ -92,6 +101,13 @@ type WorkResult[I PeerInfo[I]] interface {
 
 	// LogEntry returns logging information that can be used by the engine
 	LogEntry() *log.Entry
+}
+
+// Result is a generic result object. It captures a generic value or any
+// error that might have occurred when producing this result.
+type Result[R any] struct {
+	Value R
+	Error error
 }
 
 // WriteResult must be returned by write workers.
