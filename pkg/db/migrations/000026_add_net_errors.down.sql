@@ -1,1 +1,1 @@
--- no down migration :/
+-- no down migration

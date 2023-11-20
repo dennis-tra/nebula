@@ -63,7 +63,7 @@ const (
 	NetErrorNetworkUnreachable         string = "network_unreachable"
 	NetErrorNoGoodAddresses            string = "no_good_addresses"
 	NetErrorContextDeadlineExceeded    string = "context_deadline_exceeded"
-	NetErrorNoPublicIP                 string = "no_public_ip"
+	NetErrorNoIPAddress                string = "no_ip_address"
 	NetErrorMaxDialAttemptsExceeded    string = "max_dial_attempts_exceeded"
 	NetErrorMaddrReset                 string = "maddr_reset"
 	NetErrorStreamReset                string = "stream_reset"
@@ -73,6 +73,8 @@ const (
 	NetErrorResourceLimitExceeded      string = "resource_limit_exceeded"
 	NetErrorWriteOnStream              string = "write_on_stream"
 	NetErrorConnectionResetByPeer      string = "connection_reset_by_peer"
+	NetErrorCantAssignRequestedAddress string = "cant_assign_requested_address"
+	NetErrorConnectionGated            string = "connection_gated"
 )
 
 func AllNetError() []string {
@@ -87,7 +89,7 @@ func AllNetError() []string {
 		NetErrorNetworkUnreachable,
 		NetErrorNoGoodAddresses,
 		NetErrorContextDeadlineExceeded,
-		NetErrorNoPublicIP,
+		NetErrorNoIPAddress,
 		NetErrorMaxDialAttemptsExceeded,
 		NetErrorMaddrReset,
 		NetErrorStreamReset,
@@ -97,6 +99,8 @@ func AllNetError() []string {
 		NetErrorResourceLimitExceeded,
 		NetErrorWriteOnStream,
 		NetErrorConnectionResetByPeer,
+		NetErrorCantAssignRequestedAddress,
+		NetErrorConnectionGated,
 	}
 }
 

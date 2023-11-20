@@ -13,16 +13,18 @@ import (
 var KnownErrors = map[string]string{
 	"i/o timeout":                                models.NetErrorIoTimeout,
 	"RPC timeout":                                models.NetErrorIoTimeout,
-	"no recent network activity":                 models.NetErrorNoRecentNetworkActivity,
+	"no recent network activity":                 models.NetErrorIoTimeout, // formerly NetErrorNoRecentNetworkActivity (equivalent to a timeout)
 	"connection refused":                         models.NetErrorConnectionRefused,
 	"connection reset by peer":                   models.NetErrorConnectionResetByPeer,
 	"protocol not supported":                     models.NetErrorProtocolNotSupported,
+	"protocols not supported":                    models.NetErrorProtocolNotSupported,
 	"peer id mismatch":                           models.NetErrorPeerIDMismatch,
+	"peer IDs don't match":                       models.NetErrorPeerIDMismatch,
 	"no route to host":                           models.NetErrorNoRouteToHost,
 	"network is unreachable":                     models.NetErrorNetworkUnreachable,
 	"no good addresses":                          models.NetErrorNoGoodAddresses,
 	"context deadline exceeded":                  models.NetErrorIoTimeout, // formerly NetErrorContextDeadlineExceeded
-	"no public IP address":                       models.NetErrorNoPublicIP,
+	"no public IP address":                       models.NetErrorNoIPAddress,
 	"max dial attempts exceeded":                 models.NetErrorMaxDialAttemptsExceeded,
 	"host is down":                               models.NetErrorHostIsDown,
 	"stream reset":                               models.NetErrorStreamReset,
@@ -30,6 +32,8 @@ var KnownErrors = map[string]string{
 	"failed to negotiate stream multiplexer":     models.NetErrorNegotiateStreamMultiplexer,
 	"resource limit exceeded":                    models.NetErrorResourceLimitExceeded,
 	"Write on stream":                            models.NetErrorWriteOnStream,
+	"can't assign requested address":             models.NetErrorCantAssignRequestedAddress, // transient error
+	"connection gated":                           models.NetErrorConnectionGated,            // transient error
 }
 
 var ErrorStr = map[string]string{}
@@ -48,10 +52,14 @@ var knownErrorsPrecedence = []string{
 	"i/o timeout",
 	"RPC timeout",
 	"no recent network activity",
+	"can't assign requested address",
+	"connection gated",
 	"connection refused",
 	"connection reset by peer",
 	"protocol not supported",
+	"protocols not supported",
 	"peer id mismatch",
+	"peer IDs don't match",
 	"no route to host",
 	"network is unreachable",
 	"no good addresses",
