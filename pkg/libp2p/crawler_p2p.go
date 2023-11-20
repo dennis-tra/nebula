@@ -43,7 +43,7 @@ type P2PResult struct {
 	// When was the connection attempt made
 	ConnectStartTime time.Time
 
-	// As it can take some time to handle the result we track the timestamp explicitly
+	// When have we established a successful connection
 	ConnectEndTime time.Time
 
 	// All connections that the remote peer claims to listen on
