@@ -55,7 +55,7 @@ func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 
 	c := config.Database{
 		DatabaseHost:           "localhost",
-		DatabasePort:           2345,
+		DatabasePort:           5432,
 		DatabaseName:           "nebula_test",
 		DatabasePassword:       "password",
 		DatabaseUser:           "nebula_test",
@@ -80,7 +80,7 @@ func TestClient_InitCrawl(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx)
+	crawl, err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	assert.NotZero(t, crawl.ID)
@@ -187,7 +187,7 @@ func TestClient_PersistCrawlProperties(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx)
+	crawl, err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	props := map[string]map[string]int{}
@@ -239,7 +239,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx)
+	crawl, err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
@@ -282,7 +282,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx)
+	crawl, err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
@@ -393,7 +393,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.InDelta(t, s.LastFailedVisit.Time.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.Equal(t, s.FinishReason.String, models.NetErrorConnectionRefused)
 
-	crawl, err = client.InitCrawl(ctx)
+	crawl, err = client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
@@ -466,7 +466,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx)
+	crawl, err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
