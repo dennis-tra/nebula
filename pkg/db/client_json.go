@@ -66,10 +66,13 @@ func InitJSONClient(out string) (Client, error) {
 	return client, nil
 }
 
-func (c *JSONClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
+func (c *JSONClient) InitCrawl(ctx context.Context, version string) (*models.Crawl, error) {
 	crawl := &models.Crawl{
 		State:     models.CrawlStateStarted,
 		StartedAt: time.Now(),
+		Version:   version,
+		UpdatedAt: time.Now(),
+		CreatedAt: time.Now(),
 	}
 
 	data, err := json.Marshal(crawl)
@@ -85,6 +88,8 @@ func (c *JSONClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
 }
 
 func (c *JSONClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
+	crawl.UpdatedAt = time.Now()
+
 	data, err := json.Marshal(crawl)
 	if err != nil {
 		return fmt.Errorf("marshal crawl json: %w", err)

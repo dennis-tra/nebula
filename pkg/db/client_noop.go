@@ -19,11 +19,12 @@ func InitNoopClient() *NoopClient {
 	return &NoopClient{}
 }
 
-func (n *NoopClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
+func (n *NoopClient) InitCrawl(ctx context.Context, version string) (*models.Crawl, error) {
 	return &models.Crawl{
 		ID:        1,
 		StartedAt: time.Now(),
 		State:     models.CrawlStateStarted,
+		Version:   version,
 		UpdatedAt: time.Now(),
 		CreatedAt: time.Now(),
 	}, nil

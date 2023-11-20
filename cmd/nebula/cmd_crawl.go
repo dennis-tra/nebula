@@ -194,7 +194,7 @@ func CrawlAction(c *cli.Context) error {
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
 	// its DB identifier
-	dbCrawl, err := dbc.InitCrawl(ctx)
+	dbCrawl, err := dbc.InitCrawl(ctx, cfg.Root.Version())
 	if err != nil {
 		return fmt.Errorf("creating crawl in db: %w", err)
 	}

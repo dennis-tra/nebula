@@ -255,10 +255,11 @@ func partitionQuery(table string, lower time.Time, upper time.Time) string {
 
 // InitCrawl inserts a crawl instance into the database in the state `started`.
 // This is done to receive a database ID that all subsequent database entities can be linked to.
-func (c *DBClient) InitCrawl(ctx context.Context) (*models.Crawl, error) {
+func (c *DBClient) InitCrawl(ctx context.Context, version string) (*models.Crawl, error) {
 	crawl := &models.Crawl{
 		State:     models.CrawlStateStarted,
 		StartedAt: time.Now(),
+		Version:   version,
 	}
 	return crawl, crawl.Insert(ctx, c.dbh, boil.Infer())
 }
