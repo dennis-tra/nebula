@@ -72,7 +72,7 @@ retryLoop:
 			case models.NetErrorPeerIDMismatch:
 				logEntry.WithError(err).Debugln("Dial failed due to peer ID mismatch - stopping retry")
 				break retryLoop
-			case models.NetErrorNoPublicIP, models.NetErrorNoGoodAddresses:
+			case models.NetErrorNoIPAddress, models.NetErrorNoGoodAddresses:
 				logEntry.WithError(err).Debugln("Dial failed due to no public ip - stopping retry")
 				break retryLoop
 			case models.NetErrorMaxDialAttemptsExceeded:

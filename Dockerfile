@@ -19,4 +19,6 @@ USER nebula
 
 COPY --from=builder /build/nebula /usr/local/bin/nebula
 
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s CMD nebula health
+
 CMD nebula

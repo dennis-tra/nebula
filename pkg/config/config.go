@@ -9,6 +9,7 @@ import (
 
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/atomic"
 )
 
 type Network string
@@ -296,3 +297,5 @@ type Resolve struct {
 	FilePathUdgerDB string
 	BatchSize       int
 }
+
+var HealthStatus = atomic.NewBool(false)

@@ -215,6 +215,7 @@ func main() {
 			MonitorCommand,
 			ResolveCommand,
 			NetworksCommand,
+			HealthCommand,
 		},
 	}
 
@@ -261,8 +262,10 @@ func Before(c *cli.Context) error {
 		return fmt.Errorf("unknown log format: %q", c.String("log-format"))
 	}
 
-	// Start prometheus metrics endpoint
-	go metrics.ListenAndServe(rootConfig.TelemetryHost, rootConfig.TelemetryPort)
+	// Start prometheus metrics endpoint (but only if it's not the health command)
+	if c.Args().Get(0) != HealthCommand.Name {
+		go metrics.ListenAndServe(rootConfig.TelemetryHost, rootConfig.TelemetryPort)
+	}
 
 	return nil
 }

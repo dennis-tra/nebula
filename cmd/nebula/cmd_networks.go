@@ -24,6 +24,10 @@ var NetworksCommand = &cli.Command{
 			EnvVars: []string{"NEBULA_NETWORKS_PROTOCOLS"},
 		},
 	},
+	Before: func(ctx *cli.Context) error {
+		config.HealthStatus.Store(true)
+		return nil
+	},
 	Action: func(c *cli.Context) error {
 		networks := config.Networks()
 

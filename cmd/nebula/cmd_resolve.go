@@ -78,6 +78,8 @@ func ResolveAction(c *cli.Context) error {
 
 	limit := c.Int("batch-size")
 
+	config.HealthStatus.Store(true)
+
 	// Start the main loop
 	for {
 		log.Infoln("Fetching multi addresses...")

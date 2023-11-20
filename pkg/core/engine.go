@@ -189,6 +189,9 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// Set health status
+	config.HealthStatus.Store(true)
+
 	// initialize the task queues that the workers and writers will read from
 	peerTasks := make(chan I)
 	writeTasks := make(chan R)

@@ -2,13 +2,15 @@ package metrics
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"net/http"
 	_ "net/http/pprof"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/dennis-tra/nebula-crawler/pkg/config"
 )
 
 var (
@@ -62,6 +64,15 @@ func ListenAndServe(host string, port int) {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	log.WithField("addr", addr).Debugln("Starting telemetry endpoint")
 	http.Handle("/metrics", promhttp.Handler())
+	http.HandleFunc("/health", func(rw http.ResponseWriter, req *http.Request) {
+		log.Debugln("Responding to health check")
+		if config.HealthStatus.Load() {
+			rw.WriteHeader(http.StatusOK)
+		} else {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+		}
+	})
+
 	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.WithError(err).Warnln("Error serving prometheus")
 	}
