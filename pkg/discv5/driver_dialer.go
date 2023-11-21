@@ -193,7 +193,7 @@ func (d *DialDriver) monitorDatabase() {
 				}
 
 				if comp, err := maddr.ValueForProtocol(ma.P_UDP); err == nil {
-					if udp, err := strconv.Atoi(comp); err == nil {
+					if udp, err := strconv.Atoi(comp); err == nil && udp <= math.MaxUint16 {
 						if ip4 {
 							r.Set(enr.UDP(uint16(udp)))
 						} else {
@@ -201,7 +201,7 @@ func (d *DialDriver) monitorDatabase() {
 						}
 					}
 				} else if comp, err := maddr.ValueForProtocol(ma.P_TCP); err == nil {
-					if tcp, err := strconv.Atoi(comp); err == nil {
+					if tcp, err := strconv.Atoi(comp); err == nil && tcp <= math.MaxUint16 {
 						if ip4 {
 							r.Set(enr.TCP(uint16(tcp)))
 						} else {
