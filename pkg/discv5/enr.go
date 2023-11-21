@@ -2,43 +2,105 @@ package discv5
 
 import (
 	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/p2p/enr"
+	"github.com/ethereum/go-ethereum/rlp"
 	beacon "github.com/protolambda/zrnt/eth2/beacon/common"
 	"github.com/protolambda/ztyp/codec"
 )
 
-// ENREntryAttnets is the ENR key of the subnet bitfield in the enr.
-type ENREntryAttnets []byte
-
-var _ enr.Entry = ENREntryAttnets{}
-
-func (e ENREntryAttnets) ENRKey() string {
-	return "attnets"
+type ENREntryEth2 struct {
+	beacon.Eth2Data
 }
 
-// ENREntryEth2 is the ENR key of the Ethereum consensus object in an enr.
-type ENREntryEth2 []byte
-
-var _ enr.Entry = ENREntryEth2{}
-
-func (e ENREntryEth2) ENRKey() string {
-	return "eth2"
+type ENREntryAttnets struct {
+	AttnetsNum uint64
+	Attnest    string
 }
 
-func (e ENREntryEth2) Data() (*beacon.Eth2Data, error) {
-	var data beacon.Eth2Data
-	if err := data.Deserialize(codec.NewDecodingReader(bytes.NewReader(e), uint64(len(e)))); err != nil {
-		return nil, err
+type ENREntrySyncCommsSubnet struct {
+	SyncNets string
+}
+
+// from https://github.com/ethereum-optimism/optimism/blob/85d932810bafc9084613b978d42cd770bc044eb4/op-node/p2p/discovery.go#L172
+type ENREntryOpStack struct {
+	ChainID uint64
+	Version uint64
+}
+
+var (
+	_ enr.Entry = (*ENREntryEth2)(nil)
+	_ enr.Entry = (*ENREntryAttnets)(nil)
+	_ enr.Entry = (*ENREntrySyncCommsSubnet)(nil)
+	_ enr.Entry = (*ENREntryOpStack)(nil)
+)
+
+func (e *ENREntryEth2) ENRKey() string            { return "eth2" }
+func (e *ENREntryAttnets) ENRKey() string         { return "attnets" }
+func (e *ENREntrySyncCommsSubnet) ENRKey() string { return "syncnets" }
+func (e *ENREntryOpStack) ENRKey() string         { return "opstack" }
+
+func (e *ENREntryEth2) DecodeRLP(s *rlp.Stream) error {
+	b, err := s.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to get bytes for attnets ENR entry: %w", err)
 	}
-	return &data, nil
+
+	if err := e.Eth2Data.Deserialize(codec.NewDecodingReader(bytes.NewReader(b), uint64(len(b)))); err != nil {
+		return fmt.Errorf("deserialize eth2 beacon data ENR entry: %w", err)
+	}
+
+	return nil
 }
 
-// ENREntrySyncCommsSubnet is the ENR key of the sync committee subnet bitfield in the enr.
-type ENREntrySyncCommsSubnet []byte
+func (e *ENREntryAttnets) DecodeRLP(s *rlp.Stream) error {
+	b, err := s.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to get bytes for attnets ENR entry: %w", err)
+	}
 
-var _ enr.Entry = ENREntrySyncCommsSubnet{}
+	e.AttnetsNum = binary.BigEndian.Uint64(b)
+	e.Attnest = hex.EncodeToString(b)
 
-func (e ENREntrySyncCommsSubnet) ENRKey() string {
-	return "syncnets"
+	return nil
 }
+
+func (e *ENREntrySyncCommsSubnet) DecodeRLP(s *rlp.Stream) error {
+	b, err := s.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to get bytes for syncnets ENR entry: %w", err)
+	}
+
+	// check out https://github.com/prysmaticlabs/prysm/blob/203dc5f63b060821c2706f03a17d66b3813c860c/beacon-chain/p2p/subnets.go#L221
+	e.SyncNets = hex.EncodeToString(b)
+
+	return nil
+}
+
+func (e *ENREntryOpStack) DecodeRLP(s *rlp.Stream) error {
+	b, err := s.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to decode outer ENR entry: %w", err)
+	}
+	// We don't check the byte length: the below readers are limited, and the ENR itself has size limits.
+	// Future "opstack" entries may contain additional data, and will be tagged with a newer Version etc.
+	r := bytes.NewReader(b)
+	chainID, err := binary.ReadUvarint(r)
+	if err != nil {
+		return fmt.Errorf("failed to read chain ID var int: %w", err)
+	}
+	version, err := binary.ReadUvarint(r)
+	if err != nil {
+		return fmt.Errorf("failed to read Version var int: %w", err)
+	}
+	e.ChainID = chainID
+	e.Version = version
+	return nil
+}
+
+// "cap"
+// "les"
+// "opera"
