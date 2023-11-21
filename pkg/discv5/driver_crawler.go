@@ -115,12 +115,14 @@ type CrawlDriverConfig struct {
 	BootstrapPeerStrs []string
 	AddrDialType      config.AddrType
 	AddrTrackType     config.AddrType
+	KeepENR           bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
 		DialTimeout:  cfg.DialTimeout,
 		AddrDialType: cfg.AddrDialType,
+		KeepENR:      cfg.KeepENR,
 	}
 }
 

@@ -31,13 +31,14 @@ var crawlConfig = &config.Crawl{
 	WriteWorkerCount: 10,
 	CrawlLimit:       0,
 	PersistNeighbors: false,
-	CheckExposed:     false,
 	FilePathUdgerDB:  "",
 	Network:          string(config.NetworkIPFS),
 	BootstrapPeers:   cli.NewStringSlice(),
 	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
 	AddrTrackTypeStr: "public",
 	AddrDialTypeStr:  "public",
+	KeepENR:          false,
+	CheckExposed:     false,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -138,14 +139,6 @@ var CrawlCommand = &cli.Command{
 			Value:       crawlConfig.PersistNeighbors,
 			Destination: &crawlConfig.PersistNeighbors,
 		},
-		&cli.BoolFlag{
-			Name:        "check-exposed",
-			Usage:       "Whether to check if the Kubo API is exposed. Checking also includes crawling the API.",
-			EnvVars:     []string{"NEBULA_CRAWL_CHECK_EXPOSED"},
-			Value:       crawlConfig.CheckExposed,
-			Destination: &crawlConfig.CheckExposed,
-			Category:    flagCategoryNetwork,
-		},
 		&cli.StringFlag{
 			Name:        "addr-track-type",
 			Usage:       "Which type addresses should be stored to the database (private, public, any)",
@@ -166,6 +159,22 @@ var CrawlCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_CRAWL_NETWORK"},
 			Value:       crawlConfig.Network,
 			Destination: &crawlConfig.Network,
+		},
+		&cli.BoolFlag{
+			Name:        "check-exposed",
+			Usage:       "IPFS/AMINO: Whether to check if the Kubo API is exposed. Checking also includes crawling the API.",
+			EnvVars:     []string{"NEBULA_CRAWL_CHECK_EXPOSED"},
+			Value:       crawlConfig.CheckExposed,
+			Destination: &crawlConfig.CheckExposed,
+			Category:    flagCategoryNetwork,
+		},
+		&cli.BoolFlag{
+			Name:        "keep-enr",
+			Usage:       "ETHEREUM_CONSENSUS: Whether to keep the full ENR.",
+			EnvVars:     []string{"NEBULA_CRAWL_KEEP_ENR"},
+			Value:       crawlConfig.KeepENR,
+			Destination: &crawlConfig.KeepENR,
+			Category:    flagCategoryNetwork,
 		},
 	},
 }
@@ -227,6 +236,7 @@ func CrawlAction(c *cli.Context) error {
 			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
 			AddrDialType:      cfg.AddrDialType(),
 			AddrTrackType:     cfg.AddrTrackType(),
+			KeepENR:           crawlConfig.KeepENR,
 		}
 
 		// init the crawl driver

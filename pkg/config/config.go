@@ -188,9 +188,6 @@ type Crawl struct {
 	// Whether to persist all k-bucket entries
 	PersistNeighbors bool
 
-	// Whether to check if the Kubo API is exposed
-	CheckExposed bool
-
 	// File path to the udger datbase
 	FilePathUdgerDB string
 
@@ -202,6 +199,12 @@ type Crawl struct {
 
 	// Which type of addresses should Nebula try to dial (private, public, both)
 	AddrDialTypeStr string
+
+	// Whether to check if the Kubo API is exposed
+	CheckExposed bool
+
+	// Whether to keep the full enr record alongside all parsed kv-pairs
+	KeepENR bool
 }
 
 func (c *Crawl) AddrTrackType() AddrType {
