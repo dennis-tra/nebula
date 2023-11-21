@@ -27,6 +27,7 @@ import (
 type CrawlerConfig struct {
 	DialTimeout  time.Duration
 	AddrDialType config.AddrType
+	KeepENR      bool
 }
 
 type Crawler struct {
@@ -110,6 +111,10 @@ func (c *Crawler) PeerProperties(node *enode.Node) json.RawMessage {
 	if err := node.Load(&enrEntryOpStack); err == nil {
 		properties["opstack_chain_id"] = enrEntryOpStack.ChainID
 		properties["opstack_version"] = enrEntryOpStack.Version
+	}
+
+	if c.cfg.KeepENR {
+		properties["enr"] = node.String()
 	}
 
 	data, err := json.Marshal(properties)
