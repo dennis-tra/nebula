@@ -8,18 +8,22 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/eth"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/crypto"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-
+	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
+	"github.com/dennis-tra/nebula-crawler/pkg/eth"
 )
 
 type DialDriverConfig struct {
@@ -140,6 +144,7 @@ func (d *DialDriver) monitorDatabase() {
 		}
 
 		for _, session := range sessions {
+			// take multi hash and decode into PeerID
 			peerID, err := peer.Decode(session.R.Peer.MultiHash)
 			if err != nil {
 				log.WithField("mhash", session.R.Peer.MultiHash).
@@ -149,6 +154,23 @@ func (d *DialDriver) monitorDatabase() {
 			}
 			logEntry := log.WithField("peerID", peerID.ShortString())
 
+			// init ENR and fill with secp256k1 public key from peerID
+			var r enr.Record
+			pubKey, err := peerID.ExtractPublicKey()
+			if err != nil {
+				logEntry.WithError(err).Warnln("Could not extract public key from peer ID")
+				continue
+			}
+
+			raw, err := pubKey.Raw()
+			if err != nil {
+				logEntry.WithError(err).Warnln("Could not extract raw bytes from public key")
+				continue
+			}
+
+			x, y := secp256k1.DecompressPubkey(raw)
+			r.Set(enode.Secp256k1(ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}))
+
 			// Parse multi addresses from database
 			addrInfo := peer.AddrInfo{ID: peerID}
 			for _, maddrStr := range session.R.Peer.R.MultiAddresses {
@@ -157,18 +179,59 @@ func (d *DialDriver) monitorDatabase() {
 					logEntry.WithError(err).Warnln("Could not parse multi address")
 					continue
 				}
+
+				ip4 := false
+				if comp, err := maddr.ValueForProtocol(ma.P_IP4); err == nil {
+					ip4 = true
+					if ip := net.ParseIP(comp); ip != nil {
+						r.Set(enr.IPv4(ip))
+					}
+				} else if comp, err := maddr.ValueForProtocol(ma.P_IP6); err == nil {
+					if ip := net.ParseIP(comp); ip != nil {
+						r.Set(enr.IPv6(ip))
+					}
+				}
+
+				if comp, err := maddr.ValueForProtocol(ma.P_UDP); err == nil {
+					if udp, err := strconv.Atoi(comp); err == nil {
+						if ip4 {
+							r.Set(enr.UDP(uint16(udp)))
+						} else {
+							r.Set(enr.UDP6(uint16(udp)))
+						}
+					}
+				} else if comp, err := maddr.ValueForProtocol(ma.P_TCP); err == nil {
+					if tcp, err := strconv.Atoi(comp); err == nil {
+						if ip4 {
+							r.Set(enr.TCP(uint16(tcp)))
+						} else {
+							r.Set(enr.TCP6(uint16(tcp)))
+						}
+					}
+				}
+
 				addrInfo.Addrs = append(addrInfo.Addrs, maddr)
 			}
 
+			// use custom identity scheme to not check the signature.
+			node, err := enode.New(nebulaIdentityScheme{}, &r)
+			if err != nil {
+				logEntry.WithError(err).Warnln("Could not construct new enode.Node struct")
+				continue
+			}
+
 			select {
-			case d.taskQueue <- PeerInfo{}: // TODO
+			case d.taskQueue <- PeerInfo{
+				Node:   node,
+				peerID: addrInfo.ID,
+				maddrs: addrInfo.Addrs,
+			}:
 				continue
 			case <-ctx.Done():
 				// fallthrough
 			}
 			break
 		}
-		// log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
 
 	TICK:
 		select {
@@ -178,4 +241,30 @@ func (d *DialDriver) monitorDatabase() {
 			return
 		}
 	}
+}
+
+// nebulaIdentityScheme is an always valid ID scheme. When a new [enode.Node] is
+// constructed, the Verify method won't check the signature, and we just assume
+// the record is valid. However, the NodeAddr method returns the correct node
+// identifier.
+type nebulaIdentityScheme struct{}
+
+// Verify doesn't check the signature or anything. It assumes all records to be
+// valid.
+func (nebulaIdentityScheme) Verify(r *enr.Record, sig []byte) error {
+	return nil
+}
+
+// NodeAddr returns the node's ID. The logic is copied from the [enode.V4ID]
+// implementation.
+func (nebulaIdentityScheme) NodeAddr(r *enr.Record) []byte {
+	var pubkey enode.Secp256k1
+	err := r.Load(&pubkey)
+	if err != nil {
+		return nil
+	}
+	buf := make([]byte, 64)
+	math.ReadBits(pubkey.X, buf[:32])
+	math.ReadBits(pubkey.Y, buf[32:])
+	return crypto.Keccak256(buf)
 }

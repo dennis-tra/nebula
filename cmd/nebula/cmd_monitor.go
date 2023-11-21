@@ -1,15 +1,20 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/network"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/pkg/config"
+	"github.com/dennis-tra/nebula-crawler/pkg/core"
 	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/monitor"
+	"github.com/dennis-tra/nebula-crawler/pkg/discv5"
+	"github.com/dennis-tra/nebula-crawler/pkg/libp2p"
 )
 
 var monitorConfig = &config.Monitor{
@@ -62,6 +67,13 @@ var MonitorCommand = &cli.Command{
 			Destination: &monitorConfig.WriteWorkerCount,
 			Hidden:      true,
 		},
+		&cli.StringFlag{
+			Name:        "network",
+			Usage:       "Which network belong the database sessions to. Relevant for parsing peer IDs and muti addresses.",
+			EnvVars:     []string{"NEBULA_MONITOR_NETWORK"},
+			Value:       monitorConfig.Network,
+			Destination: &monitorConfig.Network,
+		},
 	},
 }
 
@@ -81,11 +93,64 @@ func MonitorAction(c *cli.Context) error {
 		}
 	}()
 
-	// Initialize the monitoring task
-	s, err := monitor.New(dbc, monitorConfig)
-	if err != nil {
-		return fmt.Errorf("new monitor: %w", err)
+	handlerCfg := &core.DialHandlerConfig{}
+
+	engineCfg := &core.EngineConfig{
+		WorkerCount:         monitorConfig.MonitorWorkerCount,
+		WriterCount:         monitorConfig.WriteWorkerCount,
+		Limit:               0,
+		DuplicateProcessing: true,
 	}
 
-	return s.MonitorNetwork(c.Context)
+	switch monitorConfig.Network {
+	case string(config.NetworkEthCons):
+		driverCfg := &discv5.DialDriverConfig{
+			Version: monitorConfig.Root.Version(),
+		}
+
+		driver, err := discv5.NewDialDriver(dbc, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new driver: %w", err)
+		}
+
+		handler := core.NewDialHandler[discv5.PeerInfo](handlerCfg)
+		eng, err := core.NewEngine[discv5.PeerInfo, core.DialResult[discv5.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		_, err = eng.Run(c.Context)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("running crawl engine: %w", err)
+		}
+
+	default:
+		driverCfg := &libp2p.DialDriverConfig{
+			Version: monitorConfig.Root.Version(),
+		}
+
+		driver, err := libp2p.NewDialDriver(dbc, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new driver: %w", err)
+		}
+
+		handler := core.NewDialHandler[libp2p.PeerInfo](handlerCfg)
+		eng, err := core.NewEngine[libp2p.PeerInfo, core.DialResult[libp2p.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		// Set the timeout for dialing peers
+		ctx := network.WithDialPeerTimeout(c.Context, monitorConfig.Root.DialTimeout)
+
+		// Force direct dials will prevent swarm to run into dial backoff
+		// errors. It also prevents proxied connections.
+		ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+
+		_, err = eng.Run(ctx)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			return fmt.Errorf("running crawl engine: %w", err)
+		}
+	}
+	return nil
 }
