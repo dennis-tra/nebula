@@ -2,11 +2,8 @@ package discv5
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math/bits"
 	"strings"
 	"sync"
 	"time"
@@ -93,24 +90,26 @@ func (c *Crawler) PeerProperties(node *enode.Node) json.RawMessage {
 
 	var enrEntryEth2 ENREntryEth2
 	if err := node.Load(&enrEntryEth2); err == nil {
-		if beaconData, err := enrEntryEth2.Data(); err == nil {
-			properties["fork_digest"] = beaconData.ForkDigest.String()
-			properties["next_fork_version"] = beaconData.NextForkVersion.String()
-			properties["next_fork_epoch"] = beaconData.NextForkEpoch.String()
-		}
+		properties["fork_digest"] = enrEntryEth2.ForkDigest.String()
+		properties["next_fork_version"] = enrEntryEth2.NextForkVersion.String()
+		properties["next_fork_epoch"] = enrEntryEth2.NextForkEpoch.String()
 	}
 
 	var enrEntryAttnets ENREntryAttnets
 	if err := node.Load(&enrEntryAttnets); err == nil {
-		rawInt := binary.BigEndian.Uint64(enrEntryAttnets)
-		properties["attnets_num"] = bits.OnesCount64(rawInt)
-		properties["attnets"] = hex.EncodeToString(enrEntryAttnets)
+		properties["attnets_num"] = enrEntryAttnets.AttnetsNum
+		properties["attnets"] = enrEntryAttnets.Attnest
 	}
 
 	var enrEntrySyncCommsSubnet ENREntrySyncCommsSubnet
 	if err := node.Load(&enrEntrySyncCommsSubnet); err == nil {
-		// check out https://github.com/prysmaticlabs/prysm/blob/203dc5f63b060821c2706f03a17d66b3813c860c/beacon-chain/p2p/subnets.go#L221
-		properties["syncnets"] = hex.EncodeToString(enrEntrySyncCommsSubnet)
+		properties["syncnets"] = enrEntrySyncCommsSubnet.SyncNets
+	}
+
+	var enrEntryOpStack ENREntryOpStack
+	if err := node.Load(&enrEntryOpStack); err == nil {
+		properties["opstack_chain_id"] = enrEntryOpStack.ChainID
+		properties["opstack_version"] = enrEntryOpStack.Version
 	}
 
 	data, err := json.Marshal(properties)
@@ -202,6 +201,17 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	if len(pi.Addrs) == 0 {
 		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
+	} else if len(pi.Addrs) == 1 {
+	}
+
+	dialAddrInfo := peer.AddrInfo{
+		ID:    pi.ID,
+		Addrs: ensureTCPAddr(pi.Addrs),
+	}
+
+	replaced := false
+	if len(dialAddrInfo.Addrs) != len(pi.Addrs) {
+		replaced = true
 	}
 
 	retry := 0
@@ -209,10 +219,13 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	for {
 		timeout := time.Duration(c.cfg.DialTimeout.Nanoseconds() / int64(retry+1))
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-		err := c.host.Connect(timeoutCtx, pi)
+		err := c.host.Connect(timeoutCtx, dialAddrInfo)
 		cancel()
 
 		if err == nil {
+			if replaced {
+				log.WithField("remoteID", pi.ID.ShortString()).Errorln("hat was gebracht!")
+			}
 			return nil
 		}
 
@@ -239,6 +252,52 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		}
 
 	}
+}
+
+func ensureTCPAddr(maddrs []ma.Multiaddr) []ma.Multiaddr {
+	for _, maddr := range maddrs {
+		if _, err := maddr.ValueForProtocol(ma.P_TCP); err == nil {
+			return maddrs
+		}
+	}
+
+	newMaddrs := make([]ma.Multiaddr, 0, len(maddrs)+1)
+
+	for i, maddr := range maddrs {
+		newMaddrs = append(newMaddrs, maddr)
+
+		udp, err := maddr.ValueForProtocol(ma.P_UDP)
+		if err != nil {
+			continue
+		}
+
+		ip := ""
+		ip4, err := maddr.ValueForProtocol(ma.P_IP4)
+		if err != nil {
+			ip6, err := maddr.ValueForProtocol(ma.P_IP6)
+			if err != nil {
+				continue
+			}
+			ip = "/ip6/" + ip6
+		} else {
+			ip = "/ip4/" + ip4
+		}
+
+		tcpMaddr, err := ma.NewMultiaddr(ip + "/tcp/" + udp)
+		if err != nil {
+			continue
+		}
+
+		for _, remaining := range maddrs[i+1:] {
+			newMaddrs = append(newMaddrs, remaining)
+		}
+
+		newMaddrs = append(newMaddrs, tcpMaddr)
+
+		return newMaddrs
+	}
+
+	return maddrs
 }
 
 // identifyWait waits until any connection to a peer passed the Identify

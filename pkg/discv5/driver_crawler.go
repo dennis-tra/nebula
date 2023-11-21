@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	crand "crypto/rand"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
@@ -157,6 +159,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 
 	privBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaKey.X, ecdsaKey.Y)
 	secpKey := (*crypto.Secp256k1PrivateKey)(secp256k1v4.PrivKeyFromBytes(privBytes))
+
 	// Initialize a single libp2p node that's shared between all crawlers.
 	// Context: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#network-fundamentals
 	h, err := libp2p.New(
@@ -172,6 +175,19 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
+
+	// According to Diva, these are required protocols. Some of them are just
+	// assumed to be required. We just read from the stream indefinitely to
+	// gain time for the identify exchange to finish. We just pretend to support
+	// these protocols and keep the stream busy until we have gathered all the
+	// information we were interested in. This includes the agend version and
+	// all supported protocols.
+	h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
 
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 

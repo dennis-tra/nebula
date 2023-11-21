@@ -20,7 +20,8 @@ type Dialer struct {
 
 var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)
 
-// Work TODO
+// Work takes the PeerInfo object and tries to figure out if the peer is
+// still online.
 func (d *Dialer) Work(ctx context.Context, task PeerInfo) (core.DialResult[PeerInfo], error) {
 	// Creating log entry
 	logEntry := log.WithFields(log.Fields{
