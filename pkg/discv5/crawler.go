@@ -214,11 +214,6 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		Addrs: ensureTCPAddr(pi.Addrs),
 	}
 
-	replaced := false
-	if len(dialAddrInfo.Addrs) != len(pi.Addrs) {
-		replaced = true
-	}
-
 	retry := 0
 	maxRetries := 1
 	for {
@@ -228,9 +223,6 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		cancel()
 
 		if err == nil {
-			if replaced {
-				log.WithField("remoteID", pi.ID.ShortString()).Errorln("hat was gebracht!")
-			}
 			return nil
 		}
 
