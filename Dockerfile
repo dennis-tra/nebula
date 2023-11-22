@@ -2,15 +2,15 @@
 # CGO to be enabled and I'd like use an alpine base image for the final image.
 FROM golang:1.19-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache gcc musl-dev
-
 # Switch to an isolated build directory
 WORKDIR /build
 
 # For caching, only copy the dependency-defining files and download depdencies
 COPY go.mod go.sum ./
 RUN go mod download
+
+# Install build dependencies
+RUN apk add --no-cache gcc musl-dev
 
 # Copy everything else minus everything that's in .dockerignore
 COPY . ./
@@ -26,8 +26,8 @@ RUN adduser -D -H nebula
 WORKDIR /home/nebula
 USER nebula
 
-COPY --from=builder /build/nebula /home/nebula/nebula
+COPY --from=builder /build/nebula /usr/local/bin/nebula
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=10s CMD nebula health
 
-CMD /home/nebula/nebula
+CMD nebula
