@@ -33,6 +33,7 @@ var KnownErrors = map[string]string{
 	"resource limit exceeded":                    models.NetErrorResourceLimitExceeded,
 	"Write on stream":                            models.NetErrorWriteOnStream,
 	"can't assign requested address":             models.NetErrorCantAssignRequestedAddress, // transient error
+	"cannot assign requested address":            models.NetErrorCantAssignRequestedAddress, // transient error
 	"connection gated":                           models.NetErrorConnectionGated,            // transient error
 }
 
@@ -52,6 +53,7 @@ var knownErrorsPrecedence = []string{
 	"i/o timeout",
 	"RPC timeout",
 	"no recent network activity",
+	"cannot assign requested address",
 	"can't assign requested address",
 	"connection gated",
 	"connection refused",
