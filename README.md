@@ -7,7 +7,7 @@
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
-A DHT crawler and monitor that tracks the liveness of peers. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrappers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the following networks:
+A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrappers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
@@ -25,8 +25,9 @@ _The crawler was:_
 - 🏆 _awarded a prize in the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
-
 📊 [ProbeLab](https://probelab.io) is publishing weekly reports for the IPFS Amino DHT based on the crawl results [here](https://github.com/protocol/network-measurements/tree/master/reports)! 📊
+
+📺 You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https://www.youtube.com/watch?v=QDgvCBDqNMc) 📺
 
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
 
@@ -46,6 +47,7 @@ _The crawler was:_
   - [Tests](#tests)
 - [Report](#report)
 - [Related Efforts](#related-efforts)
+- [Demo](#demo)
 - [Maintainers](#maintainers)
 - [Contributing](#contributing)
 - [Support](#support)
@@ -332,6 +334,12 @@ There is a top-level `report` folder that contains a script to generate a compre
 - [`libp2p/go-libp2p-kad-dht`](https://github.com/libp2p/go-libp2p-kad-dht/tree/master/crawler) - Basic crawler for the Kademlia DHT implementation on go-libp2p.
 - [`migalabs/armiarma`](https://github.com/migalabs/armiarma) - Armiarma is a Libp2p open-network crawler with a current focus on Ethereum's CL network
 - [`migalabs/eth-light-crawler`](https://github.com/migalabs/eth-light-crawler) - Ethereum light crawler by [@cortze](https://github.com/cortze).
+
+## Demo
+
+The following presentation shows a ways to use Nebula by showcasing crawls of the Amino, Celestia, and Ethereum DHT's: 
+
+[![Nebula: A Network Agnostic DHT Crawler - Dennis Trautwein](https://img.youtube.com/vi/QDgvCBDqNMc/0.jpg)](https://www.youtube.com/watch?v=QDgvCBDqNMc)
 
 ## Maintainers
 
