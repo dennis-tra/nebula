@@ -99,7 +99,7 @@ func (c *Crawler) PeerProperties(node *enode.Node) json.RawMessage {
 	var enrEntryAttnets ENREntryAttnets
 	if err := node.Load(&enrEntryAttnets); err == nil {
 		properties["attnets_num"] = enrEntryAttnets.AttnetsNum
-		properties["attnets"] = enrEntryAttnets.Attnest
+		properties["attnets"] = enrEntryAttnets.Attnets
 	}
 
 	var enrEntrySyncCommsSubnet ENREntrySyncCommsSubnet

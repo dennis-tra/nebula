@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"math/bits"
 
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -17,15 +18,15 @@ type ENREntryEth2 struct {
 }
 
 type ENREntryAttnets struct {
-	AttnetsNum uint64
-	Attnest    string
+	AttnetsNum int
+	Attnets    string
 }
 
 type ENREntrySyncCommsSubnet struct {
 	SyncNets string
 }
 
-// from https://github.com/ethereum-optimism/optimism/blob/85d932810bafc9084613b978d42cd770bc044eb4/op-node/p2p/discovery.go#L172
+// ENREntryOpStack from https://github.com/ethereum-optimism/optimism/blob/85d932810bafc9084613b978d42cd770bc044eb4/op-node/p2p/discovery.go#L172
 type ENREntryOpStack struct {
 	ChainID uint64
 	Version uint64
@@ -62,8 +63,8 @@ func (e *ENREntryAttnets) DecodeRLP(s *rlp.Stream) error {
 		return fmt.Errorf("failed to get bytes for attnets ENR entry: %w", err)
 	}
 
-	e.AttnetsNum = binary.BigEndian.Uint64(b)
-	e.Attnest = hex.EncodeToString(b)
+	e.AttnetsNum = bits.OnesCount64(binary.BigEndian.Uint64(b))
+	e.Attnets = "0x" + hex.EncodeToString(b)
 
 	return nil
 }
@@ -75,7 +76,7 @@ func (e *ENREntrySyncCommsSubnet) DecodeRLP(s *rlp.Stream) error {
 	}
 
 	// check out https://github.com/prysmaticlabs/prysm/blob/203dc5f63b060821c2706f03a17d66b3813c860c/beacon-chain/p2p/subnets.go#L221
-	e.SyncNets = hex.EncodeToString(b)
+	e.SyncNets = "0x" + hex.EncodeToString(b)
 
 	return nil
 }
