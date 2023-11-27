@@ -27,6 +27,7 @@ const (
 	NetworkMocha    Network = "MOCHA"
 	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
 	NetworkEthCons  Network = "ETHEREUM_CONSENSUS"
+	NetworkHolesky  Network = "HOLESKY"
 )
 
 func Networks() []Network {
@@ -43,6 +44,7 @@ func Networks() []Network {
 		NetworkMocha,
 		NetworkBlockRa,
 		NetworkEthCons,
+		NetworkHolesky,
 	}
 }
 
@@ -257,6 +259,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthCons:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumConsensus...)
+		protocols = cli.NewStringSlice("discv5") // TODO
+	case NetworkHolesky:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
 		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}

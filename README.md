@@ -11,6 +11,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
+- [Ethereum](https://ethereum.org/en/) - [_Testnet Holesky_](https://github.com/eth-clients/holesky)
 - [Filecoin](https://filecoin.io)
 - [Polkadot](https://polkadot.network/)
 - [Kusama](https://kusama.network/)

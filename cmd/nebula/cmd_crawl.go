@@ -227,7 +227,8 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	switch cfg.Network {
-	case string(config.NetworkEthCons): // use a different driver etc. for the Ethereum consensus layer
+	case string(config.NetworkEthCons),
+		string(config.NetworkHolesky): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
 		// configure the crawl driver
 		driverCfg := &discv5.CrawlDriverConfig{
 			Version:           cfg.Root.Version(),
