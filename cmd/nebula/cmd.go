@@ -33,7 +33,7 @@ var rootConfig = &config.Root{
 	LogLevel:        4,
 	LogFormat:       "text",
 	LogDisableColor: false,
-	DialTimeout:     time.Minute,
+	DialTimeout:     10 * time.Second,
 	TelemetryHost:   "0.0.0.0",
 	TelemetryPort:   6666,
 	Database: &config.Database{
