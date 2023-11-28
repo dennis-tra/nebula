@@ -3,6 +3,7 @@
 # Nebula
 
 [![standard-readme compliant](https://img.shields.io/badge/readme%20style-standard-brightgreen.svg)](https://github.com/RichardLitt/standard-readme)
+[![go test](https://github.com/dennis-tra/nebula/actions/workflows/pull_request_main.yml/badge.svg)](https://github.com/dennis-tra/nebula/actions/workflows/pull_request_main.yml)
 [![readme nebula](https://img.shields.io/badge/readme-Nebula-blueviolet)](README.md)
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
