@@ -31,6 +31,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/discvx"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 

@@ -23,6 +23,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
+	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 type DialDriverConfig struct {

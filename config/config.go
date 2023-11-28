@@ -302,8 +302,10 @@ func (m *Monitor) String() string {
 type Resolve struct {
 	Root *Root
 
-	FilePathUdgerDB string
-	BatchSize       int
+	BatchSize              int
+	FilePathUdgerDB        string
+	FilePathMaxmindCountry string
+	FilePathMaxmindASN     string
 }
 
 var HealthStatus = atomic.NewBool(false)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
+	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.
