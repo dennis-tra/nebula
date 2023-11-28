@@ -11,7 +11,7 @@ import (
 )
 
 func TestClient_AddrCountry(t *testing.T) {
-	client, err := NewClient()
+	client, err := NewClient("", "")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -40,7 +40,7 @@ func TestClient_AddrCountry(t *testing.T) {
 }
 
 func TestClient_AddrASN(t *testing.T) {
-	client, err := NewClient()
+	client, err := NewClient("", "")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -69,7 +69,7 @@ func TestClient_AddrASN(t *testing.T) {
 }
 
 func TestClient_MaddrCountry(t *testing.T) {
-	client, err := NewClient()
+	client, err := NewClient("", "")
 	require.NoError(t, err)
 
 	tests := []struct {

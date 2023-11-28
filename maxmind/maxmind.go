@@ -5,19 +5,13 @@ import (
 	_ "embed"
 	"fmt"
 	"net"
+	"os"
 
-	"github.com/friendsofgo/errors"
 	ma "github.com/multiformats/go-multiaddr"
 	madns "github.com/multiformats/go-multiaddr-dns"
 	"github.com/oschwald/geoip2-golang"
 	log "github.com/sirupsen/logrus"
 )
-
-//go:embed GeoLite2-Country.mmdb
-var geoLite2Country []byte
-
-//go:embed GeoLite2-ASN.mmdb
-var geoLite2ASN []byte
 
 type Client struct {
 	countryReader *geoip2.Reader
@@ -25,17 +19,24 @@ type Client struct {
 }
 
 // NewClient initializes a new maxmind database client from the embedded database
-func NewClient() (*Client, error) {
-	countryReader, err := geoip2.FromBytes(geoLite2Country)
+func NewClient(asnDB string, countryDB string) (*Client, error) {
+	asnData, err := os.ReadFile(asnDB)
 	if err != nil {
-		return nil, errors.Wrap(err, "geoip from bytes")
+		return nil, fmt.Errorf("read asn file %s: %w", asnDB, err)
 	}
 
-	asnReader, err := geoip2.FromBytes(geoLite2ASN)
+	asnReader, err := geoip2.FromBytes(asnData)
 	if err != nil {
-		return nil, errors.Wrap(err, "geoip from bytes")
+		return nil, fmt.Errorf("asn geoip from bytes: %w", err)
 	}
 
+	countryData, err := os.ReadFile(countryDB)
+	if err != nil {
+		return nil, fmt.Errorf("read country file %s: %w", asnDB, err)
+	}
+
+	countryReader, err := geoip2.FromBytes(countryData)
+	return nil, fmt.Errorf("country geoip from bytes: %w", err)
 	return &Client{
 		countryReader: countryReader,
 		asnReader:     asnReader,

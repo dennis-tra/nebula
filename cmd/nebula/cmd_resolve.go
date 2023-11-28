@@ -21,9 +21,11 @@ import (
 )
 
 var resolveConfig = &config.Resolve{
-	Root:            rootConfig,
-	FilePathUdgerDB: "",
-	BatchSize:       1000,
+	Root:                   rootConfig,
+	BatchSize:              1000,
+	FilePathUdgerDB:        "",
+	FilePathMaxmindCountry: "",
+	FilePathMaxmindASN:     "",
 }
 
 // ResolveCommand contains the monitor sub-command configuration.
@@ -32,18 +34,30 @@ var ResolveCommand = &cli.Command{
 	Usage:  "Resolves all multi addresses to their IP addresses and geo location information",
 	Action: ResolveAction,
 	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:        "udger-db",
-			Usage:       "Location of the Udger database v3",
-			EnvVars:     []string{"NEBULA_RESOLVE_UDGER_DB"},
-			Destination: &resolveConfig.FilePathUdgerDB,
-		},
 		&cli.IntFlag{
 			Name:        "batch-size",
 			Usage:       "How many database entries should be fetched at each iteration",
 			EnvVars:     []string{"NEBULA_RESOLVE_BATCH_SIZE"},
 			Value:       resolveConfig.BatchSize,
 			Destination: &resolveConfig.BatchSize,
+		},
+		&cli.StringFlag{
+			Name:        "udger-db",
+			Usage:       "Location of the Udger database v3",
+			EnvVars:     []string{"NEBULA_RESOLVE_UDGER_DB"},
+			Destination: &resolveConfig.FilePathUdgerDB,
+		},
+		&cli.StringFlag{
+			Name:        "maxmind-asn",
+			Usage:       "Location of the Maxmind ASN database",
+			EnvVars:     []string{"NEBULA_RESOLVE_MAXMIND_ASN"},
+			Destination: &resolveConfig.FilePathMaxmindASN,
+		},
+		&cli.StringFlag{
+			Name:        "maxmind-country",
+			Usage:       "Location of the Maxmind Country database",
+			EnvVars:     []string{"NEBULA_RESOLVE_MAXMIND_COUNTRY"},
+			Destination: &resolveConfig.FilePathMaxmindCountry,
 		},
 	},
 }
@@ -63,7 +77,7 @@ func ResolveAction(c *cli.Context) error {
 	dbh := dbc.Handle()
 
 	// Initialize new maxmind client to interact with the country database.
-	mmc, err := maxmind.NewClient()
+	mmc, err := maxmind.NewClient(resolveConfig.FilePathMaxmindASN, resolveConfig.FilePathMaxmindCountry)
 	if err != nil {
 		return err
 	}
