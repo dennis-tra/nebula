@@ -8,14 +8,13 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/eth"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.
 type Dialer struct {
 	id          string
 	dialedPeers uint64
-	listener    *eth.UDPv5
+	listener    *discvx.UDPv5
 }
 
 var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)

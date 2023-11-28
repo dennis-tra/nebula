@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-// Package discover implements the Node Discovery Protocol.
+// package eth implements the Node Discovery Protocol.
 //
 // The Node Discovery protocol provides a way to find RLPx nodes that
 // can be connected to. It uses a Kademlia-like protocol to maintain a
 // distributed database of the IDs and endpoints of all listening
 // nodes.
-package eth
+package discvx
 
 import (
 	crand "crypto/rand"

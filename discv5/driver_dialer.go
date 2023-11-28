@@ -23,7 +23,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/eth"
 )
 
 type DialDriverConfig struct {
@@ -79,12 +78,12 @@ func (d *DialDriver) NewWorker() (core.Worker[PeerInfo, core.DialResult[PeerInfo
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discv5Cfg := eth.Config{
+	discv5Cfg := discvx.Config{
 		PrivateKey:   priv,
 		ValidSchemes: enode.ValidSchemes,
 	}
 
-	listener, err := eth.ListenV5(conn, ethNode, discv5Cfg)
+	listener, err := discvx.ListenV5(conn, ethNode, discv5Cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}

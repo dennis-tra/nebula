@@ -20,7 +20,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/eth"
 	"github.com/dennis-tra/nebula-crawler/metrics"
 )
 
@@ -34,7 +33,7 @@ type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
 	host         *basichost.BasicHost
-	listener     *eth.UDPv5
+	listener     *discvx.UDPv5
 	crawledPeers int
 	done         chan struct{}
 }
@@ -368,7 +367,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 
 		timeouts := 0
 		enr, err := c.listener.RequestENR(pi.Node)
-		if errors.Is(err, eth.ErrTimeout) {
+		if errors.Is(err, discvx.ErrTimeout) {
 			timeouts += 1
 		}
 
@@ -380,13 +379,13 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		// internally, so we won't gain much by spawning multiple parallel go
 		// routines here. Stop the process as soon as we have received a timeout and
 		// don't let the following calls time out as well.
-		for i := 0; i <= eth.NBuckets; i++ { // 15 is maximum
+		for i := 0; i <= discvx.NBuckets; i++ { // 15 is maximum
 			var neighbors []*enode.Node
-			neighbors, err = c.listener.FindNode(pi.Node, []uint{uint(eth.HashBits - i)})
+			neighbors, err = c.listener.FindNode(pi.Node, []uint{uint(discvx.HashBits - i)})
 			if err != nil {
 				errorBits.Add(1 << i)
 
-				if errors.Is(err, eth.ErrTimeout) {
+				if errors.Is(err, discvx.ErrTimeout) {
 					timeouts += 1
 					if timeouts < 2 {
 						continue

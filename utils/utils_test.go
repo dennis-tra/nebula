@@ -1,12 +1,13 @@
 package utils
 
 import (
-	nt "github.com/dennis-tra/nebula-crawler/nebtest"
 	"sort"
 	"testing"
 
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+
+	nt "github.com/dennis-tra/nebula-crawler/nebtest"
 )
 
 func TestMergeMaddrs(t *testing.T) {

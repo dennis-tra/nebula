@@ -37,7 +37,7 @@ func NewClient(ctx context.Context, cfg *config.Database) (Client, error) {
 		err error
 	)
 
-	// dry run has presedence. Then, if a JSON output directory is given, use
+	// dry run has precedence. Then, if a JSON output directory is given, use
 	// the JSON client. In any other case, use the Postgres database client.
 	if cfg.DryRun {
 		dbc = InitNoopClient()
