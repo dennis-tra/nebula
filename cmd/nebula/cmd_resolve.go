@@ -13,11 +13,11 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/maxmind"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
-	"github.com/dennis-tra/nebula-crawler/pkg/udger"
+	"github.com/dennis-tra/nebula-crawler/config"
+	"github.com/dennis-tra/nebula-crawler/db"
+	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/maxmind"
+	"github.com/dennis-tra/nebula-crawler/udger"
 )
 
 var resolveConfig = &config.Resolve{

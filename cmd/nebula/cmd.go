@@ -13,8 +13,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/metrics"
+	"github.com/dennis-tra/nebula-crawler/config"
+	"github.com/dennis-tra/nebula-crawler/metrics"
 )
 
 const (

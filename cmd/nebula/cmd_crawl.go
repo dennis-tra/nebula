@@ -17,12 +17,12 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/null/v8"
 
-	"github.com/dennis-tra/nebula-crawler/pkg/config"
-	"github.com/dennis-tra/nebula-crawler/pkg/core"
-	"github.com/dennis-tra/nebula-crawler/pkg/db"
-	"github.com/dennis-tra/nebula-crawler/pkg/discv5"
-	"github.com/dennis-tra/nebula-crawler/pkg/libp2p"
-	"github.com/dennis-tra/nebula-crawler/pkg/models"
+	"github.com/dennis-tra/nebula-crawler/config"
+	"github.com/dennis-tra/nebula-crawler/core"
+	"github.com/dennis-tra/nebula-crawler/db"
+	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/discv5"
+	"github.com/dennis-tra/nebula-crawler/libp2p"
 )
 
 var crawlConfig = &config.Crawl{
