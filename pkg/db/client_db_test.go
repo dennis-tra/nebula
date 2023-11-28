@@ -499,8 +499,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		null.JSONFrom(marshalProperties(t, "is_exposed", false)),
 	)
 	require.NoError(t, err)
-	visitStart = time.Now().Add(100 * time.Hour)
-	visitEnd = time.Now().Add(100 * time.Hour).Add(time.Second)
+	visitStart = time.Now().Add(22 * time.Hour)
+	visitEnd = time.Now().Add(22 * time.Hour).Add(time.Second)
 	ivr, err = client.PersistDialVisit(
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
@@ -510,8 +510,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		"",
 	)
 
-	visitStart = time.Now().Add(101 * time.Hour).Add(time.Second)
-	visitEnd = time.Now().Add(101 * time.Hour)
+	visitStart = time.Now().Add(23 * time.Hour).Add(time.Second)
+	visitEnd = time.Now().Add(23 * time.Hour)
 	ivr, err = client.PersistDialVisit(
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
