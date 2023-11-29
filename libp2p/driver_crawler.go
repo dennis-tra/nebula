@@ -11,6 +11,8 @@ import (
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	ma "github.com/multiformats/go-multiaddr"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
@@ -56,6 +58,8 @@ type CrawlDriverConfig struct {
 	BootstrapPeerStrs []string
 	AddrTrackType     config.AddrType
 	AddrDialType      config.AddrType
+	MeterProvider     metric.MeterProvider
+	TracerProvider    trace.TracerProvider
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -98,6 +102,7 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 		libp2p.NoListenAddrs,
 		libp2p.ResourceManager(rm),
 		libp2p.UserAgent("nebula/"+cfg.Version),
+		libp2p.DisableMetrics(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)

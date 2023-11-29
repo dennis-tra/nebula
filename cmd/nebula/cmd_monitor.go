@@ -49,6 +49,10 @@ var MonitorCommand = &cli.Command{
 			fmt.Println(monitorConfig.String())
 		}
 
+		// Set the maximum idle connections to avoid opening and
+		// closing connections to the database
+		rootConfig.Database.MaxIdleConns = monitorConfig.WriteWorkerCount
+
 		return nil
 	},
 	Flags: []cli.Flag{

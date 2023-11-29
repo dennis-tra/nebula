@@ -9,7 +9,8 @@ import (
 
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/urfave/cli/v2"
-	"go.uber.org/atomic"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Network string
@@ -77,13 +78,25 @@ type Root struct {
 	DialTimeout time.Duration
 
 	// Determines where the prometheus and pprof hosts should bind to.
-	TelemetryHost string
+	MetricsHost string
 
 	// Determines the port where prometheus and pprof serve the metrics endpoint.
-	TelemetryPort int
+	MetricsPort int
+
+	// Host of the trace collector like Jaeger
+	TracesHost string
+
+	// Port of the trace collector
+	TracesPort int
 
 	// Contains all configuration parameters for interacting with the database
 	Database *Database
+
+	// MeterProvider is the meter provider to use when initialising metric instruments.
+	MeterProvider metric.MeterProvider
+
+	// TracerProvider is the tracer provider to use when initialising tracing
+	TracerProvider trace.TracerProvider
 }
 
 // Version returns the actual version string which includes VCS information
@@ -153,6 +166,15 @@ type Database struct {
 
 	// The cache size to hold sets of protocols in memory to skip database queries.
 	ProtocolsSetCacheSize int
+
+	// Set the maximum idle connections for the database handler.
+	MaxIdleConns int
+
+	// MeterProvider is the meter provider to use when initialising metric instruments.
+	MeterProvider metric.MeterProvider
+
+	// TracerProvider is the tracer provider to use when initialising tracing
+	TracerProvider trace.TracerProvider
 }
 
 // DatabaseSourceName returns the data source name string to be put into the sql.Open method.
@@ -307,5 +329,3 @@ type Resolve struct {
 	FilePathMaxmindCountry string
 	FilePathMaxmindASN     string
 }
-
-var HealthStatus = atomic.NewBool(false)

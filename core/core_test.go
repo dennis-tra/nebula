@@ -79,12 +79,12 @@ type testHandler struct {
 
 var _ Handler[*testPeerInfo, CrawlResult[*testPeerInfo]] = (*testHandler)(nil)
 
-func (h *testHandler) HandlePeerResult(r Result[CrawlResult[*testPeerInfo]]) []*testPeerInfo {
+func (h *testHandler) HandlePeerResult(ctx context.Context, r Result[CrawlResult[*testPeerInfo]]) []*testPeerInfo {
 	args := h.Called()
 	return args.Get(0).([]*testPeerInfo)
 }
 
-func (h *testHandler) HandleWriteResult(r Result[WriteResult]) {
+func (h *testHandler) HandleWriteResult(ctx context.Context, r Result[WriteResult]) {
 	h.Called()
 }
 

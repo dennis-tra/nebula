@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"time"
@@ -92,6 +93,10 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	return logEntry
 }
 
+func (r CrawlResult[I]) IsSuccess() bool {
+	return r.ConnectError == nil && r.CrawlError == nil
+}
+
 // CrawlDuration returns the time it took to crawl to the peer (connecting + fetching neighbors)
 func (r CrawlResult[I]) CrawlDuration() time.Duration {
 	return r.CrawlEndTime.Sub(r.CrawlStartTime)
@@ -155,7 +160,7 @@ func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 	}
 }
 
-func (h *CrawlHandler[I]) HandlePeerResult(result Result[CrawlResult[I]]) []I {
+func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[CrawlResult[I]]) []I {
 	cr := result.Value
 
 	// count the number of peers that we have crawled
@@ -195,7 +200,7 @@ func (h *CrawlHandler[I]) HandlePeerResult(result Result[CrawlResult[I]]) []I {
 	return nil
 }
 
-func (h *CrawlHandler[I]) HandleWriteResult(result Result[WriteResult]) {
+func (h *CrawlHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {
 	wr := result.Value
 
 	if wr.InsertVisitResult != nil && wr.InsertVisitResult.PeerID != nil {

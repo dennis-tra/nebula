@@ -14,6 +14,8 @@ import (
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	mnoop "go.opentelemetry.io/otel/metric/noop"
+	tnoop "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db/models"
@@ -63,6 +65,8 @@ func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 		AgentVersionsCacheSize: 100,
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  100,
+		MeterProvider:          mnoop.NewMeterProvider(),
+		TracerProvider:         tnoop.NewTracerProvider(),
 	}
 
 	client, err := InitDBClient(ctx, &c)
@@ -341,14 +345,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 	require.NoError(t, err)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 
@@ -367,14 +364,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		models.NetErrorConnectionRefused,
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorConnectionRefused)
 	require.NoError(t, err)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 
@@ -417,14 +407,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		models.NetErrorNegotiateSecurityProtocol,
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorNegotiateSecurityProtocol)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
@@ -501,25 +484,11 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	require.NoError(t, err)
 	visitStart = time.Now().Add(22 * time.Hour)
 	visitEnd = time.Now().Add(22 * time.Hour).Add(time.Second)
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 
 	visitStart = time.Now().Add(23 * time.Hour).Add(time.Second)
 	visitEnd = time.Now().Add(23 * time.Hour)
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		models.NetErrorIoTimeout,
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorIoTimeout)
 	require.NoError(t, err)
 	dbPeer := fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 
@@ -537,14 +506,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-	)
+	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 	require.NoError(t, err)
 	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
 

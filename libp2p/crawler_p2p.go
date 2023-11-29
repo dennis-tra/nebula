@@ -15,7 +15,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/metrics"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -121,22 +120,13 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 // connect establishes a connection to the given peer. It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
-	metrics.VisitCount.With(metrics.CrawlLabel).Inc()
-
 	if len(pi.Addrs) == 0 {
-		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
 	defer cancel()
-
-	if err := c.host.Connect(ctx, pi); err != nil {
-		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
-		return err
-	}
-
-	return nil
+	return c.host.Connect(ctx, pi)
 }
 
 // fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
@@ -200,12 +190,11 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 					}
 
 					ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-					defer cancel()
-
 					if err := c.host.Connect(ctx, pi); err != nil {
-						metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
+						cancel()
 						return err
 					}
+					cancel()
 
 					continue
 				}
@@ -224,7 +213,6 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 		})
 	}
 	err = errg.Wait()
-	metrics.FetchedNeighborsCount.Observe(float64(len(allNeighbors)))
 
 	routingTable := &core.RoutingTable[PeerInfo]{
 		PeerID:    pi.ID,

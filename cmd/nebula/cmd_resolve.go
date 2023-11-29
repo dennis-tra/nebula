@@ -17,6 +17,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/maxmind"
+	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/udger"
 )
 
@@ -92,7 +93,7 @@ func ResolveAction(c *cli.Context) error {
 
 	limit := c.Int("batch-size")
 
-	config.HealthStatus.Store(true)
+	tele.HealthStatus.Store(true)
 
 	// Start the main loop
 	for {

@@ -5,6 +5,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/dennis-tra/nebula-crawler/config"
+	"github.com/dennis-tra/nebula-crawler/tele"
 )
 
 // NetworksCommand contains the networks sub-command configuration.
@@ -25,7 +26,7 @@ var NetworksCommand = &cli.Command{
 		},
 	},
 	Before: func(ctx *cli.Context) error {
-		config.HealthStatus.Store(true)
+		tele.HealthStatus.Store(true)
 		return nil
 	},
 	Action: func(c *cli.Context) error {

@@ -54,6 +54,10 @@ func (r DialResult[I]) LogEntry() *log.Entry {
 	return logEntry
 }
 
+func (r DialResult[I]) IsSuccess() bool {
+	return r.Error == nil
+}
+
 // DialDuration returns the time it took to dial the peer
 func (r DialResult[I]) DialDuration() time.Duration {
 	return r.DialEndTime.Sub(r.DialStartTime)
@@ -85,6 +89,7 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 
 	start := time.Now()
 	ivr, err := w.dbc.PersistDialVisit(
+		ctx,
 		task.Info.ID(),
 		task.Info.Addrs(),
 		task.DialDuration(),

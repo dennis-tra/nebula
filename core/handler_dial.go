@@ -1,5 +1,7 @@
 package core
 
+import "context"
+
 type DialHandlerConfig struct{}
 
 type DialHandler[I PeerInfo[I]] struct {
@@ -12,8 +14,8 @@ func NewDialHandler[I PeerInfo[I]](cfg *DialHandlerConfig) *DialHandler[I] {
 	}
 }
 
-func (h *DialHandler[I]) HandlePeerResult(result Result[DialResult[I]]) []I {
+func (h *DialHandler[I]) HandlePeerResult(ctx context.Context, result Result[DialResult[I]]) []I {
 	return nil
 }
 
-func (h *DialHandler[I]) HandleWriteResult(result Result[WriteResult]) {}
+func (h *DialHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {}

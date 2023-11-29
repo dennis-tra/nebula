@@ -21,7 +21,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/discvx"
-	"github.com/dennis-tra/nebula-crawler/metrics"
 )
 
 type CrawlerConfig struct {
@@ -201,10 +200,7 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 // connect establishes a connection to the given peer. It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
-	metrics.VisitCount.With(metrics.CrawlLabel).Inc()
-
 	if len(pi.Addrs) == 0 {
-		metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	} else if len(pi.Addrs) == 1 {
 	}
@@ -235,13 +231,11 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		}
 
 		if retry == maxRetries {
-			metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 			return err
 		}
 
 		select {
 		case <-ctx.Done():
-			metrics.VisitErrorsCount.With(metrics.CrawlLabel).Inc()
 			return ctx.Err()
 		case <-time.After(time.Second * time.Duration(3*(retry+1))): // TODO: parameterize
 			retry += 1
@@ -412,7 +406,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			}
 		}
 		result.DoneAt = time.Now()
-		metrics.FetchedNeighborsCount.Observe(float64(len(allNeighbors)))
 
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),

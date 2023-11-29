@@ -18,7 +18,6 @@ import (
 	"time"
 	"unsafe"
 
-	"contrib.go.opencensus.io/integrations/ocsql"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
@@ -26,17 +25,19 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/metrics"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -66,6 +67,9 @@ type DBClient struct {
 
 	// protocols set cache
 	protocolsSets *lru.Cache
+
+	// reference to all relevant db telemetry
+	telemetry *telemetry
 }
 
 var _ Client = (*DBClient)(nil)
@@ -81,23 +85,31 @@ func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) 
 		"ssl":  cfg.DatabaseSSLMode,
 	}).Infoln("Initializing database client")
 
-	driverName, err := ocsql.Register("postgres")
-	if err != nil {
-		return nil, fmt.Errorf("register ocsql: %w", err)
-	}
-
-	// Open database handle
-	dbh, err := sql.Open(driverName, cfg.DatabaseSourceName())
+	dbh, err := otelsql.Open("postgres", cfg.DatabaseSourceName(),
+		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
+		otelsql.WithMeterProvider(cfg.MeterProvider),
+		otelsql.WithTracerProvider(cfg.TracerProvider),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
+
+	// Set to match the writer worker
+	dbh.SetMaxIdleConns(cfg.MaxIdleConns) // default is 2 which leads to many connection open/closings
+
+	otelsql.ReportDBStatsMetrics(dbh, otelsql.WithMeterProvider(cfg.MeterProvider))
 
 	// Ping database to verify connection.
 	if err = dbh.Ping(); err != nil {
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
-	client := &DBClient{ctx: ctx, cfg: cfg, dbh: dbh}
+	telemetry, err := newTelemetry(cfg.TracerProvider, cfg.MeterProvider)
+	if err != nil {
+		return nil, fmt.Errorf("new telemetry: %w", err)
+	}
+
+	client := &DBClient{ctx: ctx, cfg: cfg, dbh: dbh, telemetry: telemetry}
 	client.applyMigrations(cfg, dbh)
 
 	client.agentVersions, err = lru.New(cfg.AgentVersionsCacheSize)
@@ -307,6 +319,7 @@ func (c *DBClient) PersistCrawlVisit(
 	wg.Wait()
 
 	return c.insertVisit(
+		ctx,
 		&crawlID,
 		peerID,
 		maddrs,
@@ -330,10 +343,16 @@ func (c *DBClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExe
 	}
 
 	if id, found := c.protocols.Get(protocol); found {
-		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol", "outcome": "hit"}).Inc()
+		c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("entity", "protocol"),
+			attribute.Bool("hit", true),
+		))
 		return id.(*int), nil
 	}
-	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol", "outcome": "miss"}).Inc()
+	c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("entity", "protocol"),
+		attribute.Bool("hit", false),
+	))
 
 	log.WithField("protocol", protocol).Infoln("Upsert protocol")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol($1)", protocol)
@@ -427,10 +446,16 @@ func (c *DBClient) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Cont
 
 	key := c.protocolsSetHash(protocolIDs)
 	if id, found := c.protocolsSets.Get(key); found {
-		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol_set", "outcome": "hit"}).Inc()
+		c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("entity", "protocol_set"),
+			attribute.Bool("hit", true),
+		))
 		return id.(*int), nil
 	}
-	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "protocol_set", "outcome": "miss"}).Inc()
+	c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("entity", "protocol_set"),
+		attribute.Bool("hit", false),
+	))
 
 	log.WithField("key", hex.EncodeToString([]byte(key))).Infoln("Upsert protocols set")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_protocol_set_id($1)", types.Int64Array(protocolIDs))
@@ -458,10 +483,16 @@ func (c *DBClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Cont
 	}
 
 	if id, found := c.agentVersions.Get(agentVersion); found {
-		metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "agent_version", "outcome": "hit"}).Inc()
+		c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("entity", "agent_version"),
+			attribute.Bool("hit", true),
+		))
 		return id.(*int), nil
 	}
-	metrics.CacheQueriesCount.With(prometheus.Labels{"entity": "agent_version", "outcome": "miss"}).Inc()
+	c.telemetry.cacheQueriesCount.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("entity", "agent_version"),
+		attribute.Bool("hit", false),
+	))
 
 	log.WithField("agentVersion", agentVersion).Infoln("Upsert agent version")
 	row := exec.QueryRowContext(ctx, "SELECT upsert_agent_version($1)", agentVersion)
@@ -529,6 +560,7 @@ func (c *DBClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID 
 }
 
 func (c *DBClient) PersistDialVisit(
+	ctx context.Context,
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
 	dialDuration time.Duration,
@@ -537,6 +569,7 @@ func (c *DBClient) PersistDialVisit(
 	errorStr string,
 ) (*InsertVisitResult, error) {
 	return c.insertVisit(
+		ctx,
 		nil,
 		peerID,
 		maddrs,
@@ -555,6 +588,7 @@ func (c *DBClient) PersistDialVisit(
 }
 
 func (c *DBClient) insertVisit(
+	ctx context.Context,
 	crawlID *int,
 	peerID peer.ID,
 	maddrs []ma.Multiaddr,
@@ -588,11 +622,11 @@ func (c *DBClient) insertVisit(
 		null.NewString(connectErrorStr, connectErrorStr != ""),
 		null.NewString(crawlErrorStr, crawlErrorStr != ""),
 		properties,
-	).Query(c.dbh)
-	metrics.InsertVisitHistogram.With(prometheus.Labels{
-		"type":    visitType,
-		"success": strconv.FormatBool(err == nil),
-	}).Observe(time.Since(start).Seconds())
+	).QueryContext(ctx, c.dbh)
+	c.telemetry.insertVisitHistogram.Record(ctx, time.Since(start).Milliseconds(), metric.WithAttributes(
+		attribute.String("type", visitType),
+		attribute.Bool("success", err == nil),
+	))
 	if err != nil {
 		return nil, err
 	}

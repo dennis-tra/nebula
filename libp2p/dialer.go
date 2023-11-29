@@ -7,13 +7,11 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/metrics"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.
@@ -57,7 +55,7 @@ retryLoop:
 		d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 		// Actually dial the peer
-		if err := d.dial(ctx, pi.ID); err != nil {
+		if _, err := d.host.Network().DialPeer(ctx, pi.ID); err != nil {
 			dr.Error = err
 			dr.DialError = db.NetError(dr.Error)
 
@@ -116,15 +114,4 @@ retryLoop:
 	d.dialedPeers += 1
 
 	return dr, nil
-}
-
-func (d *Dialer) dial(ctx context.Context, peerID peer.ID) error {
-	metrics.VisitCount.With(metrics.DialLabel).Inc()
-
-	if _, err := d.host.Network().DialPeer(ctx, peerID); err != nil {
-		metrics.VisitErrorsCount.With(metrics.DialLabel).Inc()
-		return err
-	}
-
-	return nil
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/metrics"
+	"github.com/dennis-tra/nebula-crawler/tele"
 )
 
 const (
@@ -34,8 +34,10 @@ var rootConfig = &config.Root{
 	LogFormat:       "text",
 	LogDisableColor: false,
 	DialTimeout:     10 * time.Second,
-	TelemetryHost:   "0.0.0.0",
-	TelemetryPort:   6666,
+	MetricsHost:     "0.0.0.0",
+	MetricsPort:     6666,
+	TracesHost:      "", // disabled
+	TracesPort:      0,  // disabled
 	Database: &config.Database{
 		DryRun:                 false,
 		JSONOut:                "",
@@ -105,19 +107,35 @@ func main() {
 				Destination: &rootConfig.DialTimeout,
 			},
 			&cli.StringFlag{
-				Name:        "telemetry-host",
-				Usage:       "To which network address should the telemetry (prometheus, pprof) server bind",
-				EnvVars:     []string{"NEBULA_TELEMETRY_HOST"},
-				Value:       rootConfig.TelemetryHost,
-				Destination: &rootConfig.TelemetryHost,
+				Name:        "metrics-host",
+				Usage:       "To which network address should the metrics (prometheus, pprof) server bind",
+				EnvVars:     []string{"NEBULA_METRICS_HOST"},
+				Value:       rootConfig.MetricsHost,
+				Destination: &rootConfig.MetricsHost,
 				Category:    flagCategoryDebugging,
 			},
 			&cli.IntFlag{
-				Name:        "telemetry-port",
-				Usage:       "On which port should the telemetry (prometheus, pprof) server listen",
-				EnvVars:     []string{"NEBULA_TELEMETRY_PORT"},
-				Value:       rootConfig.TelemetryPort,
-				Destination: &rootConfig.TelemetryPort,
+				Name:        "metrics-port",
+				Usage:       "On which port should the metrics (prometheus, pprof) server listen",
+				EnvVars:     []string{"NEBULA_METRICS_PORT"},
+				Value:       rootConfig.MetricsPort,
+				Destination: &rootConfig.MetricsPort,
+				Category:    flagCategoryDebugging,
+			},
+			&cli.StringFlag{
+				Name:        "traces-host",
+				Usage:       "To which host should traces be sent",
+				EnvVars:     []string{"NEBULA_TRACES_HOST"},
+				Value:       rootConfig.TracesHost,
+				Destination: &rootConfig.TracesHost,
+				Category:    flagCategoryDebugging,
+			},
+			&cli.IntFlag{
+				Name:        "traces-port",
+				Usage:       "On which port does the trace collector listen",
+				EnvVars:     []string{"NEBULA_TRACES_PORT"},
+				Value:       rootConfig.TracesPort,
+				Destination: &rootConfig.TracesPort,
 				Category:    flagCategoryDebugging,
 			},
 			&cli.BoolFlag{
@@ -262,9 +280,23 @@ func Before(c *cli.Context) error {
 		return fmt.Errorf("unknown log format: %q", c.String("log-format"))
 	}
 
+	meterProvider, err := tele.NewMeterProvider()
+	if err != nil {
+		return fmt.Errorf("new meter provider: %w", err)
+	}
+	rootConfig.MeterProvider = meterProvider
+	rootConfig.Database.MeterProvider = meterProvider
+
+	tracerProvider, err := tele.NewTracerProvider(c.Context, rootConfig.TracesHost, rootConfig.TracesPort)
+	if err != nil {
+		return fmt.Errorf("new tracer provider: %w", err)
+	}
+	rootConfig.TracerProvider = tracerProvider
+	rootConfig.Database.TracerProvider = tracerProvider
+
 	// Start prometheus metrics endpoint (but only if it's not the health command)
 	if c.Args().Get(0) != HealthCommand.Name {
-		go metrics.ListenAndServe(rootConfig.TelemetryHost, rootConfig.TelemetryPort)
+		go tele.ListenAndServe(rootConfig.MetricsHost, rootConfig.MetricsPort)
 	}
 
 	return nil

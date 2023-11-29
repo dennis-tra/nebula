@@ -26,6 +26,8 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
@@ -116,6 +118,8 @@ type CrawlDriverConfig struct {
 	AddrDialType      config.AddrType
 	AddrTrackType     config.AddrType
 	KeepENR           bool
+	MeterProvider     metric.MeterProvider
+	TracerProvider    trace.TracerProvider
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -173,6 +177,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
+		libp2p.DisableMetrics(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)

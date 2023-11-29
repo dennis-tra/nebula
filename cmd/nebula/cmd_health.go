@@ -18,7 +18,7 @@ var HealthCommand = &cli.Command{
 
 // HealthAction is the function that is called when running `nebula resolve`.
 func HealthAction(c *cli.Context) error {
-	endpoint := fmt.Sprintf("http://%s:%d/health", rootConfig.TelemetryHost, rootConfig.TelemetryPort)
+	endpoint := fmt.Sprintf("http://%s:%d/health", rootConfig.MetricsHost, rootConfig.MetricsPort)
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		return err

@@ -93,6 +93,10 @@ var CrawlCommand = &cli.Command{
 			return fmt.Errorf("unknown type of addresses to dial: %s (supported values are private, public, any)", crawlConfig.AddrDialTypeStr)
 		}
 
+		// Set the maximum idle connections to avoid opening and
+		// closing connections to the database
+		rootConfig.Database.MaxIdleConns = crawlConfig.WriteWorkerCount
+
 		return nil
 	},
 	Flags: []cli.Flag{
@@ -224,6 +228,8 @@ func CrawlAction(c *cli.Context) error {
 		Limit:               cfg.CrawlLimit,
 		AddrDialType:        cfg.AddrDialType(),
 		DuplicateProcessing: false,
+		TracerProvider:      cfg.Root.TracerProvider,
+		MeterProvider:       cfg.Root.MeterProvider,
 	}
 
 	switch cfg.Network {
@@ -238,6 +244,8 @@ func CrawlAction(c *cli.Context) error {
 			AddrDialType:      cfg.AddrDialType(),
 			AddrTrackType:     cfg.AddrTrackType(),
 			KeepENR:           crawlConfig.KeepENR,
+			TracerProvider:    cfg.Root.TracerProvider,
+			MeterProvider:     cfg.Root.MeterProvider,
 		}
 
 		// init the crawl driver
@@ -277,6 +285,8 @@ func CrawlAction(c *cli.Context) error {
 			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
 			AddrDialType:      cfg.AddrDialType(),
 			AddrTrackType:     cfg.AddrTrackType(),
+			TracerProvider:    cfg.Root.TracerProvider,
+			MeterProvider:     cfg.Root.MeterProvider,
 		}
 
 		// init the crawl driver

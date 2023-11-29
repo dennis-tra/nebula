@@ -69,11 +69,11 @@ type Handler[I PeerInfo[I], R WorkResult[I]] interface {
 	// HandlePeerResult is called when the worker that has processed a peer
 	// has emitted a new processing result. This can be a [CrawlResult] or
 	// [DialResult] at the moment.
-	HandlePeerResult(Result[R]) []I
+	HandlePeerResult(context.Context, Result[R]) []I
 
 	// HandleWriteResult is called when the writer has written a [CrawlResult]
 	// or [DialResult] to disk.
-	HandleWriteResult(Result[WriteResult])
+	HandleWriteResult(context.Context, Result[WriteResult])
 }
 
 // RoutingTable captures the routing table information and crawl error of a particular peer
@@ -101,6 +101,9 @@ type WorkResult[I PeerInfo[I]] interface {
 
 	// LogEntry returns logging information that can be used by the engine
 	LogEntry() *log.Entry
+
+	// IsSuccess indicates whether this WorkResult is considered a success
+	IsSuccess() bool
 }
 
 // Result is a generic result object. It captures a generic value or any

@@ -6,9 +6,14 @@ import (
 
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+	mnoop "go.opentelemetry.io/otel/metric/noop"
+	"go.opentelemetry.io/otel/trace"
+	tnoop "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/metrics"
+	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -34,6 +39,12 @@ type EngineConfig struct {
 	// which type addresses should be dialed. Relevant for parking
 	// peers during a crawl
 	AddrDialType config.AddrType
+
+	// MeterProvider is the meter provider to use when initialising metric instruments.
+	MeterProvider metric.MeterProvider
+
+	// TracerProvider is the tracer provider to use when initialising tracing
+	TracerProvider trace.TracerProvider
 }
 
 // DefaultEngineConfig returns a default engine configuration that can and
@@ -45,6 +56,8 @@ func DefaultEngineConfig() *EngineConfig {
 		Limit:               0,
 		DuplicateProcessing: false,
 		AddrDialType:        config.AddrTypeAny,
+		MeterProvider:       mnoop.NewMeterProvider(),
+		TracerProvider:      tnoop.NewTracerProvider(),
 	}
 }
 
@@ -118,6 +131,9 @@ type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 
 	// a filter function that removes multi addresses from the given slice
 	maddrFilter func([]ma.Multiaddr) []ma.Multiaddr
+
+	// a reference to the engine's telemetry meters and tracer
+	telemetry *telemetry[I, R]
 }
 
 // NewEngine initializes a new engine. See the [Engine] documentation for
@@ -158,19 +174,25 @@ func NewEngine[I PeerInfo[I], R WorkResult[I]](driver Driver[I, R], handler Hand
 		maddrFilter = utils.FilterPrivateMaddrs
 	}
 
+	telemetry, err := newTelemetry[I, R](cfg.TracerProvider, cfg.MeterProvider)
+	if err != nil {
+		return nil, fmt.Errorf("new telemetry: %w", err)
+	}
+
 	// initialize empty maps for the different queues etc.
 	return &Engine[I, R]{
 		cfg:         cfg,
 		driver:      driver,
-		tasksChan:   driver.Tasks(),
 		handler:     handler,
 		workerPool:  NewPool[I, R](workers...),
 		writerPool:  NewPool[R, WriteResult](writers...),
 		maddrFilter: maddrFilter,
 		peerQueue:   NewPriorityQueue[I](),
 		writeQueue:  NewPriorityQueue[R](),
+		tasksChan:   driver.Tasks(),
 		inflight:    make(map[string]struct{}),
 		processed:   make(map[string]struct{}),
+		telemetry:   telemetry,
 	}, nil
 }
 
@@ -189,8 +211,8 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Set health status
-	config.HealthStatus.Store(true)
+	// Set health status to true as we've started the engine
+	tele.HealthStatus.Store(true)
 
 	// initialize the task queues that the workers and writers will read from
 	peerTasks := make(chan I)
@@ -204,6 +226,9 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 
 	// start the core loop
 	for {
+		// track the number of tasks the engine is handling
+		e.telemetry.taskCount.Add(ctx, 1)
+
 		// get a random peer to process and a random processing result that we
 		// should store in the database
 		peerTask, peerOk := e.peerQueue.Peek()
@@ -248,6 +273,12 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 				break
 			}
 			e.peerQueue.Push(string(task.ID()), task, 1)
+		case observeFn, more := <-e.telemetry.obsChan:
+			// an opentelemetry gauge wants to perform an observation
+			if !more {
+				break
+			}
+			observeFn(e)
 		case innerPeerTasks <- peerTask:
 			// a worker was ready to accept a new task -> perform internal bookkeeping.
 			e.peerQueue.Drop(string(peerTask.ID()))
@@ -269,7 +300,7 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			}
 
 			// a worker finished a task by processing a peer. Handle it.
-			e.handlePeerResult(result)
+			e.handlePeerResult(ctx, result)
 		case result, more := <-writerResults:
 			if !more {
 				// the writerResults queue was closed. This means all write workers
@@ -284,7 +315,7 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			}
 
 			// a write worker finished writing data to disk. Handle this event.
-			e.handleWriteResult(result)
+			e.handleWriteResult(ctx, result)
 		case <-ctx.Done():
 			// the engine was asked to stop. Clean up resources.
 			log.Infoln("Closing driver...")
@@ -306,6 +337,9 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 				// drop result
 			}
 
+			// stop the telemetry collection
+			e.telemetry.Stop()
+
 			return e.peerQueue.All(), ctx.Err()
 		}
 
@@ -326,10 +360,13 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 // handlePeerResult performs internal bookkeeping after a worker from the pool
 // has published a worker result. Here, we update several internal bookkeeping
 // maps and prometheus metrics as well as scheduling new peers to process.
-func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
+func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 	wr := result.Value
 	logEntry := wr.LogEntry()
 	logEntry.Debugln("Handling worker result")
+
+	// count the number of visits being made
+	e.telemetry.visitCount.Add(ctx, 1, metric.WithAttributes(attribute.Bool("success", result.Value.IsSuccess())))
 
 	// The operation for this peer is not inflight anymore -> delete it.
 	delete(e.inflight, string(wr.PeerInfo().ID()))
@@ -339,7 +376,6 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 	if !e.cfg.DuplicateProcessing {
 		e.processed[string(wr.PeerInfo().ID())] = struct{}{}
 		logEntry = logEntry.WithField("processed", len(e.processed))
-		metrics.DistinctVisitedPeersCount.Inc()
 	}
 
 	// Publish the processing result to the writer queue so that the data is
@@ -347,7 +383,7 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 	e.writeQueue.Push(string(wr.PeerInfo().ID()), wr, 0)
 
 	// let the handler work on the new peer result
-	newTasks := e.handler.HandlePeerResult(result)
+	newTasks := e.handler.HandlePeerResult(ctx, result)
 
 	// process the new tasks that came out of handling the peer result
 	for _, task := range newTasks {
@@ -389,22 +425,20 @@ func (e *Engine[I, R]) handlePeerResult(result Result[R]) {
 		}
 	}
 
-	// Track new peer in queue with prometheus
-	metrics.VisitQueueLength.With(metrics.CrawlLabel).Set(float64(e.peerQueue.Len()))
-
 	logEntry.WithFields(map[string]interface{}{
 		"queued":   e.peerQueue.Len(),
 		"inflight": len(e.inflight),
 	}).Infoln("Handled worker result")
 }
 
-func (e *Engine[I, R]) handleWriteResult(result Result[WriteResult]) {
-	e.handler.HandleWriteResult(result)
-	e.writeCount += 1
+func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[WriteResult]) {
+	e.handler.HandleWriteResult(ctx, result)
 
-	if result.Value.Duration == 0 {
+	if result.Value.Duration == 0 { // indicates that no write was performed (dry-run)
 		return
 	}
+
+	e.writeCount += 1
 
 	log.WithFields(log.Fields{
 		"writerID": result.Value.WriterID,
@@ -419,14 +453,4 @@ func (e *Engine[I, R]) handleWriteResult(result Result[WriteResult]) {
 // (aka != 0) and the processed peers exceed this limit.
 func (e *Engine[I, R]) reachedProcessingLimit() bool {
 	return e.cfg.Limit > 0 && len(e.processed) >= e.cfg.Limit
-}
-
-// peekItem is a helper function that returns an arbitrary element from a map.
-// It returns true if the map still contained at least one element or false if
-// the map is empty.
-func peekItem[K comparable, V any](queue map[K]V) (V, bool) {
-	for _, item := range queue {
-		return item, true
-	}
-	return *new(V), false
 }
