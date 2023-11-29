@@ -28,22 +28,12 @@ jobs:
           --health-retries 5
     steps:
       - name: Checking out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setting up Golang
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: ~1.19
-
-      - name: Caching Golang modules
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-golang-${{ hashFiles('go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-golang-
+          go-version: '1.21.4'
 
       - name: Running tests
         run: make test
