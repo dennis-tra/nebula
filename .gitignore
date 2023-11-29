@@ -255,3 +255,4 @@ $RECYCLE.BIN/
 out
 .tool-versions
 **/*.dat
+**/*.mmdb
