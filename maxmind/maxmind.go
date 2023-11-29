@@ -36,7 +36,10 @@ func NewClient(asnDB string, countryDB string) (*Client, error) {
 	}
 
 	countryReader, err := geoip2.FromBytes(countryData)
-	return nil, fmt.Errorf("country geoip from bytes: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("country geoip from bytes: %w", err)
+	}
+
 	return &Client{
 		countryReader: countryReader,
 		asnReader:     asnReader,
