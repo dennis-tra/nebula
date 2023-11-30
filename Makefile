@@ -44,9 +44,9 @@ models:
 	sqlboiler --no-tests psql
 
 migrate-up:
-	migrate -database 'postgres://nebula_test:password@localhost:5432/nebula_test?sslmode=disable' -path pkg/db/migrations up
+	migrate -database 'postgres://nebula_test:password@localhost:5432/nebula_test?sslmode=disable' -path db/migrations up
 
 migrate-down:
-	migrate -database 'postgres://nebula_test:password@localhost:5432/nebula_test?sslmode=disable' -path pkg/db/migrations down
+	migrate -database 'postgres://nebula_test:password@localhost:5432/nebula_test?sslmode=disable' -path db/migrations down
 
 .PHONY: all clean test format tools models migrate-up migrate-down
