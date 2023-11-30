@@ -443,7 +443,7 @@ func storeNeighbors[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, dbCr
 		}
 	}
 	log.WithFields(log.Fields{
-		"duration":       time.Since(start),
+		"duration":       time.Since(start).String(),
 		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(handler.RoutingTables))*1000),
 		"peers":          len(handler.RoutingTables),
 		"totalNeighbors": neighborsCount,

@@ -256,3 +256,5 @@ out
 .tool-versions
 **/*.dat
 **/*.mmdb
+*.logs
+*.log
