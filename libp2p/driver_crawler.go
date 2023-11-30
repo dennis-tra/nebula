@@ -2,10 +2,13 @@ package libp2p
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 
 	"github.com/libp2p/go-libp2p"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
+	"github.com/libp2p/go-libp2p/core/connmgr"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
@@ -81,7 +84,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
-	host         *basichost.BasicHost
+	hosts        []host.Host
 	dbc          db.Client
 	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
@@ -92,22 +95,13 @@ type CrawlDriver struct {
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
-	// Configure the resource manager to not limit anything
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
-	// Initialize a single libp2p node that's shared between all crawlers.
-	h, err := libp2p.New(
-		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
-		libp2p.UserAgent("nebula/"+cfg.Version),
-		libp2p.DisableMetrics(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("new libp2p host: %w", err)
+	hosts := make([]host.Host, 0, runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		h, err := newLibp2pHost(cfg.Version)
+		if err != nil {
+			return nil, fmt.Errorf("new libp2p host: %w", err)
+		}
+		hosts = append(hosts, h)
 	}
 
 	peerAddrs := map[peer.ID][]ma.Multiaddr{}
@@ -146,7 +140,7 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 
 	return &CrawlDriver{
 		cfg:          cfg,
-		host:         h.(*basichost.BasicHost),
+		hosts:        hosts,
 		dbc:          dbc,
 		dbCrawl:      dbCrawl,
 		tasksChan:    tasksChan,
@@ -156,8 +150,10 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 }
 
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
+	h := d.hosts[d.crawlerCount%len(d.hosts)]
+
 	ms := &msgSender{
-		h:         d.host,
+		h:         h,
 		protocols: protocol.ConvertFromStrings(d.cfg.Protocols),
 		timeout:   d.cfg.DialTimeout,
 	}
@@ -169,7 +165,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 
 	c := &Crawler{
 		id:     fmt.Sprintf("crawler-%02d", d.crawlerCount),
-		host:   d.host,
+		host:   h.(*basichost.BasicHost),
 		pm:     pm,
 		cfg:    d.cfg.CrawlerConfig(),
 		client: kubo.NewClient(),
@@ -191,3 +187,21 @@ func (d *CrawlDriver) Tasks() <-chan PeerInfo {
 }
 
 func (d *CrawlDriver) Close() {}
+
+func newLibp2pHost(version string) (host.Host, error) {
+	// Configure the resource manager to not limit anything
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, fmt.Errorf("new resource manager: %w", err)
+	}
+
+	// Initialize a single libp2p node that's shared between all crawlers.
+	return libp2p.New(
+		libp2p.NoListenAddrs,
+		libp2p.ResourceManager(rm),
+		libp2p.UserAgent("nebula/"+version),
+		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
+		libp2p.DisableMetrics(),
+	)
+}

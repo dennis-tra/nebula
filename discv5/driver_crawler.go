@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"time"
 
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -15,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-mplex"
+	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -141,7 +143,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
-	host         host.Host
+	hosts        []host.Host
 	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
@@ -153,52 +155,15 @@ type CrawlDriver struct {
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
-	// Configure the resource manager to not limit anything
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
+	// create a libp2p host per CPU core to distribute load
+	hosts := make([]host.Host, 0, runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		h, err := newLibp2pHost(cfg.Version)
+		if err != nil {
+			return nil, fmt.Errorf("new libp2p host: %w", err)
+		}
+		hosts = append(hosts, h)
 	}
-
-	ecdsaKey, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("generate secp256k1 key: %w", err)
-	}
-
-	privBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaKey.X, ecdsaKey.Y)
-	secpKey := (*crypto.Secp256k1PrivateKey)(secp256k1v4.PrivKeyFromBytes(privBytes))
-
-	// Initialize a single libp2p node that's shared between all crawlers.
-	// Context: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#network-fundamentals
-	h, err := libp2p.New(
-		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
-		libp2p.Identity(secpKey),
-		libp2p.Security(noise.ID, noise.New),
-		libp2p.UserAgent("nebula/"+cfg.Version),
-		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
-		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
-		libp2p.DisableMetrics(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("new libp2p host: %w", err)
-	}
-
-	// According to Diva, these are required protocols. Some of them are just
-	// assumed to be required. We just read from the stream indefinitely to
-	// gain time for the identify exchange to finish. We just pretend to support
-	// these protocols and keep the stream busy until we have gathered all the
-	// information we were interested in. This includes the agend version and
-	// all supported protocols.
-	h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
-
-	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
 	nodesMap := map[enode.ID]*enode.Node{}
 	for _, enrs := range cfg.BootstrapPeerStrs {
@@ -227,7 +192,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	return &CrawlDriver{
 		cfg:       cfg,
 		dbc:       dbc,
-		host:      h,
+		hosts:     hosts,
 		dbCrawl:   crawl,
 		tasksChan: tasksChan,
 		peerstore: peerstore,
@@ -259,10 +224,13 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}
 
+	// evenly assign a libp2p hosts to crawler workers
+	h := d.hosts[d.crawlerCount%len(d.hosts)]
+
 	c := &Crawler{
 		id:       fmt.Sprintf("crawler-%02d", d.crawlerCount),
 		cfg:      d.cfg.CrawlerConfig(),
-		host:     d.host.(*basichost.BasicHost),
+		host:     h.(*basichost.BasicHost),
 		listener: listener,
 		done:     make(chan struct{}),
 	}
@@ -293,7 +261,61 @@ func (d *CrawlDriver) Close() {
 		c.listener.Close()
 	}
 
-	if err := d.host.Close(); err != nil {
-		log.WithError(err).Warnln("Failed closing libp2p host")
+	for _, h := range d.hosts {
+		if err := h.Close(); err != nil {
+			log.WithError(err).WithField("localID", h.ID().String()).Warnln("Failed closing libp2p host")
+		}
 	}
+}
+
+func newLibp2pHost(version string) (host.Host, error) {
+	// Configure the resource manager to not limit anything
+	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
+	rm, err := rcmgr.NewResourceManager(limiter)
+	if err != nil {
+		return nil, fmt.Errorf("new resource manager: %w", err)
+	}
+
+	ecdsaKey, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generate secp256k1 key: %w", err)
+	}
+
+	privBytes := elliptic.Marshal(ethcrypto.S256(), ecdsaKey.X, ecdsaKey.Y)
+	secpKey := (*crypto.Secp256k1PrivateKey)(secp256k1v4.PrivKeyFromBytes(privBytes))
+
+	// Initialize a single libp2p node that's shared between all crawlers.
+	// Context: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#network-fundamentals
+	h, err := libp2p.New(
+		libp2p.NoListenAddrs,
+		libp2p.ResourceManager(rm),
+		libp2p.Identity(secpKey),
+		libp2p.Security(noise.ID, noise.New),
+		libp2p.UserAgent("nebula/"+version),
+		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
+		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
+		libp2p.DisableMetrics(),
+		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new libp2p host: %w", err)
+	}
+
+	// According to Diva, these are required protocols. Some of them are just
+	// assumed to be required. We just read from the stream indefinitely to
+	// gain time for the identify exchange to finish. We just pretend to support
+	// these protocols and keep the stream busy until we have gathered all the
+	// information we were interested in. This includes the agend version and
+	// all supported protocols.
+	h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+	h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+
+	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
+
+	return h, nil
 }
