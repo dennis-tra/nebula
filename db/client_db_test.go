@@ -15,7 +15,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	mnoop "go.opentelemetry.io/otel/metric/noop"
-	tnoop "go.opentelemetry.io/otel/trace/noop"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db/models"
@@ -66,7 +66,7 @@ func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  100,
 		MeterProvider:          mnoop.NewMeterProvider(),
-		TracerProvider:         tnoop.NewTracerProvider(),
+		TracerProvider:         trace.NewNoopTracerProvider(),
 	}
 
 	client, err := InitDBClient(ctx, &c)

@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	mnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
-	tnoop "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/tele"
@@ -57,7 +56,7 @@ func DefaultEngineConfig() *EngineConfig {
 		DuplicateProcessing: false,
 		AddrDialType:        config.AddrTypeAny,
 		MeterProvider:       mnoop.NewMeterProvider(),
-		TracerProvider:      tnoop.NewTracerProvider(),
+		TracerProvider:      trace.NewNoopTracerProvider(),
 	}
 }
 

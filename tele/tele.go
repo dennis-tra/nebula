@@ -14,9 +14,8 @@ import (
 	sdkmeter "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.19.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/atomic"
 )
 
@@ -48,7 +47,7 @@ func NewMeterProvider() (metric.MeterProvider, error) {
 // tracing.
 func NewTracerProvider(ctx context.Context, host string, port int) (trace.TracerProvider, error) {
 	if host == "" || port == 0 {
-		return noop.NewTracerProvider(), nil
+		return trace.NewNoopTracerProvider(), nil
 	}
 
 	exporter, err := otlptracegrpc.New(ctx,
