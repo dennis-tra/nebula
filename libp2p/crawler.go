@@ -22,6 +22,7 @@ type CrawlerConfig struct {
 	DialTimeout    time.Duration
 	CheckExposed   bool
 	AddrDialType   config.AddrType
+	LogErrors      bool
 }
 
 type Crawler struct {
@@ -48,6 +49,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlerID:      c.id,
 		Info:           task,
 		CrawlStartTime: time.Now(),
+		LogErrors:      c.cfg.LogErrors,
 	}
 
 	// adhere to the addr-dial-type command line flag and only work with

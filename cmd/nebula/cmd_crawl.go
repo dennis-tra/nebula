@@ -246,6 +246,7 @@ func CrawlAction(c *cli.Context) error {
 			KeepENR:           crawlConfig.KeepENR,
 			TracerProvider:    cfg.Root.TracerProvider,
 			MeterProvider:     cfg.Root.MeterProvider,
+			LogErrors:         cfg.Root.LogErrors,
 		}
 
 		// init the crawl driver
@@ -287,6 +288,7 @@ func CrawlAction(c *cli.Context) error {
 			AddrTrackType:     cfg.AddrTrackType(),
 			TracerProvider:    cfg.Root.TracerProvider,
 			MeterProvider:     cfg.Root.MeterProvider,
+			LogErrors:         cfg.Root.LogErrors,
 		}
 
 		// init the crawl driver

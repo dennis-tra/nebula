@@ -71,6 +71,9 @@ type Root struct {
 	// Specify the log format (text or json)
 	LogFormat string
 
+	// Whether to log the full error string
+	LogErrors bool
+
 	// Whether to have colorized log output
 	LogDisableColor bool
 

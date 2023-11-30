@@ -28,6 +28,7 @@ type CrawlerConfig struct {
 	DialTimeout  time.Duration
 	AddrDialType config.AddrType
 	KeepENR      bool
+	LogErrors    bool
 }
 
 type Crawler struct {
@@ -75,6 +76,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		ConnectStartTime:    libp2pResult.ConnectStartTime,
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
 		Properties:          c.PeerProperties(task.Node),
+		LogErrors:           c.cfg.LogErrors,
 	}
 
 	// We've now crawled this peer, so increment

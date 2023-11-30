@@ -59,6 +59,9 @@ type CrawlResult[I PeerInfo[I]] struct {
 
 	// Additional properties of that specific peer we have crawled
 	Properties json.RawMessage
+
+	// Debug flag that indicates whether to log the full error string
+	LogErrors bool
 }
 
 func (r CrawlResult[I]) PeerInfo() I {
@@ -74,17 +77,16 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	})
 
 	if r.ConnectError != nil {
-		if r.ConnectErrorStr == models.NetErrorUnknown {
-			logEntry = logEntry.WithError(r.ConnectError)
+		if r.LogErrors || r.ConnectErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithField("connErr", r.ConnectError)
 		} else {
 			logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
 		}
 	}
 
 	if r.CrawlError != nil {
-		// Log and count crawl errors
-		if r.CrawlErrorStr == models.NetErrorUnknown {
-			logEntry = logEntry.WithError(r.CrawlError)
+		if r.LogErrors || r.CrawlErrorStr == models.NetErrorUnknown {
+			logEntry = logEntry.WithField("crawlErr", r.CrawlError)
 		} else {
 			logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
 		}

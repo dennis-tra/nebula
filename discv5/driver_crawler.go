@@ -120,6 +120,7 @@ type CrawlDriverConfig struct {
 	KeepENR           bool
 	MeterProvider     metric.MeterProvider
 	TracerProvider    trace.TracerProvider
+	LogErrors         bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -127,6 +128,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 		DialTimeout:  cfg.DialTimeout,
 		AddrDialType: cfg.AddrDialType,
 		KeepENR:      cfg.KeepENR,
+		LogErrors:    cfg.LogErrors,
 	}
 }
 

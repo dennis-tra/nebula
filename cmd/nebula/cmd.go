@@ -33,6 +33,7 @@ var rootConfig = &config.Root{
 	LogLevel:        4,
 	LogFormat:       "text",
 	LogDisableColor: false,
+	LogErrors:       false,
 	DialTimeout:     10 * time.Second,
 	MetricsHost:     "0.0.0.0",
 	MetricsPort:     6666,
@@ -97,6 +98,14 @@ func main() {
 				EnvVars:     []string{"NEBULA_LOG_COLOR"},
 				Value:       rootConfig.LogDisableColor,
 				Destination: &rootConfig.LogDisableColor,
+				Category:    flagCategoryDebugging,
+			},
+			&cli.BoolFlag{
+				Name:        "log-errors",
+				Usage:       "Whether to log the full errors",
+				EnvVars:     []string{"NEBULA_LOG_ERRORS"},
+				Value:       rootConfig.LogErrors,
+				Destination: &rootConfig.LogErrors,
 				Category:    flagCategoryDebugging,
 			},
 			&cli.DurationFlag{

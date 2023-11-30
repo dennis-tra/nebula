@@ -60,6 +60,7 @@ type CrawlDriverConfig struct {
 	AddrDialType      config.AddrType
 	MeterProvider     metric.MeterProvider
 	TracerProvider    trace.TracerProvider
+	LogErrors         bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -68,6 +69,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 		DialTimeout:    cfg.DialTimeout,
 		CheckExposed:   cfg.CheckExposed,
 		AddrDialType:   cfg.AddrDialType,
+		LogErrors:      cfg.LogErrors,
 	}
 }
 
