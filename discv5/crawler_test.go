@@ -9,7 +9,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/nebtest"
 )
 
-func Test_ensureTCPAddr(t *testing.T) {
+func Test_sanitizeAddrs(t *testing.T) {
 	tests := []struct {
 		name   string
 		maddrs []ma.Multiaddr
@@ -23,22 +23,53 @@ func Test_ensureTCPAddr(t *testing.T) {
 		{
 			name: "tcp exists",
 			maddrs: []ma.Multiaddr{
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/udp/1234"),
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 			},
 			want: []ma.Multiaddr{
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/udp/1234"),
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
+			},
+		},
+		{
+			name: "quic exist",
+			maddrs: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
+			},
+			want: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
+			},
+		},
+		{
+			name: "tcp and quic exist",
+			maddrs: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
+			},
+			want: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
+			},
+		},
+		{
+			name: "tcp and quicv1 exist",
+			maddrs: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic-v1"),
+			},
+			want: []ma.Multiaddr{
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic-v1"),
 			},
 		},
 		{
 			name: "single udp ip4",
 			maddrs: []ma.Multiaddr{
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/udp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234"),
 			},
 			want: []ma.Multiaddr{
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/udp/1234"),
-				nebtest.MustMultiaddr(t, "/ip4/123.1.1.1/tcp/1234"),
+				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 			},
 		},
 		{
@@ -47,14 +78,13 @@ func Test_ensureTCPAddr(t *testing.T) {
 				nebtest.MustMultiaddr(t, "/ip6/::1/udp/1234"),
 			},
 			want: []ma.Multiaddr{
-				nebtest.MustMultiaddr(t, "/ip6/::1/udp/1234"),
 				nebtest.MustMultiaddr(t, "/ip6/::1/tcp/1234"),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, ensureTCPAddr(tt.maddrs), "ensureTCPAddr(%v)", tt.maddrs)
+			assert.Equalf(t, tt.want, sanitizeAddrs(tt.maddrs), "sanitizeAddrs(%v)", tt.maddrs)
 		})
 	}
 }

@@ -3,13 +3,13 @@ package discv5
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/friendsofgo/errors"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
@@ -205,38 +205,51 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	if len(pi.Addrs) == 0 {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
-	} else if len(pi.Addrs) == 1 {
 	}
 
 	dialAddrInfo := peer.AddrInfo{
 		ID:    pi.ID,
-		Addrs: ensureTCPAddr(pi.Addrs),
+		Addrs: sanitizeAddrs(pi.Addrs),
 	}
 
-	retry := 0
-	maxRetries := 2
+	var (
+		retry      int   = 0
+		maxRetries int   = 2
+		firstErr   error = nil
+	)
+
 	for {
-
-		timeout := time.Duration(c.cfg.DialTimeout.Nanoseconds() / int64(retry+1))
-
 		logEntry := log.WithFields(log.Fields{
-			"timeout":  timeout.String(),
+			"timeout":  c.cfg.DialTimeout.String(),
 			"remoteID": dialAddrInfo.ID.String(),
 			"retry":    retry,
 			"maddrs":   dialAddrInfo.Addrs,
 		})
 		logEntry.Debugln("Connecting to peer", dialAddrInfo.ID.ShortString())
 
-		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
 		err := c.host.Connect(timeoutCtx, dialAddrInfo)
 		cancel()
 
+		// if libp2p says we established a connection, but we're not actually
+		// connected, assign a custom error.
+		if err == nil && c.host.Network().Connectedness(pi.ID) != network.Connected {
+			err = fmt.Errorf("connection closed immediately")
+		}
+
+		// if we still don't have an error (despite the above custom error
+		// handling), we return to the caller.
 		if err == nil {
-			if c.host.Network().Connectedness(pi.ID) != network.Connected {
-				err = fmt.Errorf("connection closed immediately")
-			} else {
-				return nil
-			}
+			return nil
+		}
+
+		// at this point we know something went wrong. Track the first error
+		// because subsequent connection attempts have a shorter timeout which
+		// means that it's more likely to run into a context.DeadlineExceeded
+		// error. If that's the case, we return the original error for tracking
+		// purposes.
+		if firstErr == nil {
+			firstErr = err
 		}
 
 		switch true {
@@ -245,19 +258,27 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionResetByPeer]):
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionClosedImmediately]):
 		default:
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = firstErr
+			}
 			logEntry.WithError(err).Debugln("Failed connecting to peer", dialAddrInfo.ID.ShortString())
 			return err
 		}
 
 		if retry == maxRetries {
+			if errors.Is(err, context.DeadlineExceeded) {
+				err = firstErr
+			}
 			logEntry.WithError(err).Debugln("Exceeded retries connecting to peer", dialAddrInfo.ID.ShortString())
 			return err
 		}
 
+		sleep := time.Second * time.Duration(3*(retry+1)) // TODO: parameterize
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(time.Second * time.Duration(3*(retry+1))): // TODO: parameterize
+		case <-time.After(sleep):
 			retry += 1
 			continue
 		}
@@ -265,18 +286,30 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	}
 }
 
-func ensureTCPAddr(maddrs []ma.Multiaddr) []ma.Multiaddr {
+// sanitizeAddrs takes the list of multi addresses and removes any UDP-only
+// multi address because we cannot dial UDP only addresses anyway. However, if
+// there is no other reliable transport address like TCP or QUIC we use the UDP
+// IP address + port and craft a TCP address out of it. The UDP address will
+// still be removed and replaced with TCP.
+func sanitizeAddrs(maddrs []ma.Multiaddr) []ma.Multiaddr {
+	newMaddrs := make([]ma.Multiaddr, 0, len(maddrs))
 	for _, maddr := range maddrs {
 		if _, err := maddr.ValueForProtocol(ma.P_TCP); err == nil {
-			return maddrs
+			newMaddrs = append(newMaddrs, maddr)
+		} else if _, err := maddr.ValueForProtocol(ma.P_UDP); err == nil {
+			_, quicErr := maddr.ValueForProtocol(ma.P_QUIC)
+			_, quicV1Err := maddr.ValueForProtocol(ma.P_QUIC_V1)
+			if quicErr == nil || quicV1Err == nil {
+				newMaddrs = append(newMaddrs, maddr)
+			}
 		}
 	}
 
-	newMaddrs := make([]ma.Multiaddr, 0, len(maddrs)+1)
+	if len(newMaddrs) > 0 {
+		return newMaddrs
+	}
 
 	for i, maddr := range maddrs {
-		newMaddrs = append(newMaddrs, maddr)
-
 		udp, err := maddr.ValueForProtocol(ma.P_UDP)
 		if err != nil {
 			continue
