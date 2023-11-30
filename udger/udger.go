@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/friendsofgo/errors"
-	_ "modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Client struct {
