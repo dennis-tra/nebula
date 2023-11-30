@@ -35,6 +35,7 @@ var KnownErrors = map[string]string{
 	"can't assign requested address":             models.NetErrorCantAssignRequestedAddress, // transient error
 	"cannot assign requested address":            models.NetErrorCantAssignRequestedAddress, // transient error
 	"connection gated":                           models.NetErrorConnectionGated,            // transient error
+	"connection closed immediately":              models.NetErrorConnectionClosedImmediately,
 }
 
 var ErrorStr = map[string]string{}
@@ -74,6 +75,7 @@ var knownErrorsPrecedence = []string{
 	"failed to negotiate stream multiplexer",
 	"resource limit exceeded",
 	"Write on stream",
+	"connection closed immediately",
 }
 
 // NetError extracts the appropriate error type from the given error.

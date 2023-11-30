@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/friendsofgo/errors"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
@@ -211,26 +212,43 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	}
 
 	retry := 0
-	maxRetries := 1
+	maxRetries := 2
 	for {
+
 		timeout := time.Duration(c.cfg.DialTimeout.Nanoseconds() / int64(retry+1))
+
+		logEntry := log.WithFields(log.Fields{
+			"timeout":  timeout.String(),
+			"remoteID": dialAddrInfo.ID.String(),
+			"retry":    retry,
+			"maddrs":   dialAddrInfo.Addrs,
+		})
+		logEntry.Debugln("Connecting to peer", dialAddrInfo.ID.ShortString())
+
 		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 		err := c.host.Connect(timeoutCtx, dialAddrInfo)
 		cancel()
 
 		if err == nil {
-			return nil
+			if c.host.Network().Connectedness(pi.ID) != network.Connected {
+				err = fmt.Errorf("connection closed immediately")
+			} else {
+				return nil
+			}
 		}
 
 		switch true {
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorNegotiateSecurityProtocol]):
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionResetByPeer]):
+		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionClosedImmediately]):
 		default:
+			logEntry.WithError(err).Debugln("Failed connecting to peer", dialAddrInfo.ID.ShortString())
 			return err
 		}
 
 		if retry == maxRetries {
+			logEntry.WithError(err).Debugln("Exceeded retries connecting to peer", dialAddrInfo.ID.ShortString())
 			return err
 		}
 

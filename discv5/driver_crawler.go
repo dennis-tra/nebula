@@ -107,7 +107,7 @@ func (p PeerInfo) Addrs() []ma.Multiaddr {
 
 func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 	p.maddrs = utils.MergeMaddrs(p.maddrs, other.maddrs)
-	return p // TODO: merge
+	return p
 }
 
 type CrawlDriverConfig struct {
