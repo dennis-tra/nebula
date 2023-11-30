@@ -3,6 +3,8 @@ default: all
 all: clean build
 
 test:
+	# maxmind excluded because it requires a database
+	# discvx excluded because the tests take quite long and are copied from the prysm codebase
 	go test `go list ./... | grep -v maxmind | grep -v discvx`
 
 build:
