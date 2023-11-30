@@ -11,14 +11,16 @@ import (
 
 func Test_sanitizeAddrs(t *testing.T) {
 	tests := []struct {
-		name   string
-		maddrs []ma.Multiaddr
-		want   []ma.Multiaddr
+		name    string
+		maddrs  []ma.Multiaddr
+		want    []ma.Multiaddr
+		wantGen bool
 	}{
 		{
-			name:   "empty",
-			maddrs: []ma.Multiaddr{},
-			want:   []ma.Multiaddr{},
+			name:    "empty",
+			maddrs:  []ma.Multiaddr{},
+			want:    []ma.Multiaddr{},
+			wantGen: false,
 		},
 		{
 			name: "tcp exists",
@@ -29,6 +31,7 @@ func Test_sanitizeAddrs(t *testing.T) {
 			want: []ma.Multiaddr{
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 			},
+			wantGen: false,
 		},
 		{
 			name: "quic exist",
@@ -38,6 +41,7 @@ func Test_sanitizeAddrs(t *testing.T) {
 			want: []ma.Multiaddr{
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
 			},
+			wantGen: false,
 		},
 		{
 			name: "tcp and quic exist",
@@ -50,6 +54,7 @@ func Test_sanitizeAddrs(t *testing.T) {
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic"),
 			},
+			wantGen: false,
 		},
 		{
 			name: "tcp and quicv1 exist",
@@ -62,6 +67,7 @@ func Test_sanitizeAddrs(t *testing.T) {
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/udp/1234/quic-v1"),
 			},
+			wantGen: false,
 		},
 		{
 			name: "single udp ip4",
@@ -71,6 +77,7 @@ func Test_sanitizeAddrs(t *testing.T) {
 			want: []ma.Multiaddr{
 				nebtest.MustMultiaddr(t, "/ip4/123.4.5.6/tcp/1234"),
 			},
+			wantGen: true,
 		},
 		{
 			name: "single udp ip6",
@@ -80,11 +87,14 @@ func Test_sanitizeAddrs(t *testing.T) {
 			want: []ma.Multiaddr{
 				nebtest.MustMultiaddr(t, "/ip6/::1/tcp/1234"),
 			},
+			wantGen: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, sanitizeAddrs(tt.maddrs), "sanitizeAddrs(%v)", tt.maddrs)
+			addrs, generated := sanitizeAddrs(tt.maddrs)
+			assert.Equalf(t, tt.want, addrs, "sanitizeAddrs(%v)", tt.maddrs)
+			assert.Equal(t, tt.wantGen, generated)
 		})
 	}
 }

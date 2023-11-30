@@ -54,6 +54,9 @@ type P2PResult struct {
 	// e.g., they could miss quic-v1 addresses if the reporting peer doesn't
 	// know about that protocol.
 	ListenAddrs []ma.Multiaddr
+
+	// If the connection was closed immediately
+	ConnClosedImmediately bool
 }
 
 func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
@@ -70,6 +73,17 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
+
+			// check if we're actually connected
+			if c.host.Network().Connectedness(pi.ID()) == network.NotConnected {
+				// this is a weird behavior I was obesrving. Libp2p reports a
+				// successful connection establishment but isn't connected right
+				// after the call returned. This is not a big problem at this
+				// point because fetchNeighbors will open the connection again.
+				// This works more often than not but is still weird. At least
+				// keep track of this issue - just in case.
+				result.ConnClosedImmediately = true
+			}
 
 			// Fetch all neighbors
 			result.RoutingTable, result.CrawlError = c.fetchNeighbors(ctx, pi.AddrInfo)
@@ -147,14 +161,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		err := c.host.Connect(timeoutCtx, pi)
 		cancel()
 
-		// if libp2p says we established a connection, but we're not actually
-		// connected, assign a custom error.
-		if err == nil && c.host.Network().Connectedness(pi.ID) != network.Connected {
-			err = fmt.Errorf("connection closed immediately")
-		}
-
-		// if we still don't have an error (despite the above custom error
-		// handling), we return to the caller.
+		// yay, it worked! Or has it? The caller checks the connectedness again.
 		if err == nil {
 			return nil
 		}
@@ -169,10 +176,9 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		}
 
 		switch true {
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorNegotiateSecurityProtocol]):
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionResetByPeer]):
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionClosedImmediately]):
+		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
+		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
 		default:
 			if errors.Is(err, context.DeadlineExceeded) {
 				err = firstErr
@@ -307,7 +313,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 // identified in the past. We detect a successful identification if an
 // AgentVersion is stored in the peer store
 func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var wg sync.WaitGroup
@@ -325,8 +331,7 @@ func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
 				// check if identification was successful by looking for
 				// the AgentVersion key. If it exists, we cancel the
 				// identification of the remaining connections.
-				agent, err := c.host.Peerstore().Get(pi.ID, "AgentVersion")
-				if err == nil && agent.(string) != "" {
+				if c.isIdentified(pi.ID) {
 					cancel()
 					return
 				}
@@ -335,4 +340,11 @@ func (c *Crawler) identifyWait(ctx context.Context, pi peer.AddrInfo) {
 	}
 
 	wg.Wait()
+}
+
+// isIdentified returns true if the given peer.ID was successfully identified.
+// Just because IdentifyWait returns doesn't mean the peer was identified.
+func (c *Crawler) isIdentified(pid peer.ID) bool {
+	agent, err := c.host.Peerstore().Get(pid, "AgentVersion")
+	return err == nil && agent.(string) != ""
 }

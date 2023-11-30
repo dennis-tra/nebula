@@ -53,29 +53,28 @@ func makeCacheKey(cols boil.Columns, nzDefaults []string) string {
 
 // Enum values for NetError
 const (
-	NetErrorUnknown                     string = "unknown"
-	NetErrorIoTimeout                   string = "io_timeout"
-	NetErrorNoRecentNetworkActivity     string = "no_recent_network_activity"
-	NetErrorConnectionRefused           string = "connection_refused"
-	NetErrorProtocolNotSupported        string = "protocol_not_supported"
-	NetErrorPeerIDMismatch              string = "peer_id_mismatch"
-	NetErrorNoRouteToHost               string = "no_route_to_host"
-	NetErrorNetworkUnreachable          string = "network_unreachable"
-	NetErrorNoGoodAddresses             string = "no_good_addresses"
-	NetErrorContextDeadlineExceeded     string = "context_deadline_exceeded"
-	NetErrorNoIPAddress                 string = "no_ip_address"
-	NetErrorMaxDialAttemptsExceeded     string = "max_dial_attempts_exceeded"
-	NetErrorMaddrReset                  string = "maddr_reset"
-	NetErrorStreamReset                 string = "stream_reset"
-	NetErrorHostIsDown                  string = "host_is_down"
-	NetErrorNegotiateSecurityProtocol   string = "negotiate_security_protocol"
-	NetErrorNegotiateStreamMultiplexer  string = "negotiate_stream_multiplexer"
-	NetErrorResourceLimitExceeded       string = "resource_limit_exceeded"
-	NetErrorWriteOnStream               string = "write_on_stream"
-	NetErrorConnectionResetByPeer       string = "connection_reset_by_peer"
-	NetErrorCantAssignRequestedAddress  string = "cant_assign_requested_address"
-	NetErrorConnectionGated             string = "connection_gated"
-	NetErrorConnectionClosedImmediately string = "connection_closed_immediately"
+	NetErrorUnknown                    string = "unknown"
+	NetErrorIoTimeout                  string = "io_timeout"
+	NetErrorNoRecentNetworkActivity    string = "no_recent_network_activity"
+	NetErrorConnectionRefused          string = "connection_refused"
+	NetErrorProtocolNotSupported       string = "protocol_not_supported"
+	NetErrorPeerIDMismatch             string = "peer_id_mismatch"
+	NetErrorNoRouteToHost              string = "no_route_to_host"
+	NetErrorNetworkUnreachable         string = "network_unreachable"
+	NetErrorNoGoodAddresses            string = "no_good_addresses"
+	NetErrorContextDeadlineExceeded    string = "context_deadline_exceeded"
+	NetErrorNoIPAddress                string = "no_ip_address"
+	NetErrorMaxDialAttemptsExceeded    string = "max_dial_attempts_exceeded"
+	NetErrorMaddrReset                 string = "maddr_reset"
+	NetErrorStreamReset                string = "stream_reset"
+	NetErrorHostIsDown                 string = "host_is_down"
+	NetErrorNegotiateSecurityProtocol  string = "negotiate_security_protocol"
+	NetErrorNegotiateStreamMultiplexer string = "negotiate_stream_multiplexer"
+	NetErrorResourceLimitExceeded      string = "resource_limit_exceeded"
+	NetErrorWriteOnStream              string = "write_on_stream"
+	NetErrorConnectionResetByPeer      string = "connection_reset_by_peer"
+	NetErrorCantAssignRequestedAddress string = "cant_assign_requested_address"
+	NetErrorConnectionGated            string = "connection_gated"
 )
 
 func AllNetError() []string {
@@ -102,7 +101,6 @@ func AllNetError() []string {
 		NetErrorConnectionResetByPeer,
 		NetErrorCantAssignRequestedAddress,
 		NetErrorConnectionGated,
-		NetErrorConnectionClosedImmediately,
 	}
 }
 

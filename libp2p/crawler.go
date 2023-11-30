@@ -104,6 +104,12 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		properties["is_exposed"] = apiRes.ID != nil || apiRes.RoutingTable != nil
 	}
 
+	// treat ErrConnectionClosedImmediately as no error because we were able
+	// to connect
+	if p2pRes.ConnClosedImmediately {
+		properties["direct_close"] = true
+	}
+
 	var err error
 	r.Properties, err = json.Marshal(properties)
 	if err != nil {
