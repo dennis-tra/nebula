@@ -17,7 +17,7 @@ type Client struct {
 
 // NewClient initializes a new maxmind database client from the embedded database
 func NewClient(dbpath string) (*Client, error) {
-	db, err := sql.Open("sqlite", dbpath)
+	db, err := sql.Open("sqlite3", dbpath)
 	if err != nil {
 		return nil, errors.Wrap(err, "open udger db")
 	}
