@@ -65,12 +65,29 @@ Numbers of the Ethereum Consensus Layer do not match existing numbers from other
 
 ## Install
 
+### Go Version
+
+Nebula has a hard dependency on Go 1.19 because Nebula requires go-libp2p
+`<0.30`. With version `0.30` go-libp2p dropped support for the `quic` transport
+and only continues to support `quic-v1` ([release notes](https://github.com/libp2p/go-libp2p/releases/tag/v0.30.0)). However, many peers in the IPFS Amino
+DHT still only listen on `quic` addresses (as opposed to `quic-v1`). Many of them
+also listen over `tcp` but from experiments I saw that they often refuse
+connections over tcp. As of 2023-12-02 this results in a significant increase of
+undialable peers that Nebula was previously able to connect to and identify.
+
+Until the error incurred by dropping the `quic` transport is negligible or some
+new go-libp2p feature justifies and update, Nebula will stick to the old
+go-libp2p version.
+
+Because go-libp2p has a dependency on quic-go and specific versions of quic-go
+can only be compiled with specific versions of Go. I'm currently sticking to
+Go 1.19 but it might be possible to update to Go 1.20 - I just haven't had the
+time to test this yet. 
+
 ### From source
 
-To compile it yourself run:
-
 ```shell
-go install github.com/dennis-tra/nebula-crawler/cmd/nebula@latest # Go 1.19 or higher is required (may work with a lower version too)
+go install github.com/dennis-tra/nebula-crawler/cmd/nebula@2.1.2
 ```
 
 Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
@@ -103,7 +120,7 @@ nebula networks
 To store crawl results as JSON files provide the `--json-out` command line flag like so:
 
 ```shell
-nebula crawl --json-out ./results/
+nebula --json-out ./results/ crawl
 ```
 
 After the crawl has finished, you will find the JSON files in the `./results/` subdirectory.
@@ -322,7 +339,7 @@ To run the tests you need a running test database instance:
 
 ```shell
 make database
-go test ./...
+make test
 ```
 
 ## Report
