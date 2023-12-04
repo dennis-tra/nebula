@@ -104,6 +104,9 @@ func MonitorAction(c *cli.Context) error {
 		WriterCount:         monitorConfig.WriteWorkerCount,
 		Limit:               0,
 		DuplicateProcessing: true,
+		AddrDialType:        config.AddrTypeAny,
+		TracerProvider:      monitorConfig.Root.TracerProvider,
+		MeterProvider:       monitorConfig.Root.MeterProvider,
 	}
 
 	switch monitorConfig.Network {
