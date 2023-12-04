@@ -33,6 +33,8 @@ const (
 	NetworkEthCons  Network = "ETHEREUM_CONSENSUS"
 	NetworkEthExec  Network = "ETHEREUM_EXECUTION"
 	NetworkHolesky  Network = "HOLESKY"
+	NetworkBiryani  Network = "BIRYANI"
+	NetworkGoldberg Network = "GOLDBERG"
 )
 
 func Networks() []Network {
@@ -51,6 +53,8 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
+		NetworkBiryani,
+		NetworkGoldberg,
 	}
 }
 
@@ -365,6 +369,12 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
 		protocols = cli.NewStringSlice("discv5") // TODO
+	case NetworkBiryani:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBiryani...)
+		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
+	case NetworkGoldberg:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGoldberg...)
+		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range kaddht.DefaultBootstrapPeers {

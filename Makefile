@@ -22,7 +22,10 @@ clean:
 docker:
 	docker build -t dennistra/nebula:latest -t dennistra/nebula:`cat version` .
 
-docker-push: docker
+docker-linux:
+	docker build --platform linux/amd64 -t 019120760881.dkr.ecr.us-east-1.amazonaws.com/probelab:nebula-sha6bc3e96 .
+
+docker-push: docker-linux
 	docker push dennistra/nebula:latest dennistra/nebula:`cat version`
 
 tools:
