@@ -203,5 +203,6 @@ func newLibp2pHost(version string) (host.Host, error) {
 		libp2p.UserAgent("nebula/"+version),
 		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
 		libp2p.DisableMetrics(),
+		libp2p.EnableRelay(), // enable the relay transport
 	)
 }

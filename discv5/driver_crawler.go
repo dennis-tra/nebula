@@ -297,6 +297,7 @@ func newLibp2pHost(version string) (host.Host, error) {
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
 		libp2p.DisableMetrics(),
 		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
+		libp2p.EnableRelay(), // enable the relay transport
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
