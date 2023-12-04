@@ -150,9 +150,8 @@ func MonitorAction(c *cli.Context) error {
 		// Set the timeout for dialing peers
 		ctx := network.WithDialPeerTimeout(c.Context, monitorConfig.Root.DialTimeout)
 
-		// Force direct dials will prevent swarm to run into dial backoff
-		// errors. It also prevents proxied connections.
-		ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+		// Allow transient connections. This way we can crawl a peer even if it is relayed.
+		ctx = network.WithUseTransient(ctx, "reach peers behind NATs")
 
 		_, err = eng.Run(ctx)
 		if err != nil && !errors.Is(err, context.Canceled) {

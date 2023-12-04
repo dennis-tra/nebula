@@ -215,8 +215,8 @@ func CrawlAction(c *cli.Context) error {
 	// Set the timeout for dialing peers
 	ctx = network.WithDialPeerTimeout(ctx, cfg.Root.DialTimeout)
 
-	// Force direct dials will prevent swarm to run into dial backoff errors. It also prevents proxied connections.
-	ctx = network.WithForceDirectDial(ctx, "prevent backoff")
+	// Allow transient connections. This way we can crawl a peer even if it is relayed.
+	ctx = network.WithUseTransient(ctx, "reach peers behind NATs")
 
 	handlerCfg := &core.CrawlHandlerConfig{
 		TrackNeighbors: cfg.PersistNeighbors,
