@@ -123,7 +123,9 @@ func (d *DialDriver) monitorDatabase() {
 	for {
 		log.Infof("Looking for sessions to check...")
 		sessions, err := d.dbc.FetchDueOpenSessions(ctx)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) || len(sessions) == 0 {
+			log.Infoln("No open sessions")
+		} else if err != nil {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
 		}
