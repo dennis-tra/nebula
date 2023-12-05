@@ -18,6 +18,8 @@ package discvx
 
 import (
 	"crypto/ecdsa"
+	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/rand"
 	"net"
@@ -30,6 +32,9 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/p2p/enr"
 	"github.com/ethereum/go-ethereum/p2p/netutil"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTable_pingReplace(t *testing.T) {
@@ -442,4 +447,24 @@ func newkey() *ecdsa.PrivateKey {
 		panic("couldn't generate key: " + err.Error())
 	}
 	return key
+}
+
+func TestGenRandomPublicKey(t *testing.T) {
+	for i := 0; i < 16; i++ {
+		priv, err := ecdsa.GenerateKey(crypto.S256(), crand.Reader)
+		require.NoError(t, err)
+
+		ln := enode.PubkeyToIDV4(&priv.PublicKey)
+
+		pubKey, err := GenRandomPublicKey(ln, i)
+		require.NoError(t, err)
+
+		target := enode.ID(crypto.Keccak256Hash(pubKey[:]))
+
+		lnBits := fmt.Sprintf("%016b", binary.BigEndian.Uint16(ln[:]))
+		targetBits := fmt.Sprintf("%016b", binary.BigEndian.Uint16(target[:]))
+
+		assert.Equal(t, lnBits[:i], targetBits[:i])
+		assert.NotEqual(t, lnBits[i], targetBits[i])
+	}
 }
