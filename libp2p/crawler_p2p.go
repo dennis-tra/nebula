@@ -144,7 +144,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 
 	var (
 		retry      int   = 0
-		maxRetries int   = 2
+		maxRetries int   = 3
 		firstErr   error = nil
 	)
 
@@ -177,8 +177,15 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 
 		switch true {
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
+			// Might be transient because the remote doesn't want us to connect. Try again!
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
+			// Hints at a configuration issue but could be transient. Try again!
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
+			// Transient error due to local UDP issues. Try again!
+			maxRetries = 10 // increase the maximum number of retries as the error _should_ go away
+		case strings.Contains(err.Error(), db.ErrorStr["RESOURCE_LIMIT_EXCEEDED (201)"]): // thrown by a circuit relay
+			// We already have too many open connections over a relay. Try again!
+			maxRetries = 10 // increase the maximum number of retries as the error _should_ go away
 		default:
 			if errors.Is(err, context.DeadlineExceeded) {
 				err = firstErr

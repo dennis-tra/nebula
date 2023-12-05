@@ -75,6 +75,7 @@ const (
 	NetErrorConnectionResetByPeer      string = "connection_reset_by_peer"
 	NetErrorCantAssignRequestedAddress string = "cant_assign_requested_address"
 	NetErrorConnectionGated            string = "connection_gated"
+	NetErrorCantConnectOverRelay       string = "cant_connect_over_relay"
 )
 
 func AllNetError() []string {
@@ -101,6 +102,7 @@ func AllNetError() []string {
 		NetErrorConnectionResetByPeer,
 		NetErrorCantAssignRequestedAddress,
 		NetErrorConnectionGated,
+		NetErrorCantConnectOverRelay,
 	}
 }
 
