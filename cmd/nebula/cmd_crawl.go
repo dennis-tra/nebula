@@ -21,6 +21,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/discv4"
 	"github.com/dennis-tra/nebula-crawler/discv5"
 	"github.com/dennis-tra/nebula-crawler/libp2p"
 )
@@ -233,6 +234,47 @@ func CrawlAction(c *cli.Context) error {
 	}
 
 	switch cfg.Network {
+	case string(config.NetworkEthExec):
+		// configure the crawl driver
+		driverCfg := &discv4.CrawlDriverConfig{
+			Version:           cfg.Root.Version(),
+			DialTimeout:       cfg.Root.DialTimeout,
+			TrackNeighbors:    cfg.PersistNeighbors,
+			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
+			AddrDialType:      cfg.AddrDialType(),
+			AddrTrackType:     cfg.AddrTrackType(),
+			TracerProvider:    cfg.Root.TracerProvider,
+			MeterProvider:     cfg.Root.MeterProvider,
+			LogErrors:         cfg.Root.LogErrors,
+		}
+
+		// init the crawl driver
+		driver, err := discv4.NewCrawlDriver(dbc, dbCrawl, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new discv4 driver: %w", err)
+		}
+
+		// init the result handler
+		handler := core.NewCrawlHandler[discv4.PeerInfo](handlerCfg)
+
+		// put everything together and init the engine that'll run the crawl
+		eng, err := core.NewEngine[discv4.PeerInfo, core.CrawlResult[discv4.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		// finally, start the crawl
+		queuedPeers, runErr := eng.Run(ctx)
+
+		// a bit ugly but, but the handler will contain crawl statistics, that
+		// we'll save to the database and print to the screen
+		handler.QueuedPeers = len(queuedPeers)
+		if err := persistCrawlInformation(dbc, dbCrawl, handler, runErr); err != nil {
+			return fmt.Errorf("persist crawl information: %w", err)
+		}
+
+		return nil
+
 	case string(config.NetworkEthCons),
 		string(config.NetworkHolesky): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
 		// configure the crawl driver
@@ -252,7 +294,7 @@ func CrawlAction(c *cli.Context) error {
 		// init the crawl driver
 		driver, err := discv5.NewCrawlDriver(dbc, dbCrawl, driverCfg)
 		if err != nil {
-			return fmt.Errorf("new driver: %w", err)
+			return fmt.Errorf("new discv5 driver: %w", err)
 		}
 
 		// init the result handler

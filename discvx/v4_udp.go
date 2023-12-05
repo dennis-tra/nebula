@@ -334,6 +334,17 @@ func (t *UDPv4) findnode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubke
 	return nodes, err
 }
 
+func (t *UDPv4) FindNode(toid enode.ID, toaddr *net.UDPAddr, target v4wire.Pubkey) ([]*enode.Node, error) {
+	nodes, err := t.findnode(toid, toaddr, target)
+
+	enodes := make([]*enode.Node, len(nodes))
+	for i, n := range nodes {
+		enodes[i] = &n.Node
+	}
+
+	return enodes, err
+}
+
 // RequestENR sends ENRRequest to the given node and waits for a response.
 func (t *UDPv4) RequestENR(n *enode.Node) (*enode.Node, error) {
 	addr := &net.UDPAddr{IP: n.IP(), Port: n.UDP()}

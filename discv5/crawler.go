@@ -435,7 +435,9 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 	resultCh := make(chan DiscV5Result)
 
 	go func() {
-		// all neighbors of pi. We're using a map to not deduplicate.
+		result := DiscV5Result{}
+
+		// all neighbors of pi. We're using a map to deduplicate.
 		allNeighbors := map[string]PeerInfo{}
 
 		// errorBits tracks at which CPL errors have occurred.
@@ -446,12 +448,13 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 
 		timeouts := 0
 		enr, err := c.listener.RequestENR(pi.Node)
-		if errors.Is(err, discvx.ErrTimeout) {
+		if err != nil {
 			timeouts += 1
-		}
-
-		result := DiscV5Result{
-			ENR: enr,
+			result.ENR = pi.Node
+		} else {
+			result.ENR = enr
+			now := time.Now()
+			result.RespondedAt = &now
 		}
 
 		// loop through the buckets sequentially because discv5 is also doing that
@@ -462,7 +465,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			var neighbors []*enode.Node
 			neighbors, err = c.listener.FindNode(pi.Node, []uint{uint(discvx.HashBits - i)})
 			if err != nil {
-				errorBits.Add(1 << i)
 
 				if errors.Is(err, discvx.ErrTimeout) {
 					timeouts += 1
@@ -471,6 +473,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 					}
 				}
 
+				errorBits.Add(1 << i)
 				err = fmt.Errorf("getting closest peer with CPL %d: %w", i, err)
 				break
 			}
@@ -489,7 +492,9 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 				allNeighbors[string(npi.peerID)] = npi
 			}
 		}
+
 		result.DoneAt = time.Now()
+		result.Error = err
 
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
@@ -501,9 +506,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		for _, n := range allNeighbors {
 			result.RoutingTable.Neighbors = append(result.RoutingTable.Neighbors, n)
 		}
-
-		result.DoneAt = time.Now()
-		result.Error = err
 
 		// if there was a connection error, parse it to a known one
 		if result.Error != nil {
