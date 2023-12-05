@@ -196,12 +196,16 @@ func newLibp2pHost(version string) (host.Host, error) {
 		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
 
+	// Don't use a connection manager that could potentially
+	// prune any connections. We _theoretically_ clean up after
+	//	// ourselves.
+	cm := connmgr.NullConnMgr{}
+
 	// Initialize a single libp2p node that's shared between all crawlers.
 	return libp2p.New(
-		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
 		libp2p.UserAgent("nebula/"+version),
-		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
+		libp2p.ResourceManager(rm),
+		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
 		libp2p.EnableRelay(), // enable the relay transport
 	)

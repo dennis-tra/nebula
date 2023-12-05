@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
@@ -44,11 +45,18 @@ func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error)
 		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
 
+	// Don't use a connection manager that could potentially
+	// prune any connections. We _theoretically_ clean up after
+	// ourselves.
+	cm := connmgr.NullConnMgr{}
+
 	// Initialize a single libp2p node that's shared between all dialers.
 	h, err := libp2p.New(
-		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
 		libp2p.UserAgent("nebula/"+cfg.Version),
+		libp2p.ResourceManager(rm),
+		libp2p.ConnectionManager(cm),
+		libp2p.DisableMetrics(),
+		libp2p.EnableRelay(), // enable the relay transport
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)

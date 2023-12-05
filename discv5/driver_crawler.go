@@ -276,6 +276,11 @@ func newLibp2pHost(version string) (host.Host, error) {
 		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
 
+	// Don't use a connection manager that could potentially
+	// prune any connections. We _theoretically_ clean up after
+	//	// ourselves.
+	cm := connmgr.NullConnMgr{}
+
 	ecdsaKey, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("generate secp256k1 key: %w", err)
@@ -296,7 +301,7 @@ func newLibp2pHost(version string) (host.Host, error) {
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
 		libp2p.DisableMetrics(),
-		libp2p.ConnectionManager(connmgr.NullConnMgr{}),
+		libp2p.ConnectionManager(cm),
 		libp2p.EnableRelay(), // enable the relay transport
 	)
 	if err != nil {
