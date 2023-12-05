@@ -239,6 +239,7 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 			// Generate a peer with the given common prefix length
 			rpi, err := rt.GenRandPeerID(count)
 			if err != nil {
+				log.WithError(err).WithField("enr", pi.ID.ShortString()).WithField("cpl", count).Warnln("Failed generating random peer ID")
 				errorBits.Add(1 << count)
 				return fmt.Errorf("generating random peer ID with CPL %d: %w", count, err)
 			}
@@ -295,6 +296,12 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 			for _, n := range neighbors {
 				allNeighbors[n.ID] = *n
 			}
+
+			if err != nil {
+				errorBits.Add(1 << count)
+				return err
+			}
+
 			return nil
 		})
 	}
