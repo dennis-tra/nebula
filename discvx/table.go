@@ -763,5 +763,5 @@ func GenRandomPublicKey(targetID enode.ID, targetCPL int) (v4wire.Pubkey, error)
 	// generate public key
 	out := new([64]byte)
 	binary.BigEndian.PutUint32(out[:], key)
-	return v4wire.Pubkey(*out), nil
+	return *out, nil
 }
