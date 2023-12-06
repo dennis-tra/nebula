@@ -6,13 +6,15 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"net"
+	"runtime"
 	"time"
+
+	"github.com/dennis-tra/nebula-crawler/devp2p"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -129,7 +131,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
-	hosts        []host.Host
+	clients      []*devp2p.Client
 	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
@@ -141,6 +143,22 @@ type CrawlDriver struct {
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+	// create a libp2p host per CPU core to distribute load
+	clients := make([]*devp2p.Client, 0, runtime.NumCPU())
+	for i := 0; i < runtime.NumCPU(); i++ {
+		// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
+		priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
+		}
+
+		c := devp2p.NewClient(priv, nil)
+		if err != nil {
+			return nil, fmt.Errorf("new devp2p host: %w", err)
+		}
+		clients = append(clients, c)
+	}
+
 	nodesMap := map[enode.ID]*enode.Node{}
 	for _, url := range cfg.BootstrapPeerStrs {
 		n, err := enode.ParseV4(url)
@@ -168,6 +186,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	return &CrawlDriver{
 		cfg:       cfg,
 		dbc:       dbc,
+		clients:   clients,
 		dbCrawl:   crawl,
 		tasksChan: tasksChan,
 		peerstore: peerstore,
@@ -198,9 +217,13 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen discv4: %w", err)
 	}
 
+	// evenly assign a libp2p hosts to crawler workers
+	client := d.clients[d.crawlerCount%len(d.clients)]
+
 	c := &Crawler{
 		id:       fmt.Sprintf("crawler-%02d", d.crawlerCount),
 		cfg:      d.cfg.CrawlerConfig(),
+		client:   client,
 		listener: listener,
 		done:     make(chan struct{}),
 	}
@@ -229,11 +252,5 @@ func (d *CrawlDriver) Tasks() <-chan PeerInfo {
 func (d *CrawlDriver) Close() {
 	for _, c := range d.crawler {
 		c.listener.Close()
-	}
-
-	for _, h := range d.hosts {
-		if err := h.Close(); err != nil {
-			log.WithError(err).WithField("localID", h.ID().String()).Warnln("Failed closing libp2p host")
-		}
 	}
 }
