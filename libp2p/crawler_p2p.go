@@ -2,12 +2,12 @@ package libp2p
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -142,11 +142,14 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		return fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 	}
 
-	var (
-		retry      int   = 0
-		maxRetries int   = 3
-		firstErr   error = nil
-	)
+	// init an exponential backoff
+	bo := backoff.NewExponentialBackOff()
+	bo.InitialInterval = time.Second
+	bo.MaxInterval = 10 * time.Second
+	bo.MaxElapsedTime = time.Minute
+
+	// keep track of retries for debug logging
+	retry := 0
 
 	for {
 		logEntry := log.WithFields(log.Fields{
@@ -166,48 +169,36 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 			return nil
 		}
 
-		// at this point we know something went wrong. Track the first error
-		// because subsequent connection attempts have a shorter timeout which
-		// means that it's more likely to run into a context.DeadlineExceeded
-		// error. If that's the case, we return the original error for tracking
-		// purposes.
-		if firstErr == nil {
-			firstErr = err
-		}
-
 		switch true {
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
 			// Might be transient because the remote doesn't want us to connect. Try again!
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
-			// Hints at a configuration issue but could be transient. Try again!
+			// Hints at a configuration issue and should not happen, but if it
+			// does it could be transient. Try again anyway, but at least log a warning.
+			logEntry.WithError(err).Warnln("Connection gated!")
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
 			// Transient error due to local UDP issues. Try again!
-			maxRetries = 10 // increase the maximum number of retries as the error _should_ go away
-		case strings.Contains(err.Error(), db.ErrorStr["RESOURCE_LIMIT_EXCEEDED (201)"]): // thrown by a circuit relay
+		case strings.Contains(err.Error(), "dial backoff"):
+			// should not happen because we disabled backoff checks with our
+			// go-libp2p fork. Try again anyway, but at least log a warning.
+			logEntry.WithError(err).Warnln("Dial backoff!")
+		case strings.Contains(err.Error(), "RESOURCE_LIMIT_EXCEEDED (201)"): // thrown by a circuit relay
 			// We already have too many open connections over a relay. Try again!
-			maxRetries = 10 // increase the maximum number of retries as the error _should_ go away
 		default:
-			if errors.Is(err, context.DeadlineExceeded) {
-				err = firstErr
-			}
 			logEntry.WithError(err).Debugln("Failed connecting to peer", pi.ID.ShortString())
 			return err
 		}
 
-		if retry == maxRetries {
-			if errors.Is(err, context.DeadlineExceeded) {
-				err = firstErr
-			}
+		sleepDur := bo.NextBackOff()
+		if sleepDur == backoff.Stop {
 			logEntry.WithError(err).Debugln("Exceeded retries connecting to peer", pi.ID.ShortString())
 			return err
 		}
 
-		sleep := time.Second * time.Duration(3*(retry+1)) // TODO: parameterize
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(sleep):
+		case <-time.After(sleepDur):
 			retry += 1
 			continue
 		}

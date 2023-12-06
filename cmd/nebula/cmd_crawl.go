@@ -219,6 +219,10 @@ func CrawlAction(c *cli.Context) error {
 	// Allow transient connections. This way we can crawl a peer even if it is relayed.
 	ctx = network.WithUseTransient(ctx, "reach peers behind NATs")
 
+	// This is a custom configuration option that only exists in our fork of go-libp2p.
+	// see: https://github.com/plprobelab/go-libp2p/commit/f6d73ce3093ded293f0de032d239709069fac586
+	ctx = network.WithDisableBackoff(ctx, "prevent backoff")
+
 	handlerCfg := &core.CrawlHandlerConfig{
 		TrackNeighbors: cfg.PersistNeighbors,
 	}

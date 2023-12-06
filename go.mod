@@ -42,6 +42,8 @@ require (
 	golang.org/x/sync v0.3.0
 )
 
+replace github.com/libp2p/go-libp2p v0.28.3 => github.com/plprobelab/go-libp2p v0.0.0-20231206123035-f6d73ce3093d // branch  v0.28.3-nebula
+
 require (
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
