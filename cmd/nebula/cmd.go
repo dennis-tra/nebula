@@ -34,7 +34,7 @@ var rootConfig = &config.Root{
 	LogFormat:       "text",
 	LogDisableColor: false,
 	LogErrors:       false,
-	DialTimeout:     10 * time.Second,
+	DialTimeout:     15 * time.Second,
 	MetricsHost:     "0.0.0.0",
 	MetricsPort:     6666,
 	TracesHost:      "", // disabled
