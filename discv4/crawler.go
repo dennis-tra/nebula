@@ -141,7 +141,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) DiscV4Result {
 				errorBits.Add(1 << count)
 
 				if errors.Is(err, discvx.ErrTimeout) {
-					sleepDur := time.Second * time.Duration(5*(retry+1))
+					sleepDur := time.Second * time.Duration(3*(retry+1))
 					select {
 					case <-ctx.Done():
 						return ctx.Err()
