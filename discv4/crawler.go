@@ -8,6 +8,10 @@ import (
 	"sync"
 	"time"
 
+	ma "github.com/multiformats/go-multiaddr"
+
+	"github.com/dennis-tra/nebula-crawler/devp2p"
+
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
@@ -29,6 +33,7 @@ type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
 	listener     *discvx.UDPv4
+	client       *devp2p.Client
 	crawledPeers int
 	done         chan struct{}
 }
@@ -47,6 +52,21 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	crawlStart := time.Now()
 
 	result := c.crawlDiscV4(ctx, task)
+
+	for _, maddr := range task.maddrs {
+		_, err := maddr.ValueForProtocol(ma.P_TCP)
+		if err != nil {
+			continue
+		}
+
+		if err := c.client.Connect(ctx, task.ID(), maddr); err != nil {
+			break
+		}
+
+		c.client.Identify(task.ID())
+
+		break
+	}
 
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
