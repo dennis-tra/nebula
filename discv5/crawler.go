@@ -71,6 +71,16 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		properties["gen_tcp_addr"] = true
 	}
 
+	// keep track of all unknown connection errors
+	if libp2pResult.ConnectErrorStr == models.NetErrorUnknown && libp2pResult.ConnectError != nil {
+		properties["connect_error"] = libp2pResult.ConnectError.Error()
+	}
+
+	// keep track of all unknown crawl errors
+	if discV5Result.ErrorStr == models.NetErrorUnknown && discV5Result.Error != nil {
+		properties["crawl_error"] = discV5Result.Error.Error()
+	}
+
 	data, err := json.Marshal(properties)
 	if err != nil {
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
@@ -263,8 +273,6 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 		err := c.host.Connect(timeoutCtx, pi)
 		cancel()
 
-		// if we still don't have an error (despite the above custom error
-		// handling), we return to the caller.
 		if err == nil {
 			return nil
 		}
