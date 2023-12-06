@@ -14,6 +14,7 @@ var KnownErrors = map[string]string{
 	"i/o timeout":                                models.NetErrorIoTimeout,
 	"RPC timeout":                                models.NetErrorIoTimeout,
 	"no recent network activity":                 models.NetErrorIoTimeout, // formerly NetErrorNoRecentNetworkActivity (equivalent to a timeout)
+	"handshake did not complete in time":         models.NetErrorIoTimeout, // quic error
 	"connection refused":                         models.NetErrorConnectionRefused,
 	"connection reset by peer":                   models.NetErrorConnectionResetByPeer,
 	"protocol not supported":                     models.NetErrorProtocolNotSupported,
@@ -78,6 +79,7 @@ var knownErrorsPrecedence = []string{
 	"Write on stream",
 	"RESOURCE_LIMIT_EXCEEDED (201)",
 	"NO_RESERVATION (204)",
+	"handshake did not complete in time",
 }
 
 // NetError extracts the appropriate error type from the given error.
