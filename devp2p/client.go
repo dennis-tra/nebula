@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -58,8 +60,8 @@ func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
 	}
 }
 
-func (c *Client) Connect(ctx context.Context, pid peer.ID, maddr ma.Multiaddr) error {
-	pubKey, err := pid.ExtractPublicKey()
+func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
+	pubKey, err := pi.ID.ExtractPublicKey()
 	if err != nil {
 		return fmt.Errorf("extract public key: %w", err)
 	}
@@ -72,22 +74,34 @@ func (c *Client) Connect(ctx context.Context, pid peer.ID, maddr ma.Multiaddr) e
 	x, y := secp256k1.DecompressPubkey(raw)
 	ecdsaPubKey := ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}
 
-	ipAddr, err := maddr.ValueForProtocol(ma.P_IP4)
-	if err != nil {
-		ipAddr, err = maddr.ValueForProtocol(ma.P_IP6)
+	var fd net.Conn
+	for _, maddr := range pi.Addrs {
+		ipAddr, err := maddr.ValueForProtocol(ma.P_IP4)
 		if err != nil {
-			return fmt.Errorf("no ip in multi address: %w", err)
+			ipAddr, err = maddr.ValueForProtocol(ma.P_IP6)
+			if err != nil {
+				continue
+			}
 		}
+
+		port, err := maddr.ValueForProtocol(ma.P_TCP)
+		if err != nil {
+			continue
+		}
+
+		timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+		fd, err = c.dialer.DialContext(timeoutCtx, "tcp", fmt.Sprintf("%s:%s", ipAddr, port))
+		if err != nil {
+			cancel()
+			return fmt.Errorf("failed dialing node: %w", err)
+		}
+		cancel()
+
+		break
 	}
 
-	port, err := maddr.ValueForProtocol(ma.P_TCP)
-	if err != nil {
-		return fmt.Errorf("no tcp address in multi address: %w", err)
-	}
-
-	fd, err := c.dialer.Dial("tcp", fmt.Sprintf("%s:%s", ipAddr, port))
-	if err != nil {
-		return fmt.Errorf("failed dialing node: %w", err)
+	if fd == nil {
+		return err
 	}
 
 	ethConn := &Conn{
@@ -101,25 +115,29 @@ func (c *Client) Connect(ctx context.Context, pid peer.ID, maddr ma.Multiaddr) e
 	}
 
 	// initiate authed session
+	if err := fd.SetDeadline(time.Now().Add(10 * time.Second)); err != nil { // TODO: parameterize
+		log.WithError(err).Warnln("Failed to set connection deadline")
+	}
+
 	_, err = ethConn.Handshake(c.privKey) // returns remote pubKey -> unused
 	if err != nil {
 		return fmt.Errorf("handshake failed: %w", err)
 	}
 
 	c.connsMu.Lock()
-	c.conns[pid] = ethConn
+	c.conns[pi.ID] = ethConn
 	c.connsMu.Unlock()
 
 	return nil
 }
 
-func (c *Client) Identify(pid peer.ID) error {
+func (c *Client) Identify(pid peer.ID) (*Hello, error) {
 	c.connsMu.RLock()
 	conn, found := c.conns[pid]
 	c.connsMu.RUnlock()
 
 	if !found {
-		return fmt.Errorf("no connection to %s", pid)
+		return nil, fmt.Errorf("no connection to %s", pid)
 	}
 
 	pub0 := crypto.FromECDSAPub(&c.privKey.PublicKey)[1:]
@@ -129,27 +147,47 @@ func (c *Client) Identify(pid peer.ID) error {
 		ID:      pub0,
 	}
 
+	if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil { // TODO: parameterize
+		log.WithError(err).Warnln("Failed to set connection deadline")
+	}
+
 	if err := conn.Write(req); err != nil {
-		return fmt.Errorf("write to conn: %w", err)
+		return nil, fmt.Errorf("write to conn: %w", err)
 	}
 
 	resp := conn.Read()
 
-	helloResp, ok := resp.(*Hello)
-	if !ok {
-		return fmt.Errorf("unexpected handshake response message type: %T", resp)
+	switch respMsg := resp.(type) {
+	case *Hello:
+		if respMsg.Version >= 5 {
+			conn.SetSnappy(true)
+		}
+		return respMsg, nil
+	case *Error:
+		return nil, fmt.Errorf("reading handshake response failed: %w", respMsg)
+	case *Disconnect:
+		return nil, fmt.Errorf("reading handshake response failed: %s", respMsg.Reason)
+	default:
+		return nil, fmt.Errorf("unexpected handshake response message type: %T", resp)
 	}
+}
 
-	if helloResp.Version >= 5 {
-		conn.SetSnappy(true)
+func (c *Client) Close() {
+	c.connsMu.Lock()
+	defer c.connsMu.Unlock()
+
+	for pid, conn := range c.conns {
+		delete(c.conns, pid)
+		if err := conn.Close(); err != nil {
+			log.WithError(err).WithField("remoteID", pid.ShortString()).Warnln("Failed closing devp2p connection")
+		}
 	}
-
-	return nil
 }
 
 func (c *Client) CloseConn(pid peer.ID) error {
 	c.connsMu.Lock()
 	defer c.connsMu.Unlock()
+
 	conn, found := c.conns[pid]
 	if !found {
 		return nil

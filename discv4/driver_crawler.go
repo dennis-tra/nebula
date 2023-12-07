@@ -152,10 +152,14 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 			return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 		}
 
-		c := devp2p.NewClient(priv, nil)
+		clientCfg := devp2p.DefaultConfig()
+		clientCfg.DialTimeout = cfg.DialTimeout
+
+		c := devp2p.NewClient(priv, clientCfg)
 		if err != nil {
 			return nil, fmt.Errorf("new devp2p host: %w", err)
 		}
+
 		clients = append(clients, c)
 	}
 
@@ -252,5 +256,6 @@ func (d *CrawlDriver) Tasks() <-chan PeerInfo {
 func (d *CrawlDriver) Close() {
 	for _, c := range d.crawler {
 		c.listener.Close()
+		c.client.Close()
 	}
 }
