@@ -91,14 +91,12 @@ func ResolveAction(c *cli.Context) error {
 		}
 	}
 
-	limit := c.Int("batch-size")
-
 	tele.HealthStatus.Store(true)
 
 	// Start the main loop
 	for {
 		log.Infoln("Fetching multi addresses...")
-		dbmaddrs, err := dbc.FetchUnresolvedMultiAddresses(c.Context, limit)
+		dbmaddrs, err := dbc.FetchUnresolvedMultiAddresses(c.Context, resolveConfig.BatchSize)
 		if errors.Is(err, context.Canceled) {
 			return nil
 		} else if err != nil {
@@ -115,7 +113,7 @@ func ResolveAction(c *cli.Context) error {
 	}
 }
 
-// Resolve save the resolved IP addresses + their countries in a transaction
+// resolve saves the resolved IP addresses + their countries in a transaction
 func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs models.MultiAddressSlice) error {
 	log.WithField("size", len(dbmaddrs)).Infoln("Resolving batch of multi addresses...")
 
@@ -158,12 +156,15 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 		dbmaddr.HasManyAddrs = null.BoolFrom(false)
 	} else if len(addrInfos) == 1 {
 		dbmaddr.HasManyAddrs = null.BoolFrom(false)
+
+		// we only have one addrInfo, extract it from the map
 		var addr string
 		var addrInfo *maxmind.AddrInfo
 		for k, v := range addrInfos {
 			addr, addrInfo = k, v
 			break
 		}
+
 		dbmaddr.Asn = null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0)
 		dbmaddr.Country = null.NewString(addrInfo.Country, addrInfo.Country != "")
 		dbmaddr.Continent = null.NewString(addrInfo.Continent, addrInfo.Continent != "")
@@ -176,12 +177,13 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 			}
 			dbmaddr.IsCloud = null.NewInt(datacenterID, datacenterID != 0)
 		}
+
 	} else if len(addrInfos) > 1 { // not "else" because the MaddrInfo could have failed and we still want to update the maddr
 		dbmaddr.HasManyAddrs = null.BoolFrom(true)
+
 		// Due to dnsaddr protocols each multi address can point to multiple
 		// IP addresses each in a different country.
 		for addr, addrInfo := range addrInfos {
-
 			datacenterID := 0
 			if uclient != nil {
 				datacenterID, err = uclient.Datacenter(addr)
@@ -206,6 +208,7 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 			}
 		}
 	}
+
 	if _, err = dbmaddr.Update(ctx, txn, boil.Infer()); err != nil {
 		logEntry.WithError(err).Warnln("Could not update multi address")
 		return fmt.Errorf("update multi address: %w", err)

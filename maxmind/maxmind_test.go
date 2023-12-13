@@ -11,7 +11,7 @@ import (
 )
 
 func TestClient_AddrCountry(t *testing.T) {
-	client, err := NewClient("", "")
+	client, err := NewClient("GeoLite2-ASN.mmdb", "GeoLite2-Country.mmdb")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -40,7 +40,7 @@ func TestClient_AddrCountry(t *testing.T) {
 }
 
 func TestClient_AddrASN(t *testing.T) {
-	client, err := NewClient("", "")
+	client, err := NewClient("GeoLite2-ASN.mmdb", "GeoLite2-Country.mmdb")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -69,7 +69,7 @@ func TestClient_AddrASN(t *testing.T) {
 }
 
 func TestClient_MaddrCountry(t *testing.T) {
-	client, err := NewClient("", "")
+	client, err := NewClient("GeoLite2-ASN.mmdb", "GeoLite2-Country.mmdb")
 	require.NoError(t, err)
 
 	tests := []struct {
@@ -78,8 +78,18 @@ func TestClient_MaddrCountry(t *testing.T) {
 		wantCountry string
 		wantErr     bool
 	}{
-		{addr: "/ip4/46.17.96.99/tcp/6666/p2p/Qme8g49gm3q4Acp7xWBKg3nAa9fxZ1YmyDJdyGgoG6LsXh/p2p-circuit", wantAddr: "46.17.96.99", wantCountry: "NL", wantErr: false},
-		{addr: "/p2p-circuit/p2p/QmPG5bax9kfpQUVDrzfahmh44Ab6egDeZ2QDWeTY279HLJ", wantAddr: "", wantCountry: "", wantErr: true},
+		{
+			addr:        "/ip4/46.17.96.99/tcp/6666/p2p/Qme8g49gm3q4Acp7xWBKg3nAa9fxZ1YmyDJdyGgoG6LsXh/p2p-circuit",
+			wantAddr:    "46.17.96.99",
+			wantCountry: "NL",
+			wantErr:     false,
+		},
+		{
+			addr:        "/p2p-circuit/p2p/QmPG5bax9kfpQUVDrzfahmh44Ab6egDeZ2QDWeTY279HLJ",
+			wantAddr:    "",
+			wantCountry: "",
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s | iso: %s | err: %v", tt.addr, tt.wantCountry, tt.wantErr), func(t *testing.T) {
@@ -91,6 +101,7 @@ func TestClient_MaddrCountry(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+				require.NotNil(t, got[tt.wantAddr])
 				assert.Equal(t, tt.wantCountry, got[tt.wantAddr].Country)
 			}
 		})

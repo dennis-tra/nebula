@@ -6,7 +6,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/transport"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	ma "github.com/multiformats/go-multiaddr"
 	madns "github.com/multiformats/go-multiaddr-dns"
 	"github.com/oschwald/geoip2-golang"
@@ -14,6 +19,7 @@ import (
 )
 
 type Client struct {
+	host          host.Host
 	countryReader *geoip2.Reader
 	asnReader     *geoip2.Reader
 }
@@ -40,7 +46,13 @@ func NewClient(asnDB string, countryDB string) (*Client, error) {
 		return nil, fmt.Errorf("country geoip from bytes: %w", err)
 	}
 
+	h, err := libp2p.New(libp2p.NoListenAddrs)
+	if err != nil {
+		return nil, fmt.Errorf("new libp2p host")
+	}
+
 	return &Client{
+		host:          h,
 		countryReader: countryReader,
 		asnReader:     asnReader,
 	}, nil
@@ -52,11 +64,15 @@ type AddrInfo struct {
 	ASN       uint
 }
 
-// MaddrInfo resolve the give multi address to its corresponding
+// MaddrInfo resolves the give multi address to its corresponding
 // IP addresses (it could be multiple due to protocols like dnsaddr)
 // and returns a map of the form IP-address -> Country ISO code.
 func (c *Client) MaddrInfo(ctx context.Context, maddr ma.Multiaddr) (map[string]*AddrInfo, error) {
-	resolved := resolveAddrs(ctx, maddr)
+	// give it a maximum of 10 seconds to resolve a single multi address
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	resolved := c.resolveAddr(ctx, maddr)
 	if len(resolved) == 0 {
 		return nil, fmt.Errorf("could not resolve multi address %s", maddr)
 	}
@@ -110,9 +126,7 @@ func (c *Client) Close() error {
 // the various DNS protocols (especially the dnsaddr protocol). This implementation is
 // taken from:
 // https://github.com/libp2p/go-libp2p/blob/9d3fd8bc4675b9cebf3102bdf62e56204c67ce5b/p2p/host/basic/basic_host.go#L676
-func resolveAddrs(ctx context.Context, maddr ma.Multiaddr) []string {
-	resolveSteps := 0
-
+func (c *Client) resolveAddr(ctx context.Context, maddr ma.Multiaddr) []string {
 	// Recursively resolve all addrs.
 	//
 	// While the toResolve list is non-empty:
@@ -120,7 +134,8 @@ func resolveAddrs(ctx context.Context, maddr ma.Multiaddr) []string {
 	// * If the address is fully resolved, add it to the resolved list.
 	// * Otherwise, resolve it and add the results to the "to resolve" list.
 	toResolve := []ma.Multiaddr{maddr}
-	resolved := []ma.Multiaddr{}
+	resolved := make([]ma.Multiaddr, 0)
+	resolveSteps := 0 // keep track of resolution iterations
 	for len(toResolve) > 0 {
 		// pop the last addr off.
 		addr := toResolve[len(toResolve)-1]
@@ -134,17 +149,43 @@ func resolveAddrs(ctx context.Context, maddr ma.Multiaddr) []string {
 
 		resolveSteps++
 
+		// We've resolved too many addresses. We can keep all the fully
+		// resolved addresses, but we'll need to skip the rest.
+		if resolveSteps >= 32 {
+			log.Warnf("resolving too many addresses: %d/%d", resolveSteps, 32)
+			continue
+		}
+
+		s := c.host.Network().(*swarm.Swarm)
+		tpt := s.TransportForDialing(addr)
+		resolver, ok := tpt.(transport.Resolver)
+		if ok {
+			resolvedAddrs, err := resolver.Resolve(ctx, addr)
+			if err != nil {
+				log.Warnf("Failed to resolve multiaddr %s by transport %v: %v", addr, tpt, err)
+				continue
+			}
+			var added bool
+			for _, a := range resolvedAddrs {
+				if !addr.Equal(a) {
+					toResolve = append(toResolve, a)
+					added = true
+				}
+			}
+			if added {
+				continue
+			}
+		}
+
 		// otherwise, resolve it
 		resaddrs, err := madns.DefaultResolver.Resolve(ctx, addr)
 		if err != nil {
-			log.Debugf("error resolving %s: %s", addr, err)
+			log.Infof("error resolving %s: %s", addr, err)
 			continue
 		}
 
 		// add the results to the toResolve list.
-		for _, res := range resaddrs {
-			toResolve = append(toResolve, res)
-		}
+		toResolve = append(toResolve, resaddrs...)
 	}
 
 	addrsMap := map[string]string{}
