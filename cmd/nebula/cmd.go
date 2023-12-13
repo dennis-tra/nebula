@@ -278,15 +278,15 @@ func Before(c *cli.Context) error {
 		}
 	}
 
-	switch strings.ToLower(c.String("log-format")) {
+	switch strings.ToLower(rootConfig.LogFormat) {
 	case "text":
 		log.SetFormatter(&log.TextFormatter{
-			DisableColors: c.Bool("log-disable-color"),
+			DisableColors: rootConfig.LogDisableColor,
 		})
 	case "json":
 		log.SetFormatter(&log.JSONFormatter{})
 	default:
-		return fmt.Errorf("unknown log format: %q", c.String("log-format"))
+		return fmt.Errorf("unknown log format: %q", rootConfig.LogFormat)
 	}
 
 	meterProvider, err := tele.NewMeterProvider()
