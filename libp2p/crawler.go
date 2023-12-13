@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/benbjohnson/clock"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
-	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
@@ -24,12 +24,24 @@ type CrawlerConfig struct {
 	CheckExposed   bool
 	AddrDialType   config.AddrType
 	LogErrors      bool
+	Clock          clock.Clock
+}
+
+func DefaultCrawlerConfig() *CrawlerConfig {
+	return &CrawlerConfig{
+		TrackNeighbors: false,
+		DialTimeout:    15 * time.Second,
+		CheckExposed:   false,
+		AddrDialType:   config.AddrTypePublic,
+		LogErrors:      false,
+		Clock:          clock.New(),
+	}
 }
 
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	host         *basichost.BasicHost
+	host         Host
 	pm           *pb.ProtocolMessenger
 	crawledPeers int
 	client       *kubo.Client

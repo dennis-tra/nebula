@@ -8,6 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
+//go:generate mockgen -source=libp2p/driver_crawler.go -destination=libp2p/mock_host_test.go -package=libp2p
+
 func main() {
 	// How many bits do we want to break?
 	bits := 16

@@ -11,8 +11,8 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	ma "github.com/multiformats/go-multiaddr"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -24,6 +24,14 @@ import (
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
+
+// Host is the interface that's required for crawling libp2p peers. Actually
+// the *basichost.Host is required but to allow testing we define this interface
+// here. That allows us to inject a mock host.
+type Host interface {
+	host.Host
+	IDService() identify.IDService
+}
 
 type PeerInfo struct {
 	peer.AddrInfo
@@ -67,13 +75,13 @@ type CrawlDriverConfig struct {
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
-	return &CrawlerConfig{
-		TrackNeighbors: cfg.TrackNeighbors,
-		DialTimeout:    cfg.DialTimeout,
-		CheckExposed:   cfg.CheckExposed,
-		AddrDialType:   cfg.AddrDialType,
-		LogErrors:      cfg.LogErrors,
-	}
+	crawlerCfg := DefaultCrawlerConfig()
+	crawlerCfg.TrackNeighbors = cfg.TrackNeighbors
+	crawlerCfg.DialTimeout = cfg.DialTimeout
+	crawlerCfg.CheckExposed = cfg.CheckExposed
+	crawlerCfg.AddrDialType = cfg.AddrDialType
+	crawlerCfg.LogErrors = cfg.LogErrors
+	return crawlerCfg
 }
 
 func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
@@ -84,7 +92,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
-	hosts        []host.Host
+	hosts        []Host
 	dbc          db.Client
 	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
@@ -95,7 +103,7 @@ type CrawlDriver struct {
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
-	hosts := make([]host.Host, 0, runtime.NumCPU())
+	hosts := make([]Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		h, err := newLibp2pHost(cfg.Version)
 		if err != nil {
@@ -165,7 +173,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 
 	c := &Crawler{
 		id:     fmt.Sprintf("crawler-%02d", d.crawlerCount),
-		host:   h.(*basichost.BasicHost),
+		host:   h,
 		pm:     pm,
 		cfg:    d.cfg.CrawlerConfig(),
 		client: kubo.NewClient(),
@@ -188,7 +196,7 @@ func (d *CrawlDriver) Tasks() <-chan PeerInfo {
 
 func (d *CrawlDriver) Close() {}
 
-func newLibp2pHost(version string) (host.Host, error) {
+func newLibp2pHost(version string) (Host, error) {
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
@@ -202,11 +210,13 @@ func newLibp2pHost(version string) (host.Host, error) {
 	cm := connmgr.NullConnMgr{}
 
 	// Initialize a single libp2p node that's shared between all crawlers.
-	return libp2p.New(
+	h, err := libp2p.New(
 		libp2p.UserAgent("nebula/"+version),
 		libp2p.ResourceManager(rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
 		libp2p.EnableRelay(), // enable the relay transport
 	)
+
+	return h.(Host), err
 }
