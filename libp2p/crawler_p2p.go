@@ -19,7 +19,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 type P2PResult struct {
@@ -79,14 +78,14 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 				// this is a weird behavior I was obesrving. Libp2p reports a
 				// successful connection establishment but isn't connected right
 				// after the call returned. This is not a big problem at this
-				// point because fetchNeighbors will open the connection again.
+				// point because drainBuckets will open the connection again.
 				// This works more often than not but is still weird. At least
 				// keep track of this issue - just in case.
 				result.ConnClosedImmediately = true
 			}
 
 			// Fetch all neighbors
-			result.RoutingTable, result.CrawlError = c.fetchNeighbors(ctx, pi.AddrInfo)
+			result.RoutingTable, result.CrawlError = c.drainBuckets(ctx, pi.AddrInfo)
 			if result.CrawlError != nil {
 				result.CrawlErrorStr = db.NetError(result.CrawlError)
 			}
@@ -147,6 +146,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	bo.InitialInterval = time.Second
 	bo.MaxInterval = 10 * time.Second
 	bo.MaxElapsedTime = time.Minute
+	bo.Clock = c.cfg.Clock
 
 	// keep track of retries for debug logging
 	retry := 0
@@ -206,9 +206,9 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) error {
 	}
 }
 
-// fetchNeighbors sends RPC messages to the given peer and asks for its closest peers to an artificial set
+// drainBuckets sends RPC messages to the given peer and asks for its closest peers to an artificial set
 // of 15 random peer IDs with increasing common prefix lengths (CPL).
-func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.RoutingTable[PeerInfo], error) {
+func (c *Crawler) drainBuckets(ctx context.Context, pi peer.AddrInfo) (*core.RoutingTable[PeerInfo], error) {
 	rt, err := kbucket.NewRoutingTable(20, kbucket.ConvertPeerID(pi.ID), time.Hour, nil, time.Hour, nil)
 	if err != nil {
 		return nil, err
@@ -227,71 +227,17 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 	for i := uint(0); i <= 15; i++ { // 15 is maximum
 		count := i // Copy value
 		errg.Go(func() error {
-			// Generate a peer with the given common prefix length
-			rpi, err := rt.GenRandPeerID(count)
-			if err != nil {
-				log.WithError(err).WithField("enr", pi.ID.ShortString()).WithField("cpl", count).Warnln("Failed generating random peer ID")
-				errorBits.Add(1 << count)
-				return fmt.Errorf("generating random peer ID with CPL %d: %w", count, err)
-			}
-
-			var neighbors []*peer.AddrInfo
-			for retry := 0; retry < 2; retry++ {
-				neighbors, err = c.pm.GetClosestPeers(ctx, pi.ID, rpi)
-				if err == nil {
-					break
-				}
-
-				sleepDur := time.Second * time.Duration(5*(retry+1))
-
-				if utils.IsResourceLimitExceeded(err) {
-					// the other node has indicated that it's out of resources. Wait a bit and try again.
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(sleepDur): // may add jitter here
-						continue
-					}
-				}
-
-				// This error happens in: https://github.com/libp2p/go-libp2p/blob/4e2a16dd3f4f980bf9429572b3d2aed885594ec4/p2p/host/basic/basic_host.go#L645
-				if err.Error() == "connection failed" {
-					// This means we were connected to the peer, tried to open
-					// a stream but then failed to do so. Try to reconnect as
-					// the peer appears to be online
-
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(sleepDur): // may add jitter here
-						// fall through
-					}
-
-					ctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-					if err := c.host.Connect(ctx, pi); err != nil {
-						cancel()
-						return err
-					}
-					cancel()
-
-					continue
-				}
-
-				errorBits.Add(1 << count)
-
-				return fmt.Errorf("getting closest peer with CPL %d: %w", count, err)
-			}
-
-			allNeighborsLk.Lock()
-			defer allNeighborsLk.Unlock()
-			for _, n := range neighbors {
-				allNeighbors[n.ID] = *n
-			}
-
+			neighbors, err := c.drainBucket(ctx, rt, pi.ID, count)
 			if err != nil {
 				errorBits.Add(1 << count)
 				return err
 			}
+
+			allNeighborsLk.Lock()
+			for _, n := range neighbors {
+				allNeighbors[n.ID] = *n
+			}
+			allNeighborsLk.Unlock()
 
 			return nil
 		})
@@ -310,6 +256,51 @@ func (c *Crawler) fetchNeighbors(ctx context.Context, pi peer.AddrInfo) (*core.R
 	}
 
 	return routingTable, err
+}
+
+func (c *Crawler) drainBucket(ctx context.Context, rt *kbucket.RoutingTable, pid peer.ID, bucket uint) ([]*peer.AddrInfo, error) {
+	// Generate a peer with the given common prefix length
+	rpi, err := rt.GenRandPeerID(bucket)
+	if err != nil {
+		log.WithError(err).WithField("enr", pid.ShortString()).WithField("bucket", bucket).Warnln("Failed generating random peer ID")
+		return nil, fmt.Errorf("generating random peer ID with CPL %d: %w", bucket, err)
+	}
+
+	var neighbors []*peer.AddrInfo
+	for retry := 0; retry < 2; retry++ {
+		neighbors, err = c.pm.GetClosestPeers(ctx, pid, rpi)
+		if err == nil {
+			// getting closest peers was successful!
+			return neighbors, nil
+		}
+
+		var sleepDur time.Duration
+		switch true {
+		case strings.HasSuffix(err.Error(), network.ErrResourceLimitExceeded.Error()):
+			// the remote has responded with a resource limit exceeded error. Try again soon!
+			sleepDur = time.Second * time.Duration(3*(retry+1))
+		case strings.Contains(err.Error(), "connection failed"):
+			// This error happens in: https://github.com/libp2p/go-libp2p/blob/851f49d5edc46a24131a11f06df648602cd5968c/p2p/host/basic/basic_host.go#L648
+			// we were connected to the remote but couldn't open a stream because
+			// we lost the connection. Try again immediately! GetClosestPeers
+			// internally calls NewStream on the basichost.Host which attempts
+			// to connect to the peer again.
+			sleepDur = 0
+		default:
+			// this is an unhandled error and we won't try again.
+			return nil, fmt.Errorf("getting closest peer with CPL %d", bucket)
+		}
+
+		// the other node has indicated that it's out of resources. Wait a bit and try again.
+		select {
+		case <-time.After(sleepDur): // may add jitter here
+			continue
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	return nil, fmt.Errorf("getting closest peer with CPL %d: %w", bucket, err)
 }
 
 // identifyWait waits until any connection to a peer passed the Identify
