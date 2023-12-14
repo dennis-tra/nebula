@@ -7,7 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -242,6 +245,75 @@ func (c *Crawl) AddrTrackType() AddrType {
 
 func (c *Crawl) AddrDialType() AddrType {
 	return AddrType(c.AddrDialTypeStr)
+}
+
+func (c *Crawl) BootstrapAddrInfos() ([]peer.AddrInfo, error) {
+	addrInfoMap := map[peer.ID][]ma.Multiaddr{}
+	for _, maddrStr := range c.BootstrapPeers.Value() {
+
+		maddr, err := ma.NewMultiaddr(maddrStr)
+		if err != nil {
+			return nil, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
+		}
+
+		pi, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			return nil, fmt.Errorf("parse addr info from maddr %s: %w", maddr, err)
+		}
+
+		_, found := addrInfoMap[pi.ID]
+		if found {
+			addrInfoMap[pi.ID] = append(addrInfoMap[pi.ID], pi.Addrs...)
+		} else {
+			addrInfoMap[pi.ID] = pi.Addrs
+		}
+	}
+
+	addrInfos := make([]peer.AddrInfo, 0, len(addrInfoMap))
+	for pid, maddrs := range addrInfoMap {
+		addrInfos = append(addrInfos, peer.AddrInfo{
+			ID:    pid,
+			Addrs: maddrs,
+		})
+	}
+
+	return addrInfos, nil
+}
+
+func (c *Crawl) BootstrapEnodesV4() ([]*enode.Node, error) {
+	nodesMap := map[enode.ID]*enode.Node{}
+	for _, url := range c.BootstrapPeers.Value() {
+		n, err := enode.ParseV4(url)
+		if err != nil {
+			return nil, fmt.Errorf("parse bootstrap enode URL %s: %w", url, err)
+		}
+		nodesMap[n.ID()] = n
+	}
+
+	enodes := make([]*enode.Node, 0, len(nodesMap))
+	for _, node := range nodesMap {
+		enodes = append(enodes, node)
+	}
+
+	return enodes, nil
+}
+
+func (c *Crawl) BootstrapEnodesV5() ([]*enode.Node, error) {
+	nodesMap := map[enode.ID]*enode.Node{}
+	for _, enr := range c.BootstrapPeers.Value() {
+		n, err := enode.Parse(enode.ValidSchemes, enr)
+		if err != nil {
+			return nil, fmt.Errorf("parse bootstrap enr: %w", err)
+		}
+		nodesMap[n.ID()] = n
+	}
+
+	enodes := make([]*enode.Node, 0, len(nodesMap))
+	for _, node := range nodesMap {
+		enodes = append(enodes, node)
+	}
+
+	return enodes, nil
 }
 
 // String prints the configuration as a json string

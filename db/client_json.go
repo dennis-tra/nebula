@@ -102,6 +102,10 @@ func (c *JSONClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
 	return nil
 }
 
+func (c *JSONClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
+	return []peer.AddrInfo{}, nil
+}
+
 func (c *JSONClient) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
 	data, err := json.Marshal(properties)
 	if err != nil {

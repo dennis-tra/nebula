@@ -18,6 +18,7 @@ type Client interface {
 	io.Closer
 	InitCrawl(ctx context.Context, version string) (*models.Crawl, error)
 	UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
+	QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error)
 	PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error
 	PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, properties null.JSON) (*InsertVisitResult, error)
 	PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error

@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/dennis-tra/nebula-crawler/devp2p"
-
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -25,6 +23,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/devp2p"
 	"github.com/dennis-tra/nebula-crawler/discvx"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -103,15 +102,15 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 type CrawlDriverConfig struct {
-	Version           string
-	TrackNeighbors    bool
-	DialTimeout       time.Duration
-	BootstrapPeerStrs []string
-	AddrDialType      config.AddrType
-	AddrTrackType     config.AddrType
-	MeterProvider     metric.MeterProvider
-	TracerProvider    trace.TracerProvider
-	LogErrors         bool
+	Version        string
+	TrackNeighbors bool
+	DialTimeout    time.Duration
+	BootstrapPeers []*enode.Node
+	AddrDialType   config.AddrType
+	AddrTrackType  config.AddrType
+	MeterProvider  metric.MeterProvider
+	TracerProvider trace.TracerProvider
+	LogErrors      bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -163,17 +162,8 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		clients = append(clients, c)
 	}
 
-	nodesMap := map[enode.ID]*enode.Node{}
-	for _, url := range cfg.BootstrapPeerStrs {
-		n, err := enode.ParseV4(url)
-		if err != nil {
-			return nil, fmt.Errorf("parse bootstrap enode URL %s: %w", url, err)
-		}
-		nodesMap[n.ID()] = n
-	}
-
-	tasksChan := make(chan PeerInfo, len(nodesMap))
-	for _, node := range nodesMap {
+	tasksChan := make(chan PeerInfo, len(cfg.BootstrapPeers))
+	for _, node := range cfg.BootstrapPeers {
 		pi, err := NewPeerInfo(node)
 		if err != nil {
 			return nil, fmt.Errorf("new peer info from enr: %w", err)

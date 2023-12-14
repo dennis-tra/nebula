@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/discv4"
 	"github.com/dennis-tra/nebula-crawler/discv5"
 	"github.com/dennis-tra/nebula-crawler/libp2p"
+	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 var crawlConfig = &config.Crawl{
@@ -200,10 +202,17 @@ func CrawlAction(c *cli.Context) error {
 		return fmt.Errorf("new database client: %w", err)
 	}
 	defer func() {
-		if err := dbc.Close(); err != nil {
+		if err := dbc.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
 			log.WithError(err).Warnln("Failed closing database handle")
 		}
 	}()
+
+	// Query some additional bootstrap peers from the database.
+	// This is optional, and we only log a warning if that doesn't work.
+	bpAddrInfos, err := dbc.QueryBootstrapPeers(ctx, 10)
+	if err != nil {
+		log.WithError(err).Warnln("Failed querying bootstrap peers")
+	}
 
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
@@ -239,17 +248,37 @@ func CrawlAction(c *cli.Context) error {
 
 	switch cfg.Network {
 	case string(config.NetworkEthExec):
+
+		bpEnodes, err := cfg.BootstrapEnodesV4()
+		if err != nil {
+			return err
+		}
+
+		for _, addrInfo := range bpAddrInfos {
+			n, err := utils.ToEnode(addrInfo.ID, addrInfo.Addrs)
+			if err != nil {
+				// this is just a best-effort operation so only
+				// log the error and continue
+				log.WithError(err).WithFields(log.Fields{
+					"pid":    addrInfo.ID,
+					"maddrs": addrInfo.Addrs,
+				}).Warnln("Failed transforming AddrInfo to *enode.Node")
+				continue
+			}
+			bpEnodes = append(bpEnodes, n)
+		}
+
 		// configure the crawl driver
 		driverCfg := &discv4.CrawlDriverConfig{
-			Version:           cfg.Root.Version(),
-			DialTimeout:       cfg.Root.DialTimeout,
-			TrackNeighbors:    cfg.PersistNeighbors,
-			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
-			AddrDialType:      cfg.AddrDialType(),
-			AddrTrackType:     cfg.AddrTrackType(),
-			TracerProvider:    cfg.Root.TracerProvider,
-			MeterProvider:     cfg.Root.MeterProvider,
-			LogErrors:         cfg.Root.LogErrors,
+			Version:        cfg.Root.Version(),
+			DialTimeout:    cfg.Root.DialTimeout,
+			TrackNeighbors: cfg.PersistNeighbors,
+			BootstrapPeers: bpEnodes,
+			AddrDialType:   cfg.AddrDialType(),
+			AddrTrackType:  cfg.AddrTrackType(),
+			TracerProvider: cfg.Root.TracerProvider,
+			MeterProvider:  cfg.Root.MeterProvider,
+			LogErrors:      cfg.Root.LogErrors,
 		}
 
 		// init the crawl driver
@@ -281,18 +310,38 @@ func CrawlAction(c *cli.Context) error {
 
 	case string(config.NetworkEthCons),
 		string(config.NetworkHolesky): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
+
+		bpEnodes, err := cfg.BootstrapEnodesV5()
+		if err != nil {
+			return err
+		}
+
+		for _, addrInfo := range bpAddrInfos {
+			n, err := utils.ToEnode(addrInfo.ID, addrInfo.Addrs)
+			if err != nil {
+				// this is just a best-effort operation so only
+				// log the error and continue
+				log.WithError(err).WithFields(log.Fields{
+					"pid":    addrInfo.ID,
+					"maddrs": addrInfo.Addrs,
+				}).Warnln("Failed transforming AddrInfo to *enode.Node")
+				continue
+			}
+			bpEnodes = append(bpEnodes, n)
+		}
+
 		// configure the crawl driver
 		driverCfg := &discv5.CrawlDriverConfig{
-			Version:           cfg.Root.Version(),
-			DialTimeout:       cfg.Root.DialTimeout,
-			TrackNeighbors:    cfg.PersistNeighbors,
-			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
-			AddrDialType:      cfg.AddrDialType(),
-			AddrTrackType:     cfg.AddrTrackType(),
-			KeepENR:           crawlConfig.KeepENR,
-			TracerProvider:    cfg.Root.TracerProvider,
-			MeterProvider:     cfg.Root.MeterProvider,
-			LogErrors:         cfg.Root.LogErrors,
+			Version:        cfg.Root.Version(),
+			DialTimeout:    cfg.Root.DialTimeout,
+			TrackNeighbors: cfg.PersistNeighbors,
+			BootstrapPeers: bpEnodes,
+			AddrDialType:   cfg.AddrDialType(),
+			AddrTrackType:  cfg.AddrTrackType(),
+			KeepENR:        crawlConfig.KeepENR,
+			TracerProvider: cfg.Root.TracerProvider,
+			MeterProvider:  cfg.Root.MeterProvider,
+			LogErrors:      cfg.Root.LogErrors,
 		}
 
 		// init the crawl driver
@@ -322,19 +371,29 @@ func CrawlAction(c *cli.Context) error {
 
 		return nil
 	default:
+
+		addrInfos, err := cfg.BootstrapAddrInfos()
+		if err != nil {
+			return err
+		}
+
+		for _, addrInfo := range addrInfos {
+			bpAddrInfos = append(bpAddrInfos, addrInfo)
+		}
+
 		// configure the crawl driver
 		driverCfg := &libp2p.CrawlDriverConfig{
-			Version:           cfg.Root.Version(),
-			Protocols:         cfg.Protocols.Value(),
-			DialTimeout:       cfg.Root.DialTimeout,
-			TrackNeighbors:    cfg.PersistNeighbors,
-			CheckExposed:      cfg.CheckExposed,
-			BootstrapPeerStrs: cfg.BootstrapPeers.Value(),
-			AddrDialType:      cfg.AddrDialType(),
-			AddrTrackType:     cfg.AddrTrackType(),
-			TracerProvider:    cfg.Root.TracerProvider,
-			MeterProvider:     cfg.Root.MeterProvider,
-			LogErrors:         cfg.Root.LogErrors,
+			Version:        cfg.Root.Version(),
+			Protocols:      cfg.Protocols.Value(),
+			DialTimeout:    cfg.Root.DialTimeout,
+			TrackNeighbors: cfg.PersistNeighbors,
+			CheckExposed:   cfg.CheckExposed,
+			BootstrapPeers: bpAddrInfos,
+			AddrDialType:   cfg.AddrDialType(),
+			AddrTrackType:  cfg.AddrTrackType(),
+			TracerProvider: cfg.Root.TracerProvider,
+			MeterProvider:  cfg.Root.MeterProvider,
+			LogErrors:      cfg.Root.LogErrors,
 		}
 
 		// init the crawl driver

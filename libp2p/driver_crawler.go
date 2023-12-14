@@ -61,17 +61,17 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 type CrawlDriverConfig struct {
-	Version           string
-	Protocols         []string
-	DialTimeout       time.Duration
-	TrackNeighbors    bool
-	CheckExposed      bool
-	BootstrapPeerStrs []string
-	AddrTrackType     config.AddrType
-	AddrDialType      config.AddrType
-	MeterProvider     metric.MeterProvider
-	TracerProvider    trace.TracerProvider
-	LogErrors         bool
+	Version        string
+	Protocols      []string
+	DialTimeout    time.Duration
+	TrackNeighbors bool
+	CheckExposed   bool
+	BootstrapPeers []peer.AddrInfo
+	AddrTrackType  config.AddrType
+	AddrDialType   config.AddrType
+	MeterProvider  metric.MeterProvider
+	TracerProvider trace.TracerProvider
+	LogErrors      bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -112,37 +112,10 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 		hosts = append(hosts, h)
 	}
 
-	peerAddrs := map[peer.ID][]ma.Multiaddr{}
-	for _, maddrStr := range cfg.BootstrapPeerStrs {
-
-		maddr, err := ma.NewMultiaddr(maddrStr)
-		if err != nil {
-			return nil, err
-		}
-
-		pi, err := peer.AddrInfoFromP2pAddr(maddr)
-		if err != nil {
-			return nil, err
-		}
-
-		_, found := peerAddrs[pi.ID]
-		if found {
-			peerAddrs[pi.ID] = append(peerAddrs[pi.ID], pi.Addrs...)
-		} else {
-			peerAddrs[pi.ID] = pi.Addrs
-		}
-	}
-
-	tasksChan := make(chan PeerInfo, len(peerAddrs))
-	for pid, addrs := range peerAddrs {
-		pid := pid
-		addrs := addrs
-		tasksChan <- PeerInfo{
-			AddrInfo: peer.AddrInfo{
-				ID:    pid,
-				Addrs: addrs,
-			},
-		}
+	tasksChan := make(chan PeerInfo, len(cfg.BootstrapPeers))
+	for _, addrInfo := range cfg.BootstrapPeers {
+		addrInfo := addrInfo
+		tasksChan <- PeerInfo{AddrInfo: addrInfo}
 	}
 	close(tasksChan)
 
