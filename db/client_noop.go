@@ -35,6 +35,10 @@ func (n *NoopClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
 	return nil
 }
 
+func (n *NoopClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
+	return []peer.AddrInfo{}, nil
+}
+
 func (n *NoopClient) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
 	return nil
 }

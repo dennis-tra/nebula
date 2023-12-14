@@ -113,16 +113,16 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 type CrawlDriverConfig struct {
-	Version           string
-	TrackNeighbors    bool
-	DialTimeout       time.Duration
-	BootstrapPeerStrs []string
-	AddrDialType      config.AddrType
-	AddrTrackType     config.AddrType
-	KeepENR           bool
-	MeterProvider     metric.MeterProvider
-	TracerProvider    trace.TracerProvider
-	LogErrors         bool
+	Version        string
+	TrackNeighbors bool
+	DialTimeout    time.Duration
+	BootstrapPeers []*enode.Node
+	AddrDialType   config.AddrType
+	AddrTrackType  config.AddrType
+	KeepENR        bool
+	MeterProvider  metric.MeterProvider
+	TracerProvider trace.TracerProvider
+	LogErrors      bool
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -165,17 +165,8 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		hosts = append(hosts, h)
 	}
 
-	nodesMap := map[enode.ID]*enode.Node{}
-	for _, enrs := range cfg.BootstrapPeerStrs {
-		n, err := enode.Parse(enode.ValidSchemes, enrs)
-		if err != nil {
-			return nil, fmt.Errorf("parse bootstrap enr: %w", err)
-		}
-		nodesMap[n.ID()] = n
-	}
-
-	tasksChan := make(chan PeerInfo, len(nodesMap))
-	for _, node := range nodesMap {
+	tasksChan := make(chan PeerInfo, len(cfg.BootstrapPeers))
+	for _, node := range cfg.BootstrapPeers {
 		pi, err := NewPeerInfo(node)
 		if err != nil {
 			return nil, fmt.Errorf("new peer info from enr: %w", err)

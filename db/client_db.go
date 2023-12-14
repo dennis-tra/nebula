@@ -784,8 +784,8 @@ func (c *DBClient) PersistCrawlProperties(ctx context.Context, crawl *models.Cra
 func (c *DBClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
 	peers, err := models.Peers(
 		qm.Load(models.PeerRels.MultiAddresses),
-		qm.InnerJoin("sessions_closed s on s.peer_id = peers.id"),
-		qm.OrderBy("s.created_at"),
+		qm.InnerJoin("sessions_open s on s.peer_id = peers.id"),
+		qm.OrderBy("s.last_visited_at"),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
 	if err != nil {
@@ -796,14 +796,14 @@ func (c *DBClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.A
 	for _, p := range peers {
 		id, err := peer.Decode(p.MultiHash)
 		if err != nil {
-			log.Warnln("Could not decode multi hash ", p.MultiHash)
+			log.WithError(err).Warnln("Could not decode multi hash ", p.MultiHash)
 			continue
 		}
 		var maddrs []ma.Multiaddr
 		for _, maddrStr := range p.R.MultiAddresses {
 			maddr, err := ma.NewMultiaddr(maddrStr.Maddr)
 			if err != nil {
-				log.Warnln("Could not decode multi addr ", maddrStr)
+				log.WithError(err).Warnln("Could not decode multi addr ", maddrStr)
 				continue
 			}
 
