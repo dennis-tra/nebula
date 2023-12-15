@@ -221,12 +221,6 @@ var (
 		"enr:-Le4QLoE1wFHSlGcm48a9ZESb_MRLqPPu6G0vHqu4MaUcQNDHS69tsy-zkN0K6pglyzX8m24mkb-LtBcbjAYdP1uxm4BhGV0aDKQabfZdAQBcAAAAQAAAAAAAIJpZIJ2NIJpcIQ5gR6Wg2lwNpAgAUHQBwEQAAAAAAAAADR-iXNlY3AyNTZrMaEDPMSNdcL92uNIyCsS177Z6KTXlbZakQqxv3aQcWawNXeDdWRwgiMohHVkcDaCI4I",
 	}
 
-	// BootstrapPeersBiryani Avail network extracted from:
-	//   https://github.com/availproject/light-client-lib/blob/e5cb20f092951e15436bc21a2ac1f97c10d6a800/src/types.rs#L583
-	BootstrapPeersBiryani = []string{
-		"/dns/bootnode-lightnode-001.biryani-devnet.avail.tools/udp/37000/quic-v1/p2p/12D3KooWGTgyoXMJ55ASQFR1p44esRn6BJUqBuKhVuQPqFueA9Uf",
-	}
-
 	// BootstrapPeersGoldberg Avail network extracted from:
 	//   https://github.com/availproject/light-client-lib/blob/e5cb20f092951e15436bc21a2ac1f97c10d6a800/src/types.rs#L586C6-L586C72
 	BootstrapPeersGoldberg = []string{
