@@ -62,6 +62,7 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 
 type CrawlDriverConfig struct {
 	Version        string
+	Network        config.Network
 	Protocols      []string
 	DialTimeout    time.Duration
 	TrackNeighbors bool
@@ -103,9 +104,17 @@ type CrawlDriver struct {
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+	// The Avail light clients verify the agent version:
+	// https://github.com/availproject/avail-light/blob/0ddc5d50d6f3d7217c448d6d008846c6b8c4fec3/src/network/p2p/event_loop.rs#L296
+	// Spoof it
+	userAgent := "nebula/" + cfg.Version
+	if cfg.Network == config.NetworkGoldberg {
+		userAgent = "avail-light-client/rust-client"
+	}
+
 	hosts := make([]Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
-		h, err := newLibp2pHost(cfg.Version)
+		h, err := newLibp2pHost(userAgent)
 		if err != nil {
 			return nil, fmt.Errorf("new libp2p host: %w", err)
 		}
@@ -169,7 +178,7 @@ func (d *CrawlDriver) Tasks() <-chan PeerInfo {
 
 func (d *CrawlDriver) Close() {}
 
-func newLibp2pHost(version string) (Host, error) {
+func newLibp2pHost(userAgent string) (Host, error) {
 	// Configure the resource manager to not limit anything
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
 	rm, err := rcmgr.NewResourceManager(limiter)
@@ -184,7 +193,7 @@ func newLibp2pHost(version string) (Host, error) {
 
 	// Initialize a single libp2p node that's shared between all crawlers.
 	h, err := libp2p.New(
-		libp2p.UserAgent("nebula/"+version),
+		libp2p.UserAgent(userAgent),
 		libp2p.ResourceManager(rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),

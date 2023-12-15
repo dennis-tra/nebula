@@ -374,7 +374,7 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
 	case NetworkGoldberg:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGoldberg...)
-		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
+		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0")
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range kaddht.DefaultBootstrapPeers {
