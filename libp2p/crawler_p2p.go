@@ -288,7 +288,7 @@ func (c *Crawler) drainBucket(ctx context.Context, rt *kbucket.RoutingTable, pid
 			sleepDur = 0
 		default:
 			// this is an unhandled error and we won't try again.
-			return nil, fmt.Errorf("getting closest peer with CPL %d", bucket)
+			return nil, fmt.Errorf("getting closest peer with CPL %d: %w", bucket, err)
 		}
 
 		// the other node has indicated that it's out of resources. Wait a bit and try again.
