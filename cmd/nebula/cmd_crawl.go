@@ -503,7 +503,7 @@ func persistCrawlProperties[I core.PeerInfo[I]](ctx context.Context, dbc db.Clie
 	pps := map[string]map[string]int{
 		"agent_version": avFull,
 		"protocol":      handler.Protocols,
-		"error":         handler.CrawlErrs,
+		"error":         handler.ConnErrs,
 	}
 
 	return dbc.PersistCrawlProperties(ctx, dbCrawl, pps)
