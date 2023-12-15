@@ -213,6 +213,7 @@ func CrawlAction(c *cli.Context) error {
 	if err != nil {
 		log.WithError(err).Warnln("Failed querying bootstrap peers")
 	}
+	log.WithField("limit", 10).Infof("Queried %d bootstrap peers\n", len(bpAddrInfos))
 
 	// Inserting a crawl row into the db so that we
 	// can associate results with this crawl via
