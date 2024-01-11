@@ -224,6 +224,6 @@ var (
 	// BootstrapPeersGoldberg Avail network extracted from:
 	//   https://github.com/availproject/light-client-lib/blob/e5cb20f092951e15436bc21a2ac1f97c10d6a800/src/types.rs#L586C6-L586C72
 	BootstrapPeersGoldberg = []string{
-		"/dns/bootnode.1.lightclient.goldberg.avail.tools/udp/37000/quic-v1/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",
+		"/dns/bootnode.1.lightclient.goldberg.avail.tools/tcp/37000/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",
 	}
 )
