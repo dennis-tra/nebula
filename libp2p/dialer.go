@@ -19,6 +19,7 @@ type Dialer struct {
 	id          string
 	host        host.Host
 	dialedPeers uint64
+	timeout     time.Duration
 }
 
 var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)
@@ -55,7 +56,10 @@ retryLoop:
 		d.host.Peerstore().AddAddrs(pi.ID, pi.Addrs, time.Minute)
 
 		// Actually dial the peer
-		if _, err := d.host.Network().DialPeer(ctx, pi.ID); err != nil {
+		timeoutCtx, cancel := context.WithTimeout(ctx, d.timeout)
+		if _, err := d.host.Network().DialPeer(timeoutCtx, pi.ID); err != nil {
+			cancel()
+
 			dr.Error = err
 			dr.DialError = db.NetError(dr.Error)
 
@@ -96,6 +100,7 @@ retryLoop:
 			}
 			continue retryLoop
 		}
+		cancel()
 
 		// Dial was successful - reset error
 		dr.Error = nil

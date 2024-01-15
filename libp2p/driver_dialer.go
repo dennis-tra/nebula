@@ -20,7 +20,8 @@ import (
 )
 
 type DialDriverConfig struct {
-	Version string
+	Version     string
+	DialTimeout time.Duration
 }
 
 type DialDriver struct {
@@ -79,8 +80,9 @@ func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error)
 
 func (d *DialDriver) NewWorker() (core.Worker[PeerInfo, core.DialResult[PeerInfo]], error) {
 	dialer := &Dialer{
-		id:   fmt.Sprintf("dialer-%02d", d.dialerCount),
-		host: d.host,
+		id:      fmt.Sprintf("dialer-%02d", d.dialerCount),
+		host:    d.host,
+		timeout: d.cfg.DialTimeout,
 	}
 
 	d.dialerCount += 1

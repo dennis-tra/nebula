@@ -133,7 +133,8 @@ func MonitorAction(c *cli.Context) error {
 
 	default:
 		driverCfg := &libp2p.DialDriverConfig{
-			Version: monitorConfig.Root.Version(),
+			Version:     monitorConfig.Root.Version(),
+			DialTimeout: monitorConfig.Root.DialTimeout,
 		}
 
 		driver, err := libp2p.NewDialDriver(dbc, driverCfg)
