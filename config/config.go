@@ -19,21 +19,22 @@ import (
 type Network string
 
 const (
-	NetworkIPFS     Network = "IPFS"
-	NetworkAmino    Network = "AMINO"
-	NetworkFilecoin Network = "FILECOIN"
-	NetworkKusama   Network = "KUSAMA"
-	NetworkPolkadot Network = "POLKADOT"
-	NetworkRococo   Network = "ROCOCO"
-	NetworkWestend  Network = "WESTEND"
-	NetworkCelestia Network = "CELESTIA"
-	NetworkArabica  Network = "ARABICA"
-	NetworkMocha    Network = "MOCHA"
-	NetworkBlockRa  Network = "BLOCKSPACE_RACE"
-	NetworkEthCons  Network = "ETHEREUM_CONSENSUS"
-	NetworkEthExec  Network = "ETHEREUM_EXECUTION"
-	NetworkHolesky  Network = "HOLESKY"
-	NetworkGoldberg Network = "GOLDBERG"
+	NetworkIPFS       Network = "IPFS"
+	NetworkAmino      Network = "AMINO"
+	NetworkFilecoin   Network = "FILECOIN"
+	NetworkKusama     Network = "KUSAMA"
+	NetworkPolkadot   Network = "POLKADOT"
+	NetworkRococo     Network = "ROCOCO"
+	NetworkWestend    Network = "WESTEND"
+	NetworkCelestia   Network = "CELESTIA"
+	NetworkArabica    Network = "ARABICA"
+	NetworkMocha      Network = "MOCHA"
+	NetworkBlockRa    Network = "BLOCKSPACE_RACE"
+	NetworkEthCons    Network = "ETHEREUM_CONSENSUS"
+	NetworkEthExec    Network = "ETHEREUM_EXECUTION"
+	NetworkHolesky    Network = "HOLESKY"
+	NetworkGoldbergLC Network = "GOLDBERG_LC"
+	NetworkGoldbergFN Network = "GOLDBERG_FN"
 )
 
 func Networks() []Network {
@@ -52,7 +53,8 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
-		NetworkGoldberg,
+		NetworkGoldbergLC,
+		NetworkGoldbergFN,
 	}
 }
 
@@ -367,9 +369,12 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
 		protocols = cli.NewStringSlice("discv5") // TODO
-	case NetworkGoldberg:
-		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGoldberg...)
+	case NetworkGoldbergLC:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGoldbergLightClient...)
 		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-6f0996")
+	case NetworkGoldbergFN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGoldbergFullNode...)
+		protocols = cli.NewStringSlice("/Avail/kad")
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range kaddht.DefaultBootstrapPeers {

@@ -221,9 +221,20 @@ var (
 		"enr:-Le4QLoE1wFHSlGcm48a9ZESb_MRLqPPu6G0vHqu4MaUcQNDHS69tsy-zkN0K6pglyzX8m24mkb-LtBcbjAYdP1uxm4BhGV0aDKQabfZdAQBcAAAAQAAAAAAAIJpZIJ2NIJpcIQ5gR6Wg2lwNpAgAUHQBwEQAAAAAAAAADR-iXNlY3AyNTZrMaEDPMSNdcL92uNIyCsS177Z6KTXlbZakQqxv3aQcWawNXeDdWRwgiMohHVkcDaCI4I",
 	}
 
-	// BootstrapPeersGoldberg Avail network extracted from:
+	// BootstrapPeersGoldbergLightClient Avail network extracted from:
 	//   https://github.com/availproject/light-client-lib/blob/e5cb20f092951e15436bc21a2ac1f97c10d6a800/src/types.rs#L586C6-L586C72
-	BootstrapPeersGoldberg = []string{
+	BootstrapPeersGoldbergLightClient = []string{
 		"/dns/bootnode.1.lightclient.goldberg.avail.tools/tcp/37000/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",
+	}
+
+	// BootstrapPeersGoldbergFullNode Avail network extracted from:
+	//   https://github.com/availproject/avail/blob/e976c560ee3f8c7d36d9fbec8e98c29283f1aa34/misc/genesis/testnet.goldberg.chain.json#L5
+	BootstrapPeersGoldbergFullNode = []string{
+		"/dns/bootnode-001.goldberg.avail.tools/tcp/30333/p2p/12D3KooWCVqFvrP3UJ1S338Gb8SHvEQ1xpENLb45Dbynk4hu1XGN",
+		"/dns/bootnode-002.goldberg.avail.tools/tcp/30333/p2p/12D3KooWD6sWeWCG5Z1qhejhkPk9Rob5h75wYmPB6MUoPo7br58m",
+		"/dns/bootnode-003.goldberg.avail.tools/tcp/30333/p2p/12D3KooWMR9ZoAVWJv6ahraVzUCfacNbFKk7ABoWxVL3fJ3XXGDw",
+		"/dns/bootnode-004.goldberg.avail.tools/tcp/30333/p2p/12D3KooWMuyLE3aPQ82HTWuPUCjiP764ebQrZvGUzxrYGuXWZJZV",
+		"/dns/bootnode-005.goldberg.avail.tools/tcp/30333/p2p/12D3KooWKJwbdcZ7QWcPLHy3EJ1UiffaLGnNBMffeK8AqRVWBZA1",
+		"/dns/bootnode-006.goldberg.avail.tools/tcp/30333/p2p/12D3KooWM8AaHDH8SJvg6bq4CGQyHvW2LH7DCHbdv633dsrti7i5",
 	}
 )
