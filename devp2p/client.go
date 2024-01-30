@@ -31,6 +31,7 @@ func DefaultConfig() *Config {
 			{Name: "eth", Version: 66},
 			{Name: "eth", Version: 67},
 			{Name: "eth", Version: 68},
+			{Name: "snap", Version: 1},
 		},
 		HighestProtoVersion: 68,
 	}
