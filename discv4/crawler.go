@@ -290,7 +290,7 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 				}
 				result.Protocols = protocols
 			} else {
-				log.WithError(err).Warnln("Could not identify peer")
+				log.WithError(err).Debugln("Could not identify peer")
 			}
 		}
 		// if there was a connection error, parse it to a known one
