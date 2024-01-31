@@ -86,6 +86,10 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
+	if len(libp2pResult.ListenAddrs) > 0 {
+		task.maddrs = libp2pResult.ListenAddrs
+	}
+
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
 		Info:                task,
@@ -220,9 +224,8 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 				}
 			}
 
-			// Update pi maddrs to include all listen addresses
-			pi.maddrs = ps.Addrs(pi.ID())
-			result.ListenAddrs = pi.maddrs
+			// Extract listen addresses
+			result.ListenAddrs = ps.Addrs(pi.ID())
 		}
 
 		// if there was a connection error, parse it to a known one
