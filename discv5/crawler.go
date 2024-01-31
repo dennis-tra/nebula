@@ -25,7 +25,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
-const MAX_CRAWL_RETRY_AFTER_TIMEOUT = 2 // magic
+const MaxCrawlRetriesAfterTimeout = 2 // magic
 
 type CrawlerConfig struct {
 	DialTimeout  time.Duration
@@ -462,7 +462,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			result.RespondedAt = &now
 		}
 
-		success := false
 		// loop through the buckets sequentially because discv5 is also doing that
 		// internally, so we won't gain much by spawning multiple parallel go
 		// routines here. Stop the process as soon as we have received a timeout and
@@ -474,7 +473,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 
 				if errors.Is(err, discvx.ErrTimeout) {
 					timeouts += 1
-					if timeouts < MAX_CRAWL_RETRY_AFTER_TIMEOUT {
+					if timeouts < MaxCrawlRetriesAfterTimeout {
 						continue
 					}
 				}
@@ -483,7 +482,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 				err = fmt.Errorf("getting closest peer with CPL %d: %w", i, err)
 				break
 			}
-			success = true
 			timeouts = 0
 
 			if result.RespondedAt == nil {
@@ -516,7 +514,9 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		}
 
 		// if we have at least a successful result, delete error
-		if success && result.Error != nil {
+		// bitwise operation checks whether errorBits is a power of 2 minus 1,
+		// if not, then there was at least one successful result
+		if result.Error != nil && (result.RoutingTable.ErrorBits&(result.RoutingTable.ErrorBits+1)) == 0 {
 			result.Error = nil
 		}
 
