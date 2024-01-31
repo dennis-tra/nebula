@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/host/basic"
+	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
@@ -220,8 +220,9 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 				}
 			}
 
-			// Extract listen addresses
-			result.ListenAddrs = ps.Addrs(pi.ID())
+			// Update pi maddrs to include all listen addresses
+			pi.maddrs = ps.Addrs(pi.ID())
+			result.ListenAddrs = pi.maddrs
 		}
 
 		// if there was a connection error, parse it to a known one
