@@ -504,24 +504,20 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		}
 
 		result.DoneAt = time.Now()
-		result.Error = err
+		// if we have at least a successful result, don't record error
+		if noSuccessfulRequest(err, errorBits.Load()) {
+			result.Error = err
+		}
 
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
 			Neighbors: []PeerInfo{},
 			ErrorBits: uint16(errorBits.Load()),
-			Error:     err,
+			Error:     result.Error,
 		}
 
 		for _, n := range allNeighbors {
 			result.RoutingTable.Neighbors = append(result.RoutingTable.Neighbors, n)
-		}
-
-		// if we have at least a successful result, delete error
-		// bitwise operation checks whether errorBits is a power of 2 minus 1,
-		// if not, then there was at least one successful result
-		if result.Error != nil && (result.RoutingTable.ErrorBits&(result.RoutingTable.ErrorBits+1)) != 0 {
-			result.Error = nil
 		}
 
 		// if there was a connection error, parse it to a known one
@@ -538,4 +534,17 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 	}()
 
 	return resultCh
+}
+
+// noSuccessfulRequest returns true if the given error is non nil, and all bits
+// of the given errorBits are set. This means that no successful request has
+// been made. This is equivalent to verifying that all righmost bits are equal
+// to 1, or that the errorBits is a power of 2 minus 1.
+//
+// Examples:
+// 0b00000011 -> true
+// 0b00000111 -> true
+// 0b00001101 -> false
+func noSuccessfulRequest(err error, errorBits uint32) bool {
+	return err != nil && errorBits&(errorBits+1) == 0
 }
