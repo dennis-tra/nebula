@@ -520,7 +520,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		// if we have at least a successful result, delete error
 		// bitwise operation checks whether errorBits is a power of 2 minus 1,
 		// if not, then there was at least one successful result
-		if result.Error != nil && (result.RoutingTable.ErrorBits&(result.RoutingTable.ErrorBits+1)) == 0 {
+		if result.Error != nil && (result.RoutingTable.ErrorBits&(result.RoutingTable.ErrorBits+1)) != 0 {
 			result.Error = nil
 		}
 
