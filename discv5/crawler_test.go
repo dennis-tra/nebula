@@ -2,6 +2,7 @@ package discv5
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"testing"
 
@@ -103,6 +104,57 @@ func Test_sanitizeAddrs(t *testing.T) {
 }
 
 func TestNoSuccessfulRequest(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		errorBits uint32
+		want      bool
+	}{
+		{
+			name:      "no err",
+			err:       nil,
+			errorBits: 0b00000000,
+			want:      false,
+		},
+		{
+			name:      "first failed",
+			err:       fmt.Errorf("some err"),
+			errorBits: 0b00000001,
+			want:      true,
+		},
+		{
+			name:      "second failed, first worked",
+			err:       fmt.Errorf("some err"),
+			errorBits: 0b00000010,
+			want:      false,
+		},
+		{
+			name:      "all four failed",
+			err:       fmt.Errorf("some err"),
+			errorBits: 0b00001111,
+			want:      true,
+		},
+		{
+			name:      "seven failed, one worked",
+			err:       fmt.Errorf("some err"),
+			errorBits: 0b11110111,
+			want:      false,
+		},
+		{
+			name:      "eight failed, but the last one overflowing succeeded (no error)",
+			err:       nil,
+			errorBits: 0b11111111,
+			want:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := noSuccessfulRequest(tt.err, tt.errorBits); got != tt.want {
+				t.Errorf("noSuccessfulRequest() = %v, want %v, %s", got, tt.want, tt.name)
+			}
+		})
+	}
+
 	// fail if err is nil
 	require.False(t, noSuccessfulRequest(nil, 0))
 	require.False(t, noSuccessfulRequest(nil, 0b11111111))
