@@ -120,8 +120,20 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 	properties := map[string]any{}
 
+	if ip := node.IP(); ip != nil {
+		properties["ip"] = ip.String()
+	}
+
 	properties["seq"] = node.Record().Seq()
 	properties["signature"] = node.Record().Signature()
+
+	if node.UDP() != 0 {
+		properties["udp"] = node.UDP()
+	}
+
+	if node.TCP() != 0 {
+		properties["tcp"] = node.TCP()
+	}
 
 	var enrEntryEth2 ENREntryEth2
 	if err := node.Load(&enrEntryEth2); err == nil {
