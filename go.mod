@@ -3,6 +3,7 @@ module github.com/dennis-tra/nebula-crawler
 go 1.19
 
 require (
+	github.com/benbjohnson/clock v1.3.5
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
@@ -49,7 +50,6 @@ require (
 	github.com/DataDog/zstd v1.5.2 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
-	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.7.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
@@ -193,6 +193,7 @@ require (
 	lukechampine.com/blake3 v1.2.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
 // replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
 // - avoid running into dial backoffs even if forceDirectDial is set to false
 replace github.com/libp2p/go-libp2p v0.28.3 => github.com/plprobelab/go-libp2p v0.0.0-20231206123035-f6d73ce3093d
