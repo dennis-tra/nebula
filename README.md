@@ -12,7 +12,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
-- [Ethereum](https://ethereum.org/en/) - [_Testnet Holesky_](https://github.com/eth-clients/holesky)
+- [Ethereum](https://ethereum.org/en/) - [_Testnet Holesky_](https://github.com/eth-clients/holesky) (alpha)
 - [Filecoin](https://filecoin.io)
 - [Polkadot](https://polkadot.network/)
 - [Kusama](https://kusama.network/)
@@ -58,10 +58,10 @@ _The crawler was:_
 
 ## Project Status
 
-The crawler is powering critical [IPFS](https://ipfs.network) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator) as published in their [Weekly Reports](https://github.com/protocol/network-measurements/tree/master/reports) as well as on [`probelab.io`](https://probelab.io).
-The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.1.2](https://github.com/dennis-tra/nebula/releases/tag/2.1.2).
+The crawler is powering critical [IPFS](https://ipfs.network) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator), used for [Weekly IPFS Reports](https://github.com/protocol/network-measurements/tree/master/reports) as well as for many metrics on [`probelab.io`](https://probelab.io).
+The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.2.0](https://github.com/dennis-tra/nebula/releases/tag/2.2.0).
 The gathered numbers about the IPFS Amino DHT network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
-Numbers of the Ethereum Consensus Layer do not match existing numbers from other teams like [MigaLabs'](https://migalabs.io/) as can be seen on [their dashboard](https://monitoreth.io/nodes). Therefore, this feature is not released yet. 
+Numbers of the Ethereum Consensus Layer do not match existing numbers from other teams like [MigaLabs'](https://migalabs.io/) as can be seen on [their dashboard](https://monitoreth.io/nodes). However, this seems to be because of different ways to aggregate and group peers in the network.
 
 ## Install
 
@@ -76,21 +76,23 @@ connections over tcp. As of 2023-12-02 this results in a significant increase of
 undialable peers that Nebula was previously able to connect to and identify.
 
 Until the error incurred by dropping the `quic` transport is negligible or some
-new go-libp2p feature justifies and update, Nebula will stick to the old
+new go-libp2p feature justifies an update, Nebula will stick to the old
 go-libp2p version.
 
 Because go-libp2p has a dependency on quic-go and specific versions of quic-go
 can only be compiled with specific versions of Go. I'm currently sticking to
-Go 1.19 but it might be possible to update to Go 1.20 - I just haven't had the
+Go 1.19, but it might be possible to update to Go 1.20 - I just haven't had the
 time to test this yet. 
 
 ### From source
 
 ```shell
-go install github.com/dennis-tra/nebula-crawler/cmd/nebula@2.1.2
+git clone https://github.com/dennis-tra/nebula
+cd nebula
+make build
 ```
 
-Make sure the `$GOPATH/bin` is in your PATH variable to access the installed `nebula` executable.
+Now you should find the `nebula` executable in the `dist` subfolder.
 
 ## Usage
 
