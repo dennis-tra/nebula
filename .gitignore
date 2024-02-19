@@ -258,4 +258,4 @@ out
 **/*.mmdb
 *.logs
 *.log
-dist
+dist/
