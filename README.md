@@ -65,7 +65,11 @@ Numbers of the Ethereum Consensus Layer do not match existing numbers from other
 
 ## Install
 
-### Go Version
+### Precompile Binaries
+
+Head over to the release section and download binaries from the [latest stable release](https://github.com/dennis-tra/nebula/releases).
+
+### From source
 
 Nebula has a hard dependency on Go 1.19 because Nebula requires go-libp2p
 `<0.30`. With version `0.30` go-libp2p dropped support for the `quic` transport
@@ -82,9 +86,7 @@ go-libp2p version.
 Because go-libp2p has a dependency on quic-go and specific versions of quic-go
 can only be compiled with specific versions of Go. I'm currently sticking to
 Go 1.19, but it might be possible to update to Go 1.20 - I just haven't had the
-time to test this yet. 
-
-### From source
+time to test this yet.
 
 ```shell
 git clone https://github.com/dennis-tra/nebula
