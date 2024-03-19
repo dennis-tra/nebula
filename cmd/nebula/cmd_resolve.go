@@ -137,10 +137,12 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 	maddr, err := ma.NewMultiaddr(dbmaddr.Maddr)
 	if err != nil {
 		logEntry.WithError(err).Warnln("Error parsing multi address - deleting row")
-		if _, err = dbmaddr.Delete(ctx, txn); err != nil {
-			logEntry.WithError(err).Warnln("Error deleting multi address")
+		if _, delErr := dbmaddr.Delete(ctx, txn); err != nil {
+			logEntry.WithError(delErr).Warnln("Error deleting multi address")
+			return fmt.Errorf("parse multi address: %w", err)
+		} else {
+			return txn.Commit()
 		}
-		return fmt.Errorf("parse multi address: %w", err)
 	}
 
 	dbmaddr.Resolved = true
