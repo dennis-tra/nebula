@@ -98,7 +98,11 @@ Now you should find the `nebula` executable in the `dist` subfolder.
 
 ## Usage
 
-Nebula is a command line tool and provides the `crawl` sub-command. To simply crawl the IPFS Amino DHT network run:
+Nebula is a command line tool and provides the `crawl` sub-command.
+
+### Dry-Run
+
+To simply crawl the IPFS Amino DHT network run:
 
 ```shell
 nebula --dry-run crawl
@@ -121,6 +125,8 @@ To find out which other network values are supported, you can run:
 nebula networks
 ```
 
+### JSON Output
+
 To store crawl results as JSON files provide the `--json-out` command line flag like so:
 
 ```shell
@@ -133,7 +139,11 @@ When providing only the `--json-out` command line flag you will see that the
 `*_neighbors.json` document is empty. This document would contain the full
 routing table information of each peer in the network which is quite a bit of
 data (~250MB for the Amino DHT as of April '23) and is therefore disabled by
-default. To populate the document, you'll need to pass the `--neighbors` flag to
+default
+
+### Track Routing Table Information
+
+To populate the document, you'll need to pass the `--neighbors` flag to
 the `crawl` subcommand.
 
 ```shell
@@ -148,9 +158,25 @@ to an adjacency list, you can use [`jq`](https://stedolan.github.io/jq/) and the
 jq -r '.NeighborIDs[] as $neighbor | [.PeerID, $neighbor] | @csv' ./results/2023-04-16T14:32_neighbors.json > ./results/2023-04-16T14:32_neighbors.csv
 ```
 
-There are a few more command line flags that are documented when you run`nebula --help` and `nebula crawl --help`:
+### Postgres
 
-When Nebula is configured to store its results in a postgres database (see below), then it also tracks session information of remote peers. A session is one continuous streak of uptime.
+If you want to store the information in a proper database, you could run `make database` or `make databased` (for running it in the background) to start a local postgres instance and run Nebula like:
+
+```shell
+nebula --db-user nebula_test --db-name nebula_test crawl --neighbors
+```
+
+At this point, you can also start Nebula's monitoring process, which would periodically probe the discovered peers to track their uptime. Run in another terminal:
+
+```shell
+nebula --db-user nebula_test --db-name nebula_test monitor
+```
+
+When Nebula is configured to store its results in a postgres database, then it also tracks session information of remote peers. A session is one continuous streak of uptime (see below).
+
+---
+
+There are a few more command line flags that are documented when you run`nebula --help` and `nebula crawl --help`:
 
 ## How does it work?
 
@@ -288,7 +314,7 @@ OPTIONS:
 
 ## Development
 
-To develop this project you need Go `> 1.16` and the following tools:
+To develop this project, you need Go `1.19` and the following tools:
 
 - [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.15.2`
 - [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.14.2`
@@ -346,10 +372,6 @@ make database
 make test
 ```
 
-## Report
-
-There is a top-level `report` folder that contains a script to generate a comprehensive data report.
-
 ## Related Efforts
 
 - [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler) - A crawler for the IPFS network, code for their paper ([arXiv](https://arxiv.org/abs/2002.07747)).
@@ -382,7 +404,6 @@ You may be interested in one of my other projects:
 
 - [`pcp`](https://github.com/dennis-tra/pcp) - Command line peer-to-peer data transfer tool based on [libp2p](https://github.com/libp2p/go-libp2p).
 - [`image-stego`](https://github.com/dennis-tra/image-stego) - A novel way to image manipulation detection. Steganography-based image integrity - Merkle tree nodes embedded into image chunks so that each chunk's integrity can be verified on its own.
-- [`antares`](https://github.com/dennis-tra/antares) - A gateway and pinning service probing tool.
 
 ## License
 
