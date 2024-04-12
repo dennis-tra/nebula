@@ -97,16 +97,14 @@ var (
 	}
 
 	// BootstrapPeersRococo extracted from:
-	//   https://gitlab.parity.io/parity/mirrors/polkadot/-/blob/master/node/service/chain-specs/rococo.json
+	//   https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/node/service/chain-specs/rococo.json
 	BootstrapPeersRococo = []string{
-		"/ip4/34.90.151.124/tcp/30333/p2p/12D3KooWF7BUbG5ErMZ47ZdarRwtpZamgcZqxwpnFzkhjc1spHnP",
-		"/ip4/34.90.137.14/tcp/30333/p2p/12D3KooWLcpkpvjr5ccgtUdTSYtNDjEdsDcPNrt2Rb7yXuAf7bUE",
-		"/ip4/35.204.67.254/tcp/30333/p2p/12D3KooWGjEEDmNbBkXLM1uKMseK9iYD3osKA4JGdGKMZDCusjd6",
-		"/ip4/34.90.121.39/tcp/30333/p2p/12D3KooWBhkZQydNHDR3XSehnrfj1KNFCdpwgDrYpX54FrUR1FRS",
-		"/ip4/34.91.145.35/tcp/30333/p2p/12D3KooWBuLAMevZexnFKCgTyoz3AnHQn98D9cfe1Mg3kPoCjkwf",
-		"/ip4/34.91.77.80/tcp/30333/p2p/12D3KooWA5BAM71y9NtV5NH6EjANgYKRZ8jNLJ5z8GJ5RPdjt63n",
-		"/ip4/34.91.84.25/tcp/30333/p2p/12D3KooWSV4VqhBHZKKBsZKmVU462qRW9PmXTSuYvuajt1P93djA",
-		"/ip4/34.91.97.19/tcp/30333/p2p/12D3KooWD6wC88atMMyVeP6ZKg9sK7QmUL8x8m1RxMW8rhv2vWyg",
+		"/dns/rococo-bootnode-0.polkadot.io/tcp/30333/p2p/12D3KooWGikJMBmRiG5ofCqn8aijCijgfmZR5H9f53yUF3srm6Nm",
+		"/dns/rococo-bootnode-1.polkadot.io/tcp/30333/p2p/12D3KooWLDfH9mHRCidrd5NfQjp7rRMUcJSEUwSvEKyu7xU2cG3d",
+		"/dns/rococo-bootnode-0.polkadot.io/tcp/30334/ws/p2p/12D3KooWGikJMBmRiG5ofCqn8aijCijgfmZR5H9f53yUF3srm6Nm",
+		"/dns/rococo-bootnode-1.polkadot.io/tcp/30334/ws/p2p/12D3KooWLDfH9mHRCidrd5NfQjp7rRMUcJSEUwSvEKyu7xU2cG3d",
+		"/dns/rococo-bootnode-0.polkadot.io/tcp/443/wss/p2p/12D3KooWGikJMBmRiG5ofCqn8aijCijgfmZR5H9f53yUF3srm6Nm",
+		"/dns/rococo-bootnode-1.polkadot.io/tcp/443/wss/p2p/12D3KooWLDfH9mHRCidrd5NfQjp7rRMUcJSEUwSvEKyu7xU2cG3d",
 	}
 
 	// BootstrapPeersWestend extracted from:
