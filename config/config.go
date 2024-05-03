@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -68,9 +69,6 @@ const (
 
 // Root contains general user configuration.
 type Root struct {
-	// The version string of nebula
-	RawVersion string
-
 	// Enables debug logging (equivalent to log level 5)
 	Debug bool
 
@@ -109,6 +107,18 @@ type Root struct {
 
 	// TracerProvider is the tracer provider to use when initialising tracing
 	TracerProvider trace.TracerProvider
+
+	// The raw version of Nebula in the for X.Y.Z. Raw, because it's missing, e.g., commit information (set by GoReleaser or in Makefile)
+	RawVersion string
+
+	// The commit hash used to build the Nebula binary (set by GoReleaser or in Makefile)
+	BuildCommit string
+
+	// The date when Nebula was built (set by GoReleaser or in Makefile)
+	BuildDate string
+
+	// Who built Nebula (set by GoReleaser or in Makefile)
+	BuiltBy string
 }
 
 // Version returns the actual version string which includes VCS information
@@ -119,17 +129,27 @@ func (r *Root) Version() string {
 		for _, setting := range info.Settings {
 			switch setting.Key {
 			case "vcs.revision":
-				shortCommit = setting.Value[:7]
+				shortCommit = setting.Value
+				if len(shortCommit) > 8 {
+					shortCommit = shortCommit[:8]
+				}
 			case "vcs.modified":
 				dirty, _ = strconv.ParseBool(setting.Value)
 			}
 		}
 	}
 
-	versionStr := "v" + r.RawVersion
+	versionStr := r.RawVersion
 
-	if shortCommit != "" {
-		versionStr += "+" + shortCommit
+	if r.BuildCommit != "" {
+		if len(r.BuildCommit) > 8 {
+			r.BuildCommit = r.BuildCommit[:8]
+		}
+		shortCommit = r.BuildCommit
+	}
+
+	if !strings.HasSuffix(versionStr, shortCommit) {
+		versionStr += "-" + shortCommit
 	}
 
 	if dirty {
@@ -137,6 +157,17 @@ func (r *Root) Version() string {
 	}
 
 	return versionStr
+}
+
+func (r *Root) BuildAuthor() string {
+	if r.BuildDate != "" && r.BuiltBy != "" {
+		return fmt.Sprintf("built at %s by %s", r.BuildDate, r.BuiltBy)
+	} else if r.BuildDate != "" {
+		return fmt.Sprintf("built at %s", r.BuildDate)
+	} else if r.BuiltBy != "" {
+		return fmt.Sprintf("built by %s", r.BuiltBy)
+	}
+	return ""
 }
 
 // String prints the configuration as a json string
