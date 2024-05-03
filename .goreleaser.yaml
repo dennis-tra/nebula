@@ -8,13 +8,21 @@
 
 version: 1
 
+project_name: nebula
+
 builds:
-  - env:
-      - CGO_ENABLED=0
+  - id: nebula
+    main: ./cmd/nebula
+    binary: nebula
+    env:
+      - CGO_ENABLED=1
     goos:
       - linux
       - windows
       - darwin
+
+release:
+  draft: true
 
 archives:
   - format: tar.gz
