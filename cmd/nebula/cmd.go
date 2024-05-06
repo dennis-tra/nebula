@@ -24,11 +24,14 @@ const (
 	flagCategoryNetwork   = "Network Specific Configuration:"
 )
 
-// RawVersion and build tag of the Nebula command line tool.
-var RawVersion = "dev"
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	builtBy = "local"
+)
 
 var rootConfig = &config.Root{
-	RawVersion:      RawVersion,
 	Debug:           false,
 	LogLevel:        4,
 	LogFormat:       "text",
@@ -52,6 +55,10 @@ var rootConfig = &config.Root{
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  200,
 	},
+	RawVersion:  version,
+	BuildCommit: commit,
+	BuildDate:   date,
+	BuiltBy:     builtBy,
 }
 
 func main() {
@@ -65,7 +72,7 @@ func main() {
 				Email: "nebula@dtrautwein.eu",
 			},
 		},
-		Version: rootConfig.Version(),
+		Version: fmt.Sprintf("v%s (%s)", rootConfig.Version(), rootConfig.BuildAuthor()),
 		Before:  Before,
 		Flags: []cli.Flag{
 			&cli.BoolFlag{

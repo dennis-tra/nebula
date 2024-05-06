@@ -372,6 +372,14 @@ make database
 make test
 ```
 
+## Release Checklist
+
+- [ ] Merge everything into `main`
+- [ ] Create a new tag with the new version
+- [ ] Push tag to GitHub
+
+This will trigger the [`goreleaser.yml`](./.github/workflows/goreleaser.yml) workflow which pushes creates a new _draft_ release in GitHub.
+
 ## Related Efforts
 
 - [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler) - A crawler for the IPFS network, code for their paper ([arXiv](https://arxiv.org/abs/2002.07747)).

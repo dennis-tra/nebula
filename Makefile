@@ -1,4 +1,7 @@
-default: all
+GIT_SHA := $(shell git rev-parse --short HEAD)
+DATE := $(shell date "+%Y-%m-%dT%H:%M:%SZ")
+USER := $(shell id -un)
+VERSION := $(shell git describe --tags --abbrev=0)
 
 all: clean build
 
@@ -8,10 +11,7 @@ test:
 	go test `go list ./... | grep -v maxmind | grep -v discvx`
 
 build:
-	go build -ldflags "-X main.RawVersion=`cat version`" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
-
-build-linux:
-	GOOS=linux GOARCH=amd64 make build
+	go build -ldflags "-X main.version=${VERSION} -X main.commit=${GIT_SHA} -X main.date=${DATE} -X main.builtBy=${USER}" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
 
 format:
 	gofumpt -w -l .
@@ -20,13 +20,13 @@ clean:
 	rm -r dist || true
 
 docker:
-	docker build -t dennistra/nebula:latest -t dennistra/nebula:`cat version` .
+	docker build -t dennistra/nebula:latest -t dennistra/nebula:${GIT_SHA} .
 
 docker-linux:
-	docker build --platform linux/amd64 -t 019120760881.dkr.ecr.us-east-1.amazonaws.com/probelab:nebula-sha6bc3e96 .
+	docker build --platform linux/amd64 -t 019120760881.dkr.ecr.us-east-1.amazonaws.com/probelab:nebula-sha${GIT_SHA} .
 
 docker-push: docker-linux
-	docker push dennistra/nebula:latest dennistra/nebula:`cat version`
+	docker push dennistra/nebula:latest dennistra/nebula:${GIT_SHA}
 
 tools:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.15.2
