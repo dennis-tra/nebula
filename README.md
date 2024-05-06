@@ -91,7 +91,7 @@ time to test this yet.
 ```shell
 git clone https://github.com/dennis-tra/nebula
 cd nebula
-make build
+make build # Nebula requires Go 1.19!
 ```
 
 Now you should find the `nebula` executable in the `dist` subfolder.
