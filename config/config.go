@@ -36,6 +36,7 @@ const (
 	NetworkHolesky    Network = "HOLESKY"
 	NetworkGoldbergLC Network = "GOLDBERG_LC"
 	NetworkGoldbergFN Network = "GOLDBERG_FN"
+	NetworkPactus     Network = "PACTUS"
 )
 
 func Networks() []Network {
@@ -56,6 +57,7 @@ func Networks() []Network {
 		NetworkHolesky,
 		NetworkGoldbergLC,
 		NetworkGoldbergFN,
+		NetworkPactus,
 	}
 }
 
@@ -413,6 +415,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		}
 		bootstrapPeers = cli.NewStringSlice(bps...)
 		protocols = cli.NewStringSlice(string(kaddht.ProtocolDHT))
+	case NetworkPactus:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPactusFullNode...)
+		protocols = cli.NewStringSlice("/pactus/gossip/v1/kad/1.0.0")
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}
