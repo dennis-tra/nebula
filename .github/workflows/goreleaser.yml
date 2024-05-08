@@ -38,5 +38,5 @@ jobs:
             -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            ghcr.io/goreleaser/goreleaser-cross:v1.19.6 build --clean --config .goreleaser.yaml
+            ghcr.io/goreleaser/goreleaser-cross:v1.19.6 release --clean --config .goreleaser.yaml
 
