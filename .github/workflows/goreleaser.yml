@@ -17,18 +17,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install compiling essentials
-        run: | 
-          sudo apt-get install -y gcc-multilib
-
       - name: Setting up Go
         uses: actions/setup-go@v4
+        with:
+          go-version: '1.19'
+
+      - name: Install cross-compiler for linux/arm64
+        run: sudo apt-get -y install gcc-aarch64-linux-gnu
+
+      - name: Install make
+        run: sudo apt-get -y install make
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
       - name: Running GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: | 
+          docker run --rm \
+            -e GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }} \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            ghcr.io/goreleaser/goreleaser-cross:v1.19.6 build --clean --config .goreleaser.yaml
+

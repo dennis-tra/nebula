@@ -5,52 +5,83 @@
 # Feel free to remove those if you don't want/need to use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
-
-version: 1
-
 project_name: nebula
 
+before:
+  hooks:
+    - go mod tidy
+    - go run ./cmd/prefix/gen.go  
 builds:
-  - id: nebula
+  - id: linux-amd64
     main: ./cmd/nebula
-    binary: nebula
     env:
       - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    binary: nebula-linux-amd64
     goos:
-      - linux
-      - windows
-      - darwin
-    overrides:
-      - goos: darwin
-        goarch: amd64
-        env:
-          - CC=o64-clang
-          - CXX=o64-clang++
-      - goos: darwin
-        goarch: arm64
-        env:
-          - CC=oa64-clang
-          - CXX=oa64-clang++
-      - goos: linux
-        goarch: amd64
-        env:
-          - CC=x86_64-linux-gnu-gcc
-          - CXX=x86_64-linux-gnu-g++
-      - goos: linux
-        goarch: arm64
-        env:
-          - CC=aarch64-linux-gnu-gcc
-          - CXX=aarch64-linux-gnu-g++
-      - goos: windows
-        goarch: amd64
-        env:
-          - CC=x86_64-w64-mingw32-gcc
-          - CXX=x86_64-w64-mingw32-g++	
-      - goos: windows
-        goarch: arm64
-        env:
-          - CC=aarch64-w64-mingw32-gcc
-          - CXX=aarch64-w64-mingw32-g++
+    - linux
+    goarch: 
+    - amd64
+    ldflags:
+      - -s -w
+
+  - id: linux-arm64
+    main: ./cmd/nebula
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    binary: nebula-linux-arm64
+    goos: 
+    - linux
+    goarch: 
+    - arm64
+    ldflags:
+      - -s -w
+
+  - id: windows-amd64
+    main: ./cmd/nebula
+    env:
+      - CGO_ENABLED=1
+      - CC=x86_64-w64-mingw32-gcc
+      - CXX=x86_64-w64-mingw32-g++
+    binary: nebula-win-amd64
+    goos:
+    - windows
+    goarch:
+    - amd64
+    ldflags:
+      - -s -w
+
+  - id: darwin-amd64
+    main: ./cmd/nebula
+    env:
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    binary: nebula-darwin-amd64
+    goos:
+    - darwin
+    goarch:
+    - amd64
+    ldflags:
+      - -s -w
+
+  - id: darwin-arm64
+    main: ./cmd/nebula
+    env:
+      - CGO_ENABLED=1
+      - CC=o64-clang
+      - CXX=o64-clang++
+    binary: nebula-darwin-arm64
+    goos:
+    - darwin
+    goarch:
+    - arm64
+    ldflags:
+      - -s -w
+
 release:
   draft: true
 
