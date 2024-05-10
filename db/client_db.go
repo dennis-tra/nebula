@@ -250,7 +250,7 @@ func (c *DBClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
 		upper,
 	)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
-		log.WithError(err).WithField("query", query).Warnln("could not create peer_logs partition")
+		log.WithError(err).WithField("query", query).Warnln("could not create neigbors partition")
 	}
 }
 
