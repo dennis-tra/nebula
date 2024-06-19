@@ -235,7 +235,7 @@ func (c *DBClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	}
 	maxCrawlID := 0
 	if crawl != nil {
-		maxCrawlID = crawl.ID
+		maxCrawlID = crawl.ID + 1
 	}
 
 	neighborsPartitionSize := 1000
