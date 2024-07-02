@@ -229,9 +229,14 @@ var (
 		"enr:-Le4QLoE1wFHSlGcm48a9ZESb_MRLqPPu6G0vHqu4MaUcQNDHS69tsy-zkN0K6pglyzX8m24mkb-LtBcbjAYdP1uxm4BhGV0aDKQabfZdAQBcAAAAQAAAAAAAIJpZIJ2NIJpcIQ5gR6Wg2lwNpAgAUHQBwEQAAAAAAAAADR-iXNlY3AyNTZrMaEDPMSNdcL92uNIyCsS177Z6KTXlbZakQqxv3aQcWawNXeDdWRwgiMohHVkcDaCI4I",
 	}
 
+	//BootstrapPeersAvailTuringLightClient
+	BootstrapPeersAvailTuringLightClient = []string{
+		"/dns/bootnode.1.lightclient.turing.avail.so/tcp/37000/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",
+	}
+
 	// BootstrapPeersAvailTurin network extracted from:
 	//   https://raw.githubusercontent.com/availproject/avail/main/misc/genesis/testnet.turing.chain.spec.raw.json
-	BootstrapPeersAvailTurin = []string{
+	BootstrapPeersAvailTuringFullNode = []string{
 		"/dns/bootnode-turing-001.avail.so/tcp/30333/p2p/12D3KooWRYCs192er73R2oyE4QWkKdtoRk1fL28tR3immzxTQQAq",
 		"/dns/bootnode-turing-002.avail.so/tcp/30333/p2p/12D3KooWLxzYHmGXpRnN4rAKkkZVzFgpGuqKofPggUnWz4iUR5yT",
 		"/dns/bootnode-turing-003.avail.so/tcp/30333/p2p/12D3KooWR8yPHmBZxHPoZrjjvCZEq5mJh9h7yewgM4zGgUVEANcG",

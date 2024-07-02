@@ -20,22 +20,23 @@ import (
 type Network string
 
 const (
-	NetworkIPFS       Network = "IPFS"
-	NetworkAmino      Network = "AMINO"
-	NetworkFilecoin   Network = "FILECOIN"
-	NetworkKusama     Network = "KUSAMA"
-	NetworkPolkadot   Network = "POLKADOT"
-	NetworkRococo     Network = "ROCOCO"
-	NetworkWestend    Network = "WESTEND"
-	NetworkCelestia   Network = "CELESTIA"
-	NetworkArabica    Network = "ARABICA"
-	NetworkMocha      Network = "MOCHA"
-	NetworkBlockRa    Network = "BLOCKSPACE_RACE"
-	NetworkEthCons    Network = "ETHEREUM_CONSENSUS"
-	NetworkEthExec    Network = "ETHEREUM_EXECUTION"
-	NetworkHolesky    Network = "HOLESKY"
-	NetworkAvailTurin Network = "AVAIL_TURIN"
-	NetworkPactus     Network = "PACTUS"
+	NetworkIPFS          Network = "IPFS"
+	NetworkAmino         Network = "AMINO"
+	NetworkFilecoin      Network = "FILECOIN"
+	NetworkKusama        Network = "KUSAMA"
+	NetworkPolkadot      Network = "POLKADOT"
+	NetworkRococo        Network = "ROCOCO"
+	NetworkWestend       Network = "WESTEND"
+	NetworkCelestia      Network = "CELESTIA"
+	NetworkArabica       Network = "ARABICA"
+	NetworkMocha         Network = "MOCHA"
+	NetworkBlockRa       Network = "BLOCKSPACE_RACE"
+	NetworkEthCons       Network = "ETHEREUM_CONSENSUS"
+	NetworkEthExec       Network = "ETHEREUM_EXECUTION"
+	NetworkHolesky       Network = "HOLESKY"
+	NetworkAvailTuringLC Network = "AVAIL_TURING_LC"
+	NetworkAvailTuringFN Network = "AVAIL_TURING_FN"
+	NetworkPactus        Network = "PACTUS"
 )
 
 func Networks() []Network {
@@ -54,7 +55,8 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
-		NetworkAvailTurin,
+		NetworkAvailTuringLC,
+		NetworkAvailTuringFN,
 		NetworkPactus,
 	}
 }
@@ -400,8 +402,11 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
 		protocols = cli.NewStringSlice("discv5") // TODO
-	case NetworkAvailTurin:
-		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTurin...)
+	case NetworkAvailTuringLC:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringLightClient...)
+		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-6f0996")
+	case NetworkAvailTuringFN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringFullNode...)
 		protocols = cli.NewStringSlice("/Avail/kad")
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
