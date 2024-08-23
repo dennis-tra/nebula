@@ -229,6 +229,25 @@ var (
 		"enr:-Le4QLoE1wFHSlGcm48a9ZESb_MRLqPPu6G0vHqu4MaUcQNDHS69tsy-zkN0K6pglyzX8m24mkb-LtBcbjAYdP1uxm4BhGV0aDKQabfZdAQBcAAAAQAAAAAAAIJpZIJ2NIJpcIQ5gR6Wg2lwNpAgAUHQBwEQAAAAAAAAADR-iXNlY3AyNTZrMaEDPMSNdcL92uNIyCsS177Z6KTXlbZakQqxv3aQcWawNXeDdWRwgiMohHVkcDaCI4I",
 	}
 
+	// BootstrapPeersAvailMainnetFullNode extracted from:
+	// 	https://raw.githubusercontent.com/availproject/avail/main/misc/genesis/mainnet.chain.spec.json
+	BootstrapPeersAvailMainnetFullNode = []string{
+		"/dns/bootnode-mainnet-001.avail.so/tcp/30333/p2p/12D3KooWBXk3rcfKkvd1YbJ8fHPH4WZy34QCw8Czrvqf6cbmrdKh",
+		"/dns/bootnode-mainnet-002.avail.so/tcp/30333/p2p/12D3KooWMJt1z4ap2UacerW7vJprr7Mqws5sqmJXZqg8XpZswiwF",
+		"/dns/bootnode-mainnet-003.avail.so/tcp/30333/p2p/12D3KooWK85zotBy9jjgVhHzsvntAWWzRxTosF3RxwnJ9zJsGQbi",
+		"/dns/bootnode-mainnet-004.avail.so/tcp/30333/p2p/12D3KooWFyPvzGbTH7qbB3foBDDfwtn4LJsb4ryvTGGCokUyYDm7",
+		"/dns/bootnode-mainnet-005.avail.so/tcp/30333/p2p/12D3KooWFB6wBdwS1aacu3QZdmZb2sPDiVxP9iLFecLBiHKZELCX",
+		"/dns/bootnode-mainnet-006.avail.so/tcp/30333/p2p/12D3KooWLVJtN3hpUJYPjQzGKiHnbw6fpD5vvH5EkztdP1VAAgrj",
+		"/dns/bootnode-mainnet-007.avail.so/tcp/30333/p2p/12D3KooWPfsS6gAYoEiB8EaWbHdrbd6ugcru2kGguz56B9PxD4HT",
+		"/dns/bootnode-mainnet-008.avail.so/tcp/30333/p2p/12D3KooWSYiWfRCigRwWU9UzVJfZRz3SkCpYySH9w5ZydXUJWVuJ",
+		"/dns/bootnode-mainnet-009.avail.so/tcp/30333/p2p/12D3KooWH1dPXxYyxwYjhbrjJ3PUJht9DyQkgdiJyiTtKVx5Voh4",
+		"/dns/bootnode-mainnet-010.avail.so/tcp/30333/p2p/12D3KooWLeXFyp1Ghm7oCt1EghhT39wnsNhZWT1jYEWTHn2pHU3E",
+	}
+	// BootstrapPeersAvailMainnetLightClient
+	BootstrapPeersAvailMainnetLightClient = []string{
+		"/dns/bootnode.1.lightclient.mainnet.avail.so/tcp/37000/p2p/12D3KooW9x9qnoXhkHAjdNFu92kMvBRSiFBMAoC5NnifgzXjsuiM",
+	}
+
 	//BootstrapPeersAvailTuringLightClient
 	BootstrapPeersAvailTuringLightClient = []string{
 		"/dns/bootnode.1.lightclient.turing.avail.so/tcp/37000/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",

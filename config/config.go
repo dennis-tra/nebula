@@ -20,23 +20,25 @@ import (
 type Network string
 
 const (
-	NetworkIPFS          Network = "IPFS"
-	NetworkAmino         Network = "AMINO"
-	NetworkFilecoin      Network = "FILECOIN"
-	NetworkKusama        Network = "KUSAMA"
-	NetworkPolkadot      Network = "POLKADOT"
-	NetworkRococo        Network = "ROCOCO"
-	NetworkWestend       Network = "WESTEND"
-	NetworkCelestia      Network = "CELESTIA"
-	NetworkArabica       Network = "ARABICA"
-	NetworkMocha         Network = "MOCHA"
-	NetworkBlockRa       Network = "BLOCKSPACE_RACE"
-	NetworkEthCons       Network = "ETHEREUM_CONSENSUS"
-	NetworkEthExec       Network = "ETHEREUM_EXECUTION"
-	NetworkHolesky       Network = "HOLESKY"
-	NetworkAvailTuringLC Network = "AVAIL_TURING_LC"
-	NetworkAvailTuringFN Network = "AVAIL_TURING_FN"
-	NetworkPactus        Network = "PACTUS"
+	NetworkIPFS           Network = "IPFS"
+	NetworkAmino          Network = "AMINO"
+	NetworkFilecoin       Network = "FILECOIN"
+	NetworkKusama         Network = "KUSAMA"
+	NetworkPolkadot       Network = "POLKADOT"
+	NetworkRococo         Network = "ROCOCO"
+	NetworkWestend        Network = "WESTEND"
+	NetworkCelestia       Network = "CELESTIA"
+	NetworkArabica        Network = "ARABICA"
+	NetworkMocha          Network = "MOCHA"
+	NetworkBlockRa        Network = "BLOCKSPACE_RACE"
+	NetworkEthCons        Network = "ETHEREUM_CONSENSUS"
+	NetworkEthExec        Network = "ETHEREUM_EXECUTION"
+	NetworkHolesky        Network = "HOLESKY"
+	NetworkAvailMainnetFN Network = "AVAIL_MAINNET_FN"
+	NetworkAvailMainnetLC Network = "AVAIL_MAINNET_LC"
+	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
+	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
+	NetworkPactus         Network = "PACTUS"
 )
 
 func Networks() []Network {
@@ -55,6 +57,8 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
+		NetworkAvailMainnetFN,
+		NetworkAvailMainnetLC,
 		NetworkAvailTuringLC,
 		NetworkAvailTuringFN,
 		NetworkPactus,
@@ -402,6 +406,12 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
 		protocols = cli.NewStringSlice("discv5") // TODO
+	case NetworkAvailMainnetFN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetFullNode...)
+		protocols = cli.NewStringSlice("/Avail/kad")
+	case NetworkAvailMainnetLC:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetLightClient...)
+		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-b91746")
 	case NetworkAvailTuringLC:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringLightClient...)
 		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-6f0996")
