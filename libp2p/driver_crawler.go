@@ -108,9 +108,7 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 	// https://github.com/availproject/avail-light/blob/0ddc5d50d6f3d7217c448d6d008846c6b8c4fec3/src/network/p2p/event_loop.rs#L296
 	// Spoof it
 	userAgent := "nebula/" + cfg.Version
-	if cfg.Network == config.NetworkAvailTuringLC ||
-		cfg.Network == config.NetworkAvailTuringFN ||
-		cfg.Network == config.NetworkAvailMainnetFN {
+	if cfg.Network == config.NetworkAvailTuringLC || cfg.Network == config.NetworkAvailMainnetLC {
 		userAgent = "avail-light-client/rust-client"
 	}
 

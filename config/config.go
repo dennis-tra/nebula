@@ -35,10 +35,10 @@ const (
 	NetworkEthExec        Network = "ETHEREUM_EXECUTION"
 	NetworkHolesky        Network = "HOLESKY"
 	NetworkAvailMainnetFN Network = "AVAIL_MAINNET_FN"
-	// NetworkAvailMainnetLC Network = "AVAIL_MAINNET_LC" // TODO: missing bootnodes
-	NetworkAvailTuringLC Network = "AVAIL_TURING_LC"
-	NetworkAvailTuringFN Network = "AVAIL_TURING_FN"
-	NetworkPactus        Network = "PACTUS"
+	NetworkAvailMainnetLC Network = "AVAIL_MAINNET_LC"
+	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
+	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
+	NetworkPactus         Network = "PACTUS"
 )
 
 func Networks() []Network {
@@ -58,7 +58,7 @@ func Networks() []Network {
 		NetworkEthExec,
 		NetworkHolesky,
 		NetworkAvailMainnetFN,
-		// NetworkAvailMainnetLC, // TODO: missing bootnodes
+		NetworkAvailMainnetLC,
 		NetworkAvailTuringLC,
 		NetworkAvailTuringFN,
 		NetworkPactus,
@@ -409,9 +409,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkAvailMainnetFN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetFullNode...)
 		protocols = cli.NewStringSlice("/Avail/kad")
-	// case NetworkAvailMainnetLC:
-	// 	bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetLightClient...)
-	// 	protocols = cli.NewStringSlice("TODO")
+	case NetworkAvailMainnetLC:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetLightClient...)
+		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-b91746")
 	case NetworkAvailTuringLC:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringLightClient...)
 		protocols = cli.NewStringSlice("/avail_kad/id/1.0.0-6f0996")

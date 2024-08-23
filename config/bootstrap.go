@@ -243,7 +243,10 @@ var (
 		"/dns/bootnode-mainnet-009.avail.so/tcp/30333/p2p/12D3KooWH1dPXxYyxwYjhbrjJ3PUJht9DyQkgdiJyiTtKVx5Voh4",
 		"/dns/bootnode-mainnet-010.avail.so/tcp/30333/p2p/12D3KooWLeXFyp1Ghm7oCt1EghhT39wnsNhZWT1jYEWTHn2pHU3E",
 	}
-	// TODO: add BootstrapPeersMainnetLightClient (unable to find link yet)
+	// BootstrapPeersAvailMainnetLightClient
+	BootstrapPeersAvailMainnetLightClient = []string{
+		"/dns/bootnode.1.lightclient.mainnet.avail.so/tcp/37000/p2p/12D3KooW9x9qnoXhkHAjdNFu92kMvBRSiFBMAoC5NnifgzXjsuiM",
+	}
 
 	//BootstrapPeersAvailTuringLightClient
 	BootstrapPeersAvailTuringLightClient = []string{
