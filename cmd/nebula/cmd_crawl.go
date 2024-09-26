@@ -227,7 +227,7 @@ func CrawlAction(c *cli.Context) error {
 	ctx = network.WithDialPeerTimeout(ctx, cfg.Root.DialTimeout)
 
 	// Allow transient connections. This way we can crawl a peer even if it is relayed.
-	ctx = network.WithUseTransient(ctx, "reach peers behind NATs")
+	ctx = network.WithAllowLimitedConn(ctx, "reach peers behind NATs")
 
 	// This is a custom configuration option that only exists in our fork of go-libp2p.
 	// see: https://github.com/plprobelab/go-libp2p/commit/f6d73ce3093ded293f0de032d239709069fac586

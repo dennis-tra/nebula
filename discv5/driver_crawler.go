@@ -22,7 +22,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
-	"github.com/libp2p/go-libp2p/p2p/muxer/mplex"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
@@ -289,7 +288,6 @@ func newLibp2pHost(version string) (host.Host, error) {
 		libp2p.Security(noise.ID, noise.New),
 		libp2p.UserAgent("nebula/"+version),
 		libp2p.Transport(tcp.NewTCPTransport),
-		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
 		libp2p.DisableMetrics(),
 		libp2p.ConnectionManager(cm),
