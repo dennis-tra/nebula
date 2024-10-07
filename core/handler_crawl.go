@@ -31,7 +31,7 @@ type CrawlResult[I PeerInfo[I]] struct {
 
 	// Indicates whether the above routing table information was queried through the API.
 	// The API routing table does not include MultiAddresses, so we won't use them for further crawls.
-	RoutingTableFromAPI bool
+	RoutingTableFromAPI bool // TODO: This should not live here. This is IPFS specific
 
 	// Any error that has occurred when connecting to the peer
 	ConnectError error

@@ -3,10 +3,16 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/anacrolix/dht/v2/krpc"
+	log "github.com/sirupsen/logrus"
+
+	v2 "github.com/anacrolix/dht/v2"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
@@ -37,6 +43,7 @@ const (
 	NetworkGoldbergLC Network = "GOLDBERG_LC"
 	NetworkGoldbergFN Network = "GOLDBERG_FN"
 	NetworkPactus     Network = "PACTUS"
+	NetworkBittorrent Network = "BITTORRENT"
 )
 
 func Networks() []Network {
@@ -58,6 +65,7 @@ func Networks() []Network {
 		NetworkGoldbergLC,
 		NetworkGoldbergFN,
 		NetworkPactus,
+		NetworkBittorrent,
 	}
 }
 
@@ -353,6 +361,48 @@ func (c *Crawl) BootstrapEnodesV5() ([]*enode.Node, error) {
 	return enodes, nil
 }
 
+func (c *Crawl) BootstrapKRPCNodeInfo() ([]krpc.NodeInfo, error) {
+	nodeInfos := make([]krpc.NodeInfo, 0, len(c.BootstrapPeers.Value()))
+	for _, hostPort := range c.BootstrapPeers.Value() {
+
+		host, portStr, err := net.SplitHostPort(hostPort)
+		if err != nil {
+			return nil, fmt.Errorf("split host port %s: %w", hostPort, err)
+		}
+
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return nil, fmt.Errorf("lookup IPs for %s: %w", hostPort, err)
+		}
+
+		if len(ips) == 0 {
+			log.WithField("dns", hostPort).Warnln("No IPs found for bootstrap peer")
+			continue
+		}
+
+		if len(ips) > 1 {
+			log.WithField("dns", hostPort).WithField("ips", ips).Warnf("Found multiple IPs for bootstrap peer. Using first IP %s in list.", ips[0])
+		}
+
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("convert port %q to int: %w", portStr, err)
+		}
+
+		ni := krpc.NodeInfo{
+			ID: krpc.RandomNodeID(), // TODO: indicate bootstrap peer
+			Addr: krpc.NodeAddr{
+				IP:   ips[0],
+				Port: port,
+			},
+		}
+
+		nodeInfos = append(nodeInfos, ni)
+	}
+
+	return nodeInfos, nil
+}
+
 // String prints the configuration as a json string
 func (c *Crawl) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
@@ -418,6 +468,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkPactus:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPactusFullNode...)
 		protocols = cli.NewStringSlice("/pactus/gossip/v1/kad/1.0.0")
+	case NetworkBittorrent:
+		bootstrapPeers = cli.NewStringSlice(v2.DefaultGlobalBootstrapHostPorts...)
+		protocols = cli.NewStringSlice("krpc")
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}

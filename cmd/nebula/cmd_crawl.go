@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dennis-tra/nebula-crawler/mainline"
+
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -371,6 +373,51 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		return nil
+
+	case string(config.NetworkBittorrent):
+
+		bps, err := cfg.BootstrapKRPCNodeInfo()
+		if err != nil {
+			return err
+		}
+
+		// configure the crawl driver
+		driverCfg := &mainline.CrawlDriverConfig{
+			Version:        cfg.Root.Version(),
+			DialTimeout:    cfg.Root.DialTimeout,
+			TrackNeighbors: cfg.PersistNeighbors,
+			BootstrapPeers: bps,
+			TracerProvider: cfg.Root.TracerProvider,
+			MeterProvider:  cfg.Root.MeterProvider,
+			LogErrors:      cfg.Root.LogErrors,
+		}
+		// init the crawl driver
+		driver, err := mainline.NewCrawlDriver(dbc, dbCrawl, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new mainline driver: %w", err)
+		}
+
+		// init the result handler
+		handler := core.NewCrawlHandler[mainline.PeerInfo](handlerCfg)
+
+		// put everything together and init the engine that'll run the crawl
+		eng, err := core.NewEngine[mainline.PeerInfo, core.CrawlResult[mainline.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		// finally, start the crawl
+		queuedPeers, runErr := eng.Run(ctx)
+
+		// a bit ugly but, but the handler will contain crawl statistics, that
+		// we'll save to the database and print to the screen
+		handler.QueuedPeers = len(queuedPeers)
+		if err := persistCrawlInformation(dbc, dbCrawl, handler, runErr); err != nil {
+			return fmt.Errorf("persist crawl information: %w", err)
+		}
+
+		return nil
+
 	default:
 
 		addrInfos, err := cfg.BootstrapAddrInfos()

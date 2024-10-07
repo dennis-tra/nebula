@@ -15,6 +15,7 @@ var KnownErrors = map[string]string{
 	"RPC timeout":                                models.NetErrorIoTimeout,
 	"no recent network activity":                 models.NetErrorIoTimeout, // formerly NetErrorNoRecentNetworkActivity (equivalent to a timeout)
 	"handshake did not complete in time":         models.NetErrorIoTimeout, // quic error
+	"transaction timed out":                      models.NetErrorIoTimeout, // anacrolix/dht timeout error
 	"connection refused":                         models.NetErrorConnectionRefused,
 	"connection reset by peer":                   models.NetErrorConnectionResetByPeer,
 	"protocol not supported":                     models.NetErrorProtocolNotSupported,
@@ -56,6 +57,7 @@ var knownErrorsPrecedence = []string{
 	"i/o timeout",
 	"RPC timeout",
 	"no recent network activity",
+	"transaction timed out",
 	"cannot assign requested address",
 	"can't assign requested address",
 	"connection gated",

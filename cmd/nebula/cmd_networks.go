@@ -50,7 +50,7 @@ var NetworksCommand = &cli.Command{
 			}
 
 			if c.Bool("bootstrappers") || networkArg != "" {
-				log.Infof("  Bootstrapperes: %s", network)
+				log.Infof("  Bootstrappers: %s", network)
 				for i, b := range bootstrappers.Value() {
 					log.Infof("    [%d] %s", i, b)
 				}
