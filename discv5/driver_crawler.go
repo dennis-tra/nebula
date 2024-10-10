@@ -90,6 +90,23 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		maddrs = append(maddrs, maddr)
 	}
 
+	if quicAddr, ok := node.QUICEndpoint(); ok {
+		addr := quicAddr.Addr()
+		if addr.Is4() {
+			ipScheme = "ip4"
+		} else {
+			ipScheme = "ip6"
+		}
+
+		maddrStr := fmt.Sprintf("/%s/%s/udp/%d/quic-v1", ipScheme, addr.String(), quicAddr.Port())
+		maddr, err := ma.NewMultiaddr(maddrStr)
+		if err != nil {
+			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
+		}
+
+		maddrs = append(maddrs, maddr)
+	}
+
 	pi := PeerInfo{
 		Node:   node,
 		peerID: peerID,

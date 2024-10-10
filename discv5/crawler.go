@@ -11,7 +11,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	ma "github.com/multiformats/go-multiaddr"
@@ -64,6 +63,10 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	discV5Result := <-discV5ResultCh
 
 	properties := c.PeerProperties(task.Node)
+
+	if libp2pResult.Transport != "" {
+		properties["transport"] = libp2pResult.Transport
+	}
 
 	if libp2pResult.ConnClosedImmediately {
 		properties["direct_close"] = true
@@ -174,8 +177,9 @@ type Libp2pResult struct {
 	Agent                 string
 	Protocols             []string
 	ListenAddrs           []ma.Multiaddr
-	ConnClosedImmediately bool // whether conn was no error but still unconnected
-	GenTCPAddr            bool // whether a TCP address was generated
+	Transport             string // the transport of a successful connection
+	ConnClosedImmediately bool   // whether conn was no error but still unconnected
+	GenTCPAddr            bool   // whether a TCP address was generated
 }
 
 func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResult {
@@ -203,8 +207,10 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
+			conns := c.host.Network().ConnsToPeer(pi.ID())
+
 			// check if we're connected
-			if c.host.Network().Connectedness(pi.ID()) == network.NotConnected {
+			if len(conns) == 0 {
 				// this is a weird behavior I was obesrving. Libp2p reports a
 				// successful connection establishment but isn't connected right
 				// after the call returned. This point is not a big problem at this
@@ -216,6 +222,20 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 				// try it again one more time
 				if !c.isIdentified(addrInfo.ID) {
 					_ = c.connect(ctx, addrInfo)
+				}
+			} else if len(conns) == 1 {
+				// handle happy-path separately
+				result.Transport = conns[0].ConnState().Transport
+			} else {
+				transports := map[string]struct{}{}
+				for _, conn := range conns {
+					transports[conn.ConnState().Transport] = struct{}{}
+				}
+
+				if len(transports) == 1 {
+					result.Transport = conns[0].ConnState().Transport
+				} else if len(transports) != 0 {
+					result.Transport = "multi"
 				}
 			}
 
