@@ -213,4 +213,4 @@ require (
 
 // replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
 // - avoid running into dial backoffs even if forceDirectDial is set to false
-replace github.com/libp2p/go-libp2p => github.com/plprobelab/go-libp2p v0.36.6-0.20241010092508-e9e1c625e36f
+replace github.com/libp2p/go-libp2p => github.com/plprobelab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63
