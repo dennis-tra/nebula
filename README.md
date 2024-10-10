@@ -61,8 +61,6 @@ _The crawler was:_
 
 The crawler is powering critical [IPFS](https://ipfs.network) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator), used for [Weekly IPFS Reports](https://github.com/protocol/network-measurements/tree/master/reports) as well as for many metrics on [`probelab.io`](https://probelab.io).
 The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.2.0](https://github.com/dennis-tra/nebula/releases/tag/2.2.0).
-The gathered numbers about the IPFS Amino DHT network are in line with existing data like from the [`wiberlin/ipfs-crawler`](https://github.com/wiberlin/ipfs-crawler). Their crawler also powers a dashboard which can be found [here](https://trudi.weizenbaum-institut.de/ipfs_analysis.html).
-Numbers of the Ethereum Consensus Layer do not match existing numbers from other teams like [MigaLabs'](https://migalabs.io/) as can be seen on [their dashboard](https://monitoreth.io/nodes). However, this seems to be because of different ways to aggregate and group peers in the network.
 
 ## Install
 
@@ -72,27 +70,10 @@ Head over to the release section and download binaries from the [latest stable r
 
 ### From source
 
-Nebula has a hard dependency on Go 1.19 because Nebula requires go-libp2p
-`<0.30`. With version `0.30` go-libp2p dropped support for the `quic` transport
-and only continues to support `quic-v1` ([release notes](https://github.com/libp2p/go-libp2p/releases/tag/v0.30.0)). However, many peers in the IPFS Amino
-DHT still only listen on `quic` addresses (as opposed to `quic-v1`). Many of them
-also listen over `tcp` but from experiments I saw that they often refuse
-connections over tcp. As of 2023-12-02 this results in a significant increase of
-undialable peers that Nebula was previously able to connect to and identify.
-
-Until the error incurred by dropping the `quic` transport is negligible or some
-new go-libp2p feature justifies an update, Nebula will stick to the old
-go-libp2p version.
-
-Because go-libp2p has a dependency on quic-go and specific versions of quic-go
-can only be compiled with specific versions of Go. I'm currently sticking to
-Go 1.19, but it might be possible to update to Go 1.20 - I just haven't had the
-time to test this yet.
-
 ```shell
 git clone https://github.com/dennis-tra/nebula
 cd nebula
-make build # Nebula requires Go 1.19!
+make build
 ```
 
 Now you should find the `nebula` executable in the `dist` subfolder.
