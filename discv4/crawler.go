@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -159,7 +159,11 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 					return fmt.Errorf("generating random public key with CPL %d: %w", count, err)
 				}
 
-				udpAddr := &net.UDPAddr{IP: pi.Node.IP(), Port: pi.Node.UDP()}
+				ipAddr, ok := netip.AddrFromSlice(pi.Node.IP())
+				if !ok {
+					return fmt.Errorf("failed to convert ip to netip.Addr: %s", pi.Node.IP())
+				}
+				udpAddr := netip.AddrPortFrom(ipAddr, uint16(pi.Node.UDP()))
 
 				var neighbors []*enode.Node
 				for retry := 0; retry < 2; retry++ {
