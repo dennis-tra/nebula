@@ -6,6 +6,8 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 
+	"go.opentelemetry.io/otel/trace/noop"
+
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -47,7 +49,7 @@ func NewMeterProvider() (metric.MeterProvider, error) {
 // tracing.
 func NewTracerProvider(ctx context.Context, host string, port int) (trace.TracerProvider, error) {
 	if host == "" || port == 0 {
-		return trace.NewNoopTracerProvider(), nil
+		return noop.NewTracerProvider(), nil
 	}
 
 	exporter, err := otlptracegrpc.New(ctx,
