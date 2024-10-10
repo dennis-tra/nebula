@@ -22,10 +22,10 @@ package discvx
 import (
 	"fmt"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/log"
-	"golang.org/x/exp/slices"
 )
 
 const (
