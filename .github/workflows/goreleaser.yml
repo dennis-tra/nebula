@@ -20,7 +20,7 @@ jobs:
       - name: Setting up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.19'
+          go-version: '1.23.1'
 
       - name: Install cross-compiler for linux/arm64
         run: sudo apt-get -y install gcc-aarch64-linux-gnu
