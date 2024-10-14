@@ -150,13 +150,12 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 		errg := errgroup.Group{}
 		for i := 0; i <= 15; i++ { // 15 is maximum
-			count := i // Copy value
 			errg.Go(func() error {
-				pubKey, err := discvx.GenRandomPublicKey(pi.Node.ID(), count)
+				pubKey, err := discvx.GenRandomPublicKey(pi.Node.ID(), i)
 				if err != nil {
 					log.WithError(err).WithField("enr", pi.Node.String()).Warnln("Failed generating public key")
-					errorBits.Add(1 << count)
-					return fmt.Errorf("generating random public key with CPL %d: %w", count, err)
+					errorBits.Add(1 << i)
+					return fmt.Errorf("generating random public key with CPL %d: %w", i, err)
 				}
 
 				ipAddr, ok := netip.AddrFromSlice(pi.Node.IP())
@@ -172,8 +171,6 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 						break
 					}
 
-					errorBits.Add(1 << count)
-
 					if errors.Is(err, discvx.ErrTimeout) {
 						sleepDur := time.Second * time.Duration(3*(retry+1))
 						select {
@@ -184,9 +181,9 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 						}
 					}
 
-					errorBits.Add(1 << count)
+					errorBits.Add(1 << i)
 
-					return fmt.Errorf("getting closest peer with CPL %d: %w", count, err)
+					return fmt.Errorf("getting closest peer with CPL %d: %w", i, err)
 				}
 
 				mu.Lock()
@@ -207,7 +204,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 				}
 
 				if err != nil {
-					errorBits.Add(1 << count)
+					errorBits.Add(1 << i)
 					return err
 				}
 
