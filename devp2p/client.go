@@ -124,6 +124,9 @@ func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
 
 	_, err = ethConn.Handshake(c.privKey) // returns remote pubKey -> unused
 	if err != nil {
+		if err = ethConn.Close(); err != nil {
+			logEntry.WithError(err).Warnln("Failed closing devp2p connection")
+		}
 		return fmt.Errorf("handshake failed: %w", err)
 	}
 
