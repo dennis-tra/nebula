@@ -84,6 +84,7 @@ require (
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20241009165004-a3522334989c // indirect
@@ -211,6 +212,13 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-// replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
-// - avoid running into dial backoffs even if forceDirectDial is set to false
-replace github.com/libp2p/go-libp2p => github.com/plprobelab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63
+replace (
+	// replace go-ethereum with fork (branch  nebula). Changes:
+	// - move everything inside the devp2p/internal package into devp2p to make it accessible
+	// - add Identify method
+	github.com/ethereum/go-ethereum => github.com/probe-lab/go-ethereum v0.0.0-20241014112611-bf5da7745641
+
+	// replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
+	// - avoid running into dial backoffs even if forceDirectDial is set to false
+	github.com/libp2p/go-libp2p => github.com/probe-lab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63
+)

@@ -2,6 +2,7 @@ package discv4
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/protocols/eth"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
@@ -20,8 +23,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/devp2p"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 type CrawlerConfig struct {
@@ -33,8 +34,8 @@ type CrawlerConfig struct {
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	listener     *discvx.UDPv4
-	client       *devp2p.Client
+	listener     *discover.UDPv4
+	client       *Client
 	crawledPeers int
 	done         chan struct{}
 }
@@ -68,6 +69,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	// keep track of all unknown crawl errors
 	if discv4Result.ErrorStr == models.NetErrorUnknown && discv4Result.Error != nil {
 		properties["crawl_error"] = discv4Result.Error.Error()
+	}
+
+	if devp2pResult.Status != nil {
+		properties["network_id"] = devp2pResult.Status.NetworkID
+		properties["fork_id"] = hex.EncodeToString(devp2pResult.Status.ForkID.Hash[:])
 	}
 
 	data, err := json.Marshal(properties)
@@ -151,7 +157,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 		errg := errgroup.Group{}
 		for i := 0; i <= 15; i++ { // 15 is maximum
 			errg.Go(func() error {
-				pubKey, err := discvx.GenRandomPublicKey(pi.Node.ID(), i)
+				pubKey, err := GenRandomPublicKey(pi.Node.ID(), i)
 				if err != nil {
 					log.WithError(err).WithField("enr", pi.Node.String()).Warnln("Failed generating public key")
 					errorBits.Add(1 << i)
@@ -171,7 +177,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 						break
 					}
 
-					if errors.Is(err, discvx.ErrTimeout) {
+					if errors.Is(err, discover.ErrTimeout) {
 						sleepDur := time.Second * time.Duration(3*(retry+1))
 						select {
 						case <-ctx.Done():
@@ -254,6 +260,7 @@ type Devp2pResult struct {
 	ConnectErrorStr  string
 	Agent            string
 	Protocols        []string
+	Status           *eth.StatusPacket
 }
 
 func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pResult {
@@ -267,6 +274,7 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 			Addrs: pi.Addrs(),
 		}
 
+		// first connect to the remote peer with 2 retries
 		result.ConnectStartTime = time.Now()
 		for retry := 0; retry < 3; retry++ {
 			result.ConnectError = c.client.Connect(ctx, addrInfo)
@@ -275,33 +283,49 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 			}
 
 			if strings.Contains(result.ConnectError.Error(), "handshake failed: EOF") {
-				time.Sleep(time.Second)
+				time.Sleep(time.Second) // TODO: more clever logic like exponential backoff?
 				continue
 			}
 		}
 		result.ConnectEndTime = time.Now()
 
 		if result.ConnectError == nil {
-			resp, err := c.client.Identify(pi.ID())
-			if err == nil {
+
+			// start another go routine to cancel the entire operation if it
+			// times out. The context will be cancelled when this function
+			// returns or the timeout is reached. In both cases, we close the
+			// connection to the remote peer which will trigger that the call
+			// to Identify below will return (if the context is canceled because
+			// of a timeout and not function return).
+			timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+			defer cancel()
+			go func() {
+				<-timeoutCtx.Done()
+				// Free connection resources
+				if err := c.client.CloseConn(pi.ID()); err != nil {
+					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+				}
+			}()
+
+			resp, status, err := c.client.Identify(pi.ID())
+			if resp != nil {
 				result.Agent = resp.Name
 				protocols := make([]string, len(resp.Caps))
 				for i, c := range resp.Caps {
 					protocols[i] = "/" + c.String()
 				}
 				result.Protocols = protocols
-			} else {
+			}
+			result.Status = status
+
+			if resp == nil && status == nil && err != nil {
 				log.WithError(err).Debugln("Could not identify peer")
 			}
 		}
+
 		// if there was a connection error, parse it to a known one
 		if result.ConnectError != nil {
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
-		}
-
-		// Free connection resources
-		if err := c.client.CloseConn(pi.ID()); err != nil {
-			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
 		}
 
 		// send the result back and close channel

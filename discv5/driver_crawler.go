@@ -13,6 +13,7 @@ import (
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
@@ -35,7 +36,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -222,12 +222,12 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discv5Cfg := discvx.Config{
+	discv5Cfg := discover.Config{
 		PrivateKey:   priv,
 		ValidSchemes: enode.ValidSchemes,
 	}
 
-	listener, err := discvx.ListenV5(conn, ethNode, discv5Cfg)
+	listener, err := discover.ListenV5(conn, ethNode, discv5Cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}

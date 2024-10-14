@@ -57,7 +57,7 @@ func main() {
 	}
 
 	fmt.Println("writing prefixes...")
-	f, err := os.Create("discvx/prefixmap.go")
+	f, err := os.Create("discv4/prefixmap.go")
 	if err != nil {
 		panic(err)
 	}

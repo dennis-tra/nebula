@@ -11,6 +11,7 @@ import (
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -23,8 +24,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/devp2p"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -130,7 +129,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
-	clients      []*devp2p.Client
+	clients      []*Client
 	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
@@ -143,7 +142,7 @@ var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	// create a libp2p host per CPU core to distribute load
-	clients := make([]*devp2p.Client, 0, runtime.NumCPU())
+	clients := make([]*Client, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
 		priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
@@ -151,10 +150,10 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 			return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 		}
 
-		clientCfg := devp2p.DefaultConfig()
+		clientCfg := DefaultConfig()
 		clientCfg.DialTimeout = cfg.DialTimeout
 
-		c := devp2p.NewClient(priv, clientCfg)
+		c := NewClient(priv, clientCfg)
 		if err != nil {
 			return nil, fmt.Errorf("new devp2p host: %w", err)
 		}
@@ -202,11 +201,11 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discvxCfg := discvx.Config{
+	discvxCfg := discover.Config{
 		PrivateKey: priv,
 	}
 
-	listener, err := discvx.ListenV4(conn, ethNode, discvxCfg)
+	listener, err := discover.ListenV4(conn, ethNode, discvxCfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv4: %w", err)
 	}

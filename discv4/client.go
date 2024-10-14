@@ -1,4 +1,4 @@
-package devp2p
+package discv4
 
 import (
 	"crypto/ecdsa"
@@ -7,14 +7,15 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ethereum/go-ethereum/eth/protocols/eth"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/cmd/devp2p/ethtest"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
@@ -28,7 +29,6 @@ func DefaultConfig() *Config {
 	return &Config{
 		DialTimeout: time.Minute,
 		Caps: []p2p.Cap{
-			{Name: "eth", Version: 66},
 			{Name: "eth", Version: 67},
 			{Name: "eth", Version: 68},
 			{Name: "snap", Version: 1},
@@ -43,7 +43,7 @@ type Client struct {
 	privKey *ecdsa.PrivateKey
 
 	connsMu sync.RWMutex
-	conns   map[peer.ID]*Conn
+	conns   map[peer.ID]*ethtest.Conn
 }
 
 func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
@@ -57,7 +57,7 @@ func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
 		dialer: net.Dialer{
 			Timeout: cfg.DialTimeout,
 		},
-		conns: map[peer.ID]*Conn{},
+		conns: map[peer.ID]*ethtest.Conn{},
 	}
 }
 
@@ -107,14 +107,12 @@ func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
 		return err
 	}
 
-	ethConn := &Conn{
-		Conn:                       rlpx.NewConn(fd, &ecdsaPubKey),
-		ourKey:                     c.privKey,
-		negotiatedProtoVersion:     0,
-		negotiatedSnapProtoVersion: 0,
-		ourHighestProtoVersion:     c.cfg.HighestProtoVersion,
-		ourHighestSnapProtoVersion: 0,
-		caps:                       c.cfg.Caps,
+	ethConn := &ethtest.Conn{
+		Conn:   rlpx.NewConn(fd, &ecdsaPubKey),
+		OurKey: c.privKey,
+		Caps:   c.cfg.Caps,
+
+		OurHighestProtoVersion: c.cfg.HighestProtoVersion,
 	}
 
 	// initiate authed session
@@ -122,10 +120,10 @@ func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
 		logEntry.WithError(err).Warnln("Failed to set connection deadline")
 	}
 
-	_, err = ethConn.Handshake(c.privKey) // returns remote pubKey -> unused
+	_, err = ethConn.Conn.Handshake(c.privKey) // returns remote pubKey -> unused
 	if err != nil {
-		if err = ethConn.Close(); err != nil {
-			logEntry.WithError(err).Warnln("Failed closing devp2p connection")
+		if err2 := ethConn.Close(); err2 != nil {
+			logEntry.WithError(err2).Warnln("Failed closing devp2p connection")
 		}
 		return fmt.Errorf("handshake failed: %w", err)
 	}
@@ -137,45 +135,16 @@ func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
 	return nil
 }
 
-func (c *Client) Identify(pid peer.ID) (*Hello, error) {
+func (c *Client) Identify(pid peer.ID) (*ethtest.Hello, *eth.StatusPacket, error) {
 	c.connsMu.RLock()
 	conn, found := c.conns[pid]
 	c.connsMu.RUnlock()
 
 	if !found {
-		return nil, fmt.Errorf("no connection to %s", pid)
+		return nil, nil, fmt.Errorf("no connection to %s", pid)
 	}
 
-	pub0 := crypto.FromECDSAPub(&c.privKey.PublicKey)[1:]
-	req := &Hello{
-		Version: 5,
-		Caps:    c.cfg.Caps,
-		ID:      pub0,
-	}
-
-	if err := conn.SetDeadline(time.Now().Add(c.dialer.Timeout)); err != nil {
-		log.WithError(err).Warnln("Failed to set connection deadline")
-	}
-
-	if err := conn.Write(req); err != nil {
-		return nil, fmt.Errorf("write to conn: %w", err)
-	}
-
-	resp := conn.Read()
-
-	switch respMsg := resp.(type) {
-	case *Hello:
-		if respMsg.Version >= 5 {
-			conn.SetSnappy(true)
-		}
-		return respMsg, nil
-	case *Error:
-		return nil, fmt.Errorf("reading handshake response failed: %w", respMsg)
-	case *Disconnect:
-		return nil, fmt.Errorf("reading handshake response failed: %s", respMsg.Reason)
-	default:
-		return nil, fmt.Errorf("unexpected handshake response message type: %T", resp)
-	}
+	return conn.Identify()
 }
 
 func (c *Client) Close() {
