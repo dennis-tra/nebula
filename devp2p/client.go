@@ -62,6 +62,8 @@ func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
 }
 
 func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
+	logEntry := log.WithField("remoteID", pi.ID.ShortString())
+
 	pubKey, err := pi.ID.ExtractPublicKey()
 	if err != nil {
 		return fmt.Errorf("extract public key: %w", err)
@@ -116,8 +118,8 @@ func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
 	}
 
 	// initiate authed session
-	if err := fd.SetDeadline(time.Now().Add(10 * time.Second)); err != nil { // TODO: parameterize
-		log.WithError(err).Warnln("Failed to set connection deadline")
+	if err := fd.SetDeadline(time.Now().Add(c.dialer.Timeout)); err != nil {
+		logEntry.WithError(err).Warnln("Failed to set connection deadline")
 	}
 
 	_, err = ethConn.Handshake(c.privKey) // returns remote pubKey -> unused
@@ -148,7 +150,7 @@ func (c *Client) Identify(pid peer.ID) (*Hello, error) {
 		ID:      pub0,
 	}
 
-	if err := conn.SetDeadline(time.Now().Add(10 * time.Second)); err != nil { // TODO: parameterize
+	if err := conn.SetDeadline(time.Now().Add(c.dialer.Timeout)); err != nil {
 		log.WithError(err).Warnln("Failed to set connection deadline")
 	}
 
