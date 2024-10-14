@@ -445,7 +445,7 @@ func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[Writ
 		"success":  result.Value.Error == nil,
 		"written":  e.writeCount,
 		"duration": result.Value.Duration,
-	}).Infoln("Handled writer result")
+	}).Debugln("Handled writer result")
 }
 
 // reachedProcessingLimit returns true if the processing limit is configured

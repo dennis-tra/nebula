@@ -38,6 +38,24 @@ var KnownErrors = map[string]string{
 	"connection gated":                           models.NetErrorConnectionGated,            // transient error
 	"RESOURCE_LIMIT_EXCEEDED (201)":              models.NetErrorCantConnectOverRelay,       // transient error
 	"NO_RESERVATION (204)":                       models.NetErrorCantConnectOverRelay,       // permanent error
+	// devp2p errors
+	"no good ip address":                models.NetErrorNoIPAddress,
+	"disconnect requested":              models.NetErrorDevp2pDisconnectRequested,
+	"network error":                     models.NetErrorDevp2pNetworkError,
+	"breach of protocol":                models.NetErrorDevp2pBreachOfProtocol,
+	"useless peer":                      models.NetErrorDevp2pUselessPeer,
+	"too many peers":                    models.NetErrorDevp2pTooManyPeers,
+	"already connected":                 models.NetErrorDevp2pAlreadyConnected,
+	"incompatible p2p protocol version": models.NetErrorDevp2pIncompatibleP2PProtocolVersion,
+	"invalid node identity":             models.NetErrorDevp2pInvalidNodeIdentity,
+	"client quitting":                   models.NetErrorDevp2pClientQuitting,
+	"unexpected identity":               models.NetErrorDevp2pUnexpectedIdentity,
+	"connected to self":                 models.NetErrorDevp2pConnectedToSelf,
+	"read timeout":                      models.NetErrorDevp2pReadTimeout,
+	"subprotocol error":                 models.NetErrorDevp2pSubprotocolError,
+	"could not negotiate eth protocol":  models.NetErrorDevp2pEthprotocolError,
+	"handshake failed: EOF":             models.NetErrorDevp2pHandshakeEOF,               // dependent on error string in discv4
+	"malformed disconnect message":      models.NetErrorDevp2pMalformedDisconnectMessage, // dependent on error string in discv4
 }
 
 var ErrorStr = map[string]string{}
@@ -79,7 +97,24 @@ var knownErrorsPrecedence = []string{
 	"Write on stream",
 	"RESOURCE_LIMIT_EXCEEDED (201)",
 	"NO_RESERVATION (204)",
+	"too many peers",
+	"no good ip address",
+	"malformed disconnect message",
 	"handshake did not complete in time",
+	"disconnect requested",
+	"network error",
+	"breach of protocol",
+	"useless peer",
+	"already connected",
+	"incompatible p2p protocol version",
+	"invalid node identity",
+	"client quitting",
+	"unexpected identity",
+	"connected to self",
+	"read timeout",
+	"subprotocol error",
+	"could not negotiate eth protocol",
+	"handshake failed: EOF",
 }
 
 // NetError extracts the appropriate error type from the given error.

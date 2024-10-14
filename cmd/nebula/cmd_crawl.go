@@ -29,19 +29,20 @@ import (
 )
 
 var crawlConfig = &config.Crawl{
-	Root:             rootConfig,
-	CrawlWorkerCount: 1000,
-	WriteWorkerCount: 10,
-	CrawlLimit:       0,
-	PersistNeighbors: false,
-	FilePathUdgerDB:  "",
-	Network:          string(config.NetworkIPFS),
-	BootstrapPeers:   cli.NewStringSlice(),
-	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
-	AddrTrackTypeStr: "public",
-	AddrDialTypeStr:  "public",
-	KeepENR:          false,
-	CheckExposed:     false,
+	Root:              rootConfig,
+	CrawlWorkerCount:  1000,
+	WriteWorkerCount:  10,
+	CrawlLimit:        0,
+	PersistNeighbors:  false,
+	FilePathUdgerDB:   "",
+	Network:           string(config.NetworkIPFS),
+	BootstrapPeers:    cli.NewStringSlice(),
+	Protocols:         cli.NewStringSlice(string(kaddht.ProtocolDHT)),
+	AddrTrackTypeStr:  "public",
+	AddrDialTypeStr:   "public",
+	KeepENR:           false,
+	CheckExposed:      false,
+	Discv4RespTimeout: 3 * time.Second,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -183,6 +184,14 @@ var CrawlCommand = &cli.Command{
 			Destination: &crawlConfig.KeepENR,
 			Category:    flagCategoryNetwork,
 		},
+		&cli.DurationFlag{
+			Name:        "udp-response-timeout",
+			Usage:       "ETHEREUM_EXECUTION: The response timeout for UDP requests in the disv4 DHT",
+			EnvVars:     []string{"NEBULA_CRAWL_UDP_RESPONSE_TIMEOUT"},
+			Value:       crawlConfig.Discv4RespTimeout,
+			Destination: &crawlConfig.Discv4RespTimeout,
+			Category:    flagCategoryNetwork,
+		},
 	},
 }
 
@@ -271,15 +280,19 @@ func CrawlAction(c *cli.Context) error {
 
 		// configure the crawl driver
 		driverCfg := &discv4.CrawlDriverConfig{
-			Version:        cfg.Root.Version(),
-			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
-			BootstrapPeers: bpEnodes,
-			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
-			TracerProvider: cfg.Root.TracerProvider,
-			MeterProvider:  cfg.Root.MeterProvider,
-			LogErrors:      cfg.Root.LogErrors,
+			Version:          cfg.Root.Version(),
+			DialTimeout:      cfg.Root.DialTimeout,
+			CrawlWorkerCount: cfg.CrawlWorkerCount,
+			TrackNeighbors:   cfg.PersistNeighbors,
+			BootstrapPeers:   bpEnodes,
+			AddrDialType:     cfg.AddrDialType(),
+			AddrTrackType:    cfg.AddrTrackType(),
+			TracerProvider:   cfg.Root.TracerProvider,
+			MeterProvider:    cfg.Root.MeterProvider,
+			LogErrors:        cfg.Root.LogErrors,
+			KeepENR:          cfg.KeepENR,
+			UDPBufferSize:    cfg.Root.UDPBufferSize,
+			UDPRespTimeout:   cfg.Discv4RespTimeout,
 		}
 
 		// init the crawl driver

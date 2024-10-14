@@ -1,10 +1,11 @@
 module github.com/dennis-tra/nebula-crawler
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/benbjohnson/clock v1.3.5
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0
 	github.com/ethereum/go-ethereum v1.14.11
 	github.com/friendsofgo/errors v0.9.2
@@ -67,7 +68,6 @@ require (
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
-	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.3 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20240411145413-00de7ca16731 // indirect
@@ -84,6 +84,7 @@ require (
 	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20241009165004-a3522334989c // indirect
@@ -211,6 +212,13 @@ require (
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
 
-// replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
-// - avoid running into dial backoffs even if forceDirectDial is set to false
-replace github.com/libp2p/go-libp2p => github.com/plprobelab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63
+replace (
+	// replace go-ethereum with fork (branch  nebula). Changes:
+	// - move everything inside the devp2p/internal package into devp2p to make it accessible
+	// - add Identify method
+	github.com/ethereum/go-ethereum => github.com/probe-lab/go-ethereum v0.0.0-20241016152650-2f1ae6611be1
+
+	// replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
+	// - avoid running into dial backoffs even if forceDirectDial is set to false
+	github.com/libp2p/go-libp2p => github.com/probe-lab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63
+)
