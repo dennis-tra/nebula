@@ -186,9 +186,14 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 		// the number of probes to issue against bucket 0
 		probes := 3
 
-		closestMap, closestSet, err := c.probeBucket0(pi, probes)
+		closestMap, closestSet, respondedAt, err := c.probeBucket0(pi, probes, result.RespondedAt != nil)
 
 		if err == nil {
+			// track the respondedAt timestamp if it wasn't already set
+			if result.RespondedAt != nil && !respondedAt.IsZero() {
+				result.RespondedAt = &respondedAt
+			}
+
 			result.Strategy = determineStrategy(closestSet)
 
 			var remainingClosest map[peer.ID]PeerInfo
@@ -241,8 +246,9 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	return resultCh
 }
 
-func (c *Crawler) probeBucket0(pi PeerInfo, probes int) (map[peer.ID]PeerInfo, []mapset.Set[peer.ID], error) {
+func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[peer.ID]PeerInfo, []mapset.Set[peer.ID], time.Time, error) {
 	var (
+		respondedAt time.Time
 		closestMap  = make(map[peer.ID]PeerInfo)
 		closestSets []mapset.Set[peer.ID]
 		errs        []error
@@ -257,13 +263,21 @@ func (c *Crawler) probeBucket0(pi PeerInfo, probes int) (map[peer.ID]PeerInfo, [
 		// first, we generate a random key that falls into bucket 0
 		targetKey, err := GenRandomPublicKey(pi.Node.ID(), 0)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, time.Time{}, err
 		}
 
 		// second, we do the Find node request
 		closest, err := c.listener.FindNode(pi.Node.ID(), pi.udpAddr, targetKey)
 		if err != nil {
+			// exit early if the node hasn't returned an ENR and the first probe
+			// also timed out
+			if !returnedENR && errors.Is(err, discover.ErrTimeout) {
+				return nil, nil, time.Time{}, fmt.Errorf("failed to probe bucket 0: %w", discover.ErrTimeout)
+			}
+
 			errs = append(errs, err)
+		} else if !respondedAt.IsZero() {
+			respondedAt = time.Now()
 		}
 
 		// third, we parse the responses into our [PeerInfo] struct
@@ -281,10 +295,10 @@ func (c *Crawler) probeBucket0(pi PeerInfo, probes int) (map[peer.ID]PeerInfo, [
 	}
 
 	if len(errs) == probes {
-		return nil, nil, fmt.Errorf("failed to probe bucket 0: %w", errors.Join(errs...))
+		return nil, nil, time.Time{}, fmt.Errorf("failed to probe bucket 0: %w", errors.Join(errs...))
 	}
 
-	return closestMap, closestSets, nil
+	return closestMap, closestSets, respondedAt, nil
 }
 
 type CrawlStrategy string

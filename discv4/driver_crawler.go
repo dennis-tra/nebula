@@ -131,7 +131,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 		DialTimeout:  cfg.DialTimeout,
 		AddrDialType: cfg.AddrDialType,
 		LogErrors:    cfg.LogErrors,
-		MaxJitter:    time.Duration(cfg.CrawlWorkerCount/100) * time.Second, // 3000 workers -> distributed over 30s
+		MaxJitter:    time.Duration(cfg.CrawlWorkerCount/50) * time.Second, // e.g., 3000 workers evenly distributed over 60s
 		KeepENR:      false,
 	}
 }
@@ -203,6 +203,9 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	if err != nil {
 		return nil, fmt.Errorf("create unhandled packets counter: %w", err)
 	}
+
+	// set the discovery response timeout
+	discover.RespTimeout = 2 * time.Second
 
 	d := &CrawlDriver{
 		cfg:            cfg,
