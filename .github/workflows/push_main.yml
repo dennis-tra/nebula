@@ -30,7 +30,7 @@ jobs:
       - name: Setting up Golang
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23.1'
+          go-version: '1.23'
 
       - name: Running tests
         run: make test

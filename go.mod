@@ -1,6 +1,6 @@
 module github.com/dennis-tra/nebula-crawler
 
-go 1.23.1
+go 1.23
 
 require (
 	github.com/benbjohnson/clock v1.3.5
