@@ -766,8 +766,8 @@ github.com/polydawn/refmt v0.89.0 h1:ADJTApkvkeBZsN0tBTx8QjpD9JkmxbKp0cxfr9qszm4
 github.com/polydawn/refmt v0.89.0/go.mod h1:/zvteZs/GwLtCgZ4BL6CBsk9IKIlexP43ObX9AxTqTw=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
 github.com/posener/complete v1.2.3/go.mod h1:WZIdtGGp+qx0sLrYKtIRAruyNpv6hFCicSgv7Sy7s/s=
-github.com/probe-lab/go-ethereum v0.0.0-20241016150921-ef8d58a96f5e h1:YgIG3S0TZocNAtWyUi9BH7LHPUDONB6PFnjJy5L5JQM=
-github.com/probe-lab/go-ethereum v0.0.0-20241016150921-ef8d58a96f5e/go.mod h1:+l/fr42Mma+xBnhefL/+z11/hcmJ2egl+ScIVPjhc7E=
+github.com/probe-lab/go-ethereum v0.0.0-20241016152650-2f1ae6611be1 h1:y5CT7WqYJ5gszLHmlf8kaUrbTM0y4mbDM9Bst/UNeJ8=
+github.com/probe-lab/go-ethereum v0.0.0-20241016152650-2f1ae6611be1/go.mod h1:+l/fr42Mma+xBnhefL/+z11/hcmJ2egl+ScIVPjhc7E=
 github.com/probe-lab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63 h1:Zn3+Q7EuwGCNEU7Xtk0hItXLwkStZP8zaPrDcUQSkmQ=
 github.com/probe-lab/go-libp2p v0.36.6-0.20241010102656-740d456bfc63/go.mod h1:CpszAtXxHYOcyvB7K8rSHgnNlh21eKjYbEfLoMerbEI=
 github.com/prometheus/client_golang v0.8.0/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
