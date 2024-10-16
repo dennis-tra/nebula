@@ -12,8 +12,6 @@ import (
 // GenRandomPublicKey generates a public key that, when hashed with Keccak256,
 // yields a [v4wire.Pubkey] that has a common prefix length of targetCPL.
 func GenRandomPublicKey(targetID enode.ID, targetCPL int) (v4wire.Pubkey, error) {
-	targetIDStr := fmt.Sprintf("%b", targetID.Bytes()[:4])
-	_ = targetIDStr
 	targetPrefix := binary.BigEndian.Uint16(targetID[:])
 
 	// For host with ID `L`, an ID `K` belongs to a bucket with ID `B` ONLY IF CommonPrefixLen(L,K) is EXACTLY B.

@@ -4,51 +4,54 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"net"
-	"sync"
+	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/eth/protocols/eth"
-
 	"github.com/ethereum/go-ethereum/cmd/devp2p/ethtest"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/rlpx"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
-type Config struct {
+var errUseOfClosedNetworkConnectionStr = "use of closed network connection"
+
+type ClientConfig struct {
 	DialTimeout         time.Duration
 	Caps                []p2p.Cap
 	HighestProtoVersion uint
 }
 
-func DefaultConfig() *Config {
-	return &Config{
-		DialTimeout: time.Minute,
+func DefaultClientConfig() *ClientConfig {
+	return &ClientConfig{
+		DialTimeout: 5 * time.Second,
 		Caps: []p2p.Cap{
+			// pretend to speak everything ¯\_(ツ)_/¯
+			{Name: "eth", Version: 62},
+			{Name: "eth", Version: 63},
+			{Name: "eth", Version: 64},
+			{Name: "eth", Version: 65},
+			{Name: "eth", Version: 66},
 			{Name: "eth", Version: 67},
 			{Name: "eth", Version: 68},
+			{Name: "eth", Version: 69},
+			{Name: "eth", Version: 70},
+			{Name: "eth", Version: 100},
 			{Name: "snap", Version: 1},
 		},
-		HighestProtoVersion: 68,
+		HighestProtoVersion: 100,
 	}
 }
 
 type Client struct {
-	cfg     *Config
+	cfg     *ClientConfig
 	dialer  net.Dialer
 	privKey *ecdsa.PrivateKey
-
-	connsMu sync.RWMutex
-	conns   map[peer.ID]*ethtest.Conn
 }
 
-func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
+func NewClient(privKey *ecdsa.PrivateKey, cfg *ClientConfig) *Client {
 	if cfg == nil {
-		cfg = DefaultConfig()
+		cfg = DefaultClientConfig()
 	}
 
 	return &Client{
@@ -57,118 +60,61 @@ func NewClient(privKey *ecdsa.PrivateKey, cfg *Config) *Client {
 		dialer: net.Dialer{
 			Timeout: cfg.DialTimeout,
 		},
-		conns: map[peer.ID]*ethtest.Conn{},
 	}
 }
 
-func (c *Client) Connect(ctx context.Context, pi peer.AddrInfo) error {
-	logEntry := log.WithField("remoteID", pi.ID.ShortString())
+func (c *Client) Connect(ctx context.Context, pi PeerInfo) (*ethtest.Conn, error) {
+	logEntry := log.WithField("remoteID", pi.ID().ShortString())
 
-	pubKey, err := pi.ID.ExtractPublicKey()
+	var conn net.Conn
+	addrPort, ok := pi.Node.TCPEndpoint()
+	if !ok {
+		return nil, fmt.Errorf("no good ip address: %s:%d", pi.Node.IP(), pi.Node.TCP())
+	}
+
+	tctx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+	defer cancel()
+
+	conn, err := c.dialer.DialContext(tctx, "tcp", addrPort.String())
 	if err != nil {
-		return fmt.Errorf("extract public key: %w", err)
-	}
-
-	raw, err := pubKey.Raw()
-	if err != nil {
-		return fmt.Errorf("raw bytes from public key: %w", err)
-	}
-
-	x, y := secp256k1.DecompressPubkey(raw)
-	ecdsaPubKey := ecdsa.PublicKey{Curve: secp256k1.S256(), X: x, Y: y}
-
-	var fd net.Conn
-	for _, maddr := range pi.Addrs {
-		ipAddr, err := maddr.ValueForProtocol(ma.P_IP4)
-		if err != nil {
-			ipAddr, err = maddr.ValueForProtocol(ma.P_IP6)
-			if err != nil {
-				continue
-			}
-		}
-
-		port, err := maddr.ValueForProtocol(ma.P_TCP)
-		if err != nil {
-			continue
-		}
-
-		timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-		fd, err = c.dialer.DialContext(timeoutCtx, "tcp", fmt.Sprintf("%s:%s", ipAddr, port))
-		if err != nil {
-			cancel()
-			return fmt.Errorf("failed dialing node: %w", err)
-		}
-		cancel()
-
-		break
-	}
-
-	if fd == nil {
-		return err
+		return nil, fmt.Errorf("failed dialing node: %w", err)
 	}
 
 	ethConn := &ethtest.Conn{
-		Conn:   rlpx.NewConn(fd, &ecdsaPubKey),
+		Conn:   rlpx.NewConn(conn, pi.Pubkey()),
 		OurKey: c.privKey,
 		Caps:   c.cfg.Caps,
 
 		OurHighestProtoVersion: c.cfg.HighestProtoVersion,
 	}
 
-	// initiate authed session
-	if err := fd.SetDeadline(time.Now().Add(c.dialer.Timeout)); err != nil {
+	// cancel handshake if outer context is canceled and
+	// cancel this go routine when this function exits
+	exit := make(chan struct{})
+	defer close(exit)
+	go func() {
+		select {
+		case <-exit:
+		case <-ctx.Done():
+			if err := ethConn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
+				logEntry.WithError(err).Warnln("Failed closing devp2p connection")
+			}
+		}
+	}()
+
+	// set a deadline for the handshake
+	if err := conn.SetDeadline(time.Now().Add(c.dialer.Timeout)); err != nil {
 		logEntry.WithError(err).Warnln("Failed to set connection deadline")
 	}
 
-	_, err = ethConn.Conn.Handshake(c.privKey) // returns remote pubKey -> unused
+	_, err = ethConn.Conn.Handshake(c.privKey) // also returns the public key of the remote -> unused
 	if err != nil {
-		if err2 := ethConn.Close(); err2 != nil {
-			logEntry.WithError(err2).Warnln("Failed closing devp2p connection")
+		if ierr := ethConn.Close(); ierr != nil && !strings.Contains(ierr.Error(), errUseOfClosedNetworkConnectionStr) { // inner error
+			logEntry.WithError(ierr).Warnln("Failed closing devp2p connection")
 		}
-		return fmt.Errorf("handshake failed: %w", err)
+
+		return nil, fmt.Errorf("handshake failed: %w", err)
 	}
 
-	c.connsMu.Lock()
-	c.conns[pi.ID] = ethConn
-	c.connsMu.Unlock()
-
-	return nil
-}
-
-func (c *Client) Identify(pid peer.ID) (*ethtest.Hello, *eth.StatusPacket, error) {
-	c.connsMu.RLock()
-	conn, found := c.conns[pid]
-	c.connsMu.RUnlock()
-
-	if !found {
-		return nil, nil, fmt.Errorf("no connection to %s", pid)
-	}
-
-	return conn.Identify()
-}
-
-func (c *Client) Close() {
-	c.connsMu.Lock()
-	defer c.connsMu.Unlock()
-
-	for pid, conn := range c.conns {
-		delete(c.conns, pid)
-		if err := conn.Close(); err != nil {
-			log.WithError(err).WithField("remoteID", pid.ShortString()).Warnln("Failed closing devp2p connection")
-		}
-	}
-}
-
-func (c *Client) CloseConn(pid peer.ID) error {
-	c.connsMu.Lock()
-	defer c.connsMu.Unlock()
-
-	conn, found := c.conns[pid]
-	if !found {
-		return nil
-	}
-
-	delete(c.conns, pid)
-
-	return conn.Close()
+	return ethConn, ctx.Err()
 }

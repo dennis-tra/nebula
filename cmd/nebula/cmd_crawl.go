@@ -271,15 +271,17 @@ func CrawlAction(c *cli.Context) error {
 
 		// configure the crawl driver
 		driverCfg := &discv4.CrawlDriverConfig{
-			Version:        cfg.Root.Version(),
-			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
-			BootstrapPeers: bpEnodes,
-			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
-			TracerProvider: cfg.Root.TracerProvider,
-			MeterProvider:  cfg.Root.MeterProvider,
-			LogErrors:      cfg.Root.LogErrors,
+			Version:          cfg.Root.Version(),
+			DialTimeout:      cfg.Root.DialTimeout,
+			CrawlWorkerCount: cfg.CrawlWorkerCount,
+			TrackNeighbors:   cfg.PersistNeighbors,
+			BootstrapPeers:   bpEnodes,
+			AddrDialType:     cfg.AddrDialType(),
+			AddrTrackType:    cfg.AddrTrackType(),
+			TracerProvider:   cfg.Root.TracerProvider,
+			MeterProvider:    cfg.Root.MeterProvider,
+			LogErrors:        cfg.Root.LogErrors,
+			KeepENR:          cfg.KeepENR,
 		}
 
 		// init the crawl driver

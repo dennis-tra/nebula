@@ -70,10 +70,10 @@ func (r CrawlResult[I]) PeerInfo() I {
 
 func (r CrawlResult[I]) LogEntry() *log.Entry {
 	logEntry := log.WithFields(log.Fields{
-		"crawlerID":  r.CrawlerID,
 		"remoteID":   r.Info.ID().ShortString(),
 		"isDialable": r.ConnectError == nil && r.CrawlError == nil,
 		"duration":   r.CrawlDuration(),
+		"rtSize":     len(r.RoutingTable.Neighbors),
 	})
 
 	if r.ConnectError != nil {
