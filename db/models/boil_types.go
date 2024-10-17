@@ -91,6 +91,7 @@ const (
 	NetErrorDevp2pReadTimeout                    string = "devp2p_read_timeout"
 	NetErrorDevp2pSubprotocolError               string = "devp2p_subprotocol_error"
 	NetErrorDevp2pEthprotocolError               string = "devp2p_ethprotocol_error"
+	NetErrorDevp2pMalformedDisconnectMessage     string = "devp2p_malformed_disconnect_message"
 )
 
 func AllNetError() []string {
@@ -133,6 +134,7 @@ func AllNetError() []string {
 		NetErrorDevp2pReadTimeout,
 		NetErrorDevp2pSubprotocolError,
 		NetErrorDevp2pEthprotocolError,
+		NetErrorDevp2pMalformedDisconnectMessage,
 	}
 }
 

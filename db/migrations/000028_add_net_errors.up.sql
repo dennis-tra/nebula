@@ -15,5 +15,6 @@ ALTER TYPE net_error ADD VALUE 'devp2p_connected_to_self';
 ALTER TYPE net_error ADD VALUE 'devp2p_read_timeout';
 ALTER TYPE net_error ADD VALUE 'devp2p_subprotocol_error';
 ALTER TYPE net_error ADD VALUE 'devp2p_ethprotocol_error';
+ALTER TYPE net_error ADD VALUE 'devp2p_malformed_disconnect_message';
 
 COMMIT

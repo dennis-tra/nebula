@@ -39,6 +39,7 @@ var KnownErrors = map[string]string{
 	"RESOURCE_LIMIT_EXCEEDED (201)":              models.NetErrorCantConnectOverRelay,       // transient error
 	"NO_RESERVATION (204)":                       models.NetErrorCantConnectOverRelay,       // permanent error
 	// devp2p errors
+	"no good ip address":                models.NetErrorNoIPAddress,
 	"disconnect requested":              models.NetErrorDevp2pDisconnectRequested,
 	"network error":                     models.NetErrorDevp2pNetworkError,
 	"breach of protocol":                models.NetErrorDevp2pBreachOfProtocol,
@@ -53,7 +54,8 @@ var KnownErrors = map[string]string{
 	"read timeout":                      models.NetErrorDevp2pReadTimeout,
 	"subprotocol error":                 models.NetErrorDevp2pSubprotocolError,
 	"could not negotiate eth protocol":  models.NetErrorDevp2pEthprotocolError,
-	"handshake failed: EOF":             models.NetErrorDevp2pHandshakeEOF, // dependent on error string in discv4
+	"handshake failed: EOF":             models.NetErrorDevp2pHandshakeEOF,               // dependent on error string in discv4
+	"malformed disconnect message":      models.NetErrorDevp2pMalformedDisconnectMessage, // dependent on error string in discv4
 }
 
 var ErrorStr = map[string]string{}
@@ -95,12 +97,14 @@ var knownErrorsPrecedence = []string{
 	"Write on stream",
 	"RESOURCE_LIMIT_EXCEEDED (201)",
 	"NO_RESERVATION (204)",
+	"too many peers",
+	"no good ip address",
+	"malformed disconnect message",
 	"handshake did not complete in time",
 	"disconnect requested",
 	"network error",
 	"breach of protocol",
 	"useless peer",
-	"too many peers",
 	"already connected",
 	"incompatible p2p protocol version",
 	"invalid node identity",
