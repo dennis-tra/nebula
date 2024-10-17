@@ -33,10 +33,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
-// the buffer size for the UDP read socket. On linux, this is usually ~ 200KiB,
-// which may be too little, so we're bumping it to 1MiB.
-const udpReadBufferSize = 1024 * 1024 // TODO: make this configurable?
-
 type PeerInfo struct {
 	*enode.Node
 	peerID  peer.ID
@@ -130,6 +126,8 @@ type CrawlDriverConfig struct {
 	TracerProvider   trace.TracerProvider
 	LogErrors        bool
 	KeepENR          bool
+	UDPBufferSize    int
+	UDPRespTimeout   time.Duration
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -211,7 +209,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	}
 
 	// set the discovery response timeout
-	discover.RespTimeout = 2 * time.Second
+	discover.RespTimeout = cfg.UDPRespTimeout
 
 	d := &CrawlDriver{
 		cfg:            cfg,
@@ -236,6 +234,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	return d, nil
 }
 
+// NewWorker is called multiple times but only log the configured buffer sizes once
 var logOnce sync.Once
 
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
@@ -252,22 +251,25 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	if err = conn.SetReadBuffer(udpReadBufferSize); err != nil {
+	if err = conn.SetReadBuffer(d.cfg.UDPBufferSize); err != nil {
 		log.Warnln("Failed to set read buffer size on UDP listener", err)
 	}
 
 	rcvbuf, sndbuf, err := getUDPBufferSize(conn)
 	logOnce.Do(func() {
-		log.WithFields(log.Fields{
+		logEntry := log.WithFields(log.Fields{
 			"rcvbuf": rcvbuf,
 			"sndbuf": sndbuf,
-		}).Infoln("Configured UDP buffer sizes")
+			"rcvtgt": d.cfg.UDPBufferSize, // receive target
+		})
+		if rcvbuf < d.cfg.UDPBufferSize {
+			logEntry.Infoln("Configured UDP buffer sizes")
+		} else {
+			logEntry.Infoln("Failed to increase UDP buffer sizes, using default")
+		}
 	})
 
-	log.WithFields(log.Fields{
-		"rcvbuf": rcvbuf,
-		"sndbuf": sndbuf,
-	}).Debugln("Listening on UDP port ", conn.LocalAddr().String(), " for Ethereum discovery")
+	log.Debugln("Listening on UDP port ", conn.LocalAddr().String(), " for Ethereum discovery")
 
 	discvxCfg := discover.Config{
 		PrivateKey: priv,
