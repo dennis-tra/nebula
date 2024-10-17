@@ -52,9 +52,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 
 	// add a startup jitter delay to prevent all workers to crawl at exactly the
 	// same time and potentially overwhelm the machine that Nebula is running on
-	// The maximum delay is 10s.
 	if c.crawledPeers == 0 {
-		jitter := time.Duration(rand.Int63n(int64(c.cfg.MaxJitter)))
+		jitter := time.Duration(0)
+		if c.cfg.MaxJitter > 0 { // could be <= 0 if the worker count is 1
+			jitter = time.Duration(rand.Int63n(int64(c.cfg.MaxJitter)))
+		}
 		select {
 		case <-time.After(jitter):
 		case <-ctx.Done():
