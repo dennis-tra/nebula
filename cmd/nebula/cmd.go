@@ -21,6 +21,7 @@ const (
 	flagCategoryDatabase  = "Database Configuration:"
 	flagCategoryDebugging = "Debugging Configuration:"
 	flagCategoryCache     = "Cache Configuration:"
+	flagCategorySystem    = "System Configuration:"
 	flagCategoryNetwork   = "Network Specific Configuration:"
 )
 
@@ -55,10 +56,11 @@ var rootConfig = &config.Root{
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  200,
 	},
-	RawVersion:  version,
-	BuildCommit: commit,
-	BuildDate:   date,
-	BuiltBy:     builtBy,
+	UDPBufferSize: 1024 * 1024,
+	RawVersion:    version,
+	BuildCommit:   commit,
+	BuildDate:     date,
+	BuiltBy:       builtBy,
 }
 
 func main() {
@@ -217,6 +219,14 @@ func main() {
 				Value:       rootConfig.Database.DatabaseSSLMode,
 				Destination: &rootConfig.Database.DatabaseSSLMode,
 				Category:    flagCategoryDatabase,
+			},
+			&cli.IntFlag{
+				Name:        "udp-buffer-size",
+				Usage:       "The rcv/snd buffer size for the UDP sockets (in bytes)",
+				EnvVars:     []string{"NEBULA_UDP_BUFFER_SIZE"},
+				Value:       rootConfig.UDPBufferSize,
+				Destination: &rootConfig.UDPBufferSize,
+				Category:    flagCategorySystem,
 			},
 			&cli.IntFlag{
 				Name:        "agent-versions-cache-size",

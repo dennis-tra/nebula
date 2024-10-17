@@ -2,46 +2,67 @@ package discv4
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/netip"
 	"strings"
 	"sync"
 	"time"
 
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/ethereum/go-ethereum/eth/protocols/eth"
+	"github.com/ethereum/go-ethereum/p2p/discover"
+	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
-	"go.uber.org/atomic"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/devp2p"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 type CrawlerConfig struct {
 	DialTimeout  time.Duration
 	AddrDialType config.AddrType
+	MaxJitter    time.Duration
 	LogErrors    bool
+	KeepENR      bool
 }
 
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	listener     *discvx.UDPv4
-	client       *devp2p.Client
+	listener     *discover.UDPv4
+	client       *Client
 	crawledPeers int
+	taskDoneChan chan time.Time
 	done         chan struct{}
 }
 
 var _ core.Worker[PeerInfo, core.CrawlResult[PeerInfo]] = (*Crawler)(nil)
 
 func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[PeerInfo], error) {
+	// indicate to the driver that we have handled a task
+	defer func() { c.taskDoneChan <- time.Now() }()
+
+	// add a startup jitter delay to prevent all workers to crawl at exactly the
+	// same time and potentially overwhelm the machine that Nebula is running on
+	if c.crawledPeers == 0 {
+		jitter := time.Duration(0)
+		if c.cfg.MaxJitter > 0 { // could be <= 0 if the worker count is 1
+			jitter = time.Duration(rand.Int63n(int64(c.cfg.MaxJitter)))
+		}
+		select {
+		case <-time.After(jitter):
+		case <-ctx.Done():
+		}
+	}
+
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.id,
 		"remoteID":   task.peerID.ShortString(),
@@ -55,7 +76,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	discv4ResultCh := c.crawlDiscV4(ctx, task)
 	devp2pResultCh := c.crawlDevp2p(ctx, task)
 
-	discv4Result := <-discv4ResultCh
+	discV4Result := <-discv4ResultCh
 	devp2pResult := <-devp2pResultCh
 
 	properties := map[string]any{}
@@ -66,13 +87,37 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	// keep track of all unknown crawl errors
-	if discv4Result.ErrorStr == models.NetErrorUnknown && discv4Result.Error != nil {
-		properties["crawl_error"] = discv4Result.Error.Error()
+	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+		properties["crawl_error"] = discV4Result.Error.Error()
+	}
+
+	// keep track of the strategy that we used to crawl that peer
+	if discV4Result.Strategy != "" {
+		properties["strategy"] = string(discV4Result.Strategy)
+	}
+
+	if devp2pResult.Status != nil {
+		properties["network_id"] = devp2pResult.Status.NetworkID
+		properties["fork_id"] = hex.EncodeToString(devp2pResult.Status.ForkID.Hash[:])
+	}
+
+	if c.cfg.KeepENR {
+		properties["enr"] = task.Node.String() // discV4Result.ENR.String() panics :/
+	}
+
+	// keep track of all unknown connection errors
+	if devp2pResult.ConnectErrorStr == models.NetErrorUnknown && devp2pResult.ConnectError != nil {
+		properties["connect_error"] = devp2pResult.ConnectError.Error()
+	}
+
+	// keep track of all unknown crawl errors
+	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+		properties["crawl_error"] = discV4Result.Error.Error()
 	}
 
 	data, err := json.Marshal(properties)
 	if err != nil {
-		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
+		logEntry.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
 	cr := core.CrawlResult[PeerInfo]{
@@ -80,13 +125,13 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		Info:                task,
 		CrawlStartTime:      crawlStart,
 		RoutingTableFromAPI: false,
-		RoutingTable:        discv4Result.RoutingTable,
+		RoutingTable:        discV4Result.RoutingTable,
 		Agent:               devp2pResult.Agent,
 		Protocols:           devp2pResult.Protocols,
 		ConnectError:        devp2pResult.ConnectError,
 		ConnectErrorStr:     devp2pResult.ConnectErrorStr,
-		CrawlError:          discv4Result.Error,
-		CrawlErrorStr:       discv4Result.ErrorStr,
+		CrawlError:          discV4Result.Error,
+		CrawlErrorStr:       discV4Result.ErrorStr,
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    devp2pResult.ConnectStartTime,
 		ConnectEndTime:      devp2pResult.ConnectEndTime,
@@ -110,6 +155,9 @@ type DiscV4Result struct {
 	// The neighbors of the crawled peer
 	RoutingTable *core.RoutingTable[PeerInfo]
 
+	// The strategy used to crawl the peer
+	Strategy CrawlStrategy
+
 	// The time the draining of bucket entries was finished
 	DoneAt time.Time
 
@@ -124,99 +172,49 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	resultCh := make(chan DiscV4Result)
 
 	go func() {
-		// mutex to guard access to result and allNeighbors
-		mu := sync.RWMutex{}
-
 		// the final result struct
 		result := DiscV4Result{}
-
-		// all neighbors of pi. We're using a map to deduplicate.
-		allNeighbors := map[string]PeerInfo{}
-
-		// errorBits tracks at which CPL errors have occurred.
-		// 0000 0000 0000 0000 - No error
-		// 0000 0000 0000 0001 - An error has occurred at CPL 0
-		// 1000 0000 0000 0001 - An error has occurred at CPL 0 and 15
-		errorBits := atomic.NewUint32(0)
 
 		enr, err := c.listener.RequestENR(pi.Node)
 		if err != nil {
 			result.ENR = pi.Node
+			err = nil
 		} else {
 			result.ENR = enr
 			now := time.Now()
 			result.RespondedAt = &now
 		}
 
-		errg := errgroup.Group{}
-		for i := 0; i <= 15; i++ { // 15 is maximum
-			count := i // Copy value
-			errg.Go(func() error {
-				pubKey, err := discvx.GenRandomPublicKey(pi.Node.ID(), count)
-				if err != nil {
-					log.WithError(err).WithField("enr", pi.Node.String()).Warnln("Failed generating public key")
-					errorBits.Add(1 << count)
-					return fmt.Errorf("generating random public key with CPL %d: %w", count, err)
-				}
+		// the number of probes to issue against bucket 0
+		probes := 3
 
-				ipAddr, ok := netip.AddrFromSlice(pi.Node.IP())
-				if !ok {
-					return fmt.Errorf("failed to convert ip to netip.Addr: %s", pi.Node.IP())
-				}
-				udpAddr := netip.AddrPortFrom(ipAddr, uint16(pi.Node.UDP()))
+		closestMap, closestSet, respondedAt, err := c.probeBucket0(pi, probes, result.RespondedAt != nil)
 
-				var neighbors []*enode.Node
-				for retry := 0; retry < 2; retry++ {
-					neighbors, err = c.listener.FindNode(pi.Node.ID(), udpAddr, pubKey)
-					if err == nil {
-						break
-					}
+		if err == nil {
+			// track the respondedAt timestamp if it wasn't already set
+			if result.RespondedAt != nil && !respondedAt.IsZero() {
+				result.RespondedAt = &respondedAt
+			}
 
-					errorBits.Add(1 << count)
+			result.Strategy = determineStrategy(closestSet)
 
-					if errors.Is(err, discvx.ErrTimeout) {
-						sleepDur := time.Second * time.Duration(3*(retry+1))
-						select {
-						case <-ctx.Done():
-							return ctx.Err()
-						case <-time.After(sleepDur): // may add jitter here
-							continue
-						}
-					}
+			var remainingClosest map[peer.ID]PeerInfo
+			switch result.Strategy {
+			case crawlStrategySingleProbe:
+				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 1)
+			case crawlStrategyMultiProbe:
+				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 3)
+			case crawlStrategyRandomProbe:
+				probesPerBucket := int(1.3333 * discover.BucketSize / (float32(len(closestMap)) / float32(probes)))
+				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, probesPerBucket)
+			default:
+				panic("unexpected strategy: " + string(result.Strategy))
+			}
 
-					errorBits.Add(1 << count)
-
-					return fmt.Errorf("getting closest peer with CPL %d: %w", count, err)
-				}
-
-				mu.Lock()
-				defer mu.Unlock()
-
-				if result.RespondedAt == nil {
-					now := time.Now()
-					result.RespondedAt = &now
-				}
-
-				for _, n := range neighbors {
-					npi, err := NewPeerInfo(n)
-					if err != nil {
-						log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
-						continue
-					}
-					allNeighbors[string(npi.peerID)] = npi
-				}
-
-				if err != nil {
-					errorBits.Add(1 << count)
-					return err
-				}
-
-				return nil
-			})
+			for k, v := range remainingClosest {
+				closestMap[k] = v
+			}
 		}
-
-		// wait for go routines to finish
-		err = errg.Wait()
 
 		// track done timestamp and error
 		result.DoneAt = time.Now()
@@ -225,11 +223,11 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
 			Neighbors: []PeerInfo{},
-			ErrorBits: uint16(errorBits.Load()),
+			ErrorBits: uint16(0),
 			Error:     err,
 		}
 
-		for _, n := range allNeighbors {
+		for _, n := range closestMap {
 			result.RoutingTable.Neighbors = append(result.RoutingTable.Neighbors, n)
 		}
 
@@ -250,13 +248,151 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	return resultCh
 }
 
+func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[peer.ID]PeerInfo, []mapset.Set[peer.ID], time.Time, error) {
+	var (
+		respondedAt time.Time
+		closestMap  = make(map[peer.ID]PeerInfo)
+		closestSets []mapset.Set[peer.ID]
+		errs        []error
+	)
+
+	// do it sequentially because if a remote peer returns `probes` responses
+	// containing only three peers each (we've observed that) then these
+	// will be mapped to a single response because of how the discv4
+	// implementation works. This in turn means that the determineStrategy
+	// won't work
+	for i := 0; i < probes; i++ {
+		// first, we generate a random key that falls into bucket 0
+		targetKey, err := GenRandomPublicKey(pi.Node.ID(), 0)
+		if err != nil {
+			return nil, nil, time.Time{}, err
+		}
+
+		// second, we do the Find node request
+		closest, err := c.listener.FindNode(pi.Node.ID(), pi.udpAddr, targetKey)
+		if err != nil {
+			// exit early if the node hasn't returned an ENR and the first probe
+			// also timed out
+			if !returnedENR && errors.Is(err, discover.ErrTimeout) {
+				return nil, nil, time.Time{}, fmt.Errorf("failed to probe bucket 0: %w", discover.ErrTimeout)
+			}
+
+			errs = append(errs, err)
+		} else if !respondedAt.IsZero() {
+			respondedAt = time.Now()
+		}
+
+		// third, we parse the responses into our [PeerInfo] struct
+		for _, c := range closest {
+			pi, err := NewPeerInfo(c)
+			if err != nil {
+				log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
+				continue
+			}
+
+			closestMap[pi.ID()] = pi
+		}
+
+		closestSets = append(closestSets, mapset.NewThreadUnsafeSetFromMapKeys(closestMap))
+	}
+
+	if len(errs) == probes {
+		return nil, nil, time.Time{}, fmt.Errorf("failed to probe bucket 0: %w", errors.Join(errs...))
+	}
+
+	return closestMap, closestSets, respondedAt, nil
+}
+
+type CrawlStrategy string
+
+const (
+	crawlStrategySingleProbe CrawlStrategy = "single-probe"
+	crawlStrategyMultiProbe  CrawlStrategy = "multi-probe"
+	crawlStrategyRandomProbe CrawlStrategy = "random-probe"
+)
+
+func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
+	// Calculate the average difference between two responses. If the response
+	// sizes are always 16, one new peer will result in a symmetric difference
+	// of cardinality 2. One peer in the first set that's not in the second and one
+	// peer in the second that's not in the first set. We consider that it's the
+	// happy path if the average symmetric difference is less than 2.
+	avgSymDiff := float32(0)
+	diffCount := float32(0)
+	allNodes := mapset.NewThreadUnsafeSet[peer.ID]()
+	for i := 0; i < len(sets); i++ {
+		allNodes = allNodes.Union(sets[i])
+		for j := i + 1; j < len(sets); j++ {
+			diffCount += 1
+			avgSymDiff += float32(sets[i].SymmetricDifference(sets[j]).Cardinality())
+		}
+	}
+	avgSymDiff /= diffCount
+
+	switch {
+	case avgSymDiff < 2:
+		return crawlStrategySingleProbe
+	case allNodes.Cardinality() > v4wire.MaxNeighbors:
+		return crawlStrategyMultiProbe
+	default:
+		return crawlStrategyRandomProbe
+	}
+}
+
+func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[peer.ID]PeerInfo {
+	var wg sync.WaitGroup
+
+	allNeighborsMu := sync.Mutex{}
+	allNeighbors := map[peer.ID]PeerInfo{}
+	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
+		for j := 0; j < probesPerBucket; j++ {
+			wg.Add(1)
+
+			go func() {
+				defer wg.Done()
+
+				// first, we generate a random key that falls into bucket 0
+				targetKey, err := GenRandomPublicKey(node.ID(), i)
+				if err != nil {
+					log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed generating random key for bucket %d", i)
+					return
+				}
+
+				// second, we do the Find node request
+				closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
+				if err != nil {
+					return
+				}
+
+				// third, update our neighbors map
+				allNeighborsMu.Lock()
+				defer allNeighborsMu.Unlock()
+
+				for _, c := range closest {
+					pi, err := NewPeerInfo(c)
+					if err != nil {
+						log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
+						continue
+					}
+					allNeighbors[pi.ID()] = pi
+				}
+			}()
+		}
+	}
+	wg.Wait()
+
+	return allNeighbors
+}
+
 type Devp2pResult struct {
 	ConnectStartTime time.Time
 	ConnectEndTime   time.Time
+	IdentifyEndTime  time.Time
 	ConnectError     error
 	ConnectErrorStr  string
 	Agent            string
 	Protocols        []string
+	Status           *eth.StatusPacket
 }
 
 func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pResult {
@@ -265,46 +401,49 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		// the final result struct
 		result := Devp2pResult{}
 
-		addrInfo := peer.AddrInfo{
-			ID:    pi.ID(),
-			Addrs: pi.Addrs(),
-		}
-
 		result.ConnectStartTime = time.Now()
-		for retry := 0; retry < 3; retry++ {
-			result.ConnectError = c.client.Connect(ctx, addrInfo)
-			if result.ConnectError == nil {
-				break
-			}
-
-			if strings.Contains(result.ConnectError.Error(), "handshake failed: EOF") {
-				time.Sleep(time.Second)
-				continue
-			}
-		}
+		conn, err := c.client.Connect(ctx, pi)
 		result.ConnectEndTime = time.Now()
+		result.ConnectError = err
 
 		if result.ConnectError == nil {
-			resp, err := c.client.Identify(pi.ID())
-			if err == nil {
+
+			// start another go routine to cancel the entire operation if it
+			// times out. The context will be cancelled when this function
+			// returns or the timeout is reached. In both cases, we close the
+			// connection to the remote peer which will trigger that the call
+			// to Identify below will return (if the context is canceled because
+			// of a timeout and not function return).
+			timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+			defer cancel()
+			go func() {
+				<-timeoutCtx.Done()
+				// Free connection resources
+				if err := conn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
+					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+				}
+			}()
+
+			resp, status, err := conn.Identify()
+			if err != nil && resp == nil && status == nil {
+				result.ConnectError = err
+			}
+			result.IdentifyEndTime = time.Now()
+			result.Status = status
+
+			if resp != nil {
 				result.Agent = resp.Name
 				protocols := make([]string, len(resp.Caps))
 				for i, c := range resp.Caps {
 					protocols[i] = "/" + c.String()
 				}
 				result.Protocols = protocols
-			} else {
-				log.WithError(err).Debugln("Could not identify peer")
 			}
 		}
+
 		// if there was a connection error, parse it to a known one
 		if result.ConnectError != nil {
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
-		}
-
-		// Free connection resources
-		if err := c.client.CloseConn(pi.ID()); err != nil {
-			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
 		}
 
 		// send the result back and close channel
@@ -315,5 +454,6 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 
 		close(resultCh)
 	}()
+
 	return resultCh
 }

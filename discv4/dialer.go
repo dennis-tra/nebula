@@ -4,18 +4,18 @@ import (
 	"context"
 	"time"
 
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.
 type Dialer struct {
 	id          string
 	dialedPeers uint64
-	listener    *discvx.UDPv4
+	listener    *discover.UDPv4
 }
 
 var _ core.Worker[PeerInfo, core.DialResult[PeerInfo]] = (*Dialer)(nil)

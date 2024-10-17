@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
@@ -21,7 +22,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 )
 
 const MaxCrawlRetriesAfterTimeout = 2 // magic
@@ -37,7 +37,7 @@ type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
 	host         *basichost.BasicHost
-	listener     *discvx.UDPv5
+	listener     *discover.UDPv5
 	crawledPeers int
 	done         chan struct{}
 }
@@ -502,12 +502,12 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		// internally, so we won't gain much by spawning multiple parallel go
 		// routines here. Stop the process as soon as we have received a timeout and
 		// don't let the following calls time out as well.
-		for i := 0; i <= discvx.NBuckets; i++ { // 17 is maximum
+		for i := 0; i <= discover.NBuckets; i++ { // 17 is maximum
 			var neighbors []*enode.Node
-			neighbors, err = c.listener.FindNode(pi.Node, []uint{uint(discvx.HashBits - i)})
+			neighbors, err = c.listener.FindNode(pi.Node, []uint{uint(discover.HashBits - i)})
 			if err != nil {
 
-				if errors.Is(err, discvx.ErrTimeout) {
+				if errors.Is(err, discover.ErrTimeout) {
 					timeouts += 1
 					if timeouts < MaxCrawlRetriesAfterTimeout {
 						continue

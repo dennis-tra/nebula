@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/discvx"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -75,12 +75,12 @@ func (d *DialDriver) NewWorker() (core.Worker[PeerInfo, core.DialResult[PeerInfo
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discv4Cfg := discvx.Config{
+	discv4Cfg := discover.Config{
 		PrivateKey:   priv,
 		ValidSchemes: enode.ValidSchemes,
 	}
 
-	listener, err := discvx.ListenV4(conn, ethNode, discv4Cfg)
+	listener, err := discover.ListenV4(conn, ethNode, discv4Cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}

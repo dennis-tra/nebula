@@ -248,7 +248,7 @@ var (
 		"/dns/bootnode.1.lightclient.mainnet.avail.so/tcp/37000/p2p/12D3KooW9x9qnoXhkHAjdNFu92kMvBRSiFBMAoC5NnifgzXjsuiM",
 	}
 
-	//BootstrapPeersAvailTuringLightClient
+	// BootstrapPeersAvailTuringLightClient
 	BootstrapPeersAvailTuringLightClient = []string{
 		"/dns/bootnode.1.lightclient.turing.avail.so/tcp/37000/p2p/12D3KooWBkLsNGaD3SpMaRWtAmWVuiZg1afdNSPbtJ8M8r9ArGRT",
 	}
