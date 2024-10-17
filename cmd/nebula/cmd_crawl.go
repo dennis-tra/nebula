@@ -186,10 +186,11 @@ var CrawlCommand = &cli.Command{
 		},
 		&cli.DurationFlag{
 			Name:        "udp-response-timeout",
-			Usage:       "The response timeout for UDP requests in the disv4 DHT",
+			Usage:       "ETHEREUM_EXECUTION: The response timeout for UDP requests in the disv4 DHT",
 			EnvVars:     []string{"NEBULA_CRAWL_UDP_RESPONSE_TIMEOUT"},
 			Value:       crawlConfig.Discv4RespTimeout,
 			Destination: &crawlConfig.Discv4RespTimeout,
+			Category:    flagCategoryNetwork,
 		},
 	},
 }

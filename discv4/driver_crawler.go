@@ -263,9 +263,9 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 			"rcvtgt": d.cfg.UDPBufferSize, // receive target
 		})
 		if rcvbuf < d.cfg.UDPBufferSize {
-			logEntry.Infoln("Configured UDP buffer sizes")
+			logEntry.Warnln("Failed to increase UDP buffer sizes, using default")
 		} else {
-			logEntry.Infoln("Failed to increase UDP buffer sizes, using default")
+			logEntry.Infoln("Configured UDP buffer sizes")
 		}
 	})
 
