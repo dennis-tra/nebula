@@ -8,6 +8,7 @@ import (
 	"math"
 	"net"
 	"net/netip"
+	"sync"
 	"syscall"
 	"time"
 
@@ -31,6 +32,10 @@ import (
 	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
+
+// the buffer size for the UDP read socket. On linux, this is usually ~ 200KiB,
+// which may be too little, so we're bumping it to 1MiB.
+const udpReadBufferSize = 1024 * 1024 // TODO: make this configurable?
 
 type PeerInfo struct {
 	*enode.Node
@@ -231,6 +236,8 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	return d, nil
 }
 
+var logOnce sync.Once
+
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
 	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
@@ -245,7 +252,17 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
+	if err = conn.SetReadBuffer(udpReadBufferSize); err != nil {
+		log.Warnln("Failed to set read buffer size on UDP listener", err)
+	}
+
 	rcvbuf, sndbuf, err := getUDPBufferSize(conn)
+	logOnce.Do(func() {
+		log.WithFields(log.Fields{
+			"rcvbuf": rcvbuf,
+			"sndbuf": sndbuf,
+		}).Infoln("Configured UDP buffer sizes")
+	})
 
 	log.WithFields(log.Fields{
 		"rcvbuf": rcvbuf,
