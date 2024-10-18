@@ -42,7 +42,7 @@ var crawlConfig = &config.Crawl{
 	AddrDialTypeStr:   "public",
 	KeepENR:           false,
 	CheckExposed:      false,
-	Discv4RespTimeout: 2 * time.Second,
+	Discv4RespTimeout: 3 * time.Second,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.

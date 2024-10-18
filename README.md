@@ -12,27 +12,33 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
-- [Ethereum](https://ethereum.org/en/) - [_Testnet Holesky_](https://github.com/eth-clients/holesky) (alpha)
+- [Ethereum](https://ethereum.org/en/) - [_Execution Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
 - [Filecoin](https://filecoin.io)
 - [Polkadot](https://polkadot.network/)
 - [Kusama](https://kusama.network/)
 - [Rococo](https://substrate.io/developers/rococo-network/)
 - [Westend](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network)
+- [Avail](https://www.availproject.org/)
 - [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/)
 - [Celestia](https://celestia.org/) - [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Celestia](https://celestia.org/) - [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet)
 - [Pactus](https://pactus.org)
 
-_The crawler was:_
+The crawler was:
 
 - 🏆 _awarded a prize in the [DI2F Workshop hackathon](https://research.protocol.ai/blog/2021/decentralising-the-internet-with-ipfs-and-filecoin-di2f-a-report-from-the-trenches/)._ 🏆
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
-📊 [ProbeLab](https://probelab.io) is publishing weekly reports for the IPFS Amino DHT based on the crawl results [here](https://github.com/protocol/network-measurements/tree/master/reports)! 📊
+Nebula powers:
+- 📊 _the weekly reports for the IPFS Amino DHT [here](https://github.com/protocol/network-measurements/tree/master/reports)!_ 📊
+- 🌐 _many graphs on [probelab.io](https://probelab.io) for most of the supported networks above_ 🌐 
 
-📺 You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https://www.youtube.com/watch?v=QDgvCBDqNMc) 📺
+
+You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https://www.youtube.com/watch?v=QDgvCBDqNMc) 📺
 
 ![Screenshot from a Grafana dashboard](./docs/grafana-screenshot.png)
+
+<small>_Grafana Dashboard is not part of this repository_</small>
 
 ## Table of Contents
 
@@ -156,6 +162,8 @@ nebula --db-user nebula_test --db-name nebula_test monitor
 
 When Nebula is configured to store its results in a postgres database, then it also tracks session information of remote peers. A session is one continuous streak of uptime (see below).
 
+However, this is not implemented for all supported networks. The [ProbeLab](https://probelab.network) team is using the monitoring feature for the IPFS, Celestia, Filecoin, and Avail networks. Most notably, the Ethereum discv4/discv5 monitoring implementation still needs some work.  
+
 ---
 
 There are a few more command line flags that are documented when you run`nebula --help` and `nebula crawl --help`:
@@ -169,8 +177,6 @@ of these peers based on their [`PeerIDs`](https://docs.libp2p.io/concepts/peer-i
 random `PeerIDs` with common prefix lengths (CPL) that fall each peers buckets, and asks each remote peer if they know any peers that are
 closer (XOR distance) to the ones `nebula` just constructed. This will effectively yield a list of all `PeerIDs` that a peer has
 in its routing table. The process repeats for all found peers until `nebula` does not find any new `PeerIDs`.
-
-This process is heavily inspired by the `basic-crawler` in [libp2p/go-libp2p-kad-dht](https://github.com/libp2p/go-libp2p-kad-dht/tree/master/crawler) from [@aschmahmann](https://github.com/aschmahmann).
 
 If Nebula is configured to store its results in a database, every peer that was visited is written to it. The visit information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
 also create a `session` instance that contains the following information:
@@ -223,7 +229,8 @@ CREATE TABLE sessions (
 
 At the end of each crawl `nebula` persists general statistics about the crawl like the total duration, dialable peers, encountered errors, agent versions etc...
 
-> **Info:** You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations.
+> [!TIP]
+> You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations.
 
 Command line help page:
 
@@ -296,10 +303,10 @@ OPTIONS:
 
 ## Development
 
-To develop this project, you need Go `1.19` and the following tools:
+To develop this project, you need Go `1.23` and the following tools:
 
 - [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.15.2`
-- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.14.2`
+- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.14.1`
 - `docker` to run a local postgres instance
 
 To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
@@ -312,7 +319,8 @@ You need a running postgres instance to persist and/or read the crawl results. R
 docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
 ```
 
-> **Info:** You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations or store the results as JSON files with the `--json-out` flag.
+> [!TIP]
+> You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations or store the results as JSON files with the `--json-out` flag.
 
 The default database settings for local development are:
 
@@ -350,7 +358,7 @@ migrate create -ext sql -dir pkg/db/migrations -seq some_migration_name
 To run the tests you need a running test database instance:
 
 ```shell
-make database
+make database # or make databased (note the d suffix for "daemon") to start the DB in the background
 make test
 ```
 
@@ -375,6 +383,38 @@ This will trigger the [`goreleaser.yml`](./.github/workflows/goreleaser.yml) wor
 The following presentation shows a ways to use Nebula by showcasing crawls of the Amino, Celestia, and Ethereum DHT's: 
 
 [![Nebula: A Network Agnostic DHT Crawler - Dennis Trautwein](https://img.youtube.com/vi/QDgvCBDqNMc/0.jpg)](https://www.youtube.com/watch?v=QDgvCBDqNMc)
+
+## Networks
+
+> [!NOTE]
+> This section is work-in-progress and doesn't include information about all networks yet.
+
+The following sections document our experience with crawling the different networks.
+
+### Ethereum Execution (disv4)
+
+Under the hood Nebula uses packages from [`go-ethereum`](https://github.com/ethereum/go-ethereum) to facilitate peer
+communication. Mostly, Nebula relies on the [discover package](https://github.com/ethereum/go-ethereum/tree/master/p2p/discover).
+However, we made quite a few changes to the implementation that can be found in
+our fork of `go-ethereum` [here](https://github.com/probe-lab/go-ethereum/tree/nebula) in the `nebula` branch.
+
+Most notably, the custom changes include:
+
+- export of internal constants, functions, methods and types to customize their behaviour or call them directly
+- changes to the response matcher logic. UDP packets won't be forwarded to all matchers. This was required so that
+  concurrent requests to the same peer don't lead to unhandled packets
+
+Deployment recommendations:
+
+- CPUs: 4 (better 8)
+- Memory > 4 GB
+- UDP Read Buffer size >1 MiB (better 4 MiB) via the `--udp-buffer-size=4194304` command line flag or corresponding environment variable `NEBULA_UDP_BUFFER_SIZE`.
+  You might need to adjust the maximum buffer size on Linux, so that the flag takes effect:
+  ```shell
+  sysctl -w net.core.rmem_max=8388608 # 8MiB
+  ```
+- UDP Response timeout of `3s` (default)
+- Workers: 3000
 
 ## Maintainers
 
