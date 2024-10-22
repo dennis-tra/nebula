@@ -268,10 +268,9 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 				e.tasksChan = nil
 				break
 			}
-			if _, found := e.inflight[string(task.ID())]; found {
-				break
-			}
-			e.peerQueue.Push(string(task.ID()), task, 1)
+
+			e.enqueueTask(task)
+
 		case observeFn, more := <-e.telemetry.obsChan:
 			// an opentelemetry gauge wants to perform an observation
 			if !more {
@@ -386,42 +385,7 @@ func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 
 	// process the new tasks that came out of handling the peer result
 	for _, task := range newTasks {
-		mapKey := string(task.ID())
-
-		// Don't add this peer to the queue if we're currently querying it
-		if _, isInflight := e.inflight[mapKey]; isInflight {
-			continue
-		}
-
-		// Don't add the peer to the queue if we have already processed it
-		if _, processed := e.processed[mapKey]; processed {
-			continue
-		}
-
-		// Check if we have already queued this peer. If so, merge the new
-		// information with the already existing ones.
-		queuedTask, isQueued := e.peerQueue.Find(mapKey)
-		if isQueued {
-			task = task.Merge(queuedTask)
-		}
-
-		// If we don't know any multi addresses for the peer yet, we push it
-		// to the end of our priority queue by giving it a low priority. If we
-		// find that peer again in another routing table, we might find another
-		// multi address. In that case, we update the set of addresses and
-		// increase the priority.
-		priority := 1
-		if len(e.maddrFilter(task.Addrs())) == 0 {
-			priority = 0
-		}
-
-		// If the peer was already queued we only update its priority. If the
-		// peer wasn't queued, we push it to the queue.
-		if isQueued {
-			e.peerQueue.Update(mapKey, task, priority)
-		} else {
-			e.peerQueue.Push(mapKey, task, priority)
-		}
+		e.enqueueTask(task)
 	}
 
 	logEntry.WithFields(map[string]interface{}{
@@ -446,6 +410,45 @@ func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[Writ
 		"written":  e.writeCount,
 		"duration": result.Value.Duration,
 	}).Debugln("Handled writer result")
+}
+
+func (e *Engine[I, R]) enqueueTask(task I) {
+	mapKey := string(task.ID())
+
+	// Don't add this peer to the queue if we're currently querying it
+	if _, isInflight := e.inflight[mapKey]; isInflight {
+		return
+	}
+
+	// Don't add the peer to the queue if we have already processed it
+	if _, processed := e.processed[mapKey]; processed {
+		return
+	}
+
+	// Check if we have already queued this peer. If so, merge the new
+	// information with the already existing ones.
+	queuedTask, isQueued := e.peerQueue.Find(mapKey)
+	if isQueued {
+		task = task.Merge(queuedTask)
+	}
+
+	// If we don't know any multi addresses for the peer yet, we push it
+	// to the end of our priority queue by giving it a low priority. If we
+	// find that peer again in another routing table, we might find another
+	// multi address. In that case, we update the set of addresses and
+	// increase the priority.
+	priority := 1
+	if len(e.maddrFilter(task.Addrs())) == 0 {
+		priority = 0
+	}
+
+	// If the peer was already queued we only update its priority. If the
+	// peer wasn't queued, we push it to the queue.
+	if isQueued {
+		e.peerQueue.Update(mapKey, task, priority)
+	} else {
+		e.peerQueue.Push(mapKey, task, priority)
+	}
 }
 
 // reachedProcessingLimit returns true if the processing limit is configured
