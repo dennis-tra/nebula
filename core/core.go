@@ -23,6 +23,16 @@ type PeerInfo[T any] interface {
 	// peer info struct. The implementation of Merge may panic if the peer IDs
 	// don't match.
 	Merge(other T) T
+
+	// DeduplicationKey returns a unique string used for deduplication of crawl
+	// tasks. For example, in discv4 and discv5 we might want to crawl the same
+	// peer (as identified by its public key) multiple times when we find new
+	// ENR's for it. If the deduplication key was just the public key, we would
+	// only crawl it once. If we later find newer ENR's for the same peer with
+	// different network addresses, we would skip that peer. On the other hand,
+	// if the deduplication key was the entire ENR, we would crawl the same peer
+	// with different (potentially newer) connectivity information again.
+	DeduplicationKey() string
 }
 
 // A Driver is a data structure that provides the necessary implementations and

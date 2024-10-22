@@ -279,11 +279,11 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			observeFn(e)
 		case innerPeerTasks <- peerTask:
 			// a worker was ready to accept a new task -> perform internal bookkeeping.
-			e.peerQueue.Drop(string(peerTask.ID()))
-			e.inflight[string(peerTask.ID())] = struct{}{}
+			e.peerQueue.Drop(peerTask.DeduplicationKey())
+			e.inflight[peerTask.DeduplicationKey()] = struct{}{}
 		case innerWriteTasks <- writeTask:
 			// a write worker was ready to accept a new task -> perform internal bookkeeping.
-			e.writeQueue.Drop(string(writeTask.PeerInfo().ID()))
+			e.writeQueue.Drop(writeTask.PeerInfo().DeduplicationKey())
 		case result, more := <-peerResults:
 			if !more {
 				// the peerResults queue was closed. This means all workers
@@ -366,19 +366,22 @@ func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 	// count the number of visits being made
 	e.telemetry.visitCount.Add(ctx, 1, metric.WithAttributes(attribute.Bool("success", result.Value.IsSuccess())))
 
+	// get hold of the deduplication key
+	key := wr.PeerInfo().DeduplicationKey()
+
 	// The operation for this peer is not inflight anymore -> delete it.
-	delete(e.inflight, string(wr.PeerInfo().ID()))
+	delete(e.inflight, key)
 
 	// Keep track that this peer was processed, so we don't do it again during
 	// this run. Unless we explicitly allow duplicate processing.
 	if !e.cfg.DuplicateProcessing {
-		e.processed[string(wr.PeerInfo().ID())] = struct{}{}
+		e.processed[key] = struct{}{}
 		logEntry = logEntry.WithField("processed", len(e.processed))
 	}
 
 	// Publish the processing result to the writer queue so that the data is
 	// saved to disk.
-	e.writeQueue.Push(string(wr.PeerInfo().ID()), wr, 0)
+	e.writeQueue.Push(key, wr, 0)
 
 	// let the handler work on the new peer result
 	newTasks := e.handler.HandlePeerResult(ctx, result)
@@ -413,21 +416,25 @@ func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[Writ
 }
 
 func (e *Engine[I, R]) enqueueTask(task I) {
-	mapKey := string(task.ID())
+	key := task.DeduplicationKey()
 
 	// Don't add this peer to the queue if we're currently querying it
-	if _, isInflight := e.inflight[mapKey]; isInflight {
+	if _, isInflight := e.inflight[key]; isInflight {
 		return
 	}
 
 	// Don't add the peer to the queue if we have already processed it
-	if _, processed := e.processed[mapKey]; processed {
+	// Note: we handle the DuplicateProcessing logic when Nebula runs
+	// in monitoring mode on the side where we populate this `processed`
+	// map. If we handled it here and still kept track of all processed
+	// peers, we would have a memory leak.
+	if _, processed := e.processed[key]; processed {
 		return
 	}
 
 	// Check if we have already queued this peer. If so, merge the new
 	// information with the already existing ones.
-	queuedTask, isQueued := e.peerQueue.Find(mapKey)
+	queuedTask, isQueued := e.peerQueue.Find(key)
 	if isQueued {
 		task = task.Merge(queuedTask)
 	}
@@ -445,9 +452,9 @@ func (e *Engine[I, R]) enqueueTask(task I) {
 	// If the peer was already queued we only update its priority. If the
 	// peer wasn't queued, we push it to the queue.
 	if isQueued {
-		e.peerQueue.Update(mapKey, task, priority)
+		e.peerQueue.Update(key, task, priority)
 	} else {
-		e.peerQueue.Push(mapKey, task, priority)
+		e.peerQueue.Push(key, task, priority)
 	}
 }
 

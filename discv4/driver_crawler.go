@@ -114,6 +114,10 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 	return p
 }
 
+func (p PeerInfo) DeduplicationKey() string {
+	return p.Node.String()
+}
+
 type CrawlDriverConfig struct {
 	Version          string
 	TrackNeighbors   bool

@@ -27,6 +27,10 @@ type testPeerInfo struct {
 	addrs  []ma.Multiaddr
 }
 
+func (p *testPeerInfo) DeduplicationKey() string {
+	return string(p.peerID)
+}
+
 var _ PeerInfo[*testPeerInfo] = (*testPeerInfo)(nil)
 
 func (p *testPeerInfo) Addrs() []ma.Multiaddr {
