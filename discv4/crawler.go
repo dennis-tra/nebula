@@ -198,15 +198,15 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 			result.Strategy = determineStrategy(closestSet)
 
-			var remainingClosest map[peer.ID]PeerInfo
+			var remainingClosest map[string]PeerInfo
 			switch result.Strategy {
 			case crawlStrategySingleProbe:
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 1)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, 1)
 			case crawlStrategyMultiProbe:
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 3)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, 3)
 			case crawlStrategyRandomProbe:
 				probesPerBucket := int(1.3333 * discover.BucketSize / (float32(len(closestMap)) / float32(probes)))
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, probesPerBucket)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, probesPerBucket)
 			default:
 				panic("unexpected strategy: " + string(result.Strategy))
 			}
@@ -248,11 +248,11 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	return resultCh
 }
 
-func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[peer.ID]PeerInfo, []mapset.Set[peer.ID], time.Time, error) {
+func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[string]PeerInfo, []mapset.Set[string], time.Time, error) {
 	var (
 		respondedAt time.Time
-		closestMap  = make(map[peer.ID]PeerInfo)
-		closestSets []mapset.Set[peer.ID]
+		closestMap  = make(map[string]PeerInfo)
+		closestSets []mapset.Set[string]
 		errs        []error
 	)
 
@@ -290,7 +290,7 @@ func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[p
 				continue
 			}
 
-			closestMap[pi.ID()] = pi
+			closestMap[pi.DeduplicationKey()] = pi
 		}
 
 		closestSets = append(closestSets, mapset.NewThreadUnsafeSetFromMapKeys(closestMap))
@@ -311,7 +311,7 @@ const (
 	crawlStrategyRandomProbe CrawlStrategy = "random-probe"
 )
 
-func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
+func determineStrategy(sets []mapset.Set[string]) CrawlStrategy {
 	// Calculate the average difference between two responses. If the response
 	// sizes are always 16, one new peer will result in a symmetric difference
 	// of cardinality 2. One peer in the first set that's not in the second and one
@@ -319,7 +319,7 @@ func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
 	// happy path if the average symmetric difference is less than 2.
 	avgSymDiff := float32(0)
 	diffCount := float32(0)
-	allNodes := mapset.NewThreadUnsafeSet[peer.ID]()
+	allNodes := mapset.NewThreadUnsafeSet[string]()
 	for i := 0; i < len(sets); i++ {
 		allNodes = allNodes.Union(sets[i])
 		for j := i + 1; j < len(sets); j++ {
@@ -380,6 +380,41 @@ func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr ne
 		}
 	}
 	wg.Wait()
+
+	return allNeighbors
+}
+
+func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
+	allNeighbors := map[string]PeerInfo{}
+	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
+		for j := 0; j < probesPerBucket; j++ {
+
+			// first, we generate a random key that falls into bucket 0
+			targetKey, err := GenRandomPublicKey(node.ID(), i)
+			if err != nil {
+				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed generating random key for bucket %d", i)
+				break
+			}
+
+			// second, we do the Find node request
+			closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
+			if errors.Is(err, discover.ErrTimeout) {
+				break
+			} else if err != nil {
+				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed query node bucket", i)
+				break
+			}
+
+			for _, c := range closest {
+				pi, err := NewPeerInfo(c)
+				if err != nil {
+					log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
+					continue
+				}
+				allNeighbors[pi.DeduplicationKey()] = pi
+			}
+		}
+	}
 
 	return allNeighbors
 }
