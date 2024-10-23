@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -119,11 +118,11 @@ func Test_determineStrategy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var sets []mapset.Set[peer.ID]
+			var sets []mapset.Set[string]
 			for i, s := range tt.sets {
-				sets = append(sets, mapset.NewThreadUnsafeSet[peer.ID]())
+				sets = append(sets, mapset.NewThreadUnsafeSet[string]())
 				for _, item := range s {
-					sets[i].Add(peer.ID(item))
+					sets[i].Add(item)
 				}
 			}
 			got := determineStrategy(sets)
