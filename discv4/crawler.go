@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/netip"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/config"
@@ -172,6 +170,8 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	resultCh := make(chan DiscV4Result)
 
 	go func() {
+		defer close(resultCh)
+
 		// the final result struct
 		result := DiscV4Result{}
 
@@ -222,7 +222,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
-			Neighbors: []PeerInfo{},
+			Neighbors: make([]PeerInfo, 0, len(closestMap)),
 			ErrorBits: uint16(0),
 			Error:     err,
 		}
@@ -241,8 +241,6 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 		case resultCh <- result:
 		case <-ctx.Done():
 		}
-
-		close(resultCh)
 	}()
 
 	return resultCh
@@ -339,11 +337,11 @@ func determineStrategy(sets []mapset.Set[string]) CrawlStrategy {
 	}
 }
 
-func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[peer.ID]PeerInfo {
+func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
 	var wg sync.WaitGroup
 
 	allNeighborsMu := sync.Mutex{}
-	allNeighbors := map[peer.ID]PeerInfo{}
+	allNeighbors := map[string]PeerInfo{}
 	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
 		for j := 0; j < probesPerBucket; j++ {
 			wg.Add(1)
@@ -374,7 +372,7 @@ func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr ne
 						log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
 						continue
 					}
-					allNeighbors[pi.ID()] = pi
+					allNeighbors[pi.DeduplicationKey()] = pi
 				}
 			}()
 		}
@@ -401,7 +399,7 @@ func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr ne
 			if errors.Is(err, discover.ErrTimeout) {
 				break
 			} else if err != nil {
-				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed query node bucket", i)
+				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed query node bucket %d", i)
 				break
 			}
 
@@ -437,49 +435,49 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		result := Devp2pResult{}
 
 		result.ConnectStartTime = time.Now()
-		conn, err := c.client.Connect(ctx, pi)
+		// conn, err := c.client.Connect(ctx, pi)
 		result.ConnectEndTime = time.Now()
-		result.ConnectError = err
+		// result.ConnectError = err
 
-		if result.ConnectError == nil {
-
-			// start another go routine to cancel the entire operation if it
-			// times out. The context will be cancelled when this function
-			// returns or the timeout is reached. In both cases, we close the
-			// connection to the remote peer which will trigger that the call
-			// to Identify below will return (if the context is canceled because
-			// of a timeout and not function return).
-			timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-			defer cancel()
-			go func() {
-				<-timeoutCtx.Done()
-				// Free connection resources
-				if err := conn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
-					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
-				}
-			}()
-
-			resp, status, err := conn.Identify()
-			if err != nil && resp == nil && status == nil {
-				result.ConnectError = err
-			}
-			result.IdentifyEndTime = time.Now()
-			result.Status = status
-
-			if resp != nil {
-				result.Agent = resp.Name
-				protocols := make([]string, len(resp.Caps))
-				for i, c := range resp.Caps {
-					protocols[i] = "/" + c.String()
-				}
-				result.Protocols = protocols
-			}
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
-			result.ConnectErrorStr = db.NetError(result.ConnectError)
-		}
+		//if result.ConnectError == nil {
+		//
+		//	// start another go routine to cancel the entire operation if it
+		//	// times out. The context will be cancelled when this function
+		//	// returns or the timeout is reached. In both cases, we close the
+		//	// connection to the remote peer which will trigger that the call
+		//	// to Identify below will return (if the context is canceled because
+		//	// of a timeout and not function return).
+		//	timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+		//	defer cancel()
+		//	go func() {
+		//		<-timeoutCtx.Done()
+		//		// Free connection resources
+		//		if err := conn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
+		//			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+		//		}
+		//	}()
+		//
+		//	resp, status, err := conn.Identify()
+		//	if err != nil && resp == nil && status == nil {
+		//		result.ConnectError = err
+		//	}
+		//	result.IdentifyEndTime = time.Now()
+		//	result.Status = status
+		//
+		//	if resp != nil {
+		//		result.Agent = resp.Name
+		//		protocols := make([]string, len(resp.Caps))
+		//		for i, c := range resp.Caps {
+		//			protocols[i] = "/" + c.String()
+		//		}
+		//		result.Protocols = protocols
+		//	}
+		//}
+		//
+		//// if there was a connection error, parse it to a known one
+		//if result.ConnectError != nil {
+		//	result.ConnectErrorStr = db.NetError(result.ConnectError)
+		//}
 
 		// send the result back and close channel
 		select {
