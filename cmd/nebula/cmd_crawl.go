@@ -211,7 +211,7 @@ func CrawlAction(c *cli.Context) error {
 		return fmt.Errorf("new database client: %w", err)
 	}
 	defer func() {
-		if err := dbc.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) {
+		if err := dbc.Close(); err != nil && !errors.Is(err, sql.ErrConnDone) && !strings.Contains(err.Error(), "use of closed network connection") {
 			log.WithError(err).Warnln("Failed closing database handle")
 		}
 	}()

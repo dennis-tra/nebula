@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,7 +101,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	if c.cfg.KeepENR {
-		properties["enr"] = task.Node.String() // discV4Result.ENR.String() panics :/
+		properties["enr"] = task.enr // discV4Result.ENR.String() panics :/
 	}
 
 	// keep track of all unknown connection errors
@@ -383,7 +384,10 @@ func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr ne
 }
 
 func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
+	timeouts := 0
 	allNeighbors := map[string]PeerInfo{}
+
+OUTER:
 	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
 		for j := 0; j < probesPerBucket; j++ {
 
@@ -397,10 +401,13 @@ func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr ne
 			// second, we do the Find node request
 			closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
 			if errors.Is(err, discover.ErrTimeout) {
-				break
+				timeouts += 1
+				if timeouts > 3 {
+					break OUTER
+				}
+				continue
 			} else if err != nil {
-				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed query node bucket %d", i)
-				break
+				break OUTER
 			}
 
 			for _, c := range closest {
@@ -435,49 +442,49 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		result := Devp2pResult{}
 
 		result.ConnectStartTime = time.Now()
-		// conn, err := c.client.Connect(ctx, pi)
+		conn, err := c.client.Connect(ctx, pi)
 		result.ConnectEndTime = time.Now()
-		// result.ConnectError = err
+		result.ConnectError = err
 
-		//if result.ConnectError == nil {
-		//
-		//	// start another go routine to cancel the entire operation if it
-		//	// times out. The context will be cancelled when this function
-		//	// returns or the timeout is reached. In both cases, we close the
-		//	// connection to the remote peer which will trigger that the call
-		//	// to Identify below will return (if the context is canceled because
-		//	// of a timeout and not function return).
-		//	timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
-		//	defer cancel()
-		//	go func() {
-		//		<-timeoutCtx.Done()
-		//		// Free connection resources
-		//		if err := conn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
-		//			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
-		//		}
-		//	}()
-		//
-		//	resp, status, err := conn.Identify()
-		//	if err != nil && resp == nil && status == nil {
-		//		result.ConnectError = err
-		//	}
-		//	result.IdentifyEndTime = time.Now()
-		//	result.Status = status
-		//
-		//	if resp != nil {
-		//		result.Agent = resp.Name
-		//		protocols := make([]string, len(resp.Caps))
-		//		for i, c := range resp.Caps {
-		//			protocols[i] = "/" + c.String()
-		//		}
-		//		result.Protocols = protocols
-		//	}
-		//}
-		//
-		//// if there was a connection error, parse it to a known one
-		//if result.ConnectError != nil {
-		//	result.ConnectErrorStr = db.NetError(result.ConnectError)
-		//}
+		if result.ConnectError == nil {
+
+			// start another go routine to cancel the entire operation if it
+			// times out. The context will be cancelled when this function
+			// returns or the timeout is reached. In both cases, we close the
+			// connection to the remote peer which will trigger that the call
+			// to Identify below will return (if the context is canceled because
+			// of a timeout and not function return).
+			timeoutCtx, cancel := context.WithTimeout(ctx, c.cfg.DialTimeout)
+			defer cancel()
+			go func() {
+				<-timeoutCtx.Done()
+				// Free connection resources
+				if err := conn.Close(); err != nil && !strings.Contains(err.Error(), errUseOfClosedNetworkConnectionStr) {
+					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+				}
+			}()
+
+			resp, status, err := conn.Identify()
+			if err != nil && resp == nil && status == nil {
+				result.ConnectError = err
+			}
+			result.IdentifyEndTime = time.Now()
+			result.Status = status
+
+			if resp != nil {
+				result.Agent = resp.Name
+				protocols := make([]string, len(resp.Caps))
+				for i, c := range resp.Caps {
+					protocols[i] = "/" + c.String()
+				}
+				result.Protocols = protocols
+			}
+		}
+
+		// if there was a connection error, parse it to a known one
+		if result.ConnectError != nil {
+			result.ConnectErrorStr = db.NetError(result.ConnectError)
+		}
 
 		// send the result back and close channel
 		select {

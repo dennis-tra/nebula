@@ -1,9 +1,7 @@
 package discv4
 
 import (
-	"crypto/ecdsa"
 	"crypto/elliptic"
-	crand "crypto/rand"
 	"fmt"
 	"math"
 	"net"
@@ -38,6 +36,7 @@ type PeerInfo struct {
 	peerID  peer.ID
 	maddrs  []ma.Multiaddr
 	udpAddr netip.AddrPort
+	enr     string
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -96,6 +95,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		peerID:  peerID,
 		maddrs:  maddrs,
 		udpAddr: udpAddr,
+		enr:     node.String(),
 	}
 
 	return pi, nil
@@ -115,7 +115,10 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 func (p PeerInfo) DeduplicationKey() string {
-	return p.Node.String()
+	// previously this was: p.Node.String() but a CPU profile revealed that the
+	// process of encoding the public key takes a lot CPU cycles. Especially
+	// because we're calling DeduplicationKey very often!
+	return p.enr
 }
 
 type CrawlDriverConfig struct {
@@ -243,31 +246,19 @@ var logOnce sync.Once
 
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
-	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
+	priv, err := ethcrypto.GenerateKey()
 	if err != nil {
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 	}
-	//ip := net.ParseIP("0.0.0.0")
-	//if ip == nil {
-	//	return nil, fmt.Errorf("failed to parse IP address")
-	//}
-	//
-	//conn, err := net.ListenUDP("udp4", &net.UDPAddr{
-	//	IP:   ip,
-	//	Port: 0,
-	//})
-	//if err != nil {
-	//	return nil, fmt.Errorf("listen on udp port: %w", err)
-	//}
 
-	socket, err := net.ListenPacket("udp4", "0.0.0.0:0")
-	if err != nil {
-		return nil, fmt.Errorf("listen on udp port: %w", err)
+	laddr := &net.UDPAddr{
+		IP:   net.ParseIP("0.0.0.0"),
+		Port: 0,
 	}
 
-	conn, ok := socket.(*net.UDPConn)
-	if !ok {
-		return nil, fmt.Errorf("failed to cast socket to UDPConn")
+	conn, err := net.ListenUDP("udp4", laddr)
+	if err != nil {
+		return nil, fmt.Errorf("listen on udp4 port: %w", err)
 	}
 
 	if err = conn.SetReadBuffer(d.cfg.UDPBufferSize); err != nil {
@@ -293,15 +284,17 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	ethNode := enode.NewLocalNode(d.peerstore, priv)
 	udpAddr := conn.LocalAddr().(*net.UDPAddr)
 	if udpAddr.IP.IsUnspecified() {
-		ethNode.SetFallbackIP(net.IP{127, 0, 0, 1})
+		ethNode.SetFallbackIP(net.ParseIP("127.0.0.1"))
 	} else {
 		ethNode.SetFallbackIP(udpAddr.IP)
 	}
 	ethNode.SetFallbackUDP(udpAddr.Port)
 
 	discvxCfg := discover.Config{
-		PrivateKey: priv,
-		Unhandled:  d.unhandledChan,
+		PrivateKey:              priv,
+		Unhandled:               d.unhandledChan,
+		NoFindnodeLivenessCheck: true,
+		RefreshInterval:         100 * time.Hour, // turn off
 	}
 	listener, err := discover.ListenV4(conn, ethNode, discvxCfg)
 	if err != nil {

@@ -61,7 +61,7 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 func (p PeerInfo) DeduplicationKey() string {
-	return string(p.AddrInfo.ID)
+	return p.AddrInfo.ID.String()
 }
 
 type CrawlDriverConfig struct {
