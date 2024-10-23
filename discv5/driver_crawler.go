@@ -43,6 +43,7 @@ type PeerInfo struct {
 	*enode.Node
 	peerID peer.ID
 	maddrs []ma.Multiaddr
+	enr    string
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -111,6 +112,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		Node:   node,
 		peerID: peerID,
 		maddrs: maddrs,
+		enr:    node.String(),
 	}
 
 	return pi, nil
@@ -130,7 +132,7 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 }
 
 func (p PeerInfo) DeduplicationKey() string {
-	// TODO: this should probably be p.Node.String() but a change here needs to
+	// TODO: this should probably be p.enr but a change here needs to
 	// be coordinated with changes to our analysis scripts, so I'm keeping it as
 	// it is.
 	return string(p.peerID)
