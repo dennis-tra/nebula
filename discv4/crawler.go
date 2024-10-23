@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -336,51 +335,6 @@ func determineStrategy(sets []mapset.Set[string]) CrawlStrategy {
 	default:
 		return crawlStrategyRandomProbe
 	}
-}
-
-func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
-	var wg sync.WaitGroup
-
-	allNeighborsMu := sync.Mutex{}
-	allNeighbors := map[string]PeerInfo{}
-	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
-		for j := 0; j < probesPerBucket; j++ {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
-				// first, we generate a random key that falls into bucket 0
-				targetKey, err := GenRandomPublicKey(node.ID(), i)
-				if err != nil {
-					log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed generating random key for bucket %d", i)
-					return
-				}
-
-				// second, we do the Find node request
-				closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
-				if err != nil {
-					return
-				}
-
-				// third, update our neighbors map
-				allNeighborsMu.Lock()
-				defer allNeighborsMu.Unlock()
-
-				for _, c := range closest {
-					pi, err := NewPeerInfo(c)
-					if err != nil {
-						log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
-						continue
-					}
-					allNeighbors[pi.DeduplicationKey()] = pi
-				}
-			}()
-		}
-	}
-	wg.Wait()
-
-	return allNeighbors
 }
 
 func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
