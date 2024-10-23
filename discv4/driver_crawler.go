@@ -282,6 +282,8 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	log.Debugln("Listening on UDP port ", conn.LocalAddr().String(), " for Ethereum discovery")
 
 	ethNode := enode.NewLocalNode(d.peerstore, priv)
+
+	// I'm not really sure if the below is strictly necessary.
 	udpAddr := conn.LocalAddr().(*net.UDPAddr)
 	if udpAddr.IP.IsUnspecified() {
 		ethNode.SetFallbackIP(net.ParseIP("127.0.0.1"))
@@ -290,13 +292,13 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	}
 	ethNode.SetFallbackUDP(udpAddr.Port)
 
-	discvxCfg := discover.Config{
+	cfg := discover.Config{
 		PrivateKey:              priv,
 		Unhandled:               d.unhandledChan,
 		NoFindnodeLivenessCheck: true,
 		RefreshInterval:         100 * time.Hour, // turn off
 	}
-	listener, err := discover.ListenV4(conn, ethNode, discvxCfg)
+	listener, err := discover.ListenV4(conn, ethNode, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv4: %w", err)
 	}
