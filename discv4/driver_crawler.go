@@ -247,12 +247,27 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	if err != nil {
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 	}
+	//ip := net.ParseIP("0.0.0.0")
+	//if ip == nil {
+	//	return nil, fmt.Errorf("failed to parse IP address")
+	//}
+	//
+	//conn, err := net.ListenUDP("udp4", &net.UDPAddr{
+	//	IP:   ip,
+	//	Port: 0,
+	//})
+	//if err != nil {
+	//	return nil, fmt.Errorf("listen on udp port: %w", err)
+	//}
 
-	ethNode := enode.NewLocalNode(d.peerstore, priv)
-
-	conn, err := net.ListenUDP("udp", nil)
+	socket, err := net.ListenPacket("udp4", "0.0.0.0:0")
 	if err != nil {
 		return nil, fmt.Errorf("listen on udp port: %w", err)
+	}
+
+	conn, ok := socket.(*net.UDPConn)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast socket to UDPConn")
 	}
 
 	if err = conn.SetReadBuffer(d.cfg.UDPBufferSize); err != nil {
@@ -274,6 +289,15 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	})
 
 	log.Debugln("Listening on UDP port ", conn.LocalAddr().String(), " for Ethereum discovery")
+
+	ethNode := enode.NewLocalNode(d.peerstore, priv)
+	udpAddr := conn.LocalAddr().(*net.UDPAddr)
+	if udpAddr.IP.IsUnspecified() {
+		ethNode.SetFallbackIP(net.IP{127, 0, 0, 1})
+	} else {
+		ethNode.SetFallbackIP(udpAddr.IP)
+	}
+	ethNode.SetFallbackUDP(udpAddr.Port)
 
 	discvxCfg := discover.Config{
 		PrivateKey: priv,
