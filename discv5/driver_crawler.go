@@ -222,19 +222,29 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 	}
 
-	ethNode := enode.NewLocalNode(d.peerstore, priv)
-
-	conn, err := net.ListenUDP("udp", nil)
+	conn, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		return nil, fmt.Errorf("listen on udp port: %w", err)
 	}
 
-	discv5Cfg := discover.Config{
-		PrivateKey:   priv,
-		ValidSchemes: enode.ValidSchemes,
-	}
+	ethNode := enode.NewLocalNode(d.peerstore, priv)
 
-	listener, err := discover.ListenV5(conn, ethNode, discv5Cfg)
+	// I'm not really sure if the below is strictly necessary.
+	udpAddr := conn.LocalAddr().(*net.UDPAddr)
+	if udpAddr.IP.IsUnspecified() {
+		ethNode.SetFallbackIP(net.ParseIP("127.0.0.1"))
+	} else {
+		ethNode.SetFallbackIP(udpAddr.IP)
+	}
+	ethNode.SetFallbackUDP(udpAddr.Port)
+
+	cfg := discover.Config{
+		PrivateKey:              priv,
+		ValidSchemes:            enode.ValidSchemes,
+		NoFindnodeLivenessCheck: true,
+		RefreshInterval:         100 * time.Hour, // turn off
+	}
+	listener, err := discover.ListenV5(conn, ethNode, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("listen discv5: %w", err)
 	}
