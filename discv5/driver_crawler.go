@@ -129,6 +129,13 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 	return p
 }
 
+func (p PeerInfo) DeduplicationKey() string {
+	// TODO: this should probably be p.Node.String() but a change here needs to
+	// be coordinated with changes to our analysis scripts, so I'm keeping it as
+	// it is.
+	return string(p.peerID)
+}
+
 type CrawlDriverConfig struct {
 	Version        string
 	TrackNeighbors bool

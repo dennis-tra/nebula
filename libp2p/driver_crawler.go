@@ -60,6 +60,10 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 	}
 }
 
+func (p PeerInfo) DeduplicationKey() string {
+	return p.AddrInfo.ID.String()
+}
+
 type CrawlDriverConfig struct {
 	Version        string
 	Network        config.Network

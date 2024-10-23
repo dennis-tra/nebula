@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/netip"
 	"strings"
-	"sync"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -17,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/config"
@@ -102,7 +100,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	if c.cfg.KeepENR {
-		properties["enr"] = task.Node.String() // discV4Result.ENR.String() panics :/
+		properties["enr"] = task.enr // discV4Result.ENR.String() panics :/
 	}
 
 	// keep track of all unknown connection errors
@@ -172,6 +170,8 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 	resultCh := make(chan DiscV4Result)
 
 	go func() {
+		defer close(resultCh)
+
 		// the final result struct
 		result := DiscV4Result{}
 
@@ -198,15 +198,15 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 			result.Strategy = determineStrategy(closestSet)
 
-			var remainingClosest map[peer.ID]PeerInfo
+			var remainingClosest map[string]PeerInfo
 			switch result.Strategy {
 			case crawlStrategySingleProbe:
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 1)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, 1)
 			case crawlStrategyMultiProbe:
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, 3)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, 3)
 			case crawlStrategyRandomProbe:
 				probesPerBucket := int(1.3333 * discover.BucketSize / (float32(len(closestMap)) / float32(probes)))
-				remainingClosest = c.crawlRemainingBucketsConcurrently(pi.Node, pi.udpAddr, probesPerBucket)
+				remainingClosest = c.crawlRemainingBucketsSequentially(pi.Node, pi.udpAddr, probesPerBucket)
 			default:
 				panic("unexpected strategy: " + string(result.Strategy))
 			}
@@ -222,7 +222,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
-			Neighbors: []PeerInfo{},
+			Neighbors: make([]PeerInfo, 0, len(closestMap)),
 			ErrorBits: uint16(0),
 			Error:     err,
 		}
@@ -241,18 +241,16 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 		case resultCh <- result:
 		case <-ctx.Done():
 		}
-
-		close(resultCh)
 	}()
 
 	return resultCh
 }
 
-func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[peer.ID]PeerInfo, []mapset.Set[peer.ID], time.Time, error) {
+func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[string]PeerInfo, []mapset.Set[string], time.Time, error) {
 	var (
 		respondedAt time.Time
-		closestMap  = make(map[peer.ID]PeerInfo)
-		closestSets []mapset.Set[peer.ID]
+		closestMap  = make(map[string]PeerInfo)
+		closestSets []mapset.Set[string]
 		errs        []error
 	)
 
@@ -290,7 +288,7 @@ func (c *Crawler) probeBucket0(pi PeerInfo, probes int, returnedENR bool) (map[p
 				continue
 			}
 
-			closestMap[pi.ID()] = pi
+			closestMap[pi.DeduplicationKey()] = pi
 		}
 
 		closestSets = append(closestSets, mapset.NewThreadUnsafeSetFromMapKeys(closestMap))
@@ -311,7 +309,7 @@ const (
 	crawlStrategyRandomProbe CrawlStrategy = "random-probe"
 )
 
-func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
+func determineStrategy(sets []mapset.Set[string]) CrawlStrategy {
 	// Calculate the average difference between two responses. If the response
 	// sizes are always 16, one new peer will result in a symmetric difference
 	// of cardinality 2. One peer in the first set that's not in the second and one
@@ -319,7 +317,7 @@ func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
 	// happy path if the average symmetric difference is less than 2.
 	avgSymDiff := float32(0)
 	diffCount := float32(0)
-	allNodes := mapset.NewThreadUnsafeSet[peer.ID]()
+	allNodes := mapset.NewThreadUnsafeSet[string]()
 	for i := 0; i < len(sets); i++ {
 		allNodes = allNodes.Union(sets[i])
 		for j := i + 1; j < len(sets); j++ {
@@ -339,47 +337,43 @@ func determineStrategy(sets []mapset.Set[peer.ID]) CrawlStrategy {
 	}
 }
 
-func (c *Crawler) crawlRemainingBucketsConcurrently(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[peer.ID]PeerInfo {
-	var wg sync.WaitGroup
+func (c *Crawler) crawlRemainingBucketsSequentially(node *enode.Node, udpAddr netip.AddrPort, probesPerBucket int) map[string]PeerInfo {
+	timeouts := 0
+	allNeighbors := map[string]PeerInfo{}
 
-	allNeighborsMu := sync.Mutex{}
-	allNeighbors := map[peer.ID]PeerInfo{}
+OUTER:
 	for i := 1; i < 15; i++ { // although there are 17 buckets, GenRandomPublicKey only supports the first 16
 		for j := 0; j < probesPerBucket; j++ {
-			wg.Add(1)
 
-			go func() {
-				defer wg.Done()
+			// first, we generate a random key that falls into bucket 0
+			targetKey, err := GenRandomPublicKey(node.ID(), i)
+			if err != nil {
+				log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed generating random key for bucket %d", i)
+				break
+			}
 
-				// first, we generate a random key that falls into bucket 0
-				targetKey, err := GenRandomPublicKey(node.ID(), i)
+			// second, we do the Find node request
+			closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
+			if errors.Is(err, discover.ErrTimeout) {
+				timeouts += 1
+				if timeouts > 3 {
+					break OUTER
+				}
+				continue
+			} else if err != nil {
+				break OUTER
+			}
+
+			for _, c := range closest {
+				pi, err := NewPeerInfo(c)
 				if err != nil {
-					log.WithError(err).WithField("nodeID", node.ID().String()).Warnf("Failed generating random key for bucket %d", i)
-					return
+					log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
+					continue
 				}
-
-				// second, we do the Find node request
-				closest, err := c.listener.FindNode(node.ID(), udpAddr, targetKey)
-				if err != nil {
-					return
-				}
-
-				// third, update our neighbors map
-				allNeighborsMu.Lock()
-				defer allNeighborsMu.Unlock()
-
-				for _, c := range closest {
-					pi, err := NewPeerInfo(c)
-					if err != nil {
-						log.WithError(err).Warnln("Failed parsing ethereum node neighbor")
-						continue
-					}
-					allNeighbors[pi.ID()] = pi
-				}
-			}()
+				allNeighbors[pi.DeduplicationKey()] = pi
+			}
 		}
 	}
-	wg.Wait()
 
 	return allNeighbors
 }
