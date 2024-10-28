@@ -3,6 +3,7 @@ package libp2p
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -119,7 +120,7 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 
 	// treat ErrConnectionClosedImmediately as no error because we were able
 	// to connect
-	if p2pRes.ConnClosedImmediately {
+	if p2pRes.CrawlError != nil && strings.Contains(p2pRes.CrawlError.Error(), "connection failed") {
 		properties["direct_close"] = true
 	}
 
