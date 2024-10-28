@@ -29,6 +29,7 @@ var KnownErrors = map[string]string{
 	"max dial attempts exceeded":                 models.NetErrorMaxDialAttemptsExceeded,
 	"host is down":                               models.NetErrorHostIsDown,
 	"stream reset":                               models.NetErrorStreamReset,
+	"stream closed":                              models.NetErrorStreamReset,
 	"failed to negotiate security protocol: EOF": models.NetErrorNegotiateSecurityProtocol, // connect retry logic in discv5 relies on the ": EOF" suffix.
 	"failed to negotiate stream multiplexer":     models.NetErrorNegotiateStreamMultiplexer,
 	"resource limit exceeded":                    models.NetErrorResourceLimitExceeded,
@@ -91,6 +92,7 @@ var knownErrorsPrecedence = []string{
 	"max dial attempts exceeded",
 	"host is down",
 	"stream reset",
+	"stream closed",
 	"failed to negotiate security protocol: EOF",
 	"failed to negotiate stream multiplexer",
 	"resource limit exceeded",
