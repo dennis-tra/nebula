@@ -6,7 +6,9 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"io"
+	"math"
 	"net"
+	"net/netip"
 	"runtime"
 	"sync"
 	"time"
@@ -331,7 +333,22 @@ func newLibp2pHost(version string) (host.Host, error) {
 	// Configure the resource manager to not limit anything
 	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit))
+
+	v4PrefixLimits := []rcmgr.NetworkPrefixLimit{
+		{
+			Network:   netip.MustParsePrefix("0.0.0.0/0"),
+			ConnCount: math.MaxInt, // Unlimited
+		},
+	}
+
+	v6PrefixLimits := []rcmgr.NetworkPrefixLimit{
+		{
+			Network:   netip.MustParsePrefix("::1/0"),
+			ConnCount: math.MaxInt, // Unlimited
+		},
+	}
+
+	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit), rcmgr.WithNetworkPrefixLimit(v4PrefixLimits, v6PrefixLimits))
 	if err != nil {
 		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
