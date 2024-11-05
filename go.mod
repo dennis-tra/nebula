@@ -216,7 +216,7 @@ replace (
 	// replace go-ethereum with fork (branch  nebula). Changes:
 	// - move everything inside the devp2p/internal package into devp2p to make it accessible
 	// - add Identify method
-	github.com/ethereum/go-ethereum => github.com/probe-lab/go-ethereum v0.0.0-20241022152419-a32e9b25a50e
+	github.com/ethereum/go-ethereum => github.com/probe-lab/go-ethereum v0.0.0-20241105111838-95c73e73f0fd
 
 	// replace go-libp2p with fork (branch  v0.28.3-nebula). Changes:
 	// - avoid running into dial backoffs even if forceDirectDial is set to false

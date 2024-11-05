@@ -282,8 +282,8 @@ type Crawl struct {
 	// Whether to keep the full enr record alongside all parsed kv-pairs
 	KeepENR bool
 
-	// The UDP response timeout when crawling the disv4 DHT
-	Discv4RespTimeout time.Duration
+	// The UDP response timeout when crawling the discv4 and discv5 DHTs
+	UDPRespTimeout time.Duration
 }
 
 func (c *Crawl) AddrTrackType() AddrType {
