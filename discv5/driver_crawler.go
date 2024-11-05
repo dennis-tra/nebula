@@ -149,6 +149,7 @@ type CrawlDriverConfig struct {
 	MeterProvider  metric.MeterProvider
 	TracerProvider trace.TracerProvider
 	LogErrors      bool
+	UDPRespTimeout time.Duration
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -205,6 +206,9 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory peerstore: %w", err)
 	}
+
+	// set the discovery response timeout
+	discover.RespTimeoutV5 = cfg.UDPRespTimeout
 
 	return &CrawlDriver{
 		cfg:       cfg,

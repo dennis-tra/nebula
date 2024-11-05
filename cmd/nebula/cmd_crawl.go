@@ -29,20 +29,20 @@ import (
 )
 
 var crawlConfig = &config.Crawl{
-	Root:              rootConfig,
-	CrawlWorkerCount:  1000,
-	WriteWorkerCount:  10,
-	CrawlLimit:        0,
-	PersistNeighbors:  false,
-	FilePathUdgerDB:   "",
-	Network:           string(config.NetworkIPFS),
-	BootstrapPeers:    cli.NewStringSlice(),
-	Protocols:         cli.NewStringSlice(string(kaddht.ProtocolDHT)),
-	AddrTrackTypeStr:  "public",
-	AddrDialTypeStr:   "public",
-	KeepENR:           false,
-	CheckExposed:      false,
-	Discv4RespTimeout: 3 * time.Second,
+	Root:             rootConfig,
+	CrawlWorkerCount: 1000,
+	WriteWorkerCount: 10,
+	CrawlLimit:       0,
+	PersistNeighbors: false,
+	FilePathUdgerDB:  "",
+	Network:          string(config.NetworkIPFS),
+	BootstrapPeers:   cli.NewStringSlice(),
+	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
+	AddrTrackTypeStr: "public",
+	AddrDialTypeStr:  "public",
+	KeepENR:          false,
+	CheckExposed:     false,
+	UDPRespTimeout:   3 * time.Second,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -188,8 +188,8 @@ var CrawlCommand = &cli.Command{
 			Name:        "udp-response-timeout",
 			Usage:       "ETHEREUM_EXECUTION: The response timeout for UDP requests in the disv4 DHT",
 			EnvVars:     []string{"NEBULA_CRAWL_UDP_RESPONSE_TIMEOUT"},
-			Value:       crawlConfig.Discv4RespTimeout,
-			Destination: &crawlConfig.Discv4RespTimeout,
+			Value:       crawlConfig.UDPRespTimeout,
+			Destination: &crawlConfig.UDPRespTimeout,
 			Category:    flagCategoryNetwork,
 		},
 	},
@@ -292,7 +292,7 @@ func CrawlAction(c *cli.Context) error {
 			LogErrors:        cfg.Root.LogErrors,
 			KeepENR:          cfg.KeepENR,
 			UDPBufferSize:    cfg.Root.UDPBufferSize,
-			UDPRespTimeout:   cfg.Discv4RespTimeout,
+			UDPRespTimeout:   cfg.UDPRespTimeout,
 		}
 
 		// init the crawl driver
@@ -356,6 +356,7 @@ func CrawlAction(c *cli.Context) error {
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
 			LogErrors:      cfg.Root.LogErrors,
+			UDPRespTimeout: cfg.UDPRespTimeout,
 		}
 
 		// init the crawl driver
