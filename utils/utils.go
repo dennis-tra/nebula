@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -213,4 +214,28 @@ func (nebulaIdentityScheme) NodeAddr(r *enr.Record) []byte {
 	math.ReadBits(pubkey.X, buf[:32])
 	math.ReadBits(pubkey.Y, buf[32:])
 	return crypto.Keccak256(buf)
+}
+
+// GetUDPBufferSize reads the receive and send buffer sizes from the system
+func GetUDPBufferSize(conn *net.UDPConn) (rcvbuf int, sndbuf int, err error) {
+	rawConn, err := conn.SyscallConn()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var (
+		rcverr error
+		snderr error
+	)
+	err = rawConn.Control(func(fd uintptr) {
+		rcvbuf, rcverr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+		sndbuf, snderr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+	})
+	if rcverr != nil {
+		err = rcverr
+	} else if snderr != nil {
+		err = snderr
+	}
+
+	return
 }

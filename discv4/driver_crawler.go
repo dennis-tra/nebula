@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"syscall"
 	"time"
 
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -265,7 +264,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		log.Warnln("Failed to set read buffer size on UDP listener", err)
 	}
 
-	rcvbuf, sndbuf, err := getUDPBufferSize(conn)
+	rcvbuf, sndbuf, err := utils.GetUDPBufferSize(conn)
 	logOnce.Do(func() {
 		logEntry := log.WithFields(log.Fields{
 			"rcvbuf": rcvbuf,
@@ -401,28 +400,4 @@ func (d *CrawlDriver) monitorUnhandledPackets() {
 			}
 		}
 	}()
-}
-
-// getUDPBufferSize reads the receive and send buffer sizes from the system
-func getUDPBufferSize(conn *net.UDPConn) (rcvbuf int, sndbuf int, err error) {
-	rawConn, err := conn.SyscallConn()
-	if err != nil {
-		return 0, 0, err
-	}
-
-	var (
-		rcverr error
-		snderr error
-	)
-	err = rawConn.Control(func(fd uintptr) {
-		rcvbuf, rcverr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
-		sndbuf, snderr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
-	})
-	if rcverr != nil {
-		err = rcverr
-	} else if snderr != nil {
-		err = snderr
-	}
-
-	return
 }

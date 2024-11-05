@@ -356,6 +356,7 @@ func CrawlAction(c *cli.Context) error {
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
 			LogErrors:      cfg.Root.LogErrors,
+			UDPBufferSize:  cfg.Root.UDPBufferSize,
 			UDPRespTimeout: cfg.UDPRespTimeout,
 		}
 

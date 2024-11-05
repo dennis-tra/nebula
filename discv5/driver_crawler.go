@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"runtime"
+	"sync"
 	"time"
 
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
@@ -149,6 +150,7 @@ type CrawlDriverConfig struct {
 	MeterProvider  metric.MeterProvider
 	TracerProvider trace.TracerProvider
 	LogErrors      bool
+	UDPBufferSize  int
 	UDPRespTimeout time.Duration
 }
 
@@ -221,6 +223,9 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	}, nil
 }
 
+// NewWorker is called multiple times but only log the configured buffer sizes once
+var logOnce sync.Once
+
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	// If I'm not using the below elliptic curve, some Ethereum clients will reject communication
 	priv, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
@@ -228,10 +233,33 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
 	}
 
-	conn, err := net.ListenUDP("udp4", nil)
-	if err != nil {
-		return nil, fmt.Errorf("listen on udp port: %w", err)
+	laddr := &net.UDPAddr{
+		IP:   net.ParseIP("0.0.0.0"),
+		Port: 0,
 	}
+
+	conn, err := net.ListenUDP("udp4", laddr)
+	if err != nil {
+		return nil, fmt.Errorf("listen on udp4 port: %w", err)
+	}
+
+	if err = conn.SetReadBuffer(d.cfg.UDPBufferSize); err != nil {
+		log.Warnln("Failed to set read buffer size on UDP listener", err)
+	}
+
+	rcvbuf, sndbuf, err := utils.GetUDPBufferSize(conn)
+	logOnce.Do(func() {
+		logEntry := log.WithFields(log.Fields{
+			"rcvbuf": rcvbuf,
+			"sndbuf": sndbuf,
+			"rcvtgt": d.cfg.UDPBufferSize, // receive target
+		})
+		if rcvbuf < d.cfg.UDPBufferSize {
+			logEntry.Warnln("Failed to increase UDP buffer sizes, using default")
+		} else {
+			logEntry.Infoln("Configured UDP buffer sizes")
+		}
+	})
 
 	ethNode := enode.NewLocalNode(d.peerstore, priv)
 
