@@ -265,20 +265,9 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 
 	ethNode := enode.NewLocalNode(d.peerstore, priv)
 
-	// I'm not really sure if the below is strictly necessary.
-	udpAddr := conn.LocalAddr().(*net.UDPAddr)
-	if udpAddr.IP.IsUnspecified() {
-		ethNode.SetFallbackIP(net.ParseIP("127.0.0.1"))
-	} else {
-		ethNode.SetFallbackIP(udpAddr.IP)
-	}
-	ethNode.SetFallbackUDP(udpAddr.Port)
-
 	cfg := discover.Config{
-		PrivateKey:              priv,
-		ValidSchemes:            enode.ValidSchemes,
-		NoFindnodeLivenessCheck: true,
-		RefreshInterval:         100 * time.Hour, // turn off
+		PrivateKey:   priv,
+		ValidSchemes: enode.ValidSchemes,
 	}
 	listener, err := discover.ListenV5(conn, ethNode, cfg)
 	if err != nil {
