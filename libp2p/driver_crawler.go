@@ -2,6 +2,8 @@ package libp2p
 
 import (
 	"fmt"
+	"math"
+	"net/netip"
 	"runtime"
 	"time"
 
@@ -184,9 +186,23 @@ func (d *CrawlDriver) Close() {}
 
 func newLibp2pHost(userAgent string) (Host, error) {
 	// Configure the resource manager to not limit anything
+	v4PrefixLimits := []rcmgr.NetworkPrefixLimit{
+		{
+			Network:   netip.MustParsePrefix("0.0.0.0/0"),
+			ConnCount: math.MaxInt, // Unlimited
+		},
+	}
+
+	v6PrefixLimits := []rcmgr.NetworkPrefixLimit{
+		{
+			Network:   netip.MustParsePrefix("::1/0"),
+			ConnCount: math.MaxInt, // Unlimited
+		},
+	}
+
 	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit))
+	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit), rcmgr.WithNetworkPrefixLimit(v4PrefixLimits, v6PrefixLimits))
 	if err != nil {
 		return nil, fmt.Errorf("new resource manager: %w", err)
 	}
