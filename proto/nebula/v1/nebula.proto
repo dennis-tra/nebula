@@ -2,14 +2,24 @@ syntax = "proto3";
 
 package nebula.v1;
 
+message MultiAddress {
+  string multi_address = 1;
+  optional int32 asn = 2;
+  optional int32 is_cloud = 3;
+  optional string country = 4;
+  optional string continent = 5;
+  optional string ip = 6;
+}
+
 message GetPeerRequest {
   string multi_hash = 1;
 }
 
 message GetPeerResponse {
   string multi_hash = 1;
-  string agent_version = 2;
+  optional string agent_version = 2;
   repeated string protocols = 3;
+  repeated MultiAddress multi_addresses = 4;
 }
 
 service NebulaService {
