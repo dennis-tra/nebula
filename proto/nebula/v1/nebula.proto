@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package nebula.v1;
+
+message GetPeerRequest {
+  string multi_hash = 1;
+}
+
+message GetPeerResponse {
+  string multi_hash = 1;
+  string agent_version = 2;
+  repeated string protocols = 3;
+}
+
+service NebulaService {
+  rpc GetPeer(GetPeerRequest) returns (GetPeerResponse) {}
+}

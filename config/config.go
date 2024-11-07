@@ -471,3 +471,19 @@ type Resolve struct {
 	FilePathMaxmindCountry string
 	FilePathMaxmindASN     string
 }
+
+type Serve struct {
+	Root *Root
+
+	// the network interfaces that the server should to bind to
+	Host string
+
+	// the port that the server should bind to
+	Port int
+}
+
+// String prints the configuration as a json string
+func (m *Serve) String() string {
+	data, _ := json.MarshalIndent(m, "", "  ")
+	return string(data)
+}

@@ -260,6 +260,7 @@ func main() {
 			ResolveCommand,
 			NetworksCommand,
 			HealthCommand,
+			ServeCommand,
 		},
 	}
 
