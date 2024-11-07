@@ -3,6 +3,7 @@ module github.com/dennis-tra/nebula-crawler
 go 1.23
 
 require (
+	connectrpc.com/connect v1.17.0
 	github.com/benbjohnson/clock v1.3.5
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/deckarep/golang-set/v2 v2.6.0
@@ -43,6 +44,7 @@ require (
 	go.uber.org/mock v0.4.0
 	golang.org/x/net v0.30.0
 	golang.org/x/sync v0.8.0
+	google.golang.org/protobuf v1.35.1
 )
 
 require (
@@ -206,7 +208,6 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20241007155032-5fefd90f89a9 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241007155032-5fefd90f89a9 // indirect
 	google.golang.org/grpc v1.67.1 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.3.0 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect

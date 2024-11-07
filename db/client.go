@@ -24,6 +24,11 @@ type Client interface {
 	PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error
 }
 
+type ServerClient interface {
+	io.Closer
+	GetPeer(ctx context.Context, multiHash string) (*models.Peer, models.ProtocolSlice, error)
+}
+
 // NewClient will initialize the right database client based on the given
 // configuration. This can either be a Postgres, JSON, or noop client. The noop
 // client is a dummy implementation of the [Client] interface that does nothing
@@ -46,6 +51,28 @@ func NewClient(ctx context.Context, cfg *config.Database) (Client, error) {
 		dbc, err = InitJSONClient(cfg.JSONOut)
 	} else {
 		dbc, err = InitDBClient(ctx, cfg)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("init db client: %w", err)
+	}
+
+	return dbc, nil
+}
+
+func NewServerClient(ctx context.Context, cfg *config.Database) (ServerClient, error) {
+	var (
+		dbc ServerClient
+		err error
+	)
+
+	// dry run has precedence. Then, if a JSON output directory is given, use
+	// the JSON client. In any other case, use the Postgres database client.
+	if cfg.DryRun {
+		return nil, fmt.Errorf("server client not implemented")
+	} else if cfg.JSONOut != "" {
+		return nil, fmt.Errorf("server client not implemented")
+	} else {
+		dbc, err = InitDBServerClient(ctx, cfg)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("init db client: %w", err)
