@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
+
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -324,7 +326,10 @@ func CrawlAction(c *cli.Context) error {
 
 	case string(config.NetworkEthCons),
 		string(config.NetworkHolesky),
-		string(config.NetworkPortal): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
+		string(config.NetworkPortal),
+		string(config.NetworkWakuStatus),
+		string(config.NetworkWakuTWN):
+		// use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet + Waku networks
 
 		bpEnodes, err := cfg.BootstrapEnodesV5()
 		if err != nil {
@@ -360,8 +365,13 @@ func CrawlAction(c *cli.Context) error {
 			LogErrors:        cfg.Root.LogErrors,
 			UDPBufferSize:    cfg.Root.UDPBufferSize,
 			UDPRespTimeout:   cfg.UDPRespTimeout,
+			Discv5ProtocolID: v5wire.DefaultProtocolID,
 		}
 
+		// set discv5 protocolID for Waku networks
+		if cfg.Network == string(config.NetworkWakuStatus) || cfg.Network == string(config.NetworkWakuTWN) {
+			driverCfg.Discv5ProtocolID = [6]byte{'d', '5', 'w', 'a', 'k', 'u'}
+		}
 		// init the crawl driver
 		driver, err := discv5.NewCrawlDriver(dbc, dbCrawl, driverCfg)
 		if err != nil {

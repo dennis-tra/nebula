@@ -41,6 +41,8 @@ const (
 	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
 	NetworkPactus         Network = "PACTUS"
 	NetworkDria           Network = "DRIA"
+	NetworkWakuStatus     Network = "WAKU_STATUS"
+	NetworkWakuTWN        Network = "WAKU_TWN"
 )
 
 func Networks() []Network {
@@ -66,6 +68,8 @@ func Networks() []Network {
 		NetworkAvailTuringFN,
 		NetworkPactus,
 		NetworkDria,
+		NetworkWakuStatus,
+		NetworkWakuTWN,
 	}
 }
 
@@ -444,6 +448,12 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkPactus:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPactusFullNode...)
 		protocols = cli.NewStringSlice("/pactus/gossip/v1/kad/1.0.0")
+	case NetworkWakuStatus:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuStatus...)
+		protocols = cli.NewStringSlice("/vac/waku/metadata/1.0.0")
+	case NetworkWakuTWN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuTWN...)
+		protocols = cli.NewStringSlice("/vac/waku/metadata/1.0.0")
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}
