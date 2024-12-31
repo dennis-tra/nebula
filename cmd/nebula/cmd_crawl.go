@@ -625,7 +625,11 @@ func logSummary[I core.PeerInfo[I]](dbCrawl *models.Crawl, handler *core.CrawlHa
 		log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
 	}
 	log.Infoln("")
-
+	log.Infoln("")
+	for cluster, count := range handler.WakuCluster {
+		log.WithField("count", count).WithField("value", cluster).Infoln("WakuCluster")
+	}
+	log.Infoln("")
 	log.WithFields(log.Fields{
 		"crawledPeers":    handler.CrawledPeers,
 		"crawlDuration":   time.Since(dbCrawl.StartedAt).String(),

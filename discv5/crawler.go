@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"time"
@@ -16,8 +17,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-msgio/pbio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+	"github.com/waku-org/go-waku/waku/v2/protocol/metadata/pb"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/config"
@@ -128,6 +131,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
+		WakuCluster:         libp2pResult.WakuCluster,
 	}
 
 	// We've now crawled this peer, so increment
@@ -196,6 +200,7 @@ type Libp2pResult struct {
 	Transport             string // the transport of a successful connection
 	ConnClosedImmediately bool   // whether conn was no error but still unconnected
 	GenTCPAddr            bool   // whether a TCP address was generated
+	WakuCluster           uint32
 }
 
 func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResult {
@@ -220,7 +225,36 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 		result.ConnectStartTime = time.Now()
 		conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
 		result.ConnectEndTime = time.Now()
+		c.host.SetStreamHandler("/vac/waku/metadata/1.0.0", func(stream network.Stream) {
+			request := &pb.WakuMetadataRequest{}
+			writer := pbio.NewDelimitedWriter(stream)
+			reader := pbio.NewDelimitedReader(stream, math.MaxInt32)
+			err := reader.ReadMsg(request)
+			if err != nil {
+				// fmt.Println("reading request from peer", stream.Conn().RemotePeer(), err)
+				if err := stream.Reset(); err != nil {
+					fmt.Println("resetting connection", err)
+				}
+				return
+			}
+			// fmt.Println("received metadata request from peer ", stream.Conn().RemotePeer(), request)
+			result.WakuCluster = *request.ClusterId
+			response := new(pb.WakuMetadataResponse)
+			// TODO: fetch from config
+			clusterId := uint32(16)
+			response.ClusterId = &clusterId
+			response.Shards = []uint32{32}
+			err = writer.WriteMsg(response)
+			if err != nil {
+				// fmt.Println("writing response to peer", stream.Conn().RemotePeer(), err)
+				if err := stream.Reset(); err != nil {
+					fmt.Println("resetting connection", err)
+				}
+				return
+			}
+			// fmt.Println("sent metadata response to peer", stream.Conn().RemotePeer(), response)
 
+		})
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 

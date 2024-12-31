@@ -401,7 +401,6 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) })
 		h.SetStreamHandler("/vac/waku/metadata/1.0.0", wakuMetaDataHandler(cfg.WakuClusterID, cfg.WakuClusterShards))
 	}
-
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
 	return h, nil
