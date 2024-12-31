@@ -30,8 +30,10 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-msgio/pbio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+	wakupb "github.com/waku-org/go-waku/waku/v2/protocol/metadata/pb"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
@@ -142,20 +144,23 @@ func (p PeerInfo) DeduplicationKey() string {
 }
 
 type CrawlDriverConfig struct {
-	Version          string
-	TrackNeighbors   bool
-	DialTimeout      time.Duration
-	BootstrapPeers   []*enode.Node
-	CrawlWorkerCount int
-	AddrDialType     config.AddrType
-	AddrTrackType    config.AddrType
-	KeepENR          bool
-	MeterProvider    metric.MeterProvider
-	TracerProvider   trace.TracerProvider
-	LogErrors        bool
-	UDPBufferSize    int
-	UDPRespTimeout   time.Duration
-	Discv5ProtocolID [6]byte
+	Version           string
+	Network           config.Network
+	TrackNeighbors    bool
+	DialTimeout       time.Duration
+	BootstrapPeers    []*enode.Node
+	CrawlWorkerCount  int
+	AddrDialType      config.AddrType
+	AddrTrackType     config.AddrType
+	KeepENR           bool
+	MeterProvider     metric.MeterProvider
+	TracerProvider    trace.TracerProvider
+	LogErrors         bool
+	UDPBufferSize     int
+	UDPRespTimeout    time.Duration
+	Discv5ProtocolID  [6]byte
+	WakuClusterID     uint32
+	WakuClusterShards []uint32
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -192,7 +197,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	// create a libp2p host per CPU core to distribute load
 	hosts := make([]host.Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
-		h, err := newLibp2pHost(cfg.Version)
+		h, err := newLibp2pHost(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("new libp2p host: %w", err)
 		}
@@ -321,7 +326,7 @@ func (d *CrawlDriver) Close() {
 	}
 }
 
-func newLibp2pHost(version string) (host.Host, error) {
+func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 	// Configure the resource manager to not limit anything
 	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
 	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
@@ -365,7 +370,7 @@ func newLibp2pHost(version string) (host.Host, error) {
 		libp2p.ResourceManager(rm),
 		libp2p.Identity(secpKey),
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.UserAgent("nebula/"+version),
+		libp2p.UserAgent("nebula/"+cfg.Version),
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
@@ -377,20 +382,54 @@ func newLibp2pHost(version string) (host.Host, error) {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
 
-	// According to Diva, these are required protocols. Some of them are just
-	// assumed to be required. We just read from the stream indefinitely to
-	// gain time for the identify exchange to finish. We just pretend to support
-	// these protocols and keep the stream busy until we have gathered all the
-	// information we were interested in. This includes the agend version and
-	// all supported protocols.
-	h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+	switch cfg.Network {
+	case config.NetworkEthCons, config.NetworkHolesky:
+
+		// According to Diva, these are required protocols. Some of them are just
+		// assumed to be required. We just read from the stream indefinitely to
+		// gain time for the identify exchange to finish. We just pretend to support
+		// these protocols and keep the stream busy until we have gathered all the
+		// information we were interested in. This includes the agend version and
+		// all supported protocols.
+		h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+	case config.NetworkWakuStatus, config.NetworkWakuTWN:
+		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/vac/waku/metadata/1.0.0", wakuMetaDataHandler(cfg.WakuClusterID, cfg.WakuClusterShards))
+	}
 
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
 	return h, nil
+}
+
+func wakuMetaDataHandler(clusterID uint32, clusterShards []uint32) network.StreamHandler {
+	return func(stream network.Stream) {
+		request := &wakupb.WakuMetadataRequest{}
+		writer := pbio.NewDelimitedWriter(stream)
+		reader := pbio.NewDelimitedReader(stream, math.MaxInt32)
+
+		if err := reader.ReadMsg(request); err != nil {
+			if err := stream.Reset(); err != nil {
+				fmt.Println("resetting connection", err)
+			}
+			return
+		}
+
+		resp := &wakupb.WakuMetadataResponse{
+			ClusterId: &clusterID,
+			Shards:    clusterShards,
+		}
+
+		if err := writer.WriteMsg(resp); err != nil {
+			if err := stream.Reset(); err != nil {
+				fmt.Println("resetting connection", err)
+			}
+			return
+		}
+	}
 }

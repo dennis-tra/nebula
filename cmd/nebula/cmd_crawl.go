@@ -11,8 +11,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
-
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -194,6 +192,22 @@ var CrawlCommand = &cli.Command{
 			Destination: &crawlConfig.UDPRespTimeout,
 			Category:    flagCategoryNetwork,
 		},
+		&cli.IntFlag{
+			Name:        "waku-cluster-id",
+			Usage:       "WAKU/WAKU_TWN: The cluster ID for the Waku network",
+			EnvVars:     []string{"NEBULA_CRAWL_WAKU_CLUSTER_ID"},
+			Value:       crawlConfig.WakuClusterID,
+			Destination: &crawlConfig.WakuClusterID,
+			Category:    flagCategoryNetwork,
+		},
+		&cli.IntSliceFlag{
+			Name:        "waku-cluster-shards",
+			Usage:       "WAKU/WAKU_TWN: The cluster shards of the Waku network",
+			EnvVars:     []string{"NEBULA_CRAWL_WAKU_CLUSTER_SHARDS"},
+			Value:       crawlConfig.WakuClusterShards,
+			Destination: crawlConfig.WakuClusterShards,
+			Category:    flagCategoryNetwork,
+		},
 	},
 }
 
@@ -350,28 +364,33 @@ func CrawlAction(c *cli.Context) error {
 			bpEnodes = append(bpEnodes, n)
 		}
 
-		// configure the crawl driver
-		driverCfg := &discv5.CrawlDriverConfig{
-			Version:          cfg.Root.Version(),
-			DialTimeout:      cfg.Root.DialTimeout,
-			TrackNeighbors:   cfg.PersistNeighbors,
-			BootstrapPeers:   bpEnodes,
-			CrawlWorkerCount: cfg.CrawlWorkerCount,
-			AddrDialType:     cfg.AddrDialType(),
-			AddrTrackType:    cfg.AddrTrackType(),
-			KeepENR:          crawlConfig.KeepENR,
-			TracerProvider:   cfg.Root.TracerProvider,
-			MeterProvider:    cfg.Root.MeterProvider,
-			LogErrors:        cfg.Root.LogErrors,
-			UDPBufferSize:    cfg.Root.UDPBufferSize,
-			UDPRespTimeout:   cfg.UDPRespTimeout,
-			Discv5ProtocolID: v5wire.DefaultProtocolID,
+		protocolID, err := cfg.DiscV5ProtocolID()
+		if err != nil {
+			return fmt.Errorf("parse discv5 protocol ID: %w", err)
 		}
 
-		// set discv5 protocolID for Waku networks
-		if cfg.Network == string(config.NetworkWakuStatus) || cfg.Network == string(config.NetworkWakuTWN) {
-			driverCfg.Discv5ProtocolID = [6]byte{'d', '5', 'w', 'a', 'k', 'u'}
+		wakuClusterID, wakuClusterShards := cfg.WakuClusterConfig()
+
+		// configure the crawl driver
+		driverCfg := &discv5.CrawlDriverConfig{
+			Version:           cfg.Root.Version(),
+			DialTimeout:       cfg.Root.DialTimeout,
+			TrackNeighbors:    cfg.PersistNeighbors,
+			BootstrapPeers:    bpEnodes,
+			CrawlWorkerCount:  cfg.CrawlWorkerCount,
+			AddrDialType:      cfg.AddrDialType(),
+			AddrTrackType:     cfg.AddrTrackType(),
+			KeepENR:           crawlConfig.KeepENR,
+			TracerProvider:    cfg.Root.TracerProvider,
+			MeterProvider:     cfg.Root.MeterProvider,
+			LogErrors:         cfg.Root.LogErrors,
+			Discv5ProtocolID:  protocolID,
+			UDPBufferSize:     cfg.Root.UDPBufferSize,
+			UDPRespTimeout:    cfg.UDPRespTimeout,
+			WakuClusterID:     wakuClusterID,
+			WakuClusterShards: wakuClusterShards,
 		}
+
 		// init the crawl driver
 		driver, err := discv5.NewCrawlDriver(dbc, dbCrawl, driverCfg)
 		if err != nil {
@@ -405,9 +424,7 @@ func CrawlAction(c *cli.Context) error {
 			return err
 		}
 
-		for _, addrInfo := range addrInfos {
-			bpAddrInfos = append(bpAddrInfos, addrInfo)
-		}
+		bpAddrInfos = append(bpAddrInfos, addrInfos...)
 
 		// configure the crawl driver
 		driverCfg := &libp2p.CrawlDriverConfig{
