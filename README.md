@@ -30,7 +30,7 @@ The crawler was:
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
 Nebula powers:
-- 📊 _the weekly reports for the IPFS Amino DHT [here](https://github.com/protocol/network-measurements/tree/master/reports)!_ 📊
+- 📊 _the weekly reports for the IPFS Amino DHT [here](https://github.com/probe-lab/network-measurements/tree/main/reports)!_ 📊
 - 🌐 _many graphs on [probelab.io](https://probelab.io) for most of the supported networks above_ 🌐 
 
 
@@ -65,7 +65,7 @@ You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https:/
 
 ## Project Status
 
-The crawler is powering critical [IPFS](https://ipfs.network) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator), used for [Weekly IPFS Reports](https://github.com/protocol/network-measurements/tree/master/reports) as well as for many metrics on [`probelab.io`](https://probelab.io).
+The crawler is powering critical [IPFS](https://ipfs.tech) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator), used for [Weekly IPFS Reports](https://github.com/probe-lab/network-measurements/tree/main/reports) as well as for many metrics on [`probelab.io`](https://probelab.io).
 The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.2.0](https://github.com/dennis-tra/nebula/releases/tag/2.2.0).
 
 ## Install
