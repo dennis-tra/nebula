@@ -18,6 +18,7 @@ import (
 	"github.com/urfave/cli/v2"
 	"github.com/volatiletech/null/v8"
 
+	"github.com/dennis-tra/nebula-crawler/bitcoin"
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
@@ -306,6 +307,58 @@ func CrawlAction(c *cli.Context) error {
 
 		// put everything together and init the engine that'll run the crawl
 		eng, err := core.NewEngine[discv4.PeerInfo, core.CrawlResult[discv4.PeerInfo]](driver, handler, engineCfg)
+		if err != nil {
+			return fmt.Errorf("new engine: %w", err)
+		}
+
+		// finally, start the crawl
+		queuedPeers, runErr := eng.Run(ctx)
+
+		// a bit ugly but, but the handler will contain crawl statistics, that
+		// we'll save to the database and print to the screen
+		handler.QueuedPeers = len(queuedPeers)
+		if err := persistCrawlInformation(dbc, dbCrawl, handler, runErr); err != nil {
+			return fmt.Errorf("persist crawl information: %w", err)
+		}
+
+		return nil
+
+	case string(config.NetworkBitcoin):
+		bpEnodes, err := cfg.BootstrapBitcoinEntries()
+		if err != nil {
+			return err
+		}
+
+		for _, addrInfo := range bpAddrInfos {
+			bpEnodes = append(bpEnodes, addrInfo.Addrs...)
+		}
+		// configure the crawl driver
+		driverCfg := &bitcoin.CrawlDriverConfig{
+			Version:        cfg.Root.Version(),
+			DialTimeout:    cfg.Root.DialTimeout,
+			TrackNeighbors: cfg.PersistNeighbors,
+			BootstrapPeers: bpEnodes,
+			AddrDialType:   cfg.AddrDialType(),
+			AddrTrackType:  cfg.AddrTrackType(),
+			KeepENR:        crawlConfig.KeepENR,
+			TracerProvider: cfg.Root.TracerProvider,
+			MeterProvider:  cfg.Root.MeterProvider,
+			LogErrors:      cfg.Root.LogErrors,
+			UDPBufferSize:  cfg.Root.UDPBufferSize,
+			UDPRespTimeout: cfg.UDPRespTimeout,
+		}
+
+		// init the crawl driver
+		driver, err := bitcoin.NewCrawlDriver(dbc, dbCrawl, driverCfg)
+		if err != nil {
+			return fmt.Errorf("new bitcoin driver: %w", err)
+		}
+
+		// init the result handler
+		handler := core.NewCrawlHandler[bitcoin.PeerInfo](handlerCfg)
+
+		// put everything together and init the engine that'll run the crawl
+		eng, err := core.NewEngine[bitcoin.PeerInfo, core.CrawlResult[bitcoin.PeerInfo]](driver, handler, engineCfg)
 		if err != nil {
 			return fmt.Errorf("new engine: %w", err)
 		}

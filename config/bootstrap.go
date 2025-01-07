@@ -333,4 +333,13 @@ var (
 		"/ip4/95.111.242.225/tcp/21888/p2p/12D3KooWRNTZpo1XNWKQx2Z5HEu5RnqKeNDV5y4qMKX5f4aLtbv9",
 		"/dns/pactus-bootstrap1.dezh.tech/tcp/21888/p2p/12D3KooWK1z7QAskVrQd98r98UMSPwTLr4out8B9NkQTrCdZPCZx",
 	}
+
+	BootstrapPeersBitcoinDNSSeeds = []string{
+		"seed.bitcoin.sipa.be",
+		"dnsseed.bluematt.me",
+		"dnsseed.bitcoin.dashjr.org",
+		"seed.bitcoinstats.com",
+		"seed.bitnodes.io",
+		"bitseed.xf2.org",
+	}
 )
