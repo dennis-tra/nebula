@@ -36,7 +36,6 @@ type CrawlerConfig struct {
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	conn         net.Conn
 	crawledPeers int
 	done         chan struct{}
 }
@@ -145,6 +144,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 
 	go func() {
 		result := BitcoinResult{}
+		neighbours := make([]PeerInfo, 0)
 
 		// sanitize the given addresses like removing UDP-only addresses and
 		// adding corresponding TCP addresses.
@@ -153,30 +153,54 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		// keep track if we generated a TCP address to dial
 		result.GenTCPAddr = generated
 
-		addrInfo := peer.AddrInfo{
-			ID:    pi.ID(),
-			Addrs: sanitizedAddrs,
-		}
+		// addrInfo := peer.AddrInfo{
+		// 	ID:    pi.ID(),
+		// 	Addrs: sanitizedAddrs,
+		// }
 
 		var conn net.Conn
+		var err error
+		connectionMaxRetry := 10
 		result.ConnectStartTime = time.Now()
-		conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
-		c.conn = conn
-		result.ConnectEndTime = time.Now()
+		if len(sanitizedAddrs) > 0 {
+			for i := 0; i < connectionMaxRetry; i++ {
+				netAddr, _ := manet.ToNetAddr(sanitizedAddrs[0])
+				d := net.Dialer{
+					Timeout: c.cfg.DialTimeout,
+				}
+				conn, err = d.DialContext(ctx, netAddr.Network(), netAddr.String())
+				if err == nil {
+					break
+				}
+			}
+		}
 
-		neighbours := make([]PeerInfo, 0, 50)
+		if conn == nil {
+			result.RoutingTable = &core.RoutingTable[PeerInfo]{
+				PeerID:    pi.ID(),
+				Neighbors: neighbours,
+				ErrorBits: uint16(0), // FIXME
+				Error:     result.Error,
+			}
+			result.Error = err
+			resultCh <- result
+			close(resultCh)
+			return
+		}
+		// conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
+		result.ConnectEndTime = time.Now()
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
-			nodeRes, err := c.Handshake()
+			nodeRes, err := c.Handshake(conn)
 			result.Agent = nodeRes.UserAgent
 			result.ProtocolVersion = nodeRes.ProtocolVersion
 			if err != nil {
 				log.Debugf("[%s] Handshake failed: %v", sanitizedAddrs, err)
 			}
 
-			err = c.WriteMessage(wire.NewMsgGetAddr())
+			err = c.WriteMessage(conn, wire.NewMsgGetAddr())
 			if err != nil {
 				log.Warningf("[%s] GetAddr failed: %v", sanitizedAddrs, err)
 			}
@@ -189,25 +213,19 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 			// The nodes send a lot of inv messages
 			tolerateInvMessages := 50
 			tolerateVerAckMessages := 10
-			toleratePingMessages := 10
+			toleratePingMessages := 3
 
-			otherMessages := []string{}
+		Loop:
 			for {
-				// We can't really tell when we're done receiving peers, so we stop either
-				// when we get a smaller-than-normal set size or when we've received too
-				// many unrelated messages.
-
-				if len(otherMessages) > tolerateMessages {
-					log.WithField("address", pi.Addr).WithField("num_peers", len(neighbours)).WithField("otherMessages", otherMessages).Debugf("Giving up with results after tolerating messages")
-					break
+				// Read messages in a loop and handle the different message types accordingly
+				msg, _, err := c.ReadMessage(conn)
+				if tolerateMessages < 0 {
+					log.Warningf("Tolerated enough messages from: %s", pi.Addr)
+					break Loop
 				}
-
-				msg, _, err := c.ReadMessage()
 				if err != nil {
-					otherMessages = append(otherMessages, err.Error())
 					// log.WithField("address", addrInfo).WithField("num_peers", len(neighbours)).WithField("err", err).WithField("otherMessages", otherMessages).Warningf("Giving up with results after tolerating messages: .")
 					log.Warningf("[%s] Failed to read message: %v", pi.Addr, err)
-					continue
 				}
 
 				switch tmsg := msg.(type) {
@@ -235,7 +253,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 						firstReceived = len(tmsg.AddrList)
 					} else if firstReceived > len(tmsg.AddrList) || firstReceived == 0 {
 						// Probably done.
-						break
+						break Loop
 					}
 				case *wire.MsgAddrV2:
 					neighbours = append(neighbours, func() []PeerInfo {
@@ -262,39 +280,42 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 						firstReceived = len(tmsg.AddrList)
 					} else if firstReceived > len(tmsg.AddrList) || firstReceived == 0 {
 						// Probably done.
-						break
+						break Loop
 					}
 				case *wire.MsgPing:
-					log.Infoln("Sending Pong message...")
+					log.WithField("addr", pi.Addr).WithField("toleratePingMessages", toleratePingMessages).Debugln("Sending Pong message...")
 					toleratePingMessages--
-					err = c.WriteMessage(wire.NewMsgPong(tmsg.Nonce))
+					err = c.WriteMessage(conn, wire.NewMsgPong(tmsg.Nonce))
 					if err != nil {
-						log.Infof("Pong msg err: %s", err)
-						break
+						log.Errorf("Pong msg err: %s", err)
+						break Loop
 					}
 					if toleratePingMessages < 0 {
-						log.Infoln("Ran out of limit to tolerate Ping messages")
-						break
+						log.Debugln("Ran out of limit to tolerate Ping messages")
+						break Loop
 					}
 				case *wire.MsgVerAck:
 					tolerateVerAckMessages--
 					if tolerateVerAckMessages < 0 {
-						log.Infoln("Ran out of limit to tolerate Ver Ack messages")
-						break
+						log.Debugln("Ran out of limit to tolerate Ver Ack messages")
+						break Loop
 					}
 				case *wire.MsgInv:
 					tolerateInvMessages--
 					if tolerateInvMessages < 0 {
 						log.Debugln("Ran out of limit to tolerate Inv messages")
-						break
+						break Loop
 					}
 				default:
-					otherMessages = append(otherMessages, tmsg.Command())
-					log.WithField("msg_type", tmsg.Command()).Infof("Found other message from %s", pi.Addr)
+					if tmsg != nil {
+						log.WithField("msg_type", tmsg.Command()).Debugf("Found other message from %s", pi.Addr)
+					}
+					tolerateMessages--
 				}
-				err = c.WriteMessage(wire.NewMsgGetAddr())
+				err = c.WriteMessage(conn, wire.NewMsgGetAddr())
 				if err != nil {
 					log.Infoln("Error when requesting peers")
+					break Loop
 				}
 
 			}
@@ -321,9 +342,10 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		} else {
 			// Free connection resources
-			if err := c.conn.Close(); err != nil {
+			if err := conn.Close(); err != nil {
 				log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
 			}
+			conn = nil
 		}
 
 		if result.Error != nil {
@@ -334,6 +356,11 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		select {
 		case resultCh <- result:
 		case <-ctx.Done():
+			if conn != nil {
+				if err := conn.Close(); err != nil {
+					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection on context cancel")
+				}
+			}
 		}
 
 		close(resultCh)
@@ -348,13 +375,13 @@ type BitcoinNodeResult struct {
 	pver            int32
 }
 
-func (c *Crawler) Handshake() (BitcoinNodeResult, error) {
+func (c *Crawler) Handshake(conn net.Conn) (BitcoinNodeResult, error) {
 	result := BitcoinNodeResult{}
-	if c.conn == nil {
+	if conn == nil {
 		return result, fmt.Errorf("peer is not connected, can't handshake")
 	}
 
-	log.WithField("Address", c.conn.RemoteAddr()).Debug("Starting handshake.")
+	log.WithField("Address", conn.RemoteAddr()).Debug("Starting handshake.")
 
 	nonce, err := wire.RandomUint64()
 	if err != nil {
@@ -362,13 +389,13 @@ func (c *Crawler) Handshake() (BitcoinNodeResult, error) {
 	}
 
 	localAddr := wire.NewNetAddressIPPort(
-		c.conn.LocalAddr().(*net.TCPAddr).IP,
-		uint16(c.conn.LocalAddr().(*net.TCPAddr).Port),
+		conn.LocalAddr().(*net.TCPAddr).IP,
+		uint16(conn.LocalAddr().(*net.TCPAddr).Port),
 		wire.SFNodeNetwork,
 	)
 	remoteAddr := wire.NewNetAddressIPPort(
-		c.conn.RemoteAddr().(*net.TCPAddr).IP,
-		uint16(c.conn.RemoteAddr().(*net.TCPAddr).Port),
+		conn.RemoteAddr().(*net.TCPAddr).IP,
+		uint16(conn.RemoteAddr().(*net.TCPAddr).Port),
 		wire.SFNodeNetwork,
 	)
 
@@ -379,12 +406,12 @@ func (c *Crawler) Handshake() (BitcoinNodeResult, error) {
 	msgVersion.Timestamp = time.Now()
 	msgVersion.UserAgent = "nebula/" + c.cfg.Version
 
-	if err := c.WriteMessage(msgVersion); err != nil {
+	if err := c.WriteMessage(conn, msgVersion); err != nil {
 		return result, err
 	}
 
 	// Read the response version.
-	msg, _, err := c.ReadMessage()
+	msg, _, err := c.ReadMessage(conn)
 	if err != nil {
 		return result, err
 	}
@@ -400,13 +427,13 @@ func (c *Crawler) Handshake() (BitcoinNodeResult, error) {
 	if uint32(vmsg.ProtocolVersion) < wire.ProtocolVersion {
 		result.pver = vmsg.ProtocolVersion
 	}
-	log.Debugf("[%s] -> Version: %s", c.conn.RemoteAddr(), vmsg.UserAgent)
+	log.Debugf("[%s] -> Version: %s", conn.RemoteAddr(), vmsg.UserAgent)
 
 	// Normally we'd check if vmsg.Nonce == p.nonce but the crawler does not
 	// accept external connections so we skip it.
 
 	// Send verack.
-	if err := c.WriteMessage(wire.NewMsgVerAck()); err != nil {
+	if err := c.WriteMessage(conn, wire.NewMsgVerAck()); err != nil {
 		return result, err
 	}
 
@@ -422,14 +449,15 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, erro
 	// init an exponential backoff
 	bo := backoff.NewExponentialBackOff()
 	bo.InitialInterval = time.Second
-	bo.MaxInterval = 4 * time.Second
+	bo.MaxInterval = 10 * time.Second
 	bo.MaxElapsedTime = time.Minute
 
 	var retry int = 0
 
 	for {
+		sleepDur := bo.NextBackOff()
 		logEntry := log.WithFields(log.Fields{
-			"timeout":  c.cfg.DialTimeout.String(),
+			"timeout":  sleepDur.String(),
 			"remoteID": pi.ID.String(),
 			"retry":    retry,
 			"maddrs":   pi.Addrs,
@@ -438,7 +466,10 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, erro
 
 		netAddr, _ := manet.ToNetAddr(pi.Addrs[0])
 
-		conn, err := net.DialTimeout(netAddr.Network(), netAddr.String(), c.cfg.DialTimeout) // TODO: change this dialout to 5 secs
+		d := net.Dialer{
+			Timeout: sleepDur,
+		}
+		conn, err := d.DialContext(ctx, netAddr.Network(), netAddr.String())
 
 		if err == nil {
 			return conn, nil
@@ -447,27 +478,13 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, erro
 		// TODO: support actual bitcoin errors
 		switch {
 		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
-			// Might be transient because the remote doesn't want us to connect. Try again!
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
-			// Hints at a configuration issue and should not happen, but if it
-			// does it could be transient. Try again anyway, but at least log a warning.
-			logEntry.WithError(err).Warnln("Connection gated!")
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
-			// Transient error due to local UDP issues. Try again!
-		case strings.Contains(err.Error(), "dial backoff"):
-			// should not happen because we disabled backoff checks with our
-			// go-libp2p fork. Try again anyway, but at least log a warning.
-			logEntry.WithError(err).Warnln("Dial backoff!")
-		case strings.Contains(err.Error(), "RESOURCE_LIMIT_EXCEEDED (201)"): // thrown by a circuit relay
-			// We already have too many open connections over a relay. Try again!
 		default:
-			logEntry.WithError(err).Debugln("Failed connecting to peer", pi.ID.ShortString())
+			logEntry.WithError(err).Warnln("Failed connecting to peer", pi.ID.ShortString())
 			return nil, err
 		}
 
-		sleepDur := bo.NextBackOff()
 		if sleepDur == backoff.Stop {
-			logEntry.WithError(err).Debugln("Exceeded retries connecting to peer", pi.ID.ShortString())
+			logEntry.WithError(err).Warnln("Exceeded retries connecting to peer", pi.ID.ShortString())
 			return nil, err
 		}
 
@@ -478,16 +495,18 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, erro
 			retry += 1
 			continue
 		}
-
 	}
 }
 
-func (c *Crawler) WriteMessage(msg wire.Message) error {
-	return wire.WriteMessage(c.conn, msg, wire.ProtocolVersion, wire.MainNet)
+func (c *Crawler) WriteMessage(conn net.Conn, msg wire.Message) error {
+	if conn == nil {
+		log.Infoln("SOMETHING IS WRONG!!!!")
+	}
+	return wire.WriteMessage(conn, msg, wire.ProtocolVersion, wire.MainNet)
 }
 
-func (c *Crawler) ReadMessage() (wire.Message, []byte, error) {
-	return wire.ReadMessage(c.conn, wire.ProtocolVersion, wire.MainNet)
+func (c *Crawler) ReadMessage(conn net.Conn) (wire.Message, []byte, error) {
+	return wire.ReadMessage(conn, wire.ProtocolVersion, wire.MainNet)
 }
 
 // sanitizeAddrs takes the list of multi addresses and removes any UDP-only
