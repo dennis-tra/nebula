@@ -338,14 +338,9 @@ func CrawlAction(c *cli.Context) error {
 			DialTimeout:    cfg.Root.DialTimeout,
 			TrackNeighbors: cfg.PersistNeighbors,
 			BootstrapPeers: bpEnodes,
-			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
-			KeepENR:        crawlConfig.KeepENR,
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
 			LogErrors:      cfg.Root.LogErrors,
-			UDPBufferSize:  cfg.Root.UDPBufferSize,
-			UDPRespTimeout: cfg.UDPRespTimeout,
 		}
 
 		// init the crawl driver

@@ -17,7 +17,6 @@ import (
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/db/models"
@@ -26,11 +25,9 @@ import (
 const MaxCrawlRetriesAfterTimeout = 2 // magic
 
 type CrawlerConfig struct {
-	DialTimeout  time.Duration
-	AddrDialType config.AddrType
-	KeepENR      bool
-	LogErrors    bool
-	Version      string
+	DialTimeout time.Duration
+	LogErrors   bool
+	Version     string
 }
 
 type Crawler struct {
@@ -56,18 +53,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	bitcoinResult := <-c.crawlBitcoin(ctx, task)
 
 	properties := c.PeerProperties(&task.AddrInfo)
-
-	if bitcoinResult.Transport != "" {
-		properties["transport"] = bitcoinResult.Transport
-	}
-
-	if bitcoinResult.ConnClosedImmediately {
-		properties["direct_close"] = true
-	}
-
-	if bitcoinResult.GenTCPAddr {
-		properties["gen_tcp_addr"] = true
-	}
 
 	// keep track of all unknown connection errors
 	if bitcoinResult.ConnectErrorStr == models.NetErrorUnknown && bitcoinResult.ConnectError != nil {
@@ -117,26 +102,23 @@ func (c *Crawler) PeerProperties(node *AddrInfo) map[string]any {
 	// TODO: to be implemented later
 	properties := map[string]any{}
 
-	properties["NA"] = true
+	properties["Services"] = "TBI"
 
 	return properties
 }
 
 type BitcoinResult struct {
-	ConnectStartTime      time.Time
-	ConnectEndTime        time.Time
-	ConnectError          error
-	ConnectErrorStr       string
-	Agent                 string
-	ProtocolVersion       int32
-	Protocols             []string
-	ListenAddrs           []ma.Multiaddr
-	Transport             string // the transport of a successful connection
-	ConnClosedImmediately bool   // whether conn was no error but still unconnected
-	GenTCPAddr            bool   // whether a TCP address was generated
-	Error                 error
-	ErrorStr              string
-	RoutingTable          *core.RoutingTable[PeerInfo]
+	ConnectStartTime time.Time
+	ConnectEndTime   time.Time
+	ConnectError     error
+	ConnectErrorStr  string
+	Agent            string
+	ProtocolVersion  int32
+	Protocols        []string
+	ListenAddrs      []ma.Multiaddr
+	Error            error
+	ErrorStr         string
+	RoutingTable     *core.RoutingTable[PeerInfo]
 }
 
 func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinResult {
@@ -146,12 +128,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		result := BitcoinResult{}
 		neighbours := make([]PeerInfo, 0)
 
-		// sanitize the given addresses like removing UDP-only addresses and
-		// adding corresponding TCP addresses.
-		sanitizedAddrs, generated := sanitizeAddrs(pi.Addrs())
-
-		// keep track if we generated a TCP address to dial
-		result.GenTCPAddr = generated
+		addrs := pi.Addrs()
 
 		// addrInfo := peer.AddrInfo{
 		// 	ID:    pi.ID(),
@@ -162,9 +139,9 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		var err error
 		connectionMaxRetry := 10
 		result.ConnectStartTime = time.Now()
-		if len(sanitizedAddrs) > 0 {
+		if len(addrs) > 0 {
 			for i := 0; i < connectionMaxRetry; i++ {
-				netAddr, _ := manet.ToNetAddr(sanitizedAddrs[0])
+				netAddr, _ := manet.ToNetAddr(addrs[0])
 				d := net.Dialer{
 					Timeout: c.cfg.DialTimeout,
 				}
@@ -197,16 +174,13 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 			result.Agent = nodeRes.UserAgent
 			result.ProtocolVersion = nodeRes.ProtocolVersion
 			if err != nil {
-				log.Debugf("[%s] Handshake failed: %v", sanitizedAddrs, err)
+				log.Debugf("[%s] Handshake failed: %v", addrs, err)
 			}
 
 			err = c.WriteMessage(conn, wire.NewMsgGetAddr())
 			if err != nil {
-				log.Warningf("[%s] GetAddr failed: %v", sanitizedAddrs, err)
+				log.Warningf("[%s] GetAddr failed: %v", addrs, err)
 			}
-
-			// keep track of the transport of the open connection
-			result.Transport = "tcp"
 
 			firstReceived := -1
 			tolerateMessages := 5
