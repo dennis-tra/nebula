@@ -130,11 +130,6 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 
 		addrs := pi.Addrs()
 
-		// addrInfo := peer.AddrInfo{
-		// 	ID:    pi.ID(),
-		// 	Addrs: sanitizedAddrs,
-		// }
-
 		var conn net.Conn
 		var err error
 		connectionMaxRetry := 10
