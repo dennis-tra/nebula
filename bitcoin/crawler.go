@@ -473,9 +473,6 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, erro
 }
 
 func (c *Crawler) WriteMessage(conn net.Conn, msg wire.Message) error {
-	if conn == nil {
-		log.Infoln("SOMETHING IS WRONG!!!!")
-	}
 	return wire.WriteMessage(conn, msg, wire.ProtocolVersion, wire.MainNet)
 }
 
