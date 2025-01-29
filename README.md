@@ -20,7 +20,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [Pactus](https://pactus.org)
 - [Dria](https://dria.co/)
 
-You can run `nebual networks` to get a list of all supported networks
+You can run `nebula networks` to get a list of all supported networks
 
 The crawler was:
 
