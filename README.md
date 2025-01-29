@@ -19,8 +19,9 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/) | [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet) | [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Pactus](https://pactus.org)
 - [Dria](https://dria.co/)
-- [Waku](https://waku.org) - [Status](https://status.app/)
-- [Waku](https://waku.org) - [TWN](https://docs.waku.org/learn/waku-network)
+- [Waku](https://waku.org) - [_Status_](https://status.app/) | [_TWN_](https://docs.waku.org/learn/waku-network)
+
+You can run `nebual networks` to get a list of all supported networks
 
 The crawler was:
 
