@@ -199,6 +199,7 @@ var CrawlCommand = &cli.Command{
 			Value:       crawlConfig.WakuClusterID,
 			Destination: &crawlConfig.WakuClusterID,
 			Category:    flagCategoryNetwork,
+			Hidden:      true,
 		},
 		&cli.IntSliceFlag{
 			Name:        "waku-cluster-shards",
@@ -207,6 +208,7 @@ var CrawlCommand = &cli.Command{
 			Value:       crawlConfig.WakuClusterShards,
 			Destination: crawlConfig.WakuClusterShards,
 			Category:    flagCategoryNetwork,
+			Hidden:      true,
 		},
 	},
 }

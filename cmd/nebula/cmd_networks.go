@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
@@ -39,6 +41,10 @@ var NetworksCommand = &cli.Command{
 
 		log.Infoln("Supported Networks")
 		for _, network := range networks {
+			if strings.HasPrefix(string(network), "WAKU") {
+				continue
+			}
+
 			log.Infof("- %s", network)
 			bootstrappers, protocols, err := config.ConfigureNetwork(string(network))
 			if err != nil {
