@@ -346,18 +346,19 @@ func CrawlAction(c *cli.Context) error {
 
 		// configure the crawl driver
 		driverCfg := &discv5.CrawlDriverConfig{
-			Version:        cfg.Root.Version(),
-			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
-			BootstrapPeers: bpEnodes,
-			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
-			KeepENR:        crawlConfig.KeepENR,
-			TracerProvider: cfg.Root.TracerProvider,
-			MeterProvider:  cfg.Root.MeterProvider,
-			LogErrors:      cfg.Root.LogErrors,
-			UDPBufferSize:  cfg.Root.UDPBufferSize,
-			UDPRespTimeout: cfg.UDPRespTimeout,
+			Version:          cfg.Root.Version(),
+			DialTimeout:      cfg.Root.DialTimeout,
+			TrackNeighbors:   cfg.PersistNeighbors,
+			BootstrapPeers:   bpEnodes,
+			CrawlWorkerCount: cfg.CrawlWorkerCount,
+			AddrDialType:     cfg.AddrDialType(),
+			AddrTrackType:    cfg.AddrTrackType(),
+			KeepENR:          crawlConfig.KeepENR,
+			TracerProvider:   cfg.Root.TracerProvider,
+			MeterProvider:    cfg.Root.MeterProvider,
+			LogErrors:        cfg.Root.LogErrors,
+			UDPBufferSize:    cfg.Root.UDPBufferSize,
+			UDPRespTimeout:   cfg.UDPRespTimeout,
 		}
 
 		// init the crawl driver

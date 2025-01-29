@@ -142,18 +142,19 @@ func (p PeerInfo) DeduplicationKey() string {
 }
 
 type CrawlDriverConfig struct {
-	Version        string
-	TrackNeighbors bool
-	DialTimeout    time.Duration
-	BootstrapPeers []*enode.Node
-	AddrDialType   config.AddrType
-	AddrTrackType  config.AddrType
-	KeepENR        bool
-	MeterProvider  metric.MeterProvider
-	TracerProvider trace.TracerProvider
-	LogErrors      bool
-	UDPBufferSize  int
-	UDPRespTimeout time.Duration
+	Version          string
+	TrackNeighbors   bool
+	DialTimeout      time.Duration
+	BootstrapPeers   []*enode.Node
+	CrawlWorkerCount int
+	AddrDialType     config.AddrType
+	AddrTrackType    config.AddrType
+	KeepENR          bool
+	MeterProvider    metric.MeterProvider
+	TracerProvider   trace.TracerProvider
+	LogErrors        bool
+	UDPBufferSize    int
+	UDPRespTimeout   time.Duration
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
@@ -162,6 +163,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 		AddrDialType: cfg.AddrDialType,
 		KeepENR:      cfg.KeepENR,
 		LogErrors:    cfg.LogErrors,
+		MaxJitter:    time.Duration(cfg.CrawlWorkerCount/50) * time.Second, // e.g., 3000 workers evenly distributed over 60s
 	}
 }
 
