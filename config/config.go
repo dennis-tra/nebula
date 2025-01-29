@@ -40,6 +40,7 @@ const (
 	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
 	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
 	NetworkPactus         Network = "PACTUS"
+	NetworkDria           Network = "DRIA"
 )
 
 func Networks() []Network {
@@ -64,6 +65,7 @@ func Networks() []Network {
 		NetworkAvailTuringLC,
 		NetworkAvailTuringFN,
 		NetworkPactus,
+		NetworkDria,
 	}
 }
 
@@ -429,6 +431,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkAvailTuringFN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringFullNode...)
 		protocols = cli.NewStringSlice("/Avail/kad")
+	case NetworkDria:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersDria...)
+		protocols = cli.NewStringSlice("/dria/kad/0.2")
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range kaddht.DefaultBootstrapPeers {
