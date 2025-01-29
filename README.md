@@ -13,6 +13,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
 - [Ethereum](https://ethereum.org/en/) - [_Execution Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
+- [Portal](https://www.portal.network/) - (_alpha - [wire protocol](https://github.com/ethereum/portal-network-specs/blob/master/portal-wire-protocol.md) not implemented_)
 - [Filecoin](https://filecoin.io)
 - [Polkadot](https://polkadot.network/)
 - [Kusama](https://kusama.network/)
