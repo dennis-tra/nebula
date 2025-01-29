@@ -11,18 +11,12 @@
 A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrappers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
-- [Ethereum](https://ethereum.org/en/) - [_Consensus Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery)
-- [Ethereum](https://ethereum.org/en/) - [_Execution Layer_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
+- [Ethereum](https://ethereum.org/en/) - [_Consensus Layer (discv5)_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery) | [_Execution Layer (discv4)_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
 - [Portal](https://www.portal.network/) - (_alpha - [wire protocol](https://github.com/ethereum/portal-network-specs/blob/master/portal-wire-protocol.md) not implemented_)
 - [Filecoin](https://filecoin.io)
-- [Polkadot](https://polkadot.network/)
-- [Kusama](https://kusama.network/)
-- [Rococo](https://substrate.io/developers/rococo-network/)
-- [Westend](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network)
-- [Avail](https://www.availproject.org/)
-- [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/)
-- [Celestia](https://celestia.org/) - [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
-- [Celestia](https://celestia.org/) - [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet)
+- [Polkadot](https://polkadot.network/) - [_Kusama_](https://kusama.network/) | [_Rococo_](https://substrate.io/developers/rococo-network/) | [_Westend_](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network)
+- [Avail](https://www.availproject.org/) - [_Mainnet_](https://docs.availproject.org/docs/networks#mainnet) | [_Turing_](https://docs.availproject.org/docs/networks#turing-testnet) | _<small>Light Client + Full Node versions</small>_
+- [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/) | [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet) | [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Pactus](https://pactus.org)
 
 The crawler was:
