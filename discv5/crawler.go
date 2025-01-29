@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ type CrawlerConfig struct {
 	AddrDialType config.AddrType
 	KeepENR      bool
 	LogErrors    bool
+	MaxJitter    time.Duration
 }
 
 type Crawler struct {
@@ -46,6 +48,19 @@ type Crawler struct {
 var _ core.Worker[PeerInfo, core.CrawlResult[PeerInfo]] = (*Crawler)(nil)
 
 func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[PeerInfo], error) {
+	// add a startup jitter delay to prevent all workers to crawl at exactly the
+	// same time and potentially overwhelm the machine that Nebula is running on
+	if c.crawledPeers == 0 {
+		jitter := time.Duration(0)
+		if c.cfg.MaxJitter > 0 { // could be <= 0 if the worker count is 1
+			jitter = time.Duration(rand.Int63n(int64(c.cfg.MaxJitter)))
+		}
+		select {
+		case <-time.After(jitter):
+		case <-ctx.Done():
+		}
+	}
+
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.id,
 		"remoteID":   task.peerID.ShortString(),
