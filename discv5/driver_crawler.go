@@ -6,9 +6,7 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"io"
-	"math"
 	"net"
-	"net/netip"
 	"runtime"
 	"sync"
 	"time"
@@ -26,14 +24,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
-	"github.com/libp2p/go-msgio/pbio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
-	wakupb "github.com/waku-org/go-waku/waku/v2/protocol/metadata/pb"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
@@ -165,11 +160,14 @@ type CrawlDriverConfig struct {
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		DialTimeout:  cfg.DialTimeout,
-		AddrDialType: cfg.AddrDialType,
-		KeepENR:      cfg.KeepENR,
-		LogErrors:    cfg.LogErrors,
-		MaxJitter:    time.Duration(cfg.CrawlWorkerCount/50) * time.Second, // e.g., 3000 workers evenly distributed over 60s
+		Network:           cfg.Network,
+		DialTimeout:       cfg.DialTimeout,
+		AddrDialType:      cfg.AddrDialType,
+		KeepENR:           cfg.KeepENR,
+		LogErrors:         cfg.LogErrors,
+		MaxJitter:         time.Duration(cfg.CrawlWorkerCount/50) * time.Second, // e.g., 3000 workers evenly distributed over 60s
+		WakuClusterID:     cfg.WakuClusterID,
+		WakuClusterShards: cfg.WakuClusterShards,
 	}
 }
 
@@ -327,33 +325,8 @@ func (d *CrawlDriver) Close() {
 }
 
 func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
-	// Configure the resource manager to not limit anything
-	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-
-	v4PrefixLimits := []rcmgr.NetworkPrefixLimit{
-		{
-			Network:   netip.MustParsePrefix("0.0.0.0/0"),
-			ConnCount: math.MaxInt, // Unlimited
-		},
-	}
-
-	v6PrefixLimits := []rcmgr.NetworkPrefixLimit{
-		{
-			Network:   netip.MustParsePrefix("::1/0"),
-			ConnCount: math.MaxInt, // Unlimited
-		},
-	}
-
-	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit), rcmgr.WithNetworkPrefixLimit(v4PrefixLimits, v6PrefixLimits))
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
-	// Don't use a connection manager that could potentially
-	// prune any connections. We _theoretically_ clean up after
-	//	// ourselves.
 	cm := connmgr.NullConnMgr{}
+	rm := network.NullResourceManager{}
 
 	ecdsaKey, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
 	if err != nil {
@@ -367,7 +340,7 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 	// Context: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#network-fundamentals
 	h, err := libp2p.New(
 		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
+		libp2p.ResourceManager(&rm),
 		libp2p.Identity(secpKey),
 		libp2p.Security(noise.ID, noise.New),
 		libp2p.UserAgent("nebula/"+cfg.Version),
@@ -383,8 +356,7 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 	}
 
 	switch cfg.Network {
-	case config.NetworkEthCons, config.NetworkHolesky:
-
+	case config.NetworkEthCons, config.NetworkHolesky, config.NetworkPortal:
 		// According to Diva, these are required protocols. Some of them are just
 		// assumed to be required. We just read from the stream indefinitely to
 		// gain time for the identify exchange to finish. We just pretend to support
@@ -397,38 +369,8 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
 		h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
 		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
-	case config.NetworkWakuStatus, config.NetworkWakuTWN:
-		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) })
-		h.SetStreamHandler("/vac/waku/metadata/1.0.0", wakuMetaDataHandler(cfg.WakuClusterID, cfg.WakuClusterShards))
 	}
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
 	return h, nil
-}
-
-func wakuMetaDataHandler(clusterID uint32, clusterShards []uint32) network.StreamHandler {
-	return func(stream network.Stream) {
-		request := &wakupb.WakuMetadataRequest{}
-		writer := pbio.NewDelimitedWriter(stream)
-		reader := pbio.NewDelimitedReader(stream, math.MaxInt32)
-
-		if err := reader.ReadMsg(request); err != nil {
-			if err := stream.Reset(); err != nil {
-				fmt.Println("resetting connection", err)
-			}
-			return
-		}
-
-		resp := &wakupb.WakuMetadataResponse{
-			ClusterId: &clusterID,
-			Shards:    clusterShards,
-		}
-
-		if err := writer.WriteMsg(resp); err != nil {
-			if err := stream.Reset(); err != nil {
-				fmt.Println("resetting connection", err)
-			}
-			return
-		}
-	}
 }

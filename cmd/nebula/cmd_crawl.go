@@ -202,7 +202,7 @@ var CrawlCommand = &cli.Command{
 		},
 		&cli.IntSliceFlag{
 			Name:        "waku-cluster-shards",
-			Usage:       "WAKU/WAKU_TWN: The cluster shards of the Waku network",
+			Usage:       "WAKU_STATUS/WAKU_TWN: The cluster shards of the Waku network",
 			EnvVars:     []string{"NEBULA_CRAWL_WAKU_CLUSTER_SHARDS"},
 			Value:       crawlConfig.WakuClusterShards,
 			Destination: crawlConfig.WakuClusterShards,
@@ -374,6 +374,7 @@ func CrawlAction(c *cli.Context) error {
 		// configure the crawl driver
 		driverCfg := &discv5.CrawlDriverConfig{
 			Version:           cfg.Root.Version(),
+			Network:           config.Network(cfg.Network),
 			DialTimeout:       cfg.Root.DialTimeout,
 			TrackNeighbors:    cfg.PersistNeighbors,
 			BootstrapPeers:    bpEnodes,
@@ -623,11 +624,6 @@ func logSummary[I core.PeerInfo[I]](dbCrawl *models.Crawl, handler *core.CrawlHa
 	log.Infoln("")
 	for protocol, count := range handler.Protocols {
 		log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
-	}
-	log.Infoln("")
-	log.Infoln("")
-	for cluster, count := range handler.WakuCluster {
-		log.WithField("count", count).WithField("value", cluster).Infoln("WakuCluster")
 	}
 	log.Infoln("")
 	log.WithFields(log.Fields{

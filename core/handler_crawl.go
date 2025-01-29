@@ -62,9 +62,6 @@ type CrawlResult[I PeerInfo[I]] struct {
 
 	// Debug flag that indicates whether to log the full error string
 	LogErrors bool
-
-	// Waku cluster info
-	WakuCluster uint32
 }
 
 func (r CrawlResult[I]) PeerInfo() I {
@@ -149,9 +146,6 @@ type CrawlHandler[I PeerInfo[I]] struct {
 
 	// The number of peers that were crawled.
 	CrawledPeers int
-
-	// Waku Cluster mapping
-	WakuCluster map[uint32]int
 }
 
 func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
@@ -165,7 +159,6 @@ func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 		CrawlErrs:     make(map[string]int),
 		QueuedPeers:   0,
 		CrawledPeers:  0,
-		WakuCluster:   map[uint32]int{},
 	}
 }
 
@@ -177,8 +170,6 @@ func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[Cr
 
 	// Track agent versions
 	h.AgentVersion[cr.Agent] += 1
-
-	h.WakuCluster[cr.WakuCluster] += 1
 
 	// Track seen protocols
 	for _, p := range cr.Protocols {
