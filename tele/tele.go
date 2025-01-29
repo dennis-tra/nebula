@@ -3,14 +3,18 @@ package tele
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
 
+	"github.com/prometheus-community/ecs_exporter/ecscollector"
+	"github.com/prometheus-community/ecs_exporter/ecsmetadata"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/prometheus"
+	promexp "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	sdkmeter "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -35,7 +39,19 @@ var HealthStatus = atomic.NewBool(false)
 // metrics using prometheus. To serve the prometheus endpoint call
 // [ListenAndServe] down below.
 func NewMeterProvider() (metric.MeterProvider, error) {
-	exporter, err := prometheus.New(prometheus.WithNamespace("nebula"))
+	// initialize AWS Elastic Container Service collector and register it with
+	// the default prometheus registry. If we are not running in an ECS
+	// environment, don't do anything.
+	client, err := ecsmetadata.NewClientFromEnvironment()
+	if err == nil {
+		log.Debugln("Registering ECS collector")
+		collector := ecscollector.NewCollector(client, slog.Default())
+		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
+			return nil, fmt.Errorf("register collector: %w", err)
+		}
+	}
+
+	exporter, err := promexp.New(promexp.WithNamespace("nebula"))
 	if err != nil {
 		return nil, fmt.Errorf("new prometheus exporter: %w", err)
 	}

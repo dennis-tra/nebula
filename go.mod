@@ -21,6 +21,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.14.0
 	github.com/multiformats/go-multiaddr-dns v0.4.1
 	github.com/oschwald/geoip2-golang v1.11.0
+	github.com/prometheus-community/ecs_exporter v0.3.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/protolambda/zrnt v0.33.1
 	github.com/protolambda/ztyp v0.2.2
@@ -50,11 +51,14 @@ require (
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
+	github.com/aws/amazon-ecs-agent/ecs-agent v0.0.0-20240920192628-cf8c7a6b6504 // indirect
+	github.com/aws/aws-sdk-go v1.51.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.20.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240816210425-c5d0cb0b6fc0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506 // indirect
@@ -70,6 +74,8 @@ require (
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/docker/docker v27.3.1+incompatible // indirect
+	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/elastic/gosigar v0.14.3 // indirect
 	github.com/ericlagergren/decimal v0.0.0-20240411145413-00de7ca16731 // indirect
@@ -91,6 +97,7 @@ require (
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20250128161936-077ca0a936bf // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -106,6 +113,7 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kilic/bls12-381 v0.1.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
@@ -131,6 +139,7 @@ require (
 	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.2.0 // indirect
@@ -143,6 +152,8 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/onsi/ginkgo/v2 v2.22.2 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/opencontainers/runtime-spec v1.2.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.13.1 // indirect
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
