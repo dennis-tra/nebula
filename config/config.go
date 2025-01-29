@@ -34,6 +34,7 @@ const (
 	NetworkEthCons        Network = "ETHEREUM_CONSENSUS"
 	NetworkEthExec        Network = "ETHEREUM_EXECUTION"
 	NetworkHolesky        Network = "HOLESKY"
+	NetworkPortal         Network = "PORTAL"
 	NetworkAvailMainnetFN Network = "AVAIL_MAINNET_FN"
 	NetworkAvailMainnetLC Network = "AVAIL_MAINNET_LC"
 	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
@@ -57,6 +58,7 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
+		NetworkPortal,
 		NetworkAvailMainnetFN,
 		NetworkAvailMainnetLC,
 		NetworkAvailTuringLC,
@@ -411,6 +413,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("discv4") // TODO
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
+		protocols = cli.NewStringSlice("discv5") // TODO
+	case NetworkPortal:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPortalMainnet...)
 		protocols = cli.NewStringSlice("discv5") // TODO
 	case NetworkAvailMainnetFN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetFullNode...)

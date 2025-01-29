@@ -323,7 +323,8 @@ func CrawlAction(c *cli.Context) error {
 		return nil
 
 	case string(config.NetworkEthCons),
-		string(config.NetworkHolesky): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
+		string(config.NetworkHolesky),
+		string(config.NetworkPortal): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
 
 		bpEnodes, err := cfg.BootstrapEnodesV5()
 		if err != nil {
