@@ -6,13 +6,9 @@ import (
 	"net"
 
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
-	"github.com/cenkalti/backoff/v4"
-
-	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
@@ -126,26 +122,14 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 
 	go func() {
 		result := BitcoinResult{}
+		defer close(resultCh)
 		neighbours := make([]PeerInfo, 0)
 
 		addrs := pi.Addrs()
 
 		var conn net.Conn
-		var err error
-		connectionMaxRetry := 10
 		result.ConnectStartTime = time.Now()
-		if len(addrs) > 0 {
-			for i := 0; i < connectionMaxRetry; i++ {
-				netAddr, _ := manet.ToNetAddr(addrs[0])
-				d := net.Dialer{
-					Timeout: c.cfg.DialTimeout,
-				}
-				conn, err = d.DialContext(ctx, netAddr.Network(), netAddr.String())
-				if err == nil {
-					break
-				}
-			}
-		}
+		conn, result.ConnectError = c.connect(ctx, addrs) // use filtered addr list
 
 		if conn == nil {
 			result.RoutingTable = &core.RoutingTable[PeerInfo]{
@@ -154,13 +138,14 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 				ErrorBits: uint16(0), // FIXME
 				Error:     result.Error,
 			}
-			result.Error = err
+			result.Error = result.ConnectError
 			resultCh <- result
-			close(resultCh)
 			return
 		}
-		// conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
+
 		result.ConnectEndTime = time.Now()
+
+		defer conn.Close()
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
@@ -169,14 +154,17 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 			result.Agent = nodeRes.UserAgent
 			result.ProtocolVersion = nodeRes.ProtocolVersion
 			if err != nil {
-				log.Debugf("[%s] Handshake failed: %v", addrs, err)
+				log.Errorf("[%s] Handshake failed: %v", addrs, err)
 			}
 
 			err = c.WriteMessage(conn, wire.NewMsgGetAddr())
 			if err != nil {
-				log.Warningf("[%s] GetAddr failed: %v", addrs, err)
+				log.Errorf("[%s] GetAddr failed: %v", addrs, err)
 			}
 
+			// The code tolerates a certain amount of unsolicited
+			// messages after which it just stops. These numbers here
+			// specify the amount of such messages to be tolerated
 			firstReceived := -1
 			tolerateMessages := 5
 			// The nodes send a lot of inv messages
@@ -189,66 +177,29 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 				// Read messages in a loop and handle the different message types accordingly
 				msg, _, err := c.ReadMessage(conn)
 				if tolerateMessages < 0 {
-					log.Warningf("Tolerated enough messages from: %s", pi.Addr)
+					log.Errorf("Tolerated enough messages from: %s", pi.Addr)
 					break Loop
 				}
 				if err != nil {
 					// log.WithField("address", addrInfo).WithField("num_peers", len(neighbours)).WithField("err", err).WithField("otherMessages", otherMessages).Warningf("Giving up with results after tolerating messages: .")
-					log.Warningf("[%s] Failed to read message: %v", pi.Addr, err)
+					log.Errorf("[%s] Failed to read message: %v", pi.Addr, err)
 				}
 
 				switch tmsg := msg.(type) {
 				case *wire.MsgAddr:
-					neighbours = append(neighbours, func() []PeerInfo {
-						mapped := make([]PeerInfo, len(tmsg.AddrList))
-						for i, addr := range tmsg.AddrList {
-							maStr := fmt.Sprintf("/ip4/%s/tcp/%d", addr.IP.String(), addr.Port)
-							maddr, err := ma.NewMultiaddr(maStr)
-							if err != nil {
-								continue // Skip invalid addresses
-							}
-
-							mapped[i] = PeerInfo{
-								AddrInfo: AddrInfo{
-									id:   maddr.String(),
-									Addr: []ma.Multiaddr{maddr},
-								},
-							}
-						}
-						return mapped
-					}()...)
-
-					if firstReceived == -1 {
-						firstReceived = len(tmsg.AddrList)
-					} else if firstReceived > len(tmsg.AddrList) || firstReceived == 0 {
-						// Probably done.
+					peers := processAddrs(tmsg.AddrList)
+					neighbours = append(neighbours, peers...)
+					if checkShouldBreak(&firstReceived, len(tmsg.AddrList)) {
 						break Loop
 					}
 				case *wire.MsgAddrV2:
-					neighbours = append(neighbours, func() []PeerInfo {
-						mapped := make([]PeerInfo, len(tmsg.AddrList))
-						for i, addr1 := range tmsg.AddrList {
-							addr := addr1.ToLegacy()
-							maStr := fmt.Sprintf("/ip4/%s/tcp/%d", addr.IP.String(), addr.Port)
-							maddr, err := ma.NewMultiaddr(maStr)
-							if err != nil {
-								continue // Skip invalid addresses
-							}
-
-							mapped[i] = PeerInfo{
-								AddrInfo: AddrInfo{
-									id:   maddr.String(),
-									Addr: []ma.Multiaddr{maddr},
-								},
-							}
-						}
-						return mapped
-					}()...)
-
-					if firstReceived == -1 {
-						firstReceived = len(tmsg.AddrList)
-					} else if firstReceived > len(tmsg.AddrList) || firstReceived == 0 {
-						// Probably done.
+					legacyAddrs := make([]*wire.NetAddress, len(tmsg.AddrList))
+					for i, addr := range tmsg.AddrList {
+						legacyAddrs[i] = addr.ToLegacy()
+					}
+					peers := processAddrs(legacyAddrs)
+					neighbours = append(neighbours, peers...)
+					if checkShouldBreak(&firstReceived, len(tmsg.AddrList)) {
 						break Loop
 					}
 				case *wire.MsgPing:
@@ -283,7 +234,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 				}
 				err = c.WriteMessage(conn, wire.NewMsgGetAddr())
 				if err != nil {
-					log.Infoln("Error when requesting peers")
+					log.WithField("error", err).Errorf("Error when requesting peers")
 					break Loop
 				}
 
@@ -302,7 +253,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		result.RoutingTable = &core.RoutingTable[PeerInfo]{
 			PeerID:    pi.ID(),
 			Neighbors: neighbours,
-			ErrorBits: uint16(0), // FIXME
+			ErrorBits: uint16(0),
 			Error:     result.Error,
 		}
 
@@ -325,14 +276,7 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 		select {
 		case resultCh <- result:
 		case <-ctx.Done():
-			if conn != nil {
-				if err := conn.Close(); err != nil {
-					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection on context cancel")
-				}
-			}
 		}
-
-		close(resultCh)
 	}()
 
 	return resultCh
@@ -409,62 +353,25 @@ func (c *Crawler) Handshake(conn net.Conn) (BitcoinNodeResult, error) {
 	return result, nil
 }
 
-// connect establishes a connection to the given peer. It also handles metric capturing.
-func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (net.Conn, error) {
-	if len(pi.Addrs) == 0 {
-		return nil, fmt.Errorf("skipping node as it has no public IP address")
-	}
+// connect establishes a connection to the given peer
+func (c *Crawler) connect(ctx context.Context, addrs []ma.Multiaddr) (net.Conn, error) {
+	var conn net.Conn
+	var err error
+	connectionMaxRetry := 10
 
-	// init an exponential backoff
-	bo := backoff.NewExponentialBackOff()
-	bo.InitialInterval = time.Second
-	bo.MaxInterval = 10 * time.Second
-	bo.MaxElapsedTime = time.Minute
-
-	var retry int = 0
-
-	for {
-		sleepDur := bo.NextBackOff()
-		logEntry := log.WithFields(log.Fields{
-			"timeout":  sleepDur.String(),
-			"remoteID": pi.ID.String(),
-			"retry":    retry,
-			"maddrs":   pi.Addrs,
-		})
-		logEntry.Debugln("Connecting to peer", pi.ID.ShortString())
-
-		netAddr, _ := manet.ToNetAddr(pi.Addrs[0])
-
-		d := net.Dialer{
-			Timeout: sleepDur,
-		}
-		conn, err := d.DialContext(ctx, netAddr.Network(), netAddr.String())
-
-		if err == nil {
-			return conn, nil
-		}
-
-		// TODO: support actual bitcoin errors
-		switch {
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
-		default:
-			logEntry.WithError(err).Warnln("Failed connecting to peer", pi.ID.ShortString())
-			return nil, err
-		}
-
-		if sleepDur == backoff.Stop {
-			logEntry.WithError(err).Warnln("Exceeded retries connecting to peer", pi.ID.ShortString())
-			return nil, err
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(sleepDur):
-			retry += 1
-			continue
+	if len(addrs) > 0 {
+		for i := 0; i < connectionMaxRetry; i++ {
+			netAddr, _ := manet.ToNetAddr(addrs[0])
+			d := net.Dialer{
+				Timeout: c.cfg.DialTimeout,
+			}
+			conn, err = d.DialContext(ctx, netAddr.Network(), netAddr.String())
+			if err == nil {
+				break
+			}
 		}
 	}
+	return conn, err
 }
 
 func (c *Crawler) WriteMessage(conn net.Conn, msg wire.Message) error {
@@ -475,57 +382,29 @@ func (c *Crawler) ReadMessage(conn net.Conn) (wire.Message, []byte, error) {
 	return wire.ReadMessage(conn, wire.ProtocolVersion, wire.MainNet)
 }
 
-// sanitizeAddrs takes the list of multi addresses and removes any UDP-only
-// multi address because we cannot dial UDP only addresses anyway. However, if
-// there is no other reliable transport address like TCP or QUIC we use the UDP
-// IP address + port and craft a TCP address out of it. The UDP address will
-// still be removed and replaced with TCP.
-func sanitizeAddrs(maddrs []ma.Multiaddr) ([]ma.Multiaddr, bool) {
-	newMaddrs := make([]ma.Multiaddr, 0, len(maddrs))
-	for _, maddr := range maddrs {
-		if _, err := maddr.ValueForProtocol(ma.P_TCP); err == nil {
-			newMaddrs = append(newMaddrs, maddr)
-		} else if _, err := maddr.ValueForProtocol(ma.P_UDP); err == nil {
-			_, quicErr := maddr.ValueForProtocol(ma.P_QUIC)
-			_, quicV1Err := maddr.ValueForProtocol(ma.P_QUIC_V1)
-			if quicErr == nil || quicV1Err == nil {
-				newMaddrs = append(newMaddrs, maddr)
-			}
-		}
-	}
-
-	if len(newMaddrs) > 0 {
-		return newMaddrs, false
-	}
-
-	for i, maddr := range maddrs {
-		udp, err := maddr.ValueForProtocol(ma.P_UDP)
+func processAddrs(addrs []*wire.NetAddress) []PeerInfo {
+	var peers []PeerInfo
+	for _, addr := range addrs {
+		maStr := fmt.Sprintf("/ip4/%s/tcp/%d", addr.IP.String(), addr.Port)
+		maddr, err := ma.NewMultiaddr(maStr)
 		if err != nil {
-			continue
+			continue // Skip invalid addresses
 		}
-
-		ip := ""
-		ip4, err := maddr.ValueForProtocol(ma.P_IP4)
-		if err != nil {
-			ip6, err := maddr.ValueForProtocol(ma.P_IP6)
-			if err != nil {
-				continue
-			}
-			ip = "/ip6/" + ip6
-		} else {
-			ip = "/ip4/" + ip4
-		}
-
-		tcpMaddr, err := ma.NewMultiaddr(ip + "/tcp/" + udp)
-		if err != nil {
-			continue
-		}
-
-		newMaddrs = append(newMaddrs, maddrs[i+1:]...)
-		newMaddrs = append(newMaddrs, tcpMaddr)
-
-		return newMaddrs, true
+		peers = append(peers, PeerInfo{
+			AddrInfo: AddrInfo{
+				id:   maddr.String(),
+				Addr: []ma.Multiaddr{maddr},
+			},
+		})
 	}
+	return peers
+}
 
-	return maddrs, false
+// Helper function to handle firstReceived logic
+func checkShouldBreak(firstReceived *int, addrCount int) bool {
+	if *firstReceived == -1 {
+		*firstReceived = addrCount
+		return false
+	}
+	return *firstReceived > addrCount || *firstReceived == 0
 }

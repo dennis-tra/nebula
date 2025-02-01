@@ -23,6 +23,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [Celestia](https://celestia.org/) - [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Celestia](https://celestia.org/) - [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet)
 - [Pactus](https://pactus.org)
+- [Bitcoin] (https://bitcoin.org/) *\*alpha*
 
 The crawler was:
 
