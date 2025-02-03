@@ -43,12 +43,12 @@ func NewJSONClient(out string) (*JSONClient, error) {
 	}
 	prefix := path.Join(out, time.Now().Format("2006-01-02T15:04"))
 
-	vf, err := os.Create(prefix + "_visits.json")
+	vf, err := os.Create(prefix + "_visits.ndjson")
 	if err != nil {
 		return nil, fmt.Errorf("create visits file: %w", err)
 	}
 
-	nf, err := os.Create(prefix + "_neighbors.json")
+	nf, err := os.Create(prefix + "_neighbors.ndjson")
 	if err != nil {
 		return nil, fmt.Errorf("create neighbors file: %w", err)
 	}
