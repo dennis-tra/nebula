@@ -259,20 +259,26 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
-	err = client.InsertCrawlVisit(
-		ctx,
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		protocols,
-		agentVersion,
-		time.Second,
-		time.Second,
-		visitStart,
-		visitEnd,
-		pgmodels.NetErrorIoTimeout,
-		"",
-		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
-	)
+	sec := time.Second
+
+	args := &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		Protocols:       protocols,
+		AgentVersion:    agentVersion,
+		DialDuration:    nil,
+		ConnectDuration: &sec,
+		CrawlDuration:   &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		ConnectErrorStr: pgmodels.NetErrorIoTimeout,
+		CrawlErrorStr:   "",
+		VisitType:       VisitTypeCrawl,
+		Neighbors:       nil,
+		ErrorBits:       0,
+		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 }
 
@@ -297,21 +303,25 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
+	sec := time.Second
 
-	err = client.InsertCrawlVisit(
-		ctx,
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		protocols,
-		agentVersion,
-		time.Second,
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-		"",
-		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
-	)
+	args := &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		Protocols:       protocols,
+		AgentVersion:    agentVersion,
+		ConnectDuration: &sec,
+		CrawlDuration:   &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		ConnectErrorStr: "",
+		CrawlErrorStr:   "",
+		VisitType:       VisitTypeCrawl,
+		Neighbors:       nil,
+		ErrorBits:       0,
+		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 
 	dbPeer := fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
@@ -338,7 +348,16 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+
+	args = &VisitArgs{
+		PeerID:         peerID,
+		Maddrs:         []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:   &sec,
+		VisitStartedAt: visitStart,
+		VisitEndedAt:   visitEnd,
+		VisitType:      VisitTypeDial,
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 
 	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
@@ -358,7 +377,19 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorConnectionRefused)
+
+	args = &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		Protocols:       protocols,
+		AgentVersion:    agentVersion,
+		DialDuration:    &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		ConnectErrorStr: pgmodels.NetErrorConnectionRefused,
+		VisitType:       VisitTypeDial,
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
@@ -377,37 +408,50 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.InDelta(t, s.LastFailedVisit.Time.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.Equal(t, s.FinishReason.String, pgmodels.NetErrorConnectionRefused)
 
+	// allow another crawl initialization
+	client.crawl = nil
+
 	err = client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
+
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
 
-	err = client.InsertCrawlVisit(
-		ctx,
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		[]string{},
-		"",
-		time.Second,
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-		"",
-		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
-	)
+	args = &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		Protocols:       []string{},
+		AgentVersion:    "",
+		ConnectDuration: &sec,
+		CrawlDuration:   &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		VisitType:       VisitTypeCrawl,
+		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorNegotiateSecurityProtocol)
+
+	args = &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		ConnectErrorStr: pgmodels.NetErrorNegotiateSecurityProtocol,
+		VisitType:       VisitTypeDial,
+	}
+	err = client.InsertVisit(ctx, args)
 	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
 	assert.Equal(t, dbPeer.MultiHash, peerID.String())
 	assert.Len(t, dbPeer.R.MultiAddresses, 2)
 
-	newSession, err := pgmodels.Sessions(pgmodels.SessionWhere.ID.EQ(*ivr.SessionID)).One(ctx, client.Handle())
+	newSession, err := pgmodels.Sessions(qm.OrderBy(pgmodels.SessionColumns.UpdatedAt+" desc")).One(ctx, client.Handle())
 	require.NoError(t, err)
 
 	sessionID2 := newSession.ID
@@ -459,28 +503,48 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	visitStart := time.Now()
 	visitEnd := time.Now().Add(time.Second)
-	err = client.InsertCrawlVisit(
-		ctx,
-		peerID,
-		[]multiaddr.Multiaddr{ma1, ma2},
-		protocols,
-		agentVersion,
-		time.Second,
-		time.Second,
-		visitStart,
-		visitEnd,
-		"",
-		"",
-		null.JSONFrom(marshalProperties(t, "is_exposed", false)),
-	)
+
+	sec := time.Second
+	args := &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		Protocols:       protocols,
+		AgentVersion:    agentVersion,
+		ConnectDuration: &sec,
+		CrawlDuration:   &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		VisitType:       VisitTypeCrawl,
+		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", false)),
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 	visitStart = time.Now().Add(22 * time.Hour)
 	visitEnd = time.Now().Add(22 * time.Hour).Add(time.Second)
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+
+	args = &VisitArgs{
+		PeerID:         peerID,
+		Maddrs:         []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:   &sec,
+		VisitStartedAt: visitStart,
+		VisitEndedAt:   visitEnd,
+		VisitType:      VisitTypeDial,
+	}
+	err = client.InsertVisit(ctx, args)
 
 	visitStart = time.Now().Add(23 * time.Hour).Add(time.Second)
 	visitEnd = time.Now().Add(23 * time.Hour)
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorIoTimeout)
+
+	args = &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		VisitType:       VisitTypeDial,
+		ConnectErrorStr: pgmodels.NetErrorIoTimeout,
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 	dbPeer := fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
@@ -498,7 +562,16 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+	args = &VisitArgs{
+		PeerID:          peerID,
+		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    &sec,
+		VisitStartedAt:  visitStart,
+		VisitEndedAt:    visitEnd,
+		VisitType:       VisitTypeDial,
+		ConnectErrorStr: "",
+	}
+	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
 	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 

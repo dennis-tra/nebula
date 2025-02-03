@@ -99,6 +99,7 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 		VisitStartedAt:  task.DialStartTime,
 		VisitEndedAt:    task.DialEndTime,
 		ConnectErrorStr: task.DialError,
+		VisitType:       db.VisitTypeDial,
 	}
 	err := w.dbc.InsertVisit(ctx, args)
 	if err != nil {

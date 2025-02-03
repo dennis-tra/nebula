@@ -266,7 +266,7 @@ func (c *PostgresClient) applyMigrations(cfg *PostgresClientConfig, dbh *sql.DB)
 		return
 	}
 
-	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations"), cfg.DatabaseName, driver)
+	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations/pg"), cfg.DatabaseName, driver)
 	if err != nil {
 		log.WithError(err).Warnln("Could not create migrate instance")
 		return
@@ -636,11 +636,9 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 	}
 	wg.Wait()
 
-	visitType := pgmodels.VisitTypeDial
 	var crawlID *int
 	if c.crawl != nil {
 		crawlID = &c.crawl.ID
-		visitType = pgmodels.VisitTypeCrawl
 	} else if args.CrawlDuration != nil {
 		log.Warnln("Crawl duration provided but no crawl initialized.")
 	}
@@ -657,13 +655,13 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 		durationToInterval(args.CrawlDuration),
 		args.VisitStartedAt,
 		args.VisitEndedAt,
-		visitType,
+		args.VisitType,
 		null.NewString(args.ConnectErrorStr, args.ConnectErrorStr != ""),
 		null.NewString(args.CrawlErrorStr, args.CrawlErrorStr != ""),
 		args.Properties,
 	).QueryContext(ctx, c.dbh)
 	c.telemetry.insertVisitHistogram.Record(ctx, time.Since(start).Milliseconds(), metric.WithAttributes(
-		attribute.String("type", visitType),
+		attribute.String("type", string(args.VisitType)),
 		attribute.Bool("success", err == nil),
 	))
 	if err != nil {
