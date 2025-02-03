@@ -44,7 +44,7 @@ func NewMeterProvider() (metric.MeterProvider, error) {
 	// environment, don't do anything.
 	client, err := ecsmetadata.NewClientFromEnvironment()
 	if err == nil {
-		log.Debugln("Registering ECS collector")
+		log.Infoln("Registering ECS collector")
 		collector := ecscollector.NewCollector(client, slog.Default())
 		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
 			return nil, fmt.Errorf("register collector: %w", err)
