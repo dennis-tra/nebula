@@ -90,7 +90,7 @@ func (c *JSONClient) InitCrawl(ctx context.Context, version string) (err error) 
 		CreatedAt: now,
 	}
 
-	data, err := json.Marshal(c.crawl)
+	data, err := json.MarshalIndent(c.crawl, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal crawl json: %w", err)
 	}
@@ -123,7 +123,7 @@ func (c *JSONClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (err er
 	c.crawl.State = string(args.State)
 	c.crawl.FinishedAt = null.TimeFrom(now)
 
-	data, err := json.Marshal(c.crawl)
+	data, err := json.MarshalIndent(c.crawl, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal crawl json: %w", err)
 	}
@@ -140,7 +140,7 @@ func (c *JSONClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer
 }
 
 func (c *JSONClient) InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error {
-	data, err := json.Marshal(properties)
+	data, err := json.MarshalIndent(properties, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal properties json: %w", err)
 	}
