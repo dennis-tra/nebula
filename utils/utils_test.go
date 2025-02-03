@@ -6,15 +6,13 @@ import (
 
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
-
-	nt "github.com/dennis-tra/nebula-crawler/nebtest"
 )
 
 func TestMergeMaddrs(t *testing.T) {
 	type args struct{}
-	maddr1 := nt.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")
-	maddr2 := nt.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")
-	maddr3 := nt.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")
+	maddr1 := MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")
+	maddr2 := MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")
+	maddr3 := MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")
 	tests := []struct {
 		name      string
 		maddrSet1 []ma.Multiaddr
