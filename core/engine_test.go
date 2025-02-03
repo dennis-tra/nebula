@@ -94,7 +94,6 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, eng.peerQueue)
 		assert.NotNil(t, eng.writeQueue)
 		assert.NotNil(t, eng.handler)
-		assert.NotNil(t, handler.PeerMappings)
 		assert.NotNil(t, handler.RoutingTables)
 		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
@@ -131,7 +130,6 @@ func TestNewEngine_Run(t *testing.T) {
 		assert.Equal(t, 0, len(queuedPeers))
 		assert.Equal(t, 0, handler.CrawledPeers)
 		assert.Len(t, handler.RoutingTables, 0)
-		assert.Len(t, handler.PeerMappings, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 
@@ -163,9 +161,7 @@ func TestNewEngine_Run(t *testing.T) {
 		crawler.On("Work", mock.IsType(ctx), mock.IsType(testPeer)).Return(cr, nil)
 
 		writer := newTestWriter()
-		writer.On("Work", mock.IsType(ctx), mock.IsType(cr)).Return(WriteResult{
-			InsertVisitResult: &db.InsertVisitResult{},
-		}, nil)
+		writer.On("Work", mock.IsType(ctx), mock.IsType(cr)).Return(WriteResult{}, nil)
 
 		driver := &testDriver{}
 		driver.On("NewWorker").Return(crawler, nil)
@@ -190,7 +186,6 @@ func TestNewEngine_Run(t *testing.T) {
 		assert.Equal(t, 0, len(queuedPeers))
 		assert.Equal(t, 1, handler.CrawledPeers)
 		assert.Len(t, handler.RoutingTables, 0)
-		assert.Len(t, handler.PeerMappings, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 }
@@ -263,7 +258,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	writerCfg := &CrawlWriterConfig{
 		AddrTrackType: config.AddrTypeAny,
 	}
-	writer := NewCrawlWriter[*testPeerInfo]("1", db.InitNoopClient(), 1, writerCfg)
+	writer := NewCrawlWriter[*testPeerInfo]("1", db.NewNoopClient(), writerCfg)
 
 	crawler.On("Work", mock.IsType(ctx), bootstrapPeer).
 		Return(bootstrapPeerCrawlResult, nil).Times(1)

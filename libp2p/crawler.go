@@ -14,7 +14,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -125,12 +125,12 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	}
 
 	// keep track of all unknown connection errors
-	if p2pRes.ConnectErrorStr == models.NetErrorUnknown && p2pRes.ConnectError != nil {
+	if p2pRes.ConnectErrorStr == pgmodels.NetErrorUnknown && p2pRes.ConnectError != nil {
 		properties["connect_error"] = p2pRes.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if p2pRes.CrawlErrorStr == models.NetErrorUnknown && p2pRes.CrawlError != nil {
+	if p2pRes.CrawlErrorStr == pgmodels.NetErrorUnknown && p2pRes.CrawlError != nil {
 		properties["crawl_error"] = p2pRes.CrawlError.Error()
 	}
 

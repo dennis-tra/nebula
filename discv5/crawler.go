@@ -25,7 +25,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 const MaxCrawlRetriesAfterTimeout = 2 // magic
@@ -98,12 +98,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	// keep track of all unknown connection errors
-	if libp2pResult.ConnectErrorStr == models.NetErrorUnknown && libp2pResult.ConnectError != nil {
+	if libp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && libp2pResult.ConnectError != nil {
 		properties["connect_error"] = libp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV5Result.ErrorStr == models.NetErrorUnknown && discV5Result.Error != nil {
+	if discV5Result.ErrorStr == pgmodels.NetErrorUnknown && discV5Result.Error != nil {
 		properties["crawl_error"] = discV5Result.Error.Error()
 	}
 
@@ -337,13 +337,13 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, 
 		}
 
 		switch {
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionRefused]):
 			// Might be transient because the remote doesn't want us to connect. Try again!
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionGated]):
 			// Hints at a configuration issue and should not happen, but if it
 			// does it could be transient. Try again anyway, but at least log a warning.
 			logEntry.WithError(err).Warnln("Connection gated!")
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorCantAssignRequestedAddress]):
 			// Transient error due to local UDP issues. Try again!
 		case strings.Contains(err.Error(), "dial backoff"):
 			// should not happen because we disabled backoff checks with our

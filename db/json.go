@@ -14,7 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 type JSONClient struct {
@@ -30,12 +30,12 @@ type JSONClient struct {
 	peerMapLk   sync.RWMutex
 	peerMap     map[peer.ID]int
 	peerCounter int
+
+	crawlMu sync.Mutex
+	crawl   *pgmodels.Crawl
 }
 
-var _ Client = (*JSONClient)(nil)
-
-// InitJSONClient .
-func InitJSONClient(out string) (Client, error) {
+func NewJSONClient(out string) (*JSONClient, error) {
 	log.WithField("out", out).Infoln("Initializing JSON client")
 
 	if err := os.MkdirAll(out, 0o755); err != nil {
@@ -66,31 +66,64 @@ func InitJSONClient(out string) (Client, error) {
 	return client, nil
 }
 
-func (c *JSONClient) InitCrawl(ctx context.Context, version string) (*models.Crawl, error) {
-	crawl := &models.Crawl{
-		State:     models.CrawlStateStarted,
-		StartedAt: time.Now(),
-		Version:   version,
-		UpdatedAt: time.Now(),
-		CreatedAt: time.Now(),
+func (c *JSONClient) InitCrawl(ctx context.Context, version string) (err error) {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+
+	defer func() {
+		if err != nil {
+			c.crawl = nil
+		}
+	}()
+
+	if c.crawl != nil {
+		return fmt.Errorf("crawl already initialized")
 	}
 
-	data, err := json.Marshal(crawl)
+	now := time.Now()
+
+	c.crawl = &pgmodels.Crawl{
+		State:     pgmodels.CrawlStateStarted,
+		StartedAt: now,
+		Version:   version,
+		UpdatedAt: now,
+		CreatedAt: now,
+	}
+
+	data, err := json.Marshal(c.crawl)
 	if err != nil {
-		return nil, fmt.Errorf("marshal crawl json: %w", err)
+		return fmt.Errorf("marshal crawl json: %w", err)
 	}
 
 	if err = os.WriteFile(c.prefix+"_crawl.json", data, 0o644); err != nil {
-		return nil, fmt.Errorf("write crawl json: %w", err)
+		return fmt.Errorf("write crawl json: %w", err)
 	}
 
-	return crawl, nil
+	return nil
 }
 
-func (c *JSONClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
-	crawl.UpdatedAt = time.Now()
+func (c *JSONClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (err error) {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
 
-	data, err := json.Marshal(crawl)
+	original := *c.crawl
+	defer func() {
+		// roll back in case of an error
+		if err != nil {
+			c.crawl = &original
+		}
+	}()
+
+	now := time.Now()
+	c.crawl.UpdatedAt = now
+	c.crawl.CrawledPeers = null.IntFrom(args.Crawled)
+	c.crawl.DialablePeers = null.IntFrom(args.Dialable)
+	c.crawl.UndialablePeers = null.IntFrom(args.Undialable)
+	c.crawl.RemainingPeers = null.IntFrom(args.Remaining)
+	c.crawl.State = string(args.State)
+	c.crawl.FinishedAt = null.TimeFrom(now)
+
+	data, err := json.Marshal(c.crawl)
 	if err != nil {
 		return fmt.Errorf("marshal crawl json: %w", err)
 	}
@@ -106,7 +139,7 @@ func (c *JSONClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer
 	return []peer.AddrInfo{}, nil
 }
 
-func (c *JSONClient) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
+func (c *JSONClient) InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error {
 	data, err := json.Marshal(properties)
 	if err != nil {
 		return fmt.Errorf("marshal properties json: %w", err)
@@ -133,26 +166,26 @@ type JSONVisit struct {
 	Properties      null.JSON
 }
 
-func (c *JSONClient) PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, properties null.JSON) (*InsertVisitResult, error) {
+func (c *JSONClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
 	data := JSONVisit{
-		PeerID:          peerID,
-		Maddrs:          maddrs,
-		Protocols:       protocols,
-		AgentVersion:    agentVersion,
-		ConnectDuration: connectDuration.String(),
-		CrawlDuration:   crawlDuration.String(),
-		VisitStartedAt:  visitStartedAt,
-		VisitEndedAt:    visitEndedAt,
-		ConnectErrorStr: connectErrorStr,
-		CrawlErrorStr:   crawlErrorStr,
-		Properties:      properties,
+		PeerID:          args.PeerID,
+		Maddrs:          args.Maddrs,
+		Protocols:       args.Protocols,
+		AgentVersion:    args.AgentVersion,
+		ConnectDuration: args.ConnectDuration.String(),
+		CrawlDuration:   args.CrawlDuration.String(),
+		VisitStartedAt:  args.VisitStartedAt,
+		VisitEndedAt:    args.VisitEndedAt,
+		ConnectErrorStr: args.ConnectErrorStr,
+		CrawlErrorStr:   args.CrawlErrorStr,
+		Properties:      args.Properties,
 	}
 
 	if err := c.visitEncoder.Encode(data); err != nil {
-		return nil, fmt.Errorf("encoding visit: %w", err)
+		return fmt.Errorf("encoding visit: %w", err)
 	}
 
-	return &InsertVisitResult{PID: peerID}, nil
+	return nil
 }
 
 type JSONNeighbors struct {
@@ -161,7 +194,7 @@ type JSONNeighbors struct {
 	ErrorBits   string
 }
 
-func (c *JSONClient) PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error {
+func (c *JSONClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
 	data := JSONNeighbors{
 		PeerID:      peerID,
 		NeighborIDs: neighbors,
@@ -175,9 +208,13 @@ func (c *JSONClient) PersistNeighbors(ctx context.Context, crawl *models.Crawl, 
 	return nil
 }
 
-func (n *JSONClient) Close() error {
-	err1 := n.visitsFile.Close()
-	err2 := n.neighborsFile.Close()
+func (c *JSONClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
+	return []peer.AddrInfo{}, nil
+}
+
+func (c *JSONClient) Close() error {
+	err1 := c.visitsFile.Close()
+	err2 := c.neighborsFile.Close()
 	if err1 != nil && err2 != nil {
 		return fmt.Errorf("failed closing JSON files: %w", fmt.Errorf("%s: %w (neighbors)", err1, err2))
 	} else if err1 != nil {

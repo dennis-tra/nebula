@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 // DialResult captures data that is gathered from pinging a single peer.
@@ -44,7 +44,7 @@ func (r DialResult[I]) LogEntry() *log.Entry {
 	})
 
 	if r.Error != nil {
-		if r.DialError == models.NetErrorUnknown {
+		if r.DialError == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithError(r.Error)
 		} else {
 			logEntry = logEntry.WithField("dialErr", r.DialError)
@@ -66,10 +66,10 @@ func (r DialResult[I]) DialDuration() time.Duration {
 // DialWriter handles the insert/upsert/update operations for a particular crawl result.
 type DialWriter[I PeerInfo[I]] struct {
 	id  string
-	dbc *db.DBClient
+	dbc db.Client
 }
 
-func NewDialWriter[I PeerInfo[I]](id string, dbc *db.DBClient) *DialWriter[I] {
+func NewDialWriter[I PeerInfo[I]](id string, dbc db.Client) *DialWriter[I] {
 	return &DialWriter[I]{
 		id:  id,
 		dbc: dbc,
@@ -80,7 +80,7 @@ func NewDialWriter[I PeerInfo[I]](id string, dbc *db.DBClient) *DialWriter[I] {
 func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResult, error) {
 	logEntry := task.LogEntry()
 	if task.Error != nil {
-		if task.DialError == models.NetErrorUnknown {
+		if task.DialError == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithError(task.Error)
 		} else {
 			logEntry = logEntry.WithField("error", task.DialError)
@@ -88,24 +88,27 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 	}
 
 	start := time.Now()
-	ivr, err := w.dbc.PersistDialVisit(
-		ctx,
-		task.Info.ID(),
-		task.Info.Addrs(),
-		task.DialDuration(),
-		task.DialStartTime,
-		task.DialEndTime,
-		task.DialError,
-	)
+
+	dialDuration := task.DialDuration()
+	args := &db.VisitArgs{
+		PeerID:          task.Info.ID(),
+		Maddrs:          task.Info.Addrs(),
+		DialDuration:    &dialDuration,
+		ConnectDuration: nil,
+		CrawlDuration:   nil,
+		VisitStartedAt:  task.DialStartTime,
+		VisitEndedAt:    task.DialEndTime,
+		ConnectErrorStr: task.DialError,
+	}
+	err := w.dbc.InsertVisit(ctx, args)
 	if err != nil {
 		logEntry.WithError(err).Warnln("Could not write dial result")
 	}
 
 	return WriteResult{
-		InsertVisitResult: ivr,
-		WriterID:          w.id,
-		PeerID:            task.Info.ID(),
-		Duration:          time.Since(start),
-		Error:             err,
+		WriterID: w.id,
+		PeerID:   task.Info.ID(),
+		Duration: time.Since(start),
+		Error:    err,
 	}, nil
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
@@ -77,7 +77,7 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	})
 
 	if r.ConnectError != nil {
-		if r.LogErrors || r.ConnectErrorStr == models.NetErrorUnknown {
+		if r.LogErrors || r.ConnectErrorStr == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithField("connErr", r.ConnectError)
 		} else {
 			logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
@@ -85,7 +85,7 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	}
 
 	if r.CrawlError != nil {
-		if r.LogErrors || r.CrawlErrorStr == models.NetErrorUnknown {
+		if r.LogErrors || r.CrawlErrorStr == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithField("crawlErr", r.CrawlError)
 		} else {
 			logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
@@ -121,11 +121,6 @@ type CrawlHandlerConfig struct {
 type CrawlHandler[I PeerInfo[I]] struct {
 	cfg *CrawlHandlerConfig
 
-	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
-	// the database does not need to look up every peer ID but only the ones not yet present in the database.
-	// Speed up for ~11k peers: 5.5 min -> 30s
-	PeerMappings map[peer.ID]int
-
 	// A map that keeps track of all k-bucket entries of a particular peer.
 	RoutingTables map[peer.ID]*RoutingTable[I]
 
@@ -151,7 +146,6 @@ type CrawlHandler[I PeerInfo[I]] struct {
 func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 	return &CrawlHandler[I]{
 		cfg:           cfg,
-		PeerMappings:  make(map[peer.ID]int),
 		RoutingTables: make(map[peer.ID]*RoutingTable[I]),
 		AgentVersion:  make(map[string]int),
 		Protocols:     make(map[string]int),
@@ -203,11 +197,6 @@ func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[Cr
 }
 
 func (h *CrawlHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {
-	wr := result.Value
-
-	if wr.InsertVisitResult != nil && wr.InsertVisitResult.PeerID != nil {
-		h.PeerMappings[wr.PID] = *wr.InsertVisitResult.PeerID
-	}
 }
 
 // TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.

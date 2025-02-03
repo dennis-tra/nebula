@@ -35,7 +35,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -181,7 +180,6 @@ type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
 	hosts        []host.Host
-	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
 	crawlerCount int
@@ -191,7 +189,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	// create a libp2p host per CPU core to distribute load
 	hosts := make([]host.Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
@@ -224,7 +222,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		cfg:       cfg,
 		dbc:       dbc,
 		hosts:     hosts,
-		dbCrawl:   crawl,
 		tasksChan: tasksChan,
 		peerstore: peerstore,
 		crawler:   make([]*Crawler, 0),
@@ -303,7 +300,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }

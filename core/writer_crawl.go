@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 
@@ -22,16 +23,14 @@ type CrawlWriter[I PeerInfo[I]] struct {
 	id           string
 	cfg          *CrawlWriterConfig
 	dbc          db.Client
-	dbCrawlID    int
 	writtenPeers int
 }
 
-func NewCrawlWriter[I PeerInfo[I]](id string, dbc db.Client, dbCrawlID int, cfg *CrawlWriterConfig) *CrawlWriter[I] {
+func NewCrawlWriter[I PeerInfo[I]](id string, dbc db.Client, cfg *CrawlWriterConfig) *CrawlWriter[I] {
 	return &CrawlWriter[I]{
 		id:           id,
 		cfg:          cfg,
 		dbc:          dbc,
-		dbCrawlID:    dbCrawlID,
 		writtenPeers: 0,
 	}
 }
@@ -39,9 +38,7 @@ func NewCrawlWriter[I PeerInfo[I]](id string, dbc db.Client, dbCrawlID int, cfg 
 // Work takes a crawl result (persist job) and inserts a denormalized database entry of the results.
 func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteResult, error) {
 	if _, ok := w.dbc.(*db.NoopClient); ok {
-		return WriteResult{
-			InsertVisitResult: &db.InsertVisitResult{},
-		}, nil
+		return WriteResult{}, nil
 	}
 
 	logEntry := log.WithFields(log.Fields{
@@ -61,22 +58,38 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		// noop
 	}
 
-	start := time.Now()
-	ivr, err := w.dbc.PersistCrawlVisit(
-		ctx,
-		w.dbCrawlID,
-		task.Info.ID(),
-		maddrs,
-		task.Protocols,
-		task.Agent,
-		task.ConnectDuration(),
-		task.CrawlDuration(),
-		task.CrawlStartTime,
-		task.CrawlEndTime,
-		task.ConnectErrorStr,
-		task.CrawlErrorStr,
-		null.JSONFrom(task.Properties),
+	var (
+		errorBits uint16
+		neighbors []peer.ID
 	)
+	if task.RoutingTable != nil {
+		neighbors = make([]peer.ID, len(task.RoutingTable.Neighbors))
+		for i, n := range task.RoutingTable.Neighbors {
+			neighbors[i] = n.ID()
+		}
+		errorBits = task.RoutingTable.ErrorBits
+	}
+
+	connectDur := task.ConnectDuration()
+	dialDur := task.CrawlDuration()
+	args := &db.VisitArgs{
+		PeerID:          task.Info.ID(),
+		Maddrs:          task.Info.Addrs(),
+		Protocols:       task.Protocols,
+		AgentVersion:    task.Agent,
+		ConnectDuration: &connectDur,
+		CrawlDuration:   &dialDur,
+		VisitStartedAt:  task.CrawlStartTime,
+		VisitEndedAt:    task.CrawlEndTime,
+		ConnectErrorStr: task.ConnectErrorStr,
+		CrawlErrorStr:   task.CrawlErrorStr,
+		Neighbors:       neighbors,
+		ErrorBits:       errorBits,
+		Properties:      null.JSONFrom(task.Properties),
+	}
+
+	start := time.Now()
+	err := w.dbc.InsertVisit(ctx, args)
 	if err != nil && !errors.Is(ctx.Err(), context.Canceled) {
 		logEntry.WithError(err).Warnln("Error inserting raw visit")
 	} else {
@@ -84,10 +97,9 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 	}
 
 	return WriteResult{
-		InsertVisitResult: ivr,
-		WriterID:          w.id,
-		PeerID:            task.Info.ID(),
-		Duration:          time.Since(start),
-		Error:             err,
+		WriterID: w.id,
+		PeerID:   task.Info.ID(),
+		Duration: time.Since(start),
+		Error:    err,
 	}, nil
 }
