@@ -20,6 +20,13 @@ const (
 	CrawlStateFailed    CrawlState = "failed"
 )
 
+type VisitType string
+
+const (
+	VisitTypeDial  VisitType = "dial"
+	VisitTypeCrawl VisitType = "crawl"
+)
+
 type SealCrawlArgs struct {
 	Crawled    int
 	Dialable   int
@@ -40,6 +47,7 @@ type VisitArgs struct {
 	VisitEndedAt    time.Time
 	ConnectErrorStr string
 	CrawlErrorStr   string
+	VisitType       VisitType
 	Neighbors       []peer.ID
 	ErrorBits       uint16
 	Properties      null.JSON
