@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -17,6 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/stretchr/testify/require"
 )
 
 // MaddrsToAddrs maps a slice of multi addresses to their string representation.
@@ -40,6 +42,14 @@ func AddrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
 	}
 
 	return maddrs, nil
+}
+
+// MustMultiaddr returns parses the given multi address string and stops the
+// test with an error if that fails.
+func MustMultiaddr(t testing.TB, maddrStr string) ma.Multiaddr {
+	maddr, err := ma.NewMultiaddr(maddrStr)
+	require.NoError(t, err)
+	return maddr
 }
 
 // AddrInfoFilterPrivateMaddrs strips private multiaddrs from the given peer address information.
