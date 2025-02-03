@@ -12,7 +12,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
-	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/discv5"
 	"github.com/dennis-tra/nebula-crawler/libp2p"
 )
@@ -87,7 +86,7 @@ func MonitorAction(c *cli.Context) error {
 	defer log.Infoln("Stopped Nebula monitor.")
 
 	// Acquire database handle
-	dbc, err := db.InitDBClient(c.Context, rootConfig.Database)
+	dbc, err := rootConfig.Database.NewClient(c.Context)
 	if err != nil {
 		return fmt.Errorf("init db client: %w", err)
 	}

@@ -7,8 +7,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/dennis-tra/nebula-crawler/db"
 )
 
 // PeerInfo is the interface that any peer information struct must conform to.
@@ -125,7 +123,6 @@ type Result[R any] struct {
 
 // WriteResult must be returned by write workers.
 type WriteResult struct {
-	*db.InsertVisitResult
 	WriterID string
 	PeerID   peer.ID
 	Duration time.Duration

@@ -17,51 +17,50 @@ import (
 	mnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 func clearDatabase(ctx context.Context, db *sql.DB) error {
-	if _, err := models.Sessions().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.Sessions().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.PeerLogs().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.PeerLogs().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.Peers().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.Peers().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.Crawls().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.Crawls().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.AgentVersions().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.AgentVersions().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.Protocols().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.Protocols().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.ProtocolsSets().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.ProtocolsSets().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.Visits().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.Visits().DeleteAll(ctx, db); err != nil {
 		return err
 	}
-	if _, err := models.CrawlProperties().DeleteAll(ctx, db); err != nil {
+	if _, err := pgmodels.CrawlProperties().DeleteAll(ctx, db); err != nil {
 		return err
 	}
 	return nil
 }
 
-func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
+func setup(t *testing.T) (context.Context, *PostgresClient, func(t *testing.T)) {
 	ctx := context.Background()
 
-	c := config.Database{
+	c := PostgresClientConfig{
 		DatabaseHost:           "localhost",
 		DatabasePort:           5432,
 		DatabaseName:           "nebula_test",
 		DatabasePassword:       "password",
 		DatabaseUser:           "nebula_test",
-		DatabaseSSLMode:        "disable",
+		DatabaseSSL:            "disable",
 		AgentVersionsCacheSize: 100,
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  100,
@@ -69,7 +68,7 @@ func setup(t *testing.T) (context.Context, *DBClient, func(t *testing.T)) {
 		TracerProvider:         trace.NewNoopTracerProvider(),
 	}
 
-	client, err := InitDBClient(ctx, &c)
+	client, err := NewPostgresClient(ctx, &c)
 	require.NoError(t, err)
 
 	return ctx, client, func(t *testing.T) {
@@ -84,22 +83,22 @@ func TestClient_InitCrawl(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx, "test")
+	err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
-	assert.NotZero(t, crawl.ID)
-	assert.Equal(t, models.CrawlStateStarted, crawl.State)
-	assert.NotZero(t, crawl.StartedAt)
-	assert.False(t, crawl.CrawledPeers.Valid)
-	assert.False(t, crawl.DialablePeers.Valid)
-	assert.False(t, crawl.UndialablePeers.Valid)
-	assert.False(t, crawl.FinishedAt.Valid)
+	assert.NotZero(t, client.crawl.ID)
+	assert.Equal(t, pgmodels.CrawlStateStarted, client.crawl.State)
+	assert.NotZero(t, client.crawl.StartedAt)
+	assert.False(t, client.crawl.CrawledPeers.Valid)
+	assert.False(t, client.crawl.DialablePeers.Valid)
+	assert.False(t, client.crawl.UndialablePeers.Valid)
+	assert.False(t, client.crawl.FinishedAt.Valid)
 
-	dbCrawl, err := models.Crawls(models.CrawlWhere.ID.EQ(crawl.ID)).One(ctx, client.dbh)
+	dbCrawl, err := pgmodels.Crawls(pgmodels.CrawlWhere.ID.EQ(client.crawl.ID)).One(ctx, client.dbh)
 	require.NoError(t, err)
 
-	assert.Equal(t, crawl.ID, dbCrawl.ID)
-	assert.Equal(t, models.CrawlStateStarted, dbCrawl.State)
+	assert.NotZero(t, dbCrawl.ID)
+	assert.Equal(t, pgmodels.CrawlStateStarted, dbCrawl.State)
 	assert.NotZero(t, dbCrawl.StartedAt)
 	assert.False(t, dbCrawl.CrawledPeers.Valid)
 	assert.False(t, dbCrawl.DialablePeers.Valid)
@@ -191,7 +190,7 @@ func TestClient_PersistCrawlProperties(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx, "test")
+	err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	props := map[string]map[string]int{}
@@ -208,19 +207,19 @@ func TestClient_PersistCrawlProperties(t *testing.T) {
 		"io_timeout": 2,
 	}
 
-	err = client.PersistCrawlProperties(ctx, crawl, props)
+	err = client.InsertCrawlProperties(ctx, props)
 	require.NoError(t, err)
 
-	cps, err := models.CrawlProperties(models.CrawlPropertyWhere.CrawlID.EQ(crawl.ID)).All(ctx, client.dbh)
+	cps, err := pgmodels.CrawlProperties(pgmodels.CrawlPropertyWhere.CrawlID.EQ(client.crawl.ID)).All(ctx, client.dbh)
 	require.NoError(t, err)
 
 	for _, cp := range cps {
 		if !cp.ProtocolID.IsZero() {
-			protocol, err := models.Protocols(models.ProtocolWhere.ID.EQ(cp.ProtocolID.Int)).One(ctx, client.dbh)
+			protocol, err := pgmodels.Protocols(pgmodels.ProtocolWhere.ID.EQ(cp.ProtocolID.Int)).One(ctx, client.dbh)
 			require.NoError(t, err)
 			assert.Equal(t, cp.Count, props["protocol"][protocol.Protocol])
 		} else if !cp.AgentVersionID.IsZero() {
-			agentVersion, err := models.AgentVersions(models.AgentVersionWhere.ID.EQ(cp.AgentVersionID.Int)).One(ctx, client.dbh)
+			agentVersion, err := pgmodels.AgentVersions(pgmodels.AgentVersionWhere.ID.EQ(cp.AgentVersionID.Int)).One(ctx, client.dbh)
 			require.NoError(t, err)
 			assert.Equal(t, cp.Count, props["agent_version"][agentVersion.AgentVersion])
 		} else if !cp.Error.IsZero() {
@@ -243,7 +242,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx, "test")
+	err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
@@ -260,9 +259,8 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
-	ivr, err := client.PersistCrawlVisit(
+	err = client.InsertCrawlVisit(
 		ctx,
-		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
 		protocols,
@@ -271,22 +269,18 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		time.Second,
 		visitStart,
 		visitEnd,
-		models.NetErrorIoTimeout,
+		pgmodels.NetErrorIoTimeout,
 		"",
 		null.JSONFrom(marshalProperties(t, "is_exposed", true)),
 	)
 	require.NoError(t, err)
-
-	assert.Nil(t, ivr.SessionID)
-	assert.NotNil(t, ivr.PeerID)
-	assert.NotNil(t, ivr.VisitID)
 }
 
 func TestClient_SessionScenario_1(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx, "test")
+	err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
@@ -304,9 +298,8 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
 
-	ivr, err := client.PersistCrawlVisit(
+	err = client.InsertCrawlVisit(
 		ctx,
-		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
 		protocols,
@@ -321,7 +314,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dbPeer := fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+	dbPeer := fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
 	assert.Equal(t, dbPeer.MultiHash, peerID.String())
@@ -336,7 +329,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, session.PeerID, dbPeer.ID)
 	assert.Equal(t, session.SuccessfulVisitsCount, 1)
 	assert.Equal(t, session.FailedVisitsCount, int16(0))
-	assert.Equal(t, session.State, models.SessionStateOpen)
+	assert.Equal(t, session.State, pgmodels.SessionStateOpen)
 	assert.InDelta(t, session.FirstSuccessfulVisit.UnixNano(), visitStart.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, session.LastVisitedAt.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.True(t, session.FirstFailedVisit.IsZero())
@@ -345,9 +338,10 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 	require.NoError(t, err)
-	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+
+	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	assert.True(t, dbPeer.Properties.Valid)
 
@@ -355,7 +349,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, session.PeerID, dbPeer.ID)
 	assert.Equal(t, session.SuccessfulVisitsCount, 2)
 	assert.Equal(t, session.FailedVisitsCount, int16(0))
-	assert.Equal(t, session.State, models.SessionStateOpen)
+	assert.Equal(t, session.State, pgmodels.SessionStateOpen)
 	assert.NotEqual(t, session.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.InDelta(t, session.LastVisitedAt.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.True(t, session.FirstFailedVisit.IsZero())
@@ -364,33 +358,32 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorConnectionRefused)
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorConnectionRefused)
 	require.NoError(t, err)
-	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	assert.Nil(t, dbPeer.R.SessionsOpen)
 
-	s, err := models.Sessions(models.SessionWhere.ID.EQ(*ivr.SessionID)).One(ctx, client.Handle())
+	s, err := pgmodels.Sessions(pgmodels.SessionWhere.State.EQ(pgmodels.SessionStateClosed)).One(ctx, client.Handle())
 	require.NoError(t, err)
 
 	assert.Equal(t, s.PeerID, dbPeer.ID)
 	assert.Equal(t, s.SuccessfulVisitsCount, 2)
 	assert.Equal(t, s.FailedVisitsCount, int16(1))
-	assert.Equal(t, s.State, models.SessionStateClosed)
+	assert.Equal(t, s.State, pgmodels.SessionStateClosed)
 	assert.NotEqual(t, s.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.InDelta(t, s.LastVisitedAt.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, s.FirstFailedVisit.Time.UnixNano(), visitStart.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, s.LastFailedVisit.Time.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
-	assert.Equal(t, s.FinishReason.String, models.NetErrorConnectionRefused)
+	assert.Equal(t, s.FinishReason.String, pgmodels.NetErrorConnectionRefused)
 
-	crawl, err = client.InitCrawl(ctx, "test")
+	err = client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
 
-	ivr, err = client.PersistCrawlVisit(
+	err = client.InsertCrawlVisit(
 		ctx,
-		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
 		[]string{},
@@ -407,14 +400,14 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorNegotiateSecurityProtocol)
-	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorNegotiateSecurityProtocol)
+	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	assert.Equal(t, dbPeer.R.AgentVersion.AgentVersion, agentVersion)
 	assert.Equal(t, dbPeer.MultiHash, peerID.String())
 	assert.Len(t, dbPeer.R.MultiAddresses, 2)
 
-	newSession, err := models.Sessions(models.SessionWhere.ID.EQ(*ivr.SessionID)).One(ctx, client.Handle())
+	newSession, err := pgmodels.Sessions(pgmodels.SessionWhere.ID.EQ(*ivr.SessionID)).One(ctx, client.Handle())
 	require.NoError(t, err)
 
 	sessionID2 := newSession.ID
@@ -423,12 +416,12 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, newSession.PeerID, dbPeer.ID)
 	assert.Equal(t, newSession.SuccessfulVisitsCount, 1)
 	assert.Equal(t, newSession.FailedVisitsCount, int16(1))
-	assert.Equal(t, newSession.State, models.SessionStateClosed)
+	assert.Equal(t, newSession.State, pgmodels.SessionStateClosed)
 	assert.NotEqual(t, newSession.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.InDelta(t, newSession.LastVisitedAt.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, newSession.FirstFailedVisit.Time.UnixNano(), visitStart.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, newSession.LastFailedVisit.Time.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
-	assert.Equal(t, newSession.FinishReason.String, models.NetErrorNegotiateSecurityProtocol)
+	assert.Equal(t, newSession.FinishReason.String, pgmodels.NetErrorNegotiateSecurityProtocol)
 
 	err = s.Reload(ctx, client.Handle())
 	require.NoError(t, err)
@@ -437,19 +430,19 @@ func TestClient_SessionScenario_1(t *testing.T) {
 	assert.Equal(t, s.PeerID, dbPeer.ID)
 	assert.Equal(t, s.SuccessfulVisitsCount, 2)
 	assert.Equal(t, s.FailedVisitsCount, int16(1))
-	assert.Equal(t, s.State, models.SessionStateClosed)
+	assert.Equal(t, s.State, pgmodels.SessionStateClosed)
 	assert.NotEqual(t, s.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.NotEqual(t, s.LastVisitedAt.UnixMicro(), visitStart.UnixMicro())
 	assert.NotEqual(t, s.FirstFailedVisit.Time.UnixMicro(), visitStart.UnixMicro())
 	assert.NotEqual(t, s.LastFailedVisit.Time.UnixMicro(), visitEnd.UnixMicro())
-	assert.Equal(t, s.FinishReason.String, models.NetErrorConnectionRefused)
+	assert.Equal(t, s.FinishReason.String, pgmodels.NetErrorConnectionRefused)
 }
 
 func TestClient_SessionScenario_2(t *testing.T) {
 	ctx, client, teardown := setup(t)
 	defer teardown(t)
 
-	crawl, err := client.InitCrawl(ctx, "test")
+	err := client.InitCrawl(ctx, "test")
 	require.NoError(t, err)
 
 	peerID, err := lp2ptest.RandPeerID()
@@ -466,9 +459,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	visitStart := time.Now()
 	visitEnd := time.Now().Add(time.Second)
-	ivr, err := client.PersistCrawlVisit(
+	err = client.InsertCrawlVisit(
 		ctx,
-		crawl.ID,
 		peerID,
 		[]multiaddr.Multiaddr{ma1, ma2},
 		protocols,
@@ -484,37 +476,37 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	require.NoError(t, err)
 	visitStart = time.Now().Add(22 * time.Hour)
 	visitEnd = time.Now().Add(22 * time.Hour).Add(time.Second)
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 
 	visitStart = time.Now().Add(23 * time.Hour).Add(time.Second)
 	visitEnd = time.Now().Add(23 * time.Hour)
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, models.NetErrorIoTimeout)
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, pgmodels.NetErrorIoTimeout)
 	require.NoError(t, err)
-	dbPeer := fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+	dbPeer := fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	session := dbPeer.R.SessionsOpen
 	assert.Equal(t, session.PeerID, dbPeer.ID)
 	assert.Equal(t, session.SuccessfulVisitsCount, 2)
 	assert.Equal(t, session.FailedVisitsCount, int16(1))
 	assert.Equal(t, session.RecoveredCount, 0)
-	assert.Equal(t, session.State, models.SessionStatePending)
+	assert.Equal(t, session.State, pgmodels.SessionStatePending)
 	assert.NotEqual(t, session.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.InDelta(t, session.LastVisitedAt.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 	assert.InDelta(t, session.FirstFailedVisit.Time.UnixNano(), visitStart.UnixNano(), float64(time.Microsecond))
-	assert.Equal(t, session.FinishReason.String, models.NetErrorIoTimeout)
+	assert.Equal(t, session.FinishReason.String, pgmodels.NetErrorIoTimeout)
 	assert.InDelta(t, session.LastFailedVisit.Time.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
 
 	visitStart = time.Now().Add(-time.Second)
 	visitEnd = time.Now()
-	ivr, err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
+	err = client.PersistDialVisit(ctx, peerID, []multiaddr.Multiaddr{ma1, ma2}, time.Second, visitStart, visitEnd, "")
 	require.NoError(t, err)
-	dbPeer = fetchPeer(t, ctx, client.Handle(), *ivr.PeerID)
+	dbPeer = fetchPeerByMultihash(t, ctx, client.Handle(), peerID.String())
 
 	session = dbPeer.R.SessionsOpen
 	assert.Equal(t, session.PeerID, dbPeer.ID)
 	assert.Equal(t, session.SuccessfulVisitsCount, 3)
 	assert.Equal(t, session.FailedVisitsCount, int16(0))
-	assert.Equal(t, session.State, models.SessionStateOpen)
+	assert.Equal(t, session.State, pgmodels.SessionStateOpen)
 	assert.Equal(t, session.RecoveredCount, 1)
 	assert.NotEqual(t, session.FirstSuccessfulVisit.UnixMicro(), visitStart.UnixMicro())
 	assert.InDelta(t, session.LastSuccessfulVisit.UnixNano(), visitEnd.UnixNano(), float64(time.Microsecond))
@@ -523,7 +515,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	assert.True(t, session.FinishReason.IsZero())
 	assert.True(t, session.LastFailedVisit.IsZero())
 
-	count, err := models.Sessions().Count(ctx, client.Handle())
+	count, err := pgmodels.Sessions().Count(ctx, client.Handle())
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), count)
 }
@@ -597,13 +589,25 @@ func TestClient_UpsertPeer(t *testing.T) {
 	assert.True(t, unmarshalProperties(t, dbPeer.Properties.JSON)["is_exposed"].(bool))
 }
 
-func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbPeerID int) *models.Peer {
-	dbPeer, err := models.Peers(
-		models.PeerWhere.ID.EQ(dbPeerID),
-		qm.Load(models.PeerRels.AgentVersion),
-		qm.Load(models.PeerRels.MultiAddresses),
-		qm.Load(models.PeerRels.ProtocolsSet),
-		qm.Load(models.PeerRels.SessionsOpen),
+func fetchPeer(t *testing.T, ctx context.Context, exec boil.ContextExecutor, dbPeerID int) *pgmodels.Peer {
+	dbPeer, err := pgmodels.Peers(
+		pgmodels.PeerWhere.ID.EQ(dbPeerID),
+		qm.Load(pgmodels.PeerRels.AgentVersion),
+		qm.Load(pgmodels.PeerRels.MultiAddresses),
+		qm.Load(pgmodels.PeerRels.ProtocolsSet),
+		qm.Load(pgmodels.PeerRels.SessionsOpen),
+	).One(ctx, exec)
+	require.NoError(t, err)
+	return dbPeer
+}
+
+func fetchPeerByMultihash(t *testing.T, ctx context.Context, exec boil.ContextExecutor, multiHash string) *pgmodels.Peer {
+	dbPeer, err := pgmodels.Peers(
+		pgmodels.PeerWhere.MultiHash.EQ(multiHash),
+		qm.Load(pgmodels.PeerRels.AgentVersion),
+		qm.Load(pgmodels.PeerRels.MultiAddresses),
+		qm.Load(pgmodels.PeerRels.ProtocolsSet),
+		qm.Load(pgmodels.PeerRels.SessionsOpen),
 	).One(ctx, exec)
 	require.NoError(t, err)
 	return dbPeer

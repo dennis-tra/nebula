@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
-
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -21,6 +21,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/dennis-tra/nebula-crawler/db"
 )
 
 type Network string
@@ -208,6 +210,9 @@ type Database struct {
 	// File path to the JSON output directory
 	JSONOut string
 
+	// Determines the database engine to which the data should be written
+	DatabaseEngine string
+
 	// Determines the host address of the database.
 	DatabaseHost string
 
@@ -223,8 +228,10 @@ type Database struct {
 	// Determines the username with which we access the database.
 	DatabaseUser string
 
-	// Postgres SSL mode (should be one supported in https://www.postgresql.org/docs/current/libpq-ssl.html)
-	DatabaseSSLMode string
+	// The database SSL configuration. For Postgres SSL mode should be
+	// one of the supported values here: https://www.postgresql.org/docs/current/libpq-ssl.html)
+	// For clickhouse only a yes or no value is supported
+	DatabaseSSL string
 
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
@@ -245,17 +252,80 @@ type Database struct {
 	TracerProvider trace.TracerProvider
 }
 
-// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
-func (c *Database) DatabaseSourceName() string {
-	return fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
-		c.DatabaseHost,
-		c.DatabasePort,
-		c.DatabaseName,
-		c.DatabaseUser,
-		c.DatabasePassword,
-		c.DatabaseSSLMode,
+func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
+	if cfg.DatabasePort == 0 {
+		cfg.DatabasePort = 5432
+	}
+
+	return &db.PostgresClientConfig{
+		DatabaseHost:           cfg.DatabaseHost,
+		DatabasePort:           cfg.DatabasePort,
+		DatabaseName:           cfg.DatabaseName,
+		DatabasePassword:       cfg.DatabasePassword,
+		DatabaseUser:           cfg.DatabaseUser,
+		DatabaseSSL:            cfg.DatabaseSSL,
+		AgentVersionsCacheSize: cfg.AgentVersionsCacheSize,
+		ProtocolsCacheSize:     cfg.ProtocolsCacheSize,
+		ProtocolsSetCacheSize:  cfg.ProtocolsSetCacheSize,
+		MaxIdleConns:           cfg.MaxIdleConns,
+		MeterProvider:          cfg.MeterProvider,
+		TracerProvider:         cfg.TracerProvider,
+	}
+}
+
+func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
+	if cfg.DatabasePort == 0 {
+		cfg.DatabasePort = 9000
+	}
+
+	return &db.ClickHouseClientConfig{
+		DatabaseHost:     cfg.DatabaseHost,
+		DatabasePort:     cfg.DatabasePort,
+		DatabaseName:     cfg.DatabaseName,
+		DatabasePassword: cfg.DatabasePassword,
+		DatabaseUser:     cfg.DatabaseUser,
+		DatabaseSSL:      cfg.DatabaseSSL,
+		MeterProvider:    cfg.MeterProvider,
+		TracerProvider:   cfg.TracerProvider,
+	}
+}
+
+// NewClient will initialize the right database client based on the given
+// configuration. This can either be a Postgres, ClickHouse, JSON, or noop
+// client. The noop client is a dummy implementation of the [Client] interface
+// that does nothing when the methods are called. That's the one used if the
+// user specifies `--dry-run` on the command line. The JSON client is used when
+// the user specifies a JSON output directory. Then JSON files with crawl
+// information are written to that directory. In any other case, the Postgres
+// or ClickHouse client is used based on the configured database engine.
+func (cfg *Database) NewClient(ctx context.Context) (db.Client, error) {
+	var (
+		dbc db.Client
+		err error
 	)
+
+	// dry run has precedence. Then, if a JSON output directory is given, use
+	// the JSON client. In any other case, use the one configured via the engine
+	// command line flag client.
+	if cfg.DryRun {
+		dbc = db.NewNoopClient()
+	} else if cfg.JSONOut != "" {
+		dbc, err = db.NewJSONClient(cfg.JSONOut)
+	} else {
+		switch strings.ToLower(cfg.DatabaseEngine) {
+		case "postgres", "pg":
+			dbc, err = db.NewPostgresClient(ctx, cfg.PostgresClientConfig())
+		case "clickhouse", "ch":
+			dbc, err = db.NewClickHouseClient(ctx, cfg.ClickHouseClientConfig())
+		default:
+			return nil, fmt.Errorf("unknown database engine: %s", cfg.DatabaseEngine)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("init db client: %w", err)
+	}
+
+	return dbc, nil
 }
 
 // Crawl contains general user configuration.

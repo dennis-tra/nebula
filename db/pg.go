@@ -35,13 +35,13 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	"go.opentelemetry.io/otel/trace"
 
-	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
-//go:embed migrations
+//go:embed migrations/pg
 var migrations embed.FS
 
 var (
@@ -50,11 +50,63 @@ var (
 	ErrEmptyProtocolsSet = fmt.Errorf("empty protocols set")
 )
 
-type DBClient struct {
+type PostgresClientConfig struct {
+	// Determines the host address of the database.
+	DatabaseHost string
+
+	// Determines the port of the database.
+	DatabasePort int
+
+	// Determines the name of the database that should be used.
+	DatabaseName string
+
+	// Determines the password with which we access the database.
+	DatabasePassword string
+
+	// Determines the username with which we access the database.
+	DatabaseUser string
+
+	// The database SSL configuration. For Postgres SSL mode should be
+	// one of the supported values here: https://www.postgresql.org/docs/current/libpq-ssl.html)
+	DatabaseSSL string
+
+	// The cache size to hold agent versions in memory to skip database queries.
+	AgentVersionsCacheSize int
+
+	// The cache size to hold protocols in memory to skip database queries.
+	ProtocolsCacheSize int
+
+	// The cache size to hold sets of protocols in memory to skip database queries.
+	ProtocolsSetCacheSize int
+
+	// Set the maximum idle connections for the database handler.
+	MaxIdleConns int
+
+	// MeterProvider is the meter provider to use when initialising metric instruments.
+	MeterProvider metric.MeterProvider
+
+	// TracerProvider is the tracer provider to use when initialising tracing
+	TracerProvider trace.TracerProvider
+}
+
+// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
+func (c *PostgresClientConfig) DatabaseSourceName() string {
+	return fmt.Sprintf(
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
+		c.DatabaseHost,
+		c.DatabasePort,
+		c.DatabaseName,
+		c.DatabaseUser,
+		c.DatabasePassword,
+		c.DatabaseSSL,
+	)
+}
+
+type PostgresClient struct {
 	ctx context.Context
 
 	// Reference to the configuration
-	cfg *config.Database
+	cfg *PostgresClientConfig
 
 	// Database handler
 	dbh *sql.DB
@@ -68,21 +120,31 @@ type DBClient struct {
 	// protocols set cache
 	protocolsSets *lru.Cache
 
+	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
+	// the database does not need to look up every peer ID but only the ones not yet present in the database.
+	// Speed up for ~11k peers: 5.5 min -> 30s
+	peerMappings map[peer.ID]int
+
+	// the crawl entity that was created in the database
+	// we don't propagate this object through the rest of the code but instead
+	// cache it here because clickhouse and postgres have different type for
+	// database IDs (clickhouse strings, postgres ints).
+	crawlMu sync.Mutex
+	crawl   *pgmodels.Crawl
+
 	// reference to all relevant db telemetry
 	telemetry *telemetry
 }
 
-var _ Client = (*DBClient)(nil)
-
-// InitDBClient establishes a database connection with the provided configuration
+// NewClickHouseClient establishes a database connection with the provided configuration
 // and applies any pending migrations.
-func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) {
+func NewPostgresClient(ctx context.Context, cfg *PostgresClientConfig) (*PostgresClient, error) {
 	log.WithFields(log.Fields{
 		"host": cfg.DatabaseHost,
 		"port": cfg.DatabasePort,
 		"name": cfg.DatabaseName,
 		"user": cfg.DatabaseUser,
-		"ssl":  cfg.DatabaseSSLMode,
+		"ssl":  cfg.DatabaseSSL,
 	}).Infoln("Initializing database client")
 
 	dbh, err := otelsql.Open("postgres", cfg.DatabaseSourceName(),
@@ -109,7 +171,13 @@ func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) 
 		return nil, fmt.Errorf("new telemetry: %w", err)
 	}
 
-	client := &DBClient{ctx: ctx, cfg: cfg, dbh: dbh, telemetry: telemetry}
+	client := &PostgresClient{
+		ctx:          ctx,
+		cfg:          cfg,
+		dbh:          dbh,
+		peerMappings: make(map[peer.ID]int),
+		telemetry:    telemetry,
+	}
 	client.applyMigrations(cfg, dbh)
 
 	client.agentVersions, err = lru.New(cfg.AgentVersionsCacheSize)
@@ -152,15 +220,15 @@ func InitDBClient(ctx context.Context, cfg *config.Database) (*DBClient, error) 
 	return client, nil
 }
 
-func (c *DBClient) Handle() *sql.DB {
+func (c *PostgresClient) Handle() *sql.DB {
 	return c.dbh
 }
 
-func (c *DBClient) Close() error {
+func (c *PostgresClient) Close() error {
 	return c.dbh.Close()
 }
 
-func (c *DBClient) applyMigrations(cfg *config.Database, dbh *sql.DB) {
+func (c *PostgresClient) applyMigrations(cfg *PostgresClientConfig, dbh *sql.DB) {
 	tmpDir, err := os.MkdirTemp("", "nebula")
 	if err != nil {
 		log.WithError(err).WithField("pattern", "nebula").Warnln("Could not create tmp directory for migrations")
@@ -210,26 +278,26 @@ func (c *DBClient) applyMigrations(cfg *config.Database, dbh *sql.DB) {
 	}
 }
 
-func (c *DBClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
+func (c *PostgresClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	lowerBound := time.Date(baseDate.Year(), baseDate.Month(), 1, 0, 0, 0, 0, baseDate.Location())
 	upperBound := lowerBound.AddDate(0, 1, 0)
 
-	query := partitionQuery(models.TableNames.Visits, lowerBound, upperBound)
+	query := partitionQuery(pgmodels.TableNames.Visits, lowerBound, upperBound)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create visits partition")
 	}
 
-	query = partitionQuery(models.TableNames.SessionsClosed, lowerBound, upperBound)
+	query = partitionQuery(pgmodels.TableNames.SessionsClosed, lowerBound, upperBound)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create sessions closed partition")
 	}
 
-	query = partitionQuery(models.TableNames.PeerLogs, lowerBound, upperBound)
+	query = partitionQuery(pgmodels.TableNames.PeerLogs, lowerBound, upperBound)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
 		log.WithError(err).WithField("query", query).Warnln("could not create peer_logs partition")
 	}
 
-	crawl, err := models.Crawls(qm.OrderBy(models.CrawlColumns.StartedAt+" DESC")).One(ctx, c.dbh)
+	crawl, err := pgmodels.Crawls(qm.OrderBy(pgmodels.CrawlColumns.StartedAt+" DESC")).One(ctx, c.dbh)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		log.WithError(err).Warnln("could not load most recent crawl")
 	}
@@ -242,15 +310,15 @@ func (c *DBClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
 	lower := (maxCrawlID / neighborsPartitionSize) * neighborsPartitionSize
 	upper := lower + neighborsPartitionSize
 	query = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s_%d_%d PARTITION OF %s FOR VALUES FROM (%d) TO (%d)",
-		models.TableNames.Neighbors,
+		pgmodels.TableNames.Neighbors,
 		lower,
 		upper,
-		models.TableNames.Neighbors,
+		pgmodels.TableNames.Neighbors,
 		lower,
 		upper,
 	)
 	if _, err := c.dbh.ExecContext(ctx, query); err != nil {
-		log.WithError(err).WithField("query", query).Warnln("could not create neigbors partition")
+		log.WithError(err).WithField("query", query).Warnln("could not create neighbors partition")
 	}
 }
 
@@ -267,77 +335,57 @@ func partitionQuery(table string, lower time.Time, upper time.Time) string {
 
 // InitCrawl inserts a crawl instance into the database in the state `started`.
 // This is done to receive a database ID that all subsequent database entities can be linked to.
-func (c *DBClient) InitCrawl(ctx context.Context, version string) (*models.Crawl, error) {
-	crawl := &models.Crawl{
-		State:     models.CrawlStateStarted,
+func (c *PostgresClient) InitCrawl(ctx context.Context, version string) (err error) {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+
+	defer func() {
+		if err != nil {
+			c.crawl = nil
+		}
+	}()
+
+	if c.crawl != nil {
+		return fmt.Errorf("crawl already initialized")
+	}
+
+	c.crawl = &pgmodels.Crawl{
+		State:     pgmodels.CrawlStateStarted,
 		StartedAt: time.Now(),
 		Version:   version,
 	}
-	return crawl, crawl.Insert(ctx, c.dbh, boil.Infer())
+
+	return c.crawl.Insert(ctx, c.dbh, boil.Infer())
 }
 
-// UpdateCrawl takes the crawl model an updates it in the database.
-func (c *DBClient) UpdateCrawl(ctx context.Context, crawl *models.Crawl) error {
-	_, err := crawl.Update(ctx, c.dbh, boil.Infer())
+func (c *PostgresClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (err error) {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+
+	// TODO: does this perform a deep copy?
+	original := *c.crawl
+	defer func() {
+		// roll back in case of an error
+		if err != nil {
+			c.crawl = &original
+		}
+	}()
+
+	now := time.Now()
+
+	c.crawl.UpdatedAt = now
+	c.crawl.CrawledPeers = null.IntFrom(args.Crawled)
+	c.crawl.DialablePeers = null.IntFrom(args.Dialable)
+	c.crawl.UndialablePeers = null.IntFrom(args.Undialable)
+	c.crawl.RemainingPeers = null.IntFrom(args.Remaining)
+	c.crawl.State = string(args.State)
+	c.crawl.FinishedAt = null.TimeFrom(now)
+
+	_, err = c.crawl.Update(ctx, c.dbh, boil.Infer())
 	return err
 }
 
-func (c *DBClient) PersistCrawlVisit(
-	ctx context.Context,
-	crawlID int,
-	peerID peer.ID,
-	maddrs []ma.Multiaddr,
-	protocols []string,
-	agentVersion string,
-	connectDuration time.Duration,
-	crawlDuration time.Duration,
-	visitStartedAt time.Time,
-	visitEndedAt time.Time,
-	connectErrorStr string,
-	crawlErrorStr string,
-	properties null.JSON,
-) (*InsertVisitResult, error) {
-	var agentVersionID, protocolsSetID *int
-	var avidErr, psidErr error
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		agentVersionID, avidErr = c.GetOrCreateAgentVersionID(ctx, c.dbh, agentVersion)
-		if avidErr != nil && !errors.Is(avidErr, ErrEmptyAgentVersion) && !errors.Is(psidErr, context.Canceled) {
-			log.WithError(avidErr).WithField("agentVersion", agentVersion).Warnln("Error getting or creating agent version id")
-		}
-		wg.Done()
-	}()
-	go func() {
-		protocolsSetID, psidErr = c.GetOrCreateProtocolsSetID(ctx, c.dbh, protocols)
-		if psidErr != nil && !errors.Is(psidErr, ErrEmptyProtocolsSet) && !errors.Is(psidErr, context.Canceled) {
-			log.WithError(psidErr).WithField("protocols", protocols).Warnln("Error getting or creating protocols set id")
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-
-	return c.insertVisit(
-		ctx,
-		&crawlID,
-		peerID,
-		maddrs,
-		null.IntFromPtr(agentVersionID),
-		null.IntFromPtr(protocolsSetID),
-		nil,
-		&connectDuration,
-		&crawlDuration,
-		visitStartedAt,
-		visitEndedAt,
-		models.VisitTypeCrawl,
-		connectErrorStr,
-		crawlErrorStr,
-		properties,
-	)
-}
-
-func (c *DBClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*int, error) {
+func (c *PostgresClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExecutor, protocol string) (*int, error) {
 	if protocol == "" {
 		return nil, ErrEmptyProtocol
 	}
@@ -376,12 +424,12 @@ func (c *DBClient) GetOrCreateProtocol(ctx context.Context, exec boil.ContextExe
 
 // fillProtocolsCache fetches all rows until protocol cache size from the protocols table and
 // initializes the DB clients protocols cache.
-func (c *DBClient) fillProtocolsCache(ctx context.Context) error {
+func (c *PostgresClient) fillProtocolsCache(ctx context.Context) error {
 	if c.cfg.ProtocolsCacheSize == 0 {
 		return nil
 	}
 
-	prots, err := models.Protocols(qm.Limit(c.cfg.ProtocolsCacheSize)).All(ctx, c.dbh)
+	prots, err := pgmodels.Protocols(qm.Limit(c.cfg.ProtocolsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -395,12 +443,12 @@ func (c *DBClient) fillProtocolsCache(ctx context.Context) error {
 
 // fillProtocolsSetCache fetches all rows until protocolSet cache size from the protocolsSets table and
 // initializes the DB clients protocolsSets cache.
-func (c *DBClient) fillProtocolsSetCache(ctx context.Context) error {
+func (c *PostgresClient) fillProtocolsSetCache(ctx context.Context) error {
 	if c.cfg.ProtocolsSetCacheSize == 0 {
 		return nil
 	}
 
-	protSets, err := models.ProtocolsSets(qm.Limit(c.cfg.ProtocolsSetCacheSize)).All(ctx, c.dbh)
+	protSets, err := pgmodels.ProtocolsSets(qm.Limit(c.cfg.ProtocolsSetCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -414,7 +462,7 @@ func (c *DBClient) fillProtocolsSetCache(ctx context.Context) error {
 
 // protocolsSetHash returns a unique hash digest for this set of protocol IDs as it's also generated by the database.
 // It expects the list of protocolIDs to be sorted in ascending order.
-func (c *DBClient) protocolsSetHash(protocolIDs []int64) string {
+func (c *PostgresClient) protocolsSetHash(protocolIDs []int64) string {
 	protocolStrs := make([]string, len(protocolIDs))
 	for i, id := range protocolIDs {
 		protocolStrs[i] = strconv.Itoa(int(id)) // safe because protocol IDs are just integers in the database.
@@ -426,7 +474,7 @@ func (c *DBClient) protocolsSetHash(protocolIDs []int64) string {
 	return string(h.Sum(nil))
 }
 
-func (c *DBClient) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.ContextExecutor, protocols []string) (*int, error) {
+func (c *PostgresClient) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.ContextExecutor, protocols []string) (*int, error) {
 	if len(protocols) == 0 {
 		return nil, ErrEmptyProtocolsSet
 	}
@@ -477,7 +525,7 @@ func (c *DBClient) GetOrCreateProtocolsSetID(ctx context.Context, exec boil.Cont
 	return protocolsSetID, nil
 }
 
-func (c *DBClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (*int, error) {
+func (c *PostgresClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.ContextExecutor, agentVersion string) (*int, error) {
 	if agentVersion == "" {
 		return nil, ErrEmptyAgentVersion
 	}
@@ -516,12 +564,12 @@ func (c *DBClient) GetOrCreateAgentVersionID(ctx context.Context, exec boil.Cont
 
 // fillAgentVersionsCache fetches all rows until agent version cache size from the agent_versions table and
 // initializes the DB clients agent version cache.
-func (c *DBClient) fillAgentVersionsCache(ctx context.Context) error {
+func (c *PostgresClient) fillAgentVersionsCache(ctx context.Context) error {
 	if c.cfg.AgentVersionsCacheSize == 0 {
 		return nil
 	}
 
-	avs, err := models.AgentVersions(qm.Limit(c.cfg.AgentVersionsCacheSize)).All(ctx, c.dbh)
+	avs, err := pgmodels.AgentVersions(qm.Limit(c.cfg.AgentVersionsCacheSize)).All(ctx, c.dbh)
 	if err != nil {
 		return err
 	}
@@ -533,7 +581,7 @@ func (c *DBClient) fillAgentVersionsCache(ctx context.Context) error {
 	return nil
 }
 
-func (c *DBClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID null.Int, properties null.JSON) (int, error) {
+func (c *PostgresClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID null.Int, properties null.JSON) (int, error) {
 	rows, err := queries.Raw("SELECT upsert_peer($1, $2, $3, $4)",
 		mh, agentVersionID, protocolSetID, properties,
 	).Query(c.dbh)
@@ -559,76 +607,67 @@ func (c *DBClient) UpsertPeer(mh string, agentVersionID null.Int, protocolSetID 
 	return id, nil
 }
 
-func (c *DBClient) PersistDialVisit(
-	ctx context.Context,
-	peerID peer.ID,
-	maddrs []ma.Multiaddr,
-	dialDuration time.Duration,
-	visitStartedAt time.Time,
-	visitEndedAt time.Time,
-	errorStr string,
-) (*InsertVisitResult, error) {
-	return c.insertVisit(
-		ctx,
-		nil,
-		peerID,
-		maddrs,
-		null.IntFromPtr(nil),
-		null.IntFromPtr(nil),
-		&dialDuration,
-		nil,
-		nil,
-		visitStartedAt,
-		visitEndedAt,
-		models.VisitTypeDial,
-		errorStr,
-		"",
-		null.JSONFromPtr(nil),
-	)
-}
+func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
+	var agentVersionID, protocolsSetID *int
+	var avidErr, psidErr error
 
-func (c *DBClient) insertVisit(
-	ctx context.Context,
-	crawlID *int,
-	peerID peer.ID,
-	maddrs []ma.Multiaddr,
-	agentVersionID null.Int,
-	protocolsSetID null.Int,
-	dialDuration *time.Duration,
-	connectDuration *time.Duration,
-	crawlDuration *time.Duration,
-	visitStartedAt time.Time,
-	visitEndedAt time.Time,
-	visitType string,
-	connectErrorStr string,
-	crawlErrorStr string,
-	properties null.JSON,
-) (*InsertVisitResult, error) {
-	maddrStrs := utils.MaddrsToAddrs(maddrs)
+	var wg sync.WaitGroup
+	if args.AgentVersion != "" {
+		wg.Add(1)
+		go func() {
+			agentVersionID, avidErr = c.GetOrCreateAgentVersionID(ctx, c.dbh, args.AgentVersion)
+			if avidErr != nil && !errors.Is(avidErr, ErrEmptyAgentVersion) && !errors.Is(psidErr, context.Canceled) {
+				log.WithError(avidErr).WithField("agentVersion", args.AgentVersion).Warnln("Error getting or creating agent version id")
+			}
+			wg.Done()
+		}()
+	}
+
+	if args.Protocols != nil && len(args.Protocols) > 0 {
+
+		wg.Add(1)
+		go func() {
+			protocolsSetID, psidErr = c.GetOrCreateProtocolsSetID(ctx, c.dbh, args.Protocols)
+			if psidErr != nil && !errors.Is(psidErr, ErrEmptyProtocolsSet) && !errors.Is(psidErr, context.Canceled) {
+				log.WithError(psidErr).WithField("protocols", args.Protocols).Warnln("Error getting or creating protocols set id")
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	visitType := pgmodels.VisitTypeDial
+	var crawlID *int
+	if c.crawl != nil {
+		crawlID = &c.crawl.ID
+		visitType = pgmodels.VisitTypeCrawl
+	} else if args.CrawlDuration != nil {
+		log.Warnln("Crawl duration provided but no crawl initialized.")
+	}
 
 	start := time.Now()
 	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
 		crawlID,
-		peerID.String(),
-		types.StringArray(maddrStrs),
+		args.PeerID.String(),
+		types.StringArray(utils.MaddrsToAddrs(args.Maddrs)),
 		agentVersionID,
 		protocolsSetID,
-		durationToInterval(dialDuration),
-		durationToInterval(connectDuration),
-		durationToInterval(crawlDuration),
-		visitStartedAt,
-		visitEndedAt,
+		durationToInterval(args.DialDuration),
+		durationToInterval(args.ConnectDuration),
+		durationToInterval(args.CrawlDuration),
+		args.VisitStartedAt,
+		args.VisitEndedAt,
 		visitType,
-		null.NewString(connectErrorStr, connectErrorStr != ""),
-		null.NewString(crawlErrorStr, crawlErrorStr != ""),
-		properties,
+		null.NewString(args.ConnectErrorStr, args.ConnectErrorStr != ""),
+		null.NewString(args.CrawlErrorStr, args.CrawlErrorStr != ""),
+		args.Properties,
 	).QueryContext(ctx, c.dbh)
 	c.telemetry.insertVisitHistogram.Record(ctx, time.Since(start).Milliseconds(), metric.WithAttributes(
 		attribute.String("type", visitType),
 		attribute.Bool("success", err == nil),
 	))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer func() {
@@ -637,28 +676,29 @@ func (c *DBClient) insertVisit(
 		}
 	}()
 
-	ivr := InsertVisitResult{
-		PID: peerID,
+	ivr := insertVisitResult{
+		PID: args.PeerID,
 	}
 	if !rows.Next() {
-		return &ivr, nil
+		return nil
 	}
 
 	if err = rows.Scan(&ivr); err != nil {
-		return nil, err
+		return err
 	}
 
-	return &ivr, nil
+	c.peerMappings[ivr.PID] = *ivr.PeerID
+
+	return nil
 }
 
-type InsertVisitResult struct {
-	PID       peer.ID
-	PeerID    *int
-	VisitID   *int
-	SessionID *int
+type insertVisitResult struct {
+	PID     peer.ID
+	PeerID  *int
+	VisitID *int
 }
 
-func (ivr *InsertVisitResult) Scan(value interface{}) error {
+func (ivr *insertVisitResult) Scan(value interface{}) error {
 	data, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("incompatible type %T", value)
@@ -685,37 +725,40 @@ func (ivr *InsertVisitResult) Scan(value interface{}) error {
 		ivr.VisitID = &id
 	}
 
-	if parts[2] != "" {
-		id, err := strconv.Atoi(parts[2])
-		if err != nil {
-			return fmt.Errorf("invalid db session id %s", parts[2])
-		}
-		ivr.SessionID = &id
-	}
-
 	return nil
 }
 
 func durationToInterval(dur *time.Duration) *string {
-	if dur == nil {
+	if dur == nil || *dur == 0 {
 		return nil
 	}
 	s := fmt.Sprintf("%f seconds", dur.Seconds())
 	return &s
 }
 
-func (c *DBClient) PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error {
-	neighborMHashes := make([]string, len(neighbors))
-	for i, neighbor := range neighbors {
-		neighborMHashes[i] = neighbor.String()
+func (c *PostgresClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
+	var dbPeerID *int
+	if value, ok := c.peerMappings[peerID]; ok {
+		dbPeerID = &value
 	}
+
+	var dbNeighborIDs []int
+	var neighborMHashes []string
+	for _, n := range neighbors {
+		if id, found := c.peerMappings[n]; found {
+			dbNeighborIDs = append(dbNeighborIDs, id)
+		} else {
+			neighborMHashes = append(neighborMHashes, n.String())
+		}
+	}
+
 	// postgres does not support unsigned integers. So we interpret the uint16 as an int16
 	bitMask := *(*int16)(unsafe.Pointer(&errorBits))
 	rows, err := queries.Raw("SELECT insert_neighbors($1, $2, $3, $4, $5, $6)",
-		crawl.ID,
+		c.crawl.ID,
 		dbPeerID,
 		peerID.String(),
-		fmt.Sprintf("{%s}", strings.Trim(strings.Join(strings.Split(fmt.Sprint(dbNeighborsIDs), " "), ","), "[]")),
+		fmt.Sprintf("{%s}", strings.Trim(strings.Join(strings.Split(fmt.Sprint(dbNeighborIDs), " "), ","), "[]")),
 		fmt.Sprintf("{%s}", strings.Join(neighborMHashes, ",")),
 		bitMask,
 	).QueryContext(ctx, c.dbh)
@@ -725,7 +768,7 @@ func (c *DBClient) PersistNeighbors(ctx context.Context, crawl *models.Crawl, db
 	return rows.Close()
 }
 
-func (c *DBClient) PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error {
+func (c *PostgresClient) InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error {
 	txn, err := c.dbh.BeginTx(ctx, nil)
 	if err != nil {
 		return errors.New("start peer property txn")
@@ -735,8 +778,8 @@ func (c *DBClient) PersistCrawlProperties(ctx context.Context, crawl *models.Cra
 	for property, valuesMap := range properties {
 		for value, count := range valuesMap {
 
-			cp := &models.CrawlProperty{
-				CrawlID: crawl.ID,
+			cp := &pgmodels.CrawlProperty{
+				CrawlID: c.crawl.ID,
 				Count:   count,
 			}
 
@@ -769,7 +812,7 @@ func (c *DBClient) PersistCrawlProperties(ctx context.Context, crawl *models.Cra
 
 			if err := cp.Insert(ctx, txn, boil.Infer()); err != nil {
 				log.WithError(err).WithFields(log.Fields{
-					"crawlId":  crawl.ID,
+					"crawlId":  c.crawl.ID,
 					"property": property,
 					"value":    value,
 				}).Warnln("Could not insert peer property txn")
@@ -781,9 +824,9 @@ func (c *DBClient) PersistCrawlProperties(ctx context.Context, crawl *models.Cra
 	return txn.Commit()
 }
 
-func (c *DBClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
-	peers, err := models.Peers(
-		qm.Load(models.PeerRels.MultiAddresses),
+func (c *PostgresClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
+	peers, err := pgmodels.Peers(
+		qm.Load(pgmodels.PeerRels.MultiAddresses),
 		qm.InnerJoin("sessions_open s on s.peer_id = peers.id"),
 		qm.OrderBy("s.last_visited_at"),
 		qm.Limit(limit),
@@ -818,20 +861,54 @@ func (c *DBClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.A
 	return pis, nil
 }
 
-// FetchDueOpenSessions fetches all open sessions from the database that are due.
-func (c *DBClient) FetchDueOpenSessions(ctx context.Context) (models.SessionsOpenSlice, error) {
-	return models.SessionsOpens(
-		models.SessionsOpenWhere.NextVisitDueAt.LT(time.Now()),
-		qm.Load(models.SessionsOpenRels.Peer),
-		qm.Load(qm.Rels(models.SessionsOpenRels.Peer, models.PeerRels.MultiAddresses)),
+// SelectPeersToProbe fetches all open sessions from the database that are due
+// to be dialed/probed.
+func (c *PostgresClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
+	openSessions, err := pgmodels.SessionsOpens(
+		pgmodels.SessionsOpenWhere.NextVisitDueAt.LT(time.Now()),
+		qm.Load(pgmodels.SessionsOpenRels.Peer),
+		qm.Load(qm.Rels(pgmodels.SessionsOpenRels.Peer, pgmodels.PeerRels.MultiAddresses)),
 	).All(ctx, c.dbh)
+	if err != nil {
+		return nil, err
+	}
+
+	addrInfos := make([]peer.AddrInfo, 0, len(openSessions))
+	for _, session := range openSessions {
+		// take multi hash and decode into PeerID
+		peerID, err := peer.Decode(session.R.Peer.MultiHash)
+		if err != nil {
+			log.WithField("mhash", session.R.Peer.MultiHash).
+				WithError(err).
+				Warnln("Could not parse multi address")
+			continue
+		}
+		logEntry := log.WithField("peerID", peerID.ShortString())
+
+		// Parse multi addresses from database
+		maddrs := make([]ma.Multiaddr, 0, len(session.R.Peer.R.MultiAddresses))
+		for _, dbMaddr := range session.R.Peer.R.MultiAddresses {
+			maddr, err := ma.NewMultiaddr(dbMaddr.Maddr)
+			if err != nil {
+				logEntry.WithError(err).WithField("maddr", dbMaddr.Maddr).Warnln("Could not parse multi address")
+				continue
+			}
+			maddrs = append(maddrs, maddr)
+		}
+		addrInfos = append(addrInfos, peer.AddrInfo{
+			ID:    peerID,
+			Addrs: maddrs,
+		})
+	}
+
+	return addrInfos, nil
 }
 
 // FetchUnresolvedMultiAddresses fetches all multi addresses that were not resolved yet.
-func (c *DBClient) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (models.MultiAddressSlice, error) {
-	return models.MultiAddresses(
-		models.MultiAddressWhere.Resolved.EQ(false),
-		qm.OrderBy(models.MultiAddressColumns.CreatedAt),
+func (c *PostgresClient) FetchUnresolvedMultiAddresses(ctx context.Context, limit int) (pgmodels.MultiAddressSlice, error) {
+	return pgmodels.MultiAddresses(
+		pgmodels.MultiAddressWhere.Resolved.EQ(false),
+		qm.OrderBy(pgmodels.MultiAddressColumns.CreatedAt),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
 }

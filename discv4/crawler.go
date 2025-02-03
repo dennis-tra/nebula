@@ -21,7 +21,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 type CrawlerConfig struct {
@@ -80,12 +80,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	properties := map[string]any{}
 
 	// keep track of all unknown connection errors
-	if devp2pResult.ConnectErrorStr == models.NetErrorUnknown && devp2pResult.ConnectError != nil {
+	if devp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && devp2pResult.ConnectError != nil {
 		properties["connect_error"] = devp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+	if discV4Result.ErrorStr == pgmodels.NetErrorUnknown && discV4Result.Error != nil {
 		properties["crawl_error"] = discV4Result.Error.Error()
 	}
 
@@ -104,12 +104,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	// keep track of all unknown connection errors
-	if devp2pResult.ConnectErrorStr == models.NetErrorUnknown && devp2pResult.ConnectError != nil {
+	if devp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && devp2pResult.ConnectError != nil {
 		properties["connect_error"] = devp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+	if discV4Result.ErrorStr == pgmodels.NetErrorUnknown && discV4Result.Error != nil {
 		properties["crawl_error"] = discV4Result.Error.Error()
 	}
 

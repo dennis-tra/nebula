@@ -25,7 +25,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -156,7 +155,6 @@ type CrawlDriver struct {
 	cfg            *CrawlDriverConfig
 	dbc            db.Client
 	client         *Client
-	dbCrawl        *models.Crawl
 	tasksChan      chan PeerInfo
 	peerstore      *enode.DB
 	crawlerCount   int
@@ -171,7 +169,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	priv, err := ethcrypto.GenerateKey()
 	if err != nil {
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
@@ -221,7 +219,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		cfg:            cfg,
 		dbc:            dbc,
 		client:         client,
-		dbCrawl:        crawl,
 		peerstore:      peerstore,
 		tasksChan:      tasksChan,
 		taskDoneAtChan: taskDoneAtChan,
@@ -326,7 +323,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
