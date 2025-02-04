@@ -9,7 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	"github.com/libp2p/go-msgio/protoio"
+	"github.com/libp2p/go-msgio/pbio"
 )
 
 // msgSender handles sending wire protocol messages to a given peer
@@ -28,12 +28,12 @@ func (ms *msgSender) SendRequest(ctx context.Context, p peer.ID, pmes *pb.Messag
 		return nil, err
 	}
 
-	w := protoio.NewDelimitedWriter(s)
+	w := pbio.NewDelimitedWriter(s)
 	if err = w.WriteMsg(pmes); err != nil {
 		return nil, err
 	}
 
-	r := protoio.NewDelimitedReader(s, network.MessageSizeMax)
+	r := pbio.NewDelimitedReader(s, network.MessageSizeMax)
 	tctx, cancel = context.WithTimeout(ctx, ms.timeout)
 	defer cancel()
 	defer func() { _ = s.Close() }()
@@ -47,9 +47,9 @@ func (ms *msgSender) SendRequest(ctx context.Context, p peer.ID, pmes *pb.Messag
 	return msg, nil
 }
 
-func ctxReadMsg(ctx context.Context, rc protoio.ReadCloser, mes *pb.Message) error {
+func ctxReadMsg(ctx context.Context, rc pbio.ReadCloser, mes *pb.Message) error {
 	errc := make(chan error, 1)
-	go func(r protoio.ReadCloser) {
+	go func(r pbio.ReadCloser) {
 		defer close(errc)
 		err := r.ReadMsg(mes)
 		errc <- err
@@ -71,5 +71,5 @@ func (ms *msgSender) SendMessage(ctx context.Context, p peer.ID, pmes *pb.Messag
 	}
 	defer func() { _ = s.Close() }()
 
-	return protoio.NewDelimitedWriter(s).WriteMsg(pmes)
+	return pbio.NewDelimitedWriter(s).WriteMsg(pmes)
 }
