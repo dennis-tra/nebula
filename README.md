@@ -23,7 +23,7 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [Celestia](https://celestia.org/) - [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Celestia](https://celestia.org/) - [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet)
 - [Pactus](https://pactus.org)
-- [Bitcoin] (https://bitcoin.org/) *\*alpha*
+- [Bitcoin](https://bitcoin.org/) _\*alpha_
 
 The crawler was:
 
@@ -31,9 +31,9 @@ The crawler was:
 - 🎓 _used for the ACM SigCOMM'22 paper [Design and Evaluation of IPFS: A Storage Layer for the Decentralized Web](https://research.protocol.ai/publications/design-and-evaluation-of-ipfs-a-storage-layer-for-the-decentralized-web/trautwein2022.pdf)_ 🎓
 
 Nebula powers:
-- 📊 _the weekly reports for the IPFS Amino DHT [here](https://github.com/probe-lab/network-measurements/tree/main/reports)!_ 📊
-- 🌐 _many graphs on [probelab.io](https://probelab.io) for most of the supported networks above_ 🌐 
 
+- 📊 _the weekly reports for the IPFS Amino DHT [here](https://github.com/probe-lab/network-measurements/tree/main/reports)!_ 📊
+- 🌐 _many graphs on [probelab.io](https://probelab.io) for most of the supported networks above_ 🌐
 
 You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https://www.youtube.com/watch?v=QDgvCBDqNMc) 📺
 
@@ -163,7 +163,7 @@ nebula --db-user nebula_test --db-name nebula_test monitor
 
 When Nebula is configured to store its results in a postgres database, then it also tracks session information of remote peers. A session is one continuous streak of uptime (see below).
 
-However, this is not implemented for all supported networks. The [ProbeLab](https://probelab.network) team is using the monitoring feature for the IPFS, Celestia, Filecoin, and Avail networks. Most notably, the Ethereum discv4/discv5 monitoring implementation still needs some work.  
+However, this is not implemented for all supported networks. The [ProbeLab](https://probelab.network) team is using the monitoring feature for the IPFS, Celestia, Filecoin, and Avail networks. Most notably, the Ethereum discv4/discv5 monitoring implementation still needs some work.
 
 ---
 
@@ -381,7 +381,7 @@ This will trigger the [`goreleaser.yml`](./.github/workflows/goreleaser.yml) wor
 
 ## Demo
 
-The following presentation shows a ways to use Nebula by showcasing crawls of the Amino, Celestia, and Ethereum DHT's: 
+The following presentation shows a ways to use Nebula by showcasing crawls of the Amino, Celestia, and Ethereum DHT's:
 
 [![Nebula: A Network Agnostic DHT Crawler - Dennis Trautwein](https://img.youtube.com/vi/QDgvCBDqNMc/0.jpg)](https://www.youtube.com/watch?v=QDgvCBDqNMc)
 
