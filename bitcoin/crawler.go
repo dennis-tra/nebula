@@ -361,7 +361,10 @@ func (c *Crawler) connect(ctx context.Context, addrs []ma.Multiaddr) (net.Conn, 
 
 	if len(addrs) > 0 {
 		for i := 0; i < connectionMaxRetry; i++ {
-			netAddr, _ := manet.ToNetAddr(addrs[0])
+			netAddr, err := manet.ToNetAddr(addrs[0])
+			if err == nil {
+				break
+			}
 			d := net.Dialer{
 				Timeout: c.cfg.DialTimeout,
 			}
