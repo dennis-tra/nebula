@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
+
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -37,12 +39,16 @@ const (
 	NetworkEthCons        Network = "ETHEREUM_CONSENSUS"
 	NetworkEthExec        Network = "ETHEREUM_EXECUTION"
 	NetworkHolesky        Network = "HOLESKY"
+	NetworkPortal         Network = "PORTAL"
 	NetworkAvailMainnetFN Network = "AVAIL_MAINNET_FN"
 	NetworkAvailMainnetLC Network = "AVAIL_MAINNET_LC"
 	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
 	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
 	NetworkPactus         Network = "PACTUS"
 	NetworkBitcoin        Network = "BITCOIN"
+	NetworkDria           Network = "DRIA"
+	NetworkWakuStatus     Network = "WAKU_STATUS"
+	NetworkWakuTWN        Network = "WAKU_TWN"
 )
 
 func Networks() []Network {
@@ -61,12 +67,16 @@ func Networks() []Network {
 		NetworkEthCons,
 		NetworkEthExec,
 		NetworkHolesky,
+		NetworkPortal,
 		NetworkAvailMainnetFN,
 		NetworkAvailMainnetLC,
 		NetworkAvailTuringLC,
 		NetworkAvailTuringFN,
 		NetworkPactus,
 		NetworkBitcoin,
+		NetworkDria,
+		NetworkWakuStatus,
+		NetworkWakuTWN,
 	}
 }
 
@@ -289,6 +299,12 @@ type Crawl struct {
 
 	// The UDP response timeout when crawling the discv4 and discv5 DHTs
 	UDPRespTimeout time.Duration
+
+	// WakuClusterID represents the identifier for the Waku cluster.
+	WakuClusterID int
+
+	// WakuClusterShards defines shard indices for Waku cluster operations.
+	WakuClusterShards *cli.IntSlice
 }
 
 func (c *Crawl) AddrTrackType() AddrType {
@@ -435,6 +451,42 @@ func (c *Crawl) BootstrapEnodesV5() ([]*enode.Node, error) {
 	return enodes, nil
 }
 
+func (c *Crawl) DiscV5ProtocolID() ([6]byte, error) {
+	protocols := c.Protocols.Value()
+	if len(protocols) != 1 {
+		return [6]byte{}, fmt.Errorf("invalid number of protocol IDs configured: %d", len(protocols))
+	}
+
+	protocolStr := protocols[0]
+	if len(protocolStr) != 6 {
+		return [6]byte{}, fmt.Errorf("invalid length of protocol ID %q: %d", protocolStr, len(protocolStr))
+	}
+
+	var protocolID [6]byte
+	copy(protocolID[:], protocolStr)
+	return protocolID, nil
+}
+
+// WakuClusterConfig doesn't return an error if the network isn't a waku network
+func (c *Crawl) WakuClusterConfig() (uint32, []uint32) {
+	if c.WakuClusterID != 0 && len(c.WakuClusterShards.Value()) != 0 {
+		shards := make([]uint32, len(c.WakuClusterShards.Value()))
+		for i, shard := range c.WakuClusterShards.Value() {
+			shards[i] = uint32(shard)
+		}
+		return uint32(c.WakuClusterID), shards
+	}
+
+	switch Network(c.Network) {
+	case NetworkWakuStatus:
+		return 16, []uint32{32, 64, 128}
+	case NetworkWakuTWN:
+		return 1, []uint32{0, 1, 2, 3, 4, 5, 6, 7}
+	default:
+		return 0, []uint32{}
+	}
+}
+
 // String prints the configuration as a json string
 func (c *Crawl) String() string {
 	data, _ := json.MarshalIndent(c, "", "  ")
@@ -477,13 +529,16 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthCons:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumConsensus...)
-		protocols = cli.NewStringSlice("discv5") // TODO
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
 	case NetworkEthExec:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumExecution...)
 		protocols = cli.NewStringSlice("discv4") // TODO
 	case NetworkHolesky:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersHolesky...)
-		protocols = cli.NewStringSlice("discv5") // TODO
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
+	case NetworkPortal:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPortalMainnet...)
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
 	case NetworkAvailMainnetFN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailMainnetFullNode...)
 		protocols = cli.NewStringSlice("/Avail/kad")
@@ -496,6 +551,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkAvailTuringFN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAvailTuringFullNode...)
 		protocols = cli.NewStringSlice("/Avail/kad")
+	case NetworkDria:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersDria...)
+		protocols = cli.NewStringSlice("/dria/kad/0.2")
 	case NetworkIPFS, NetworkAmino:
 		bps := []string{}
 		for _, maddr := range kaddht.DefaultBootstrapPeers {
@@ -509,6 +567,12 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkBitcoin:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBitcoinDNSSeeds...)
 		protocols = cli.NewStringSlice("bitcoin")
+	case NetworkWakuStatus:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuStatus...)
+		protocols = cli.NewStringSlice("d5waku")
+	case NetworkWakuTWN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuTWN...)
+		protocols = cli.NewStringSlice("d5waku")
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}

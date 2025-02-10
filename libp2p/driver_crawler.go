@@ -9,9 +9,9 @@ import (
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	ma "github.com/multiformats/go-multiaddr"
 	"go.opentelemetry.io/otel/metric"
@@ -184,22 +184,15 @@ func (d *CrawlDriver) Close() {}
 
 func newLibp2pHost(userAgent string) (Host, error) {
 	// Configure the resource manager to not limit anything
-	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit))
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
 	// Don't use a connection manager that could potentially
-	// prune any connections. We _theoretically_ clean up after
-	//	// ourselves.
+	// prune any connections. We clean up after ourselves.
 	cm := connmgr.NullConnMgr{}
+	rm := network.NullResourceManager{}
 
 	// Initialize a single libp2p node that's shared between all crawlers.
 	h, err := libp2p.New(
 		libp2p.UserAgent(userAgent),
-		libp2p.ResourceManager(rm),
+		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
 		libp2p.EnableRelay(), // enable the relay transport

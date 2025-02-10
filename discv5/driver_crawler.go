@@ -6,9 +6,7 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"io"
-	"math"
 	"net"
-	"net/netip"
 	"runtime"
 	"sync"
 	"time"
@@ -26,7 +24,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
@@ -142,26 +139,35 @@ func (p PeerInfo) DeduplicationKey() string {
 }
 
 type CrawlDriverConfig struct {
-	Version        string
-	TrackNeighbors bool
-	DialTimeout    time.Duration
-	BootstrapPeers []*enode.Node
-	AddrDialType   config.AddrType
-	AddrTrackType  config.AddrType
-	KeepENR        bool
-	MeterProvider  metric.MeterProvider
-	TracerProvider trace.TracerProvider
-	LogErrors      bool
-	UDPBufferSize  int
-	UDPRespTimeout time.Duration
+	Version           string
+	Network           config.Network
+	TrackNeighbors    bool
+	DialTimeout       time.Duration
+	BootstrapPeers    []*enode.Node
+	CrawlWorkerCount  int
+	AddrDialType      config.AddrType
+	AddrTrackType     config.AddrType
+	KeepENR           bool
+	MeterProvider     metric.MeterProvider
+	TracerProvider    trace.TracerProvider
+	LogErrors         bool
+	UDPBufferSize     int
+	UDPRespTimeout    time.Duration
+	Discv5ProtocolID  [6]byte
+	WakuClusterID     uint32
+	WakuClusterShards []uint32
 }
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		DialTimeout:  cfg.DialTimeout,
-		AddrDialType: cfg.AddrDialType,
-		KeepENR:      cfg.KeepENR,
-		LogErrors:    cfg.LogErrors,
+		Network:           cfg.Network,
+		DialTimeout:       cfg.DialTimeout,
+		AddrDialType:      cfg.AddrDialType,
+		KeepENR:           cfg.KeepENR,
+		LogErrors:         cfg.LogErrors,
+		MaxJitter:         time.Duration(cfg.CrawlWorkerCount/50) * time.Second, // e.g., 3000 workers evenly distributed over 60s
+		WakuClusterID:     cfg.WakuClusterID,
+		WakuClusterShards: cfg.WakuClusterShards,
 	}
 }
 
@@ -189,7 +195,7 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	// create a libp2p host per CPU core to distribute load
 	hosts := make([]host.Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
-		h, err := newLibp2pHost(cfg.Version)
+		h, err := newLibp2pHost(cfg)
 		if err != nil {
 			return nil, fmt.Errorf("new libp2p host: %w", err)
 		}
@@ -264,10 +270,10 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	})
 
 	ethNode := enode.NewLocalNode(d.peerstore, priv)
-
 	cfg := discover.Config{
 		PrivateKey:   priv,
 		ValidSchemes: enode.ValidSchemes,
+		V5ProtocolID: &d.cfg.Discv5ProtocolID,
 	}
 	listener, err := discover.ListenV5(conn, ethNode, cfg)
 	if err != nil {
@@ -318,34 +324,9 @@ func (d *CrawlDriver) Close() {
 	}
 }
 
-func newLibp2pHost(version string) (host.Host, error) {
-	// Configure the resource manager to not limit anything
-	var noSubnetLimit []rcmgr.ConnLimitPerSubnet
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-
-	v4PrefixLimits := []rcmgr.NetworkPrefixLimit{
-		{
-			Network:   netip.MustParsePrefix("0.0.0.0/0"),
-			ConnCount: math.MaxInt, // Unlimited
-		},
-	}
-
-	v6PrefixLimits := []rcmgr.NetworkPrefixLimit{
-		{
-			Network:   netip.MustParsePrefix("::1/0"),
-			ConnCount: math.MaxInt, // Unlimited
-		},
-	}
-
-	rm, err := rcmgr.NewResourceManager(limiter, rcmgr.WithLimitPerSubnet(noSubnetLimit, noSubnetLimit), rcmgr.WithNetworkPrefixLimit(v4PrefixLimits, v6PrefixLimits))
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
-	// Don't use a connection manager that could potentially
-	// prune any connections. We _theoretically_ clean up after
-	//	// ourselves.
+func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 	cm := connmgr.NullConnMgr{}
+	rm := network.NullResourceManager{}
 
 	ecdsaKey, err := ecdsa.GenerateKey(ethcrypto.S256(), crand.Reader)
 	if err != nil {
@@ -359,10 +340,10 @@ func newLibp2pHost(version string) (host.Host, error) {
 	// Context: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#network-fundamentals
 	h, err := libp2p.New(
 		libp2p.NoListenAddrs,
-		libp2p.ResourceManager(rm),
+		libp2p.ResourceManager(&rm),
 		libp2p.Identity(secpKey),
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.UserAgent("nebula/"+version),
+		libp2p.UserAgent("nebula/"+cfg.Version),
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
@@ -374,19 +355,21 @@ func newLibp2pHost(version string) (host.Host, error) {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
 
-	// According to Diva, these are required protocols. Some of them are just
-	// assumed to be required. We just read from the stream indefinitely to
-	// gain time for the identify exchange to finish. We just pretend to support
-	// these protocols and keep the stream busy until we have gathered all the
-	// information we were interested in. This includes the agend version and
-	// all supported protocols.
-	h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
-	h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
-
+	switch cfg.Network {
+	case config.NetworkEthCons, config.NetworkHolesky, config.NetworkPortal:
+		// According to Diva, these are required protocols. Some of them are just
+		// assumed to be required. We just read from the stream indefinitely to
+		// gain time for the identify exchange to finish. We just pretend to support
+		// these protocols and keep the stream busy until we have gathered all the
+		// information we were interested in. This includes the agend version and
+		// all supported protocols.
+		h.SetStreamHandler("/eth2/beacon_chain/req/ping/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/status/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/metadata/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/metadata/2/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/eth2/beacon_chain/req/goodbye/1/ssz_snappy", func(s network.Stream) { io.ReadAll(s) })
+		h.SetStreamHandler("/meshsub/1.1.0", func(s network.Stream) { io.ReadAll(s) }) // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/p2p-interface.md#the-gossip-domain-gossipsub
+	}
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
 	return h, nil

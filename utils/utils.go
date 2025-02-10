@@ -229,7 +229,7 @@ func GetUDPBufferSize(conn *net.UDPConn) (rcvbuf int, sndbuf int, err error) {
 	)
 	err = rawConn.Control(func(fd uintptr) {
 		rcvbuf, rcverr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
-		sndbuf, snderr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+		sndbuf, snderr = syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_SNDBUF)
 	})
 	if rcverr != nil {
 		err = rcverr

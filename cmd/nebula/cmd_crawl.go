@@ -193,6 +193,24 @@ var CrawlCommand = &cli.Command{
 			Destination: &crawlConfig.UDPRespTimeout,
 			Category:    flagCategoryNetwork,
 		},
+		&cli.IntFlag{
+			Name:        "waku-cluster-id",
+			Usage:       "WAKU/WAKU_TWN: The cluster ID for the Waku network",
+			EnvVars:     []string{"NEBULA_CRAWL_WAKU_CLUSTER_ID"},
+			Value:       crawlConfig.WakuClusterID,
+			Destination: &crawlConfig.WakuClusterID,
+			Category:    flagCategoryNetwork,
+			Hidden:      true,
+		},
+		&cli.IntSliceFlag{
+			Name:        "waku-cluster-shards",
+			Usage:       "WAKU_STATUS/WAKU_TWN: The cluster shards of the Waku network",
+			EnvVars:     []string{"NEBULA_CRAWL_WAKU_CLUSTER_SHARDS"},
+			Value:       crawlConfig.WakuClusterShards,
+			Destination: crawlConfig.WakuClusterShards,
+			Category:    flagCategoryNetwork,
+			Hidden:      true,
+		},
 	},
 }
 
@@ -371,7 +389,11 @@ func CrawlAction(c *cli.Context) error {
 		return nil
 
 	case string(config.NetworkEthCons),
-		string(config.NetworkHolesky): // use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet
+		string(config.NetworkHolesky),
+		string(config.NetworkPortal),
+		string(config.NetworkWakuStatus),
+		string(config.NetworkWakuTWN):
+		// use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet + Waku networks
 
 		bpEnodes, err := cfg.BootstrapEnodesV5()
 		if err != nil {
@@ -392,20 +414,32 @@ func CrawlAction(c *cli.Context) error {
 			bpEnodes = append(bpEnodes, n)
 		}
 
+		protocolID, err := cfg.DiscV5ProtocolID()
+		if err != nil {
+			return fmt.Errorf("parse discv5 protocol ID: %w", err)
+		}
+
+		wakuClusterID, wakuClusterShards := cfg.WakuClusterConfig()
+
 		// configure the crawl driver
 		driverCfg := &discv5.CrawlDriverConfig{
-			Version:        cfg.Root.Version(),
-			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
-			BootstrapPeers: bpEnodes,
-			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
-			KeepENR:        crawlConfig.KeepENR,
-			TracerProvider: cfg.Root.TracerProvider,
-			MeterProvider:  cfg.Root.MeterProvider,
-			LogErrors:      cfg.Root.LogErrors,
-			UDPBufferSize:  cfg.Root.UDPBufferSize,
-			UDPRespTimeout: cfg.UDPRespTimeout,
+			Version:           cfg.Root.Version(),
+			Network:           config.Network(cfg.Network),
+			DialTimeout:       cfg.Root.DialTimeout,
+			TrackNeighbors:    cfg.PersistNeighbors,
+			BootstrapPeers:    bpEnodes,
+			CrawlWorkerCount:  cfg.CrawlWorkerCount,
+			AddrDialType:      cfg.AddrDialType(),
+			AddrTrackType:     cfg.AddrTrackType(),
+			KeepENR:           crawlConfig.KeepENR,
+			TracerProvider:    cfg.Root.TracerProvider,
+			MeterProvider:     cfg.Root.MeterProvider,
+			LogErrors:         cfg.Root.LogErrors,
+			Discv5ProtocolID:  protocolID,
+			UDPBufferSize:     cfg.Root.UDPBufferSize,
+			UDPRespTimeout:    cfg.UDPRespTimeout,
+			WakuClusterID:     wakuClusterID,
+			WakuClusterShards: wakuClusterShards,
 		}
 
 		// init the crawl driver
@@ -441,9 +475,7 @@ func CrawlAction(c *cli.Context) error {
 			return err
 		}
 
-		for _, addrInfo := range addrInfos {
-			bpAddrInfos = append(bpAddrInfos, addrInfo)
-		}
+		bpAddrInfos = append(bpAddrInfos, addrInfos...)
 
 		// configure the crawl driver
 		driverCfg := &libp2p.CrawlDriverConfig{
@@ -644,7 +676,6 @@ func logSummary[I core.PeerInfo[I]](dbCrawl *models.Crawl, handler *core.CrawlHa
 		log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
 	}
 	log.Infoln("")
-
 	log.WithFields(log.Fields{
 		"crawledPeers":    handler.CrawledPeers,
 		"crawlDuration":   time.Since(dbCrawl.StartedAt).String(),

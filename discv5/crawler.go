@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -15,8 +16,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
+	"github.com/libp2p/go-msgio/pbio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
+	wakupb "github.com/waku-org/go-waku/waku/v2/protocol/metadata/pb"
 	"go.uber.org/atomic"
 
 	"github.com/dennis-tra/nebula-crawler/config"
@@ -28,10 +31,14 @@ import (
 const MaxCrawlRetriesAfterTimeout = 2 // magic
 
 type CrawlerConfig struct {
-	DialTimeout  time.Duration
-	AddrDialType config.AddrType
-	KeepENR      bool
-	LogErrors    bool
+	Network           config.Network
+	DialTimeout       time.Duration
+	AddrDialType      config.AddrType
+	KeepENR           bool
+	LogErrors         bool
+	MaxJitter         time.Duration
+	WakuClusterID     uint32
+	WakuClusterShards []uint32
 }
 
 type Crawler struct {
@@ -46,6 +53,19 @@ type Crawler struct {
 var _ core.Worker[PeerInfo, core.CrawlResult[PeerInfo]] = (*Crawler)(nil)
 
 func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[PeerInfo], error) {
+	// add a startup jitter delay to prevent all workers to crawl at exactly the
+	// same time and potentially overwhelm the machine that Nebula is running on
+	if c.crawledPeers == 0 {
+		jitter := time.Duration(0)
+		if c.cfg.MaxJitter > 0 { // could be <= 0 if the worker count is 1
+			jitter = time.Duration(rand.Int63n(int64(c.cfg.MaxJitter)))
+		}
+		select {
+		case <-time.After(jitter):
+		case <-ctx.Done():
+		}
+	}
+
 	logEntry := log.WithFields(log.Fields{
 		"crawlerID":  c.id,
 		"remoteID":   task.peerID.ShortString(),
@@ -85,6 +105,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	// keep track of all unknown crawl errors
 	if discV5Result.ErrorStr == models.NetErrorUnknown && discV5Result.Error != nil {
 		properties["crawl_error"] = discV5Result.Error.Error()
+	}
+
+	// extract waku information
+	if libp2pResult.WakuClusterID != 0 && len(libp2pResult.WakuClusterShards) > 0 {
+		properties["waku_cluster_id"] = libp2pResult.WakuClusterID
+		properties["waku_cluster_shards"] = libp2pResult.WakuClusterShards
 	}
 
 	data, err := json.Marshal(properties)
@@ -181,6 +207,8 @@ type Libp2pResult struct {
 	Transport             string // the transport of a successful connection
 	ConnClosedImmediately bool   // whether conn was no error but still unconnected
 	GenTCPAddr            bool   // whether a TCP address was generated
+	WakuClusterID         uint32
+	WakuClusterShards     []uint32
 }
 
 func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResult {
@@ -205,7 +233,6 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 		result.ConnectStartTime = time.Now()
 		conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
 		result.ConnectEndTime = time.Now()
-
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
@@ -216,6 +243,15 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 			// the internal timeout is set to 30 s. When crawling we only allow 5s.
 			timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
+
+			switch c.cfg.Network {
+			case config.NetworkWakuStatus, config.NetworkWakuTWN:
+				var err error
+				result.WakuClusterID, result.WakuClusterShards, err = c.wakuRequestMetadata(timeoutCtx, pi.ID())
+				if err != nil {
+					log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Debugln("Could not request Waku metadata")
+				}
+			}
 
 			select {
 			case <-timeoutCtx.Done():
@@ -522,4 +558,37 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 // 0b00001101 -> false
 func noSuccessfulRequest(err error, errorBits uint32) bool {
 	return err != nil && errorBits&(errorBits+1) == 0
+}
+
+func (c *Crawler) wakuRequestMetadata(ctx context.Context, pi peer.ID) (uint32, []uint32, error) {
+	// cannot import github.com/waku-org/go-waku/waku/v2/protocol/metadata
+	// and use metadata.MetadataID_v1 because this would result in importing
+	// incompatible packages
+
+	s, err := c.host.NewStream(ctx, pi, "/vac/waku/metadata/1.0.0")
+	if err != nil {
+		return 0, nil, fmt.Errorf("new stream: %w", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	req := &wakupb.WakuMetadataRequest{
+		ClusterId: &c.cfg.WakuClusterID,
+		Shards:    c.cfg.WakuClusterShards,
+	}
+
+	writer := pbio.NewDelimitedWriter(s)
+	reader := pbio.NewDelimitedReader(s, 4*1024*1024) // 4 MiB max
+
+	if err = writer.WriteMsg(req); err != nil {
+		_ = s.Reset()
+		return 0, nil, fmt.Errorf("write waku metadata request: %w", err)
+	}
+
+	response := &wakupb.WakuMetadataResponse{}
+	if err = reader.ReadMsg(response); err != nil {
+		_ = s.Reset()
+		return 0, nil, fmt.Errorf("read waku metadata response: %w", err)
+	}
+
+	return response.GetClusterId(), response.GetShards(), nil
 }

@@ -265,13 +265,17 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	go func() {
-		sig := <-sigs
-		log.Infof("Received %s signal - Stopping...\n", sig.String())
-		signal.Stop(sigs)
-		cancel()
+		select {
+		case <-ctx.Done():
+		case sig := <-sigs:
+			log.Infof("Received %s signal - Stopping...\n", sig.String())
+			signal.Stop(sigs)
+			cancel()
+		}
 	}()
 
 	if err := app.RunContext(ctx, os.Args); err != nil {
