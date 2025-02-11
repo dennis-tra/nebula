@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -403,10 +404,10 @@ func (c *Crawl) BootstrapBitcoinEntries() ([]ma.Multiaddr, error) {
 	addrInfos := make([]ma.Multiaddr, 0, len(addresses))
 
 	for _, addr := range addresses {
-		maddr := toMultiAddr(addr)
-		// if err != nil {
-		// 	return nil, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
-		// }
+		maddr, err := toMultiAddr(addr)
+		if err != nil {
+			return nil, fmt.Errorf("Couldn't Parse multiaddress %s: %w", addr, err)
+		}
 
 		// Directly append to the slice
 		if maddr != nil {
@@ -417,20 +418,26 @@ func (c *Crawl) BootstrapBitcoinEntries() ([]ma.Multiaddr, error) {
 	return addrInfos, nil
 }
 
-func toMultiAddr(addr string) ma.Multiaddr {
+func toMultiAddr(addr string) (ma.Multiaddr, error) {
 
 	ip_type := "4"
 	if addr[0] == '[' {
 		ip_type = "6"
 	}
 
-	parts := strings.Split(addr, ":")
-	ip_addr := strings.Join(parts[:len(parts)-1], ":")
-	port := parts[len(parts)-1]
+	ip_port, err := netip.ParseAddrPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ip_addr := ip_port.Addr().String()
+	port := ip_port.Port()
 
-	address := fmt.Sprintf("/ip%s/%s/tcp/%s", ip_type, ip_addr, port)
-	multiAddr, _ := ma.NewMultiaddr(address)
-	return multiAddr
+	address := fmt.Sprintf("/ip%s/%s/tcp/%d", ip_type, ip_addr, port)
+	multiAddr, err := ma.NewMultiaddr(address)
+	if err != nil {
+		return nil, err
+	}
+	return multiAddr, nil
 }
 
 func (c *Crawl) BootstrapEnodesV5() ([]*enode.Node, error) {
