@@ -3,11 +3,15 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/netip"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
 
 	"github.com/ethereum/go-ethereum/p2p/enode"
@@ -42,6 +46,7 @@ const (
 	NetworkAvailTuringLC  Network = "AVAIL_TURING_LC"
 	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
 	NetworkPactus         Network = "PACTUS"
+	NetworkBitcoin        Network = "BITCOIN"
 	NetworkDria           Network = "DRIA"
 	NetworkWakuStatus     Network = "WAKU_STATUS"
 	NetworkWakuTWN        Network = "WAKU_TWN"
@@ -69,6 +74,7 @@ func Networks() []Network {
 		NetworkAvailTuringLC,
 		NetworkAvailTuringFN,
 		NetworkPactus,
+		NetworkBitcoin,
 		NetworkDria,
 		NetworkWakuStatus,
 		NetworkWakuTWN,
@@ -361,6 +367,79 @@ func (c *Crawl) BootstrapEnodesV4() ([]*enode.Node, error) {
 	return enodes, nil
 }
 
+func GetSeedsFromDNS(dnsSeeds []string) []string {
+	wait := sync.WaitGroup{}
+	results := make(chan []net.IP)
+
+	for _, seed := range dnsSeeds {
+		wait.Add(1)
+		go func(address string) {
+			defer wait.Done()
+			ips, err := net.LookupIP(address)
+			if err != nil {
+				return
+			}
+			results <- ips
+		}(seed)
+	}
+
+	go func() {
+		wait.Wait()
+		close(results)
+	}()
+
+	seeds := []string{}
+	for ips := range results {
+		for _, ip := range ips {
+			seeds = append(seeds, net.JoinHostPort(ip.String(), chaincfg.MainNetParams.DefaultPort))
+		}
+	}
+
+	// Note that this will likely include duplicate seeds. The crawler deduplicates them.
+	return seeds
+}
+
+func (c *Crawl) BootstrapBitcoinEntries() ([]ma.Multiaddr, error) {
+	addresses := GetSeedsFromDNS(c.BootstrapPeers.Value())
+	addrInfos := make([]ma.Multiaddr, 0, len(addresses))
+
+	for _, addr := range addresses {
+		maddr, err := toMultiAddr(addr)
+		if err != nil {
+			return nil, fmt.Errorf("Couldn't Parse multiaddress %s: %w", addr, err)
+		}
+
+		// Directly append to the slice
+		if maddr != nil {
+			addrInfos = append(addrInfos, maddr)
+		}
+	}
+
+	return addrInfos, nil
+}
+
+func toMultiAddr(addr string) (ma.Multiaddr, error) {
+
+	ip_type := "4"
+	if addr[0] == '[' {
+		ip_type = "6"
+	}
+
+	ip_port, err := netip.ParseAddrPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	ip_addr := ip_port.Addr().String()
+	port := ip_port.Port()
+
+	address := fmt.Sprintf("/ip%s/%s/tcp/%d", ip_type, ip_addr, port)
+	multiAddr, err := ma.NewMultiaddr(address)
+	if err != nil {
+		return nil, err
+	}
+	return multiAddr, nil
+}
+
 func (c *Crawl) BootstrapEnodesV5() ([]*enode.Node, error) {
 	nodesMap := map[enode.ID]*enode.Node{}
 	for _, enr := range c.BootstrapPeers.Value() {
@@ -492,6 +571,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkPactus:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPactusFullNode...)
 		protocols = cli.NewStringSlice("/pactus/gossip/v1/kad/1.0.0")
+	case NetworkBitcoin:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBitcoinDNSSeeds...)
+		protocols = cli.NewStringSlice("bitcoin")
 	case NetworkWakuStatus:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuStatus...)
 		protocols = cli.NewStringSlice("d5waku")
