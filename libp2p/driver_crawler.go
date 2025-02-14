@@ -192,7 +192,6 @@ func newLibp2pHost(userAgent string) (Host, error) {
 		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
-		libp2p.EnableRelay(), // enable the relay transport
 	)
 
 	return h.(Host), err
