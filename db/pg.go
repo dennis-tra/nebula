@@ -123,7 +123,8 @@ type PostgresClient struct {
 	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
 	// the database does not need to look up every peer ID but only the ones not yet present in the database.
 	// Speed up for ~11k peers: 5.5 min -> 30s
-	peerMappings map[peer.ID]int
+	peerMappingsMu sync.RWMutex
+	peerMappings   map[peer.ID]int
 
 	// the crawl entity that was created in the database
 	// we don't propagate this object through the rest of the code but instead
@@ -685,6 +686,8 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 		return err
 	}
 
+	c.peerMappingsMu.Lock()
+	defer c.peerMappingsMu.Unlock()
 	c.peerMappings[ivr.PID] = *ivr.PeerID
 
 	return nil
@@ -735,6 +738,9 @@ func durationToInterval(dur *time.Duration) *string {
 }
 
 func (c *PostgresClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
+	c.peerMappingsMu.RLock()
+	defer c.peerMappingsMu.RUnlock()
+
 	var dbPeerID *int
 	if value, ok := c.peerMappings[peerID]; ok {
 		dbPeerID = &value
