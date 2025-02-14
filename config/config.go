@@ -257,6 +257,10 @@ func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
 		cfg.DatabasePort = 5432
 	}
 
+	if cfg.DatabaseSSL == "" {
+		cfg.DatabaseSSL = "disable"
+	}
+
 	return &db.PostgresClientConfig{
 		DatabaseHost:           cfg.DatabaseHost,
 		DatabasePort:           cfg.DatabasePort,
@@ -278,13 +282,19 @@ func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
 		cfg.DatabasePort = 9000
 	}
 
+	databaseSSL := false
+	switch strings.ToLower(cfg.DatabaseSSL) {
+	case "yes", "true", "1":
+		databaseSSL = true
+	}
+
 	return &db.ClickHouseClientConfig{
 		DatabaseHost:     cfg.DatabaseHost,
 		DatabasePort:     cfg.DatabasePort,
 		DatabaseName:     cfg.DatabaseName,
 		DatabasePassword: cfg.DatabasePassword,
 		DatabaseUser:     cfg.DatabaseUser,
-		DatabaseSSL:      cfg.DatabaseSSL,
+		DatabaseSSL:      databaseSSL,
 		MeterProvider:    cfg.MeterProvider,
 		TracerProvider:   cfg.TracerProvider,
 	}
