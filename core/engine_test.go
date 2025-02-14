@@ -14,7 +14,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/nebtest"
+	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 func TestEngineConfig_Validate(t *testing.T) {
@@ -199,7 +199,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 
 	bootstrapPeer := &testPeerInfo{
 		peerID: peer.ID("bootstrap"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
 	}
 	targetPeerWithoutAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
@@ -207,11 +207,11 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	}
 	intermediatePeer := &testPeerInfo{
 		peerID: peer.ID("intermediate"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
 	}
 	targetPeerWithAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
 	}
 
 	tasksChan := make(chan *testPeerInfo, 1)

@@ -3,9 +3,8 @@ package bitcoin
 import (
 	"context"
 	"encoding/json"
-	"net"
-
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -15,7 +14,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 const MaxCrawlRetriesAfterTimeout = 2 // magic
@@ -51,12 +50,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	properties := c.PeerProperties(&task.AddrInfo)
 
 	// keep track of all unknown connection errors
-	if bitcoinResult.ConnectErrorStr == models.NetErrorUnknown && bitcoinResult.ConnectError != nil {
+	if bitcoinResult.ConnectErrorStr == pgmodels.NetErrorUnknown && bitcoinResult.ConnectError != nil {
 		properties["connect_error"] = bitcoinResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if bitcoinResult.ErrorStr == models.NetErrorUnknown && bitcoinResult.Error != nil {
+	if bitcoinResult.ErrorStr == pgmodels.NetErrorUnknown && bitcoinResult.Error != nil {
 		properties["crawl_error"] = bitcoinResult.Error.Error()
 	}
 

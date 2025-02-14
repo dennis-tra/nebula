@@ -13,7 +13,6 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -29,7 +28,6 @@ var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
 
 func (p PeerInfo) ID() peer.ID {
 	return peer.ID(p.AddrInfo.id)
-
 }
 
 func (p PeerInfo) Addrs() []ma.Multiaddr {
@@ -78,7 +76,6 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
-	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	crawlerCount int
 	writerCount  int
@@ -87,8 +84,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
-
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	tasksChan := make(chan PeerInfo, len(cfg.BootstrapPeers))
 	for _, addrInfo := range cfg.BootstrapPeers {
 		tasksChan <- PeerInfo{
@@ -103,7 +99,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 	return &CrawlDriver{
 		cfg:       cfg,
 		dbc:       dbc,
-		dbCrawl:   crawl,
 		tasksChan: tasksChan,
 		crawler:   make([]*Crawler, 0),
 	}, nil
@@ -113,7 +108,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 var logOnce sync.Once
 
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
-
 	c := &Crawler{
 		id:   fmt.Sprintf("crawler-%02d", d.crawlerCount),
 		cfg:  d.cfg.CrawlerConfig(),
@@ -130,7 +124,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
