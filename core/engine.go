@@ -397,7 +397,12 @@ func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 		e.enqueueTask(task)
 	}
 
-	pct := 100 * float64(len(e.processed)) / float64(len(e.processed)+e.peerQueue.Len()+len(e.inflight))
+	denominator := e.cfg.Limit
+	if e.cfg.Limit == 0 {
+		denominator = len(e.processed) + e.peerQueue.Len() + len(e.inflight)
+	}
+	pct := 100 * float32(len(e.processed)) / float32(denominator)
+
 	logEntry.WithFields(map[string]interface{}{
 		"queued":   e.peerQueue.Len(),
 		"inflight": len(e.inflight),
