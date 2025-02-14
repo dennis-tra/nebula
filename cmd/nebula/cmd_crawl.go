@@ -362,7 +362,7 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		// init the crawl driver
-		driver, err := bitcoin.NewCrawlDriver(dbc, dbCrawl, driverCfg)
+		driver, err := bitcoin.NewCrawlDriver(dbc, driverCfg)
 		if err != nil {
 			return fmt.Errorf("new bitcoin driver: %w", err)
 		}
@@ -382,7 +382,7 @@ func CrawlAction(c *cli.Context) error {
 		// a bit ugly but, but the handler will contain crawl statistics, that
 		// we'll save to the database and print to the screen
 		handler.QueuedPeers = len(queuedPeers)
-		if err := persistCrawlInformation(dbc, dbCrawl, handler, runErr); err != nil {
+		if err := persistCrawlInformation(dbc, handler, runErr); err != nil {
 			return fmt.Errorf("persist crawl information: %w", err)
 		}
 
