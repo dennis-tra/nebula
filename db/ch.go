@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
@@ -21,7 +20,7 @@ type ClickHouseClientConfig struct {
 	DatabaseName     string
 	DatabaseUser     string
 	DatabasePassword string
-	DatabaseSSL      string
+	DatabaseSSL      bool
 
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
@@ -44,11 +43,9 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 		},
 	}
 
-	switch strings.ToLower(cfg.DatabaseSSL) {
-	case "yes", "true", "1":
-		options.TLS = &tls.Config{
-			// TODO: allow skipping CA verification step
-		}
+	if cfg.DatabaseSSL {
+		// TODO: allow skipping CA verification step
+		options.TLS = &tls.Config{}
 	}
 
 	conn, err := clickhouse.Open(options)

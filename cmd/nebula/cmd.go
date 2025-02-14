@@ -46,6 +46,7 @@ var rootConfig = &config.Root{
 	Database: &config.Database{
 		DryRun:                 false,
 		JSONOut:                "",
+		DatabaseEngine:         "postgres",
 		DatabaseHost:           "localhost",
 		DatabasePort:           0,
 		DatabaseName:           "nebula",
