@@ -126,6 +126,12 @@ type PostgresClient struct {
 	peerMappingsMu sync.RWMutex
 	peerMappings   map[peer.ID]int
 
+	// ... TODO
+	routingTables map[peer.ID]struct {
+		neighbors []peer.ID
+		errorBits uint16
+	}
+
 	// the crawl entity that was created in the database
 	// we don't propagate this object through the rest of the code but instead
 	// cache it here because clickhouse and postgres have different type for
@@ -177,7 +183,11 @@ func NewPostgresClient(ctx context.Context, cfg *PostgresClientConfig) (*Postgre
 		cfg:          cfg,
 		dbh:          dbh,
 		peerMappings: make(map[peer.ID]int),
-		telemetry:    telemetry,
+		routingTables: make(map[peer.ID]struct {
+			neighbors []peer.ID
+			errorBits uint16
+		}),
+		telemetry: telemetry,
 	}
 	client.applyMigrations(cfg, dbh)
 
@@ -637,6 +647,16 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 	}
 	wg.Wait()
 
+	if len(args.Neighbors) > 0 || args.ErrorBits != 0 {
+		c.routingTables[args.PeerID] = struct {
+			neighbors []peer.ID
+			errorBits uint16
+		}{
+			neighbors: args.Neighbors,
+			errorBits: args.ErrorBits,
+		}
+	}
+
 	var crawlID *int
 	if c.crawl != nil {
 		crawlID = &c.crawl.ID
@@ -915,6 +935,38 @@ func (c *PostgresClient) FetchUnresolvedMultiAddresses(ctx context.Context, limi
 		qm.OrderBy(pgmodels.MultiAddressColumns.CreatedAt),
 		qm.Limit(limit),
 	).All(ctx, c.dbh)
+}
+
+// Flush .
+func (c *PostgresClient) Flush(ctx context.Context) error {
+	if len(c.routingTables) == 0 {
+		return nil
+	}
+
+	log.Infoln("Storing neighbor information...")
+
+	start := time.Now()
+	neighborsCount := 0
+	i := 0
+	for p, rt := range c.routingTables {
+		if i%100 == 0 && i > 0 {
+			log.Infof("Stored %d peers and their neighbors", i)
+		}
+		i++
+		neighborsCount += len(rt.neighbors)
+
+		if err := c.InsertNeighbors(ctx, p, rt.neighbors, rt.errorBits); err != nil {
+			return fmt.Errorf("persiting neighbor information: %w", err)
+		}
+	}
+	log.WithFields(log.Fields{
+		"duration":       time.Since(start).String(),
+		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(c.routingTables))*1000),
+		"peers":          len(c.routingTables),
+		"totalNeighbors": neighborsCount,
+	}).Infoln("Finished storing neighbor information")
+
+	return nil
 }
 
 // Rollback calls rollback on the given transaction and logs the potential error.

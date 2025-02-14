@@ -13,7 +13,6 @@ import (
 
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/network"
-	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
@@ -273,6 +272,11 @@ func CrawlAction(c *cli.Context) error {
 		MeterProvider:       cfg.Root.MeterProvider,
 	}
 
+	var (
+		summary *core.Summary
+		runErr  error
+	)
+
 	switch cfg.Network {
 	case string(config.NetworkEthExec):
 
@@ -328,18 +332,7 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		// finally, start the crawl
-		queuedPeers, runErr := eng.Run(ctx)
-
-		// a bit ugly but, but the handler will contain crawl statistics, that
-		// we'll save to the database and print to the screen
-		handler.QueuedPeers = len(queuedPeers)
-		if err := persistCrawlInformation(dbc, handler, runErr); err != nil {
-			return fmt.Errorf("persist crawl information: %w", err)
-		}
-
-		logSummary(handler, time.Since(start))
-
-		return nil
+		summary, runErr = eng.Run(ctx)
 
 	case string(config.NetworkBitcoin):
 		bpEnodes, err := cfg.BootstrapBitcoinEntries()
@@ -377,16 +370,7 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		// finally, start the crawl
-		queuedPeers, runErr := eng.Run(ctx)
-
-		// a bit ugly but, but the handler will contain crawl statistics, that
-		// we'll save to the database and print to the screen
-		handler.QueuedPeers = len(queuedPeers)
-		if err := persistCrawlInformation(dbc, handler, runErr); err != nil {
-			return fmt.Errorf("persist crawl information: %w", err)
-		}
-
-		return nil
+		summary, runErr = eng.Run(ctx)
 
 	case string(config.NetworkEthCons),
 		string(config.NetworkHolesky),
@@ -458,18 +442,8 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		// finally, start the crawl
-		queuedPeers, runErr := eng.Run(ctx)
+		summary, runErr = eng.Run(ctx)
 
-		// a bit ugly but, but the handler will contain crawl statistics, that
-		// we'll save to the database and print to the screen
-		handler.QueuedPeers = len(queuedPeers)
-		if err := persistCrawlInformation(dbc, handler, runErr); err != nil {
-			return fmt.Errorf("persist crawl information: %w", err)
-		}
-
-		logSummary(handler, time.Since(start))
-
-		return nil
 	default:
 
 		addrInfos, err := cfg.BootstrapAddrInfos()
@@ -511,22 +485,20 @@ func CrawlAction(c *cli.Context) error {
 		}
 
 		// finally, start the crawl
-		queuedPeers, runErr := eng.Run(ctx)
-
-		// a bit ugly but, but the handler will contain crawl statistics, that
-		// we'll save to the database and print to the screen
-		handler.QueuedPeers = len(queuedPeers)
-		if err := persistCrawlInformation(dbc, handler, runErr); err != nil {
-			return fmt.Errorf("persist crawl information: %w", err)
-		}
-
-		logSummary(handler, time.Since(start))
+		summary, runErr = eng.Run(ctx)
 	}
+
+	// we're done with the crawl so seal the crawl and store aggregate information
+	if err := persistCrawlInformation(dbc, summary, runErr); err != nil {
+		return fmt.Errorf("persist crawl information: %w", err)
+	}
+
+	logSummary(summary, time.Since(start))
 
 	return nil
 }
 
-func persistCrawlInformation[I core.PeerInfo[I]](dbc db.Client, handler *core.CrawlHandler[I], runErr error) error {
+func persistCrawlInformation(dbc db.Client, summary *core.Summary, runErr error) error {
 	// construct a new cleanup context to store the crawl results even
 	// if the user cancelled the process.
 	sigs := make(chan os.Signal, 1)
@@ -541,25 +513,25 @@ func persistCrawlInformation[I core.PeerInfo[I]](dbc db.Client, handler *core.Cr
 	}()
 
 	// Persist the crawl results
-	if err := updateCrawl(cleanupCtx, dbc, runErr, handler); err != nil {
+	if err := updateCrawl(cleanupCtx, dbc, runErr, summary); err != nil {
 		return fmt.Errorf("persist crawl: %w", err)
 	}
 
 	// Persist associated crawl properties
-	if err := persistCrawlProperties(cleanupCtx, dbc, handler); err != nil {
+	if err := persistCrawlProperties(cleanupCtx, dbc, summary); err != nil {
 		return fmt.Errorf("persist crawl properties: %w", err)
 	}
 
-	// persist all neighbor information
-	if err := storeNeighbors(cleanupCtx, dbc, handler); err != nil {
-		return fmt.Errorf("store neighbors: %w", err)
+	// flush any left-over information to the database.
+	if err := dbc.Flush(cleanupCtx); err != nil {
+		log.WithError(err).Warnln("Failed flushing information to database")
 	}
 
 	return nil
 }
 
 // updateCrawl writes crawl statistics to the database
-func updateCrawl[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, runErr error, handler *core.CrawlHandler[I]) error {
+func updateCrawl(ctx context.Context, dbc db.Client, runErr error, summary *core.Summary) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
@@ -567,10 +539,10 @@ func updateCrawl[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, runErr 
 	log.Infoln("Persisting crawl result...")
 
 	args := &db.SealCrawlArgs{
-		Crawled:    handler.CrawledPeers,
-		Dialable:   handler.CrawledPeers - handler.TotalErrors(),
-		Undialable: handler.TotalErrors(),
-		Remaining:  handler.QueuedPeers,
+		Crawled:    summary.PeersCrawled,
+		Dialable:   summary.PeersDialable,
+		Undialable: summary.PeersUndialable,
+		Remaining:  summary.PeersRemaining,
 	}
 
 	if runErr == nil {
@@ -585,92 +557,55 @@ func updateCrawl[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, runErr 
 }
 
 // persistCrawlProperties writes crawl property statistics to the database.
-func persistCrawlProperties[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, handler *core.CrawlHandler[I]) error {
+func persistCrawlProperties(ctx context.Context, dbc db.Client, summary *core.Summary) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
 	}
 
 	log.Infoln("Persisting crawl properties...")
 	avFull := map[string]int{}
-	for version, count := range handler.AgentVersion {
+	for version, count := range summary.AgentVersion {
 		avFull[version] += count
 	}
 	pps := map[string]map[string]int{
 		"agent_version": avFull,
-		"protocol":      handler.Protocols,
-		"error":         handler.ConnErrs,
+		"protocol":      summary.Protocols,
+		"error":         summary.ConnErrs,
 	}
 
 	return dbc.InsertCrawlProperties(ctx, pps)
 }
 
-// storeNeighbors fills the neighbors table with topology information
-func storeNeighbors[I core.PeerInfo[I]](ctx context.Context, dbc db.Client, handler *core.CrawlHandler[I]) error {
-	if _, ok := dbc.(*db.NoopClient); ok {
-		return nil
-	}
-
-	if len(handler.RoutingTables) == 0 {
-		return nil
-	}
-
-	log.Infoln("Storing neighbor information...")
-
-	start := time.Now()
-	neighborsCount := 0
-	i := 0
-	for p, routingTable := range handler.RoutingTables {
-		if i%100 == 0 && i > 0 {
-			log.Infof("Stored %d peers and their neighbors", i)
-		}
-		i++
-		neighborsCount += len(routingTable.Neighbors)
-
-		neighbors := make([]peer.ID, len(routingTable.Neighbors))
-		for j, n := range routingTable.Neighbors {
-			neighbors[j] = n.ID()
-		}
-
-		if err := dbc.InsertNeighbors(ctx, p, neighbors, routingTable.ErrorBits); err != nil {
-			return fmt.Errorf("persiting neighbor information: %w", err)
-		}
-	}
-	log.WithFields(log.Fields{
-		"duration":       time.Since(start).String(),
-		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(handler.RoutingTables))*1000),
-		"peers":          len(handler.RoutingTables),
-		"totalNeighbors": neighborsCount,
-	}).Infoln("Finished storing neighbor information")
-	return nil
-}
-
 // logSummary logs the final results of the crawl.
-func logSummary[I core.PeerInfo[I]](handler *core.CrawlHandler[I], crawlDuration time.Duration) {
+func logSummary(summary *core.Summary, crawlDuration time.Duration) {
+	log.Infoln("")
+	log.Infoln("")
 	log.Infoln("Crawl summary:")
 
 	log.Infoln("")
-	for err, count := range handler.ConnErrs {
+	for err, count := range summary.ConnErrs {
 		log.WithField("count", count).WithField("value", err).Infoln("Dial Error")
 	}
 
 	log.Infoln("")
-	for err, count := range handler.CrawlErrs {
+	for err, count := range summary.CrawlErrs {
 		log.WithField("count", count).WithField("value", err).Infoln("Crawl Error")
 	}
 
 	log.Infoln("")
-	for agent, count := range handler.AgentVersion {
+	for agent, count := range summary.AgentVersion {
 		log.WithField("count", count).WithField("value", agent).Infoln("Agent")
 	}
 	log.Infoln("")
-	for protocol, count := range handler.Protocols {
+	for protocol, count := range summary.Protocols {
 		log.WithField("count", count).WithField("value", protocol).Infoln("Protocol")
 	}
 	log.Infoln("")
 	log.WithFields(log.Fields{
-		"crawledPeers":    handler.CrawledPeers,
+		"crawledPeers":    summary.PeersCrawled,
 		"crawlDuration":   crawlDuration.String(),
-		"dialablePeers":   handler.CrawledPeers - handler.TotalErrors(),
-		"undialablePeers": handler.TotalErrors(),
+		"dialablePeers":   summary.PeersDialable,
+		"undialablePeers": summary.PeersUndialable,
+		"remainingPeers":  summary.PeersRemaining,
 	}).Infoln("Finished crawl")
 }

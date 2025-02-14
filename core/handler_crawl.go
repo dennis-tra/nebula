@@ -136,9 +136,6 @@ type CrawlHandler[I PeerInfo[I]] struct {
 	// A map of errors that happened during the crawl.
 	CrawlErrs map[string]int
 
-	// The number of peers we would still need to crawl after the Run method has returned.
-	QueuedPeers int
-
 	// The number of peers that were crawled.
 	CrawledPeers int
 }
@@ -151,7 +148,6 @@ func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 		Protocols:     make(map[string]int),
 		ConnErrs:      make(map[string]int),
 		CrawlErrs:     make(map[string]int),
-		QueuedPeers:   0,
 		CrawledPeers:  0,
 	}
 }
@@ -197,6 +193,19 @@ func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[Cr
 }
 
 func (h *CrawlHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {
+}
+
+func (h *CrawlHandler[I]) Summary(state *EngineState) *Summary {
+	return &Summary{
+		PeersCrawled:    h.CrawledPeers,
+		PeersDialable:   h.CrawledPeers - h.TotalErrors(),
+		PeersUndialable: h.TotalErrors(),
+		PeersRemaining:  state.PeersQueued,
+		AgentVersion:    h.AgentVersion,
+		Protocols:       h.Protocols,
+		ConnErrs:        h.ConnErrs,
+		CrawlErrs:       h.CrawlErrs,
+	}
 }
 
 // TotalErrors counts the total amount of errors - equivalent to undialable peers during this crawl.

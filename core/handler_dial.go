@@ -21,3 +21,9 @@ func (h *DialHandler[I]) HandlePeerResult(ctx context.Context, result Result[Dia
 }
 
 func (h *DialHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {}
+
+func (h *DialHandler[I]) Summary(state *EngineState) *Summary {
+	return &Summary{
+		PeersRemaining: state.PeersQueued,
+	}
+}
