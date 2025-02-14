@@ -73,16 +73,16 @@ type Client interface {
 	// to limit entries.
 	QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error)
 
-	// InsertVisit .
+	// InsertVisit TODO
 	InsertVisit(ctx context.Context, args *VisitArgs) error
 
-	// InsertCrawlProperties .
+	// InsertCrawlProperties TODO
 	InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error
 
-	// InsertNeighbors .
+	// InsertNeighbors TODO this function is actually obsolete
 	InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error
 
-	// SelectPeersToProbe .
+	// SelectPeersToProbe TODO
 	SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error)
 
 	// Flush instructs the client to write all cached data to the database.
