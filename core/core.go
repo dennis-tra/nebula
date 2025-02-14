@@ -71,8 +71,7 @@ type Worker[T any, R any] interface {
 	Work(ctx context.Context, task T) (R, error)
 }
 
-// Handler defines the interface that the engine will call every time
-// it has received a result from any of its workers.
+// Handler defines the interface for managing peer processing and writing.
 type Handler[I PeerInfo[I], R WorkResult[I]] interface {
 	// HandlePeerResult is called when the worker that has processed a peer
 	// has emitted a new processing result. This can be a [CrawlResult] or
@@ -82,6 +81,48 @@ type Handler[I PeerInfo[I], R WorkResult[I]] interface {
 	// HandleWriteResult is called when the writer has written a [CrawlResult]
 	// or [DialResult] to disk.
 	HandleWriteResult(context.Context, Result[WriteResult])
+
+	// Summary returns aggregate information about the crawl. Since the handler
+	// processes all results it can track aggregate information along the crawl.
+	// The Summary method returns that information which is then printed onto
+	// the screen or stored into a database as well. It takes an argument of
+	// the engine's current internal state which can be used to enhance the
+	// summary information.
+	Summary(*EngineState) *Summary
+}
+
+// EngineState represents a subset of the internal state of the [Engine]. This
+// is used to compile aggregate summary information in the peer [Handler].
+type EngineState struct {
+	// PeersQueued indicates the count of peers currently queued for processing.
+	PeersQueued int
+}
+
+// Summary represents aggregate information for a crawl operation.
+type Summary struct {
+	// PeersCrawled is the number of peers successfully crawled.
+	PeersCrawled int
+
+	// PeersDialable is the number of peers marked as dialable.
+	PeersDialable int
+
+	// PeersUndialable is the number of peers marked as undialable.
+	PeersUndialable int
+
+	// PeersRemaining is the number of peers left to process.
+	PeersRemaining int
+
+	// AgentVersion maps agent versions to their respective counts.
+	AgentVersion map[string]int
+
+	// Protocols maps protocol names to their respective counts.
+	Protocols map[string]int
+
+	// ConnErrs maps connection error types to their occurrence counts.
+	ConnErrs map[string]int
+
+	// CrawlErrs maps crawl error types to their occurrence counts.
+	CrawlErrs map[string]int
 }
 
 // RoutingTable captures the routing table information and crawl error of a particular peer

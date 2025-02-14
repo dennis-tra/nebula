@@ -206,7 +206,7 @@ func NewEngine[I PeerInfo[I], R WorkResult[I]](driver Driver[I, R], handler Hand
 // channel was closed, the engine will process all remaining peers in the queue.
 // Each result is passed to a handler that may return additional peers to
 // process.
-func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
+func (e *Engine[I, R]) Run(ctx context.Context) (*Summary, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -338,13 +338,19 @@ func (e *Engine[I, R]) Run(ctx context.Context) (map[string]I, error) {
 			// stop the telemetry collection
 			e.telemetry.Stop()
 
-			return e.peerQueue.All(), ctx.Err()
+			summary := e.handler.Summary(&EngineState{
+				PeersQueued: e.peerQueue.Len(),
+			})
+			return summary, ctx.Err()
 		}
 
 		if peerResults == nil && writerResults == nil {
 			log.Infoln("Closing driver...")
 			e.driver.Close()
-			return e.peerQueue.All(), nil // no work to do, natural end
+			summary := e.handler.Summary(&EngineState{
+				PeersQueued: e.peerQueue.Len(),
+			})
+			return summary, nil // no work to do, natural end
 		}
 
 		// break the for loop after 1) all workers have stopped or 2) we have
@@ -391,10 +397,11 @@ func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 		e.enqueueTask(task)
 	}
 
+	pct := 100 * float64(len(e.processed)) / float64(len(e.processed)+e.peerQueue.Len()+len(e.inflight))
 	logEntry.WithFields(map[string]interface{}{
 		"queued":   e.peerQueue.Len(),
 		"inflight": len(e.inflight),
-	}).Infoln("Handled worker result")
+	}).Infof("Handled worker result [%.2f%%]\n", pct)
 }
 
 func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[WriteResult]) {

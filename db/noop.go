@@ -40,6 +40,10 @@ func (n *NoopClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, e
 	return []peer.AddrInfo{}, nil
 }
 
+func (n *NoopClient) Flush(ctx context.Context) error {
+	return nil
+}
+
 func (n *NoopClient) Close() error {
 	return nil
 }

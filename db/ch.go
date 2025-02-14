@@ -97,6 +97,11 @@ func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrI
 	panic("implement me")
 }
 
+func (c *ClickHouseClient) Flush(ctx context.Context) error {
+	// TODO implement me
+	panic("implement me")
+}
+
 func (c *ClickHouseClient) Close() error {
 	// TODO implement me
 	panic("implement me")

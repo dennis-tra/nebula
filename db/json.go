@@ -27,9 +27,11 @@ type JSONClient struct {
 	visitEncoder     *json.Encoder
 	neighborsEncoder *json.Encoder
 
-	peerMapLk   sync.RWMutex
-	peerMap     map[peer.ID]int
-	peerCounter int
+	// ... TODO
+	routingTables map[peer.ID]struct {
+		neighbors []peer.ID
+		errorBits uint16
+	}
 
 	crawlMu sync.Mutex
 	crawl   *pgmodels.Crawl
@@ -60,7 +62,10 @@ func NewJSONClient(out string) (*JSONClient, error) {
 		neighborsFile:    nf,
 		visitEncoder:     json.NewEncoder(vf),
 		neighborsEncoder: json.NewEncoder(nf),
-		peerMap:          map[peer.ID]int{},
+		routingTables: make(map[peer.ID]struct {
+			neighbors []peer.ID
+			errorBits uint16
+		}),
 	}
 
 	return client, nil
@@ -181,6 +186,16 @@ func (c *JSONClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
 		Properties:      args.Properties,
 	}
 
+	if len(args.Neighbors) > 0 || args.ErrorBits != 0 {
+		c.routingTables[args.PeerID] = struct {
+			neighbors []peer.ID
+			errorBits uint16
+		}{
+			neighbors: args.Neighbors,
+			errorBits: args.ErrorBits,
+		}
+	}
+
 	if err := c.visitEncoder.Encode(data); err != nil {
 		return fmt.Errorf("encoding visit: %w", err)
 	}
@@ -210,6 +225,37 @@ func (c *JSONClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighb
 
 func (c *JSONClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
 	return []peer.AddrInfo{}, nil
+}
+
+func (c *JSONClient) Flush(ctx context.Context) error {
+	if len(c.routingTables) == 0 {
+		return nil
+	}
+
+	log.Infoln("Storing neighbor information...")
+
+	start := time.Now()
+	neighborsCount := 0
+	i := 0
+	for p, rt := range c.routingTables {
+		if i%100 == 0 && i > 0 {
+			log.Infof("Stored %d peers and their neighbors", i)
+		}
+		i++
+		neighborsCount += len(rt.neighbors)
+
+		if err := c.InsertNeighbors(ctx, p, rt.neighbors, rt.errorBits); err != nil {
+			return fmt.Errorf("persiting neighbor information: %w", err)
+		}
+	}
+	log.WithFields(log.Fields{
+		"duration":       time.Since(start).String(),
+		"avg":            fmt.Sprintf("%.2fms", time.Since(start).Seconds()/float64(len(c.routingTables))*1000),
+		"peers":          len(c.routingTables),
+		"totalNeighbors": neighborsCount,
+	}).Infoln("Finished storing neighbor information")
+
+	return nil
 }
 
 func (c *JSONClient) Close() error {

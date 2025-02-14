@@ -58,10 +58,10 @@ type Client interface {
 	// InitCrawl initializes a new crawl instance in the database.
 	// The clients are responsible for tracking the crawl's ID and associate
 	// later database queries with it. This is necessary because different
-	// database engines have different types of IDs. ClickHouse uses string
+	// database engines have different types of IDs. ClickHouse commonly uses string
 	// IDs and Postgres uses integers. Making the [Client] interface generic
 	// on that ID would complicate the code a lot, so we require Clients to
-	// keep state. This is added complexy traded for code clarity. It's a trade-
+	// keep state. This is added complexity traded for code clarity. It's a trade-
 	// off and IMO this is less bad.
 	InitCrawl(ctx context.Context, version string) error
 
@@ -84,6 +84,11 @@ type Client interface {
 
 	// SelectPeersToProbe .
 	SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error)
+
+	// Flush instructs the client to write all cached data to the database.
+	// Client implementations may cache and batch inserts. Flush tells the
+	// client to insert everything that's pending.
+	Flush(ctx context.Context) error
 }
 
 var (
