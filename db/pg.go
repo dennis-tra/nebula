@@ -373,6 +373,10 @@ func (c *PostgresClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (er
 	c.crawlMu.Lock()
 	defer c.crawlMu.Unlock()
 
+	if c.crawl == nil {
+		return fmt.Errorf("crawl not initialized")
+	}
+
 	// TODO: does this perform a deep copy?
 	original := *c.crawl
 	defer func() {

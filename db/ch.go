@@ -3,13 +3,19 @@ package db
 import (
 	"context"
 	"crypto/tls"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
+	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -22,6 +28,9 @@ type ClickHouseClientConfig struct {
 	DatabasePassword string
 	DatabaseSSL      bool
 
+	// TODO: Populate accordingly
+	NetworkID string
+
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
 
@@ -31,6 +40,10 @@ type ClickHouseClientConfig struct {
 
 type ClickHouseClient struct {
 	conn driver.Conn
+	cfg  *ClickHouseClientConfig
+
+	crawlMu sync.Mutex
+	crawl   *ClickHouseCrawl
 }
 
 func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*ClickHouseClient, error) {
@@ -59,17 +72,127 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 
 	return &ClickHouseClient{
 		conn: conn,
+		cfg:  cfg,
 	}, nil
 }
 
-func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error {
-	// TODO implement me
-	panic("implement me")
+type ClickHouseCrawl struct {
+	ID              uuid.UUID  `ch:"id"`
+	State           string     `ch:"state"`
+	FinishedAt      *time.Time `ch:"finished_at"`
+	UpdatedAt       time.Time  `ch:"updated_at"`
+	CreatedAt       time.Time  `ch:"created_at"`
+	CrawledPeers    *int32     `ch:"crawled_peers"`
+	DialablePeers   *int32     `ch:"dialable_peers"`
+	UndialablePeers *int32     `ch:"undialable_peers"`
+	RemainingPeers  *int32     `ch:"remaining_peers"`
+	Version         string     `ch:"version"`
+	NetworkID       string     `ch:"network_id"`
 }
 
-func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) error {
-	// TODO implement me
-	panic("implement me")
+func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+
+	if c.crawl != nil {
+		return fmt.Errorf("crawl already initialized")
+	}
+
+	latestCrawl, err := c.selectLatestCrawl(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		// ok
+	} else if err != nil {
+		return fmt.Errorf("select latest crawl: %w", err)
+	} else if latestCrawl.NetworkID != c.cfg.NetworkID {
+		return fmt.Errorf("network id mismatch (expected %s, got %s)", c.cfg.NetworkID, latestCrawl.NetworkID)
+	} else if latestCrawl.State != string(CrawlStateStarted) {
+		log.WithField("id", latestCrawl.ID).Warnln("Another crawl is already running")
+	}
+
+	uuidv7, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("new uuid v7: %w", err)
+	}
+
+	now := time.Now()
+
+	crawl := &ClickHouseCrawl{
+		ID:              uuidv7,
+		State:           string(CrawlStateStarted),
+		FinishedAt:      nil,
+		UpdatedAt:       now,
+		CreatedAt:       now,
+		CrawledPeers:    nil,
+		DialablePeers:   nil,
+		UndialablePeers: nil,
+		RemainingPeers:  nil,
+		Version:         version,
+		NetworkID:       c.cfg.NetworkID,
+	}
+
+	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
+	if err != nil {
+		return fmt.Errorf("prepare batch: %w", err)
+	}
+
+	if err := batch.AppendStruct(crawl); err != nil {
+		return fmt.Errorf("append crawl struct: %w", err)
+	}
+
+	if err := batch.Send(); err != nil {
+		return fmt.Errorf("insert crawl: %w", err)
+	}
+
+	c.crawl = crawl
+
+	return nil
+}
+
+func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (err error) {
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+
+	if c.crawl == nil {
+		return fmt.Errorf("crawl not initialized")
+	}
+
+	// TODO: does this perform a deep copy?
+	original := *c.crawl
+	defer func() {
+		// roll back in case of an error
+		if err != nil {
+			c.crawl = &original
+		}
+	}()
+
+	toPtr := func(val int) *int32 {
+		cast := int32(val)
+		return &cast
+	}
+
+	now := time.Now()
+	c.crawl.UpdatedAt = now
+	c.crawl.CrawledPeers = toPtr(args.Crawled)
+	c.crawl.DialablePeers = toPtr(args.Dialable)
+	c.crawl.UndialablePeers = toPtr(args.Undialable)
+	c.crawl.RemainingPeers = toPtr(args.Remaining)
+	c.crawl.State = string(args.State)
+	c.crawl.FinishedAt = &now
+
+	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
+	if err != nil {
+		return fmt.Errorf("prepare batch: %w", err)
+	}
+
+	if err := batch.AppendStruct(c.crawl); err != nil {
+		return fmt.Errorf("append crawl struct: %w", err)
+	}
+
+	if err := batch.Send(); err != nil {
+		return fmt.Errorf("insert crawl: %w", err)
+	}
+
+	return nil
 }
 
 func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
@@ -103,6 +226,17 @@ func (c *ClickHouseClient) Flush(ctx context.Context) error {
 }
 
 func (c *ClickHouseClient) Close() error {
-	// TODO implement me
-	panic("implement me")
+	return c.conn.Close()
+}
+
+func (c *ClickHouseClient) selectCrawl(ctx context.Context, id uuid.UUID) (*ClickHouseCrawl, error) {
+	crawl := &ClickHouseCrawl{}
+	err := c.conn.QueryRow(ctx, "SELECT * FROM crawls FINAL WHERE id = ? LIMIT 1", id).ScanStruct(crawl)
+	return crawl, err
+}
+
+func (c *ClickHouseClient) selectLatestCrawl(ctx context.Context) (*ClickHouseCrawl, error) {
+	crawl := &ClickHouseCrawl{}
+	err := c.conn.QueryRow(ctx, "SELECT * FROM crawls FINAL ORDER BY created_at desc LIMIT 1").ScanStruct(crawl)
+	return crawl, err
 }
