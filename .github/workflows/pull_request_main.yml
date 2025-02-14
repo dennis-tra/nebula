@@ -23,6 +23,20 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      clickhouse:
+        image: clickhouse/clickhouse-server:24.12
+        ports:
+          - "8124:8123"
+          - "9001:9000"
+        env:
+          CLICKHOUSE_PASSWORD: password_test
+          CLICKHOUSE_USER: nebula_test
+          CLICKHOUSE_DB: nebula_test
+        options: >-
+          --health-cmd "clickhouse-client --query=\"SELECT 1\""
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checking out repository code
         uses: actions/checkout@v4
