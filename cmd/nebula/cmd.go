@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	flagCategoryDatabase  = "Database Configuration:"
-	flagCategoryDebugging = "Debugging Configuration:"
-	flagCategoryCache     = "Cache Configuration:"
-	flagCategorySystem    = "System Configuration:"
-	flagCategoryNetwork   = "Network Specific Configuration:"
+	flagCategoryDatabase   = "Database Configuration:"
+	flagCategoryClickhouse = "ClickHouse Configuration:"
+	flagCategoryDebugging  = "Debugging Configuration:"
+	flagCategoryCache      = "Cache Configuration:"
+	flagCategorySystem     = "System Configuration:"
+	flagCategoryNetwork    = "Network Specific Configuration:"
 )
 
 var (
@@ -44,18 +45,23 @@ var rootConfig = &config.Root{
 	TracesHost:      "", // disabled
 	TracesPort:      0,  // disabled
 	Database: &config.Database{
-		DryRun:                 false,
-		JSONOut:                "",
-		DatabaseEngine:         "postgres",
-		DatabaseHost:           "localhost",
-		DatabasePort:           0,
-		DatabaseName:           "nebula",
-		DatabasePassword:       "password",
-		DatabaseUser:           "nebula",
-		DatabaseSSL:            "",
-		AgentVersionsCacheSize: 200,
-		ProtocolsCacheSize:     100,
-		ProtocolsSetCacheSize:  200,
+		DryRun:                          false,
+		JSONOut:                         "",
+		DatabaseEngine:                  "postgres",
+		DatabaseHost:                    "localhost",
+		DatabasePort:                    0,
+		DatabaseName:                    "nebula",
+		DatabasePassword:                "password",
+		DatabaseUser:                    "nebula",
+		DatabaseSSL:                     "",
+		ApplyMigrations:                 true,
+		ClickHouseMigrationsTableEngine: "TinyLog",
+		ClickHouseClusterName:           "",
+		ClickHouseBatchTimeout:          2 * time.Second,
+		ClickHouseBatchSize:             10_000,
+		AgentVersionsCacheSize:          200,
+		ProtocolsCacheSize:              100,
+		ProtocolsSetCacheSize:           200,
 	},
 	UDPBufferSize: 1024 * 1024,
 	RawVersion:    version,
@@ -173,6 +179,14 @@ func main() {
 				Destination: &rootConfig.Database.JSONOut,
 				Category:    flagCategoryDatabase,
 			},
+			&cli.BoolFlag{
+				Name:        "db-apply-migrations",
+				Usage:       "Whether to apply the database migrations on startup",
+				EnvVars:     []string{"NEBULA_DATABASE_APPLY_MIGRATIONS"},
+				Value:       rootConfig.Database.ApplyMigrations,
+				Destination: &rootConfig.Database.ApplyMigrations,
+				Category:    flagCategoryDatabase,
+			},
 			&cli.StringFlag{
 				Name:        "db-engine",
 				Usage:       "Which DB Engine to use (postgres, clickhouse)",
@@ -263,6 +277,38 @@ func main() {
 				Value:       rootConfig.Database.ProtocolsSetCacheSize,
 				Destination: &rootConfig.Database.ProtocolsSetCacheSize,
 				Category:    flagCategoryCache,
+			},
+			&cli.StringFlag{
+				Name:        "clickhouse-cluster-name",
+				Usage:       "Name of the cluster for creating the migrations table cluster wide",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_CLUSTER_NAME"},
+				Value:       rootConfig.Database.ClickHouseClusterName,
+				Destination: &rootConfig.Database.ClickHouseClusterName,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.StringFlag{
+				Name:        "clickhouse-migrations-table-engine",
+				Usage:       "\tEngine to use for the migrations table",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_MIGRATIONS_TABLE_ENGINE"},
+				Value:       rootConfig.Database.ClickHouseMigrationsTableEngine,
+				Destination: &rootConfig.Database.ClickHouseMigrationsTableEngine,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.IntFlag{
+				Name:        "clickhouse-batch-size",
+				Usage:       "The maximum number of records to hold in memory before flushing the data to clickhouse",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_BATCH_SIZE"},
+				Value:       rootConfig.Database.ClickHouseBatchSize,
+				Destination: &rootConfig.Database.ClickHouseBatchSize,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.DurationFlag{
+				Name:        "clickhouse-batch-timeout",
+				Usage:       "The maximum time to hold records in memory before flushing the data to clickhouse",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_BATCH_TIMEOUT"},
+				Value:       rootConfig.Database.ClickHouseBatchTimeout,
+				Destination: &rootConfig.Database.ClickHouseBatchTimeout,
+				Category:    flagCategoryClickhouse,
 			},
 		},
 		EnableBashCompletion: true,

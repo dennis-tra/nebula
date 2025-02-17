@@ -34,12 +34,12 @@ type ClickHouseClientConfig struct {
 	DatabaseUser          string
 	DatabasePassword      string
 	DatabaseSSL           bool
-	ClusterName           string        // TODO: plumb
-	MigrationsTableEngine string        // TODO: plumb
-	ApplyMigrations       bool          // TODO: plumb
-	BatchSize             int           // TODO: plumb
-	BatchTimeout          time.Duration // TODO: plumb
-	NetworkID             string        // TODO: plumb
+	ClusterName           string
+	MigrationsTableEngine string
+	ApplyMigrations       bool
+	BatchSize             int
+	BatchTimeout          time.Duration
+	NetworkID             string
 
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
@@ -118,7 +118,6 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 }
 
 func (c *ClickHouseClient) applyMigration() error {
-	// load clickhouse migrations files
 	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
 	if err != nil {
 		return fmt.Errorf("create iofs migrations source: %w", err)
@@ -126,7 +125,7 @@ func (c *ClickHouseClient) applyMigration() error {
 
 	db := clickhouse.OpenDB(c.cfg.Options())
 
-	migrationsDriver, err := mch.WithInstance(db, &mch.Config{
+	mdriver, err := mch.WithInstance(db, &mch.Config{
 		DatabaseName:          c.cfg.DatabaseName,
 		ClusterName:           c.cfg.ClusterName,
 		MigrationsTableEngine: c.cfg.MigrationsTableEngine,
@@ -135,7 +134,7 @@ func (c *ClickHouseClient) applyMigration() error {
 		return fmt.Errorf("create migrate driver: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", migrationsDir, c.cfg.DatabaseName, migrationsDriver)
+	m, err := migrate.NewWithInstance("iofs", migrationsDir, c.cfg.DatabaseName, mdriver)
 	if err != nil {
 		return fmt.Errorf("create migrate instance: %w", err)
 	}

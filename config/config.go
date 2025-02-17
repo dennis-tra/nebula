@@ -233,6 +233,21 @@ type Database struct {
 	// For clickhouse only a yes or no value is supported
 	DatabaseSSL string
 
+	// Whether to apply the database migrations on startup
+	ApplyMigrations bool
+
+	// Name of the cluster for creating the migrations table cluster wide
+	ClickHouseClusterName string
+
+	// Engine to use for the migrations table, defaults to TinyLog
+	ClickHouseMigrationsTableEngine string
+
+	// The maximum number of records to hold in memory before flushing the data to clickhouse
+	ClickHouseBatchSize int
+
+	// The maximum time to hold records in memory before flushing the data to clickhouse
+	ClickHouseBatchTimeout time.Duration
+
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
 
@@ -268,6 +283,7 @@ func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
 		DatabasePassword:       cfg.DatabasePassword,
 		DatabaseUser:           cfg.DatabaseUser,
 		DatabaseSSL:            cfg.DatabaseSSL,
+		ApplyMigrations:        cfg.ApplyMigrations,
 		AgentVersionsCacheSize: cfg.AgentVersionsCacheSize,
 		ProtocolsCacheSize:     cfg.ProtocolsCacheSize,
 		ProtocolsSetCacheSize:  cfg.ProtocolsSetCacheSize,
@@ -289,14 +305,20 @@ func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
 	}
 
 	return &db.ClickHouseClientConfig{
-		DatabaseHost:     cfg.DatabaseHost,
-		DatabasePort:     cfg.DatabasePort,
-		DatabaseName:     cfg.DatabaseName,
-		DatabasePassword: cfg.DatabasePassword,
-		DatabaseUser:     cfg.DatabaseUser,
-		DatabaseSSL:      databaseSSL,
-		MeterProvider:    cfg.MeterProvider,
-		TracerProvider:   cfg.TracerProvider,
+		DatabaseHost:          cfg.DatabaseHost,
+		DatabasePort:          cfg.DatabasePort,
+		DatabaseName:          cfg.DatabaseName,
+		DatabaseUser:          cfg.DatabaseUser,
+		DatabasePassword:      cfg.DatabasePassword,
+		DatabaseSSL:           databaseSSL,
+		ClusterName:           cfg.ClickHouseClusterName,
+		MigrationsTableEngine: cfg.ClickHouseMigrationsTableEngine,
+		ApplyMigrations:       cfg.ApplyMigrations,
+		BatchSize:             0,
+		BatchTimeout:          0,
+		NetworkID:             "",
+		MeterProvider:         cfg.MeterProvider,
+		TracerProvider:        cfg.TracerProvider,
 	}
 }
 
@@ -499,7 +521,6 @@ func (c *Crawl) BootstrapBitcoinEntries() ([]ma.Multiaddr, error) {
 }
 
 func toMultiAddr(addr string) (ma.Multiaddr, error) {
-
 	ip_type := "4"
 	if addr[0] == '[' {
 		ip_type = "6"
