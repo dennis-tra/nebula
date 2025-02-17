@@ -1,13 +1,20 @@
 package db
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	pt "github.com/libp2p/go-libp2p/core/test"
+	"github.com/libp2p/go-libp2p/p2p/host/peerstore/test"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/suite"
+	"github.com/volatiletech/null/v8"
 	mnoop "go.opentelemetry.io/otel/metric/noop"
 	tnoop "go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/net/context"
+
+	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 type ClickHouseTestSuite struct {
@@ -26,6 +33,9 @@ func (suite *ClickHouseTestSuite) SetupSuite() {
 		DatabasePassword: "password_test",
 		DatabaseUser:     "nebula_test",
 		DatabaseSSL:      false,
+		ApplyMigrations:  true,
+		BatchSize:        10_000,
+		BatchTimeout:     time.Second,
 		NetworkID:        "test_network",
 		MeterProvider:    mnoop.NewMeterProvider(),
 		TracerProvider:   tnoop.NewTracerProvider(),
@@ -55,8 +65,10 @@ func (suite *ClickHouseTestSuite) TearDownTest() {
 }
 
 func (suite *ClickHouseTestSuite) clearDatabase(ctx context.Context) {
-	err := suite.client.conn.Exec(ctx, "DELETE FROM crawls WHERE TRUE")
-	suite.Assert().NoError(err)
+	for _, table := range []string{"crawls", "visits"} {
+		err := suite.client.conn.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE TRUE", table))
+		suite.Assert().NoError(err)
+	}
 }
 
 func (suite *ClickHouseTestSuite) resetClient() {
@@ -73,7 +85,7 @@ func (suite *ClickHouseTestSuite) timeoutCtx() context.Context {
 	return ctx
 }
 
-func (suite *ClickHouseTestSuite) TestInitCrawl_happyPath() {
+func (suite *ClickHouseTestSuite) TestInitCrawl() {
 	ctx := suite.timeoutCtx()
 
 	err := suite.client.InitCrawl(ctx, "v1")
@@ -166,6 +178,50 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_happyPath() {
 	suite.Assert().EqualValues(args.Dialable, *storedCrawl.DialablePeers)
 	suite.Assert().EqualValues(args.Undialable, *storedCrawl.UndialablePeers)
 	suite.Assert().EqualValues(args.Remaining, *storedCrawl.RemainingPeers)
+}
+
+func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
+	ctx := suite.timeoutCtx()
+
+	pid, err := pt.RandPeerID()
+	suite.Require().NoError(err)
+
+	neighbors := test.GeneratePeerIDs(100)
+
+	start := time.Now().UTC()
+	end := start.Add(time.Second)
+
+	connDur := 100 * time.Millisecond
+	crawlDur := 100 * time.Millisecond
+
+	args := &VisitArgs{
+		PeerID: pid,
+		Maddrs: []multiaddr.Multiaddr{
+			utils.MustMultiaddr(suite.T(), "/ip4/127.0.0.1/tcp/1234"),
+		},
+		Protocols:       []string{"/ipfs/1.0.0"},
+		AgentVersion:    "my-agent",
+		DialDuration:    nil,
+		ConnectDuration: &connDur,
+		CrawlDuration:   &crawlDur,
+		VisitStartedAt:  start,
+		VisitEndedAt:    end,
+		ConnectErrorStr: "conn_err",
+		CrawlErrorStr:   "crawl_err",
+		VisitType:       "dial",
+		Neighbors:       neighbors,
+		ErrorBits:       0,
+		Properties:      null.JSON{},
+	}
+
+	err = suite.client.InitCrawl(ctx, "v1")
+	suite.Require().NoError(err)
+
+	err = suite.client.InsertVisit(ctx, args)
+	suite.Require().NoError(err)
+
+	suite.Require().NoError(suite.client.Flush(ctx))
+	fmt.Println("flushing")
 }
 
 // In order for 'go test' to run this suite, we need to create
