@@ -242,7 +242,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 				visitArgs.Protocols,
 				visitArgs.VisitType,
 				visitArgs.Maddrs,
-				"empty",
+				visitArgs.ConnectMaddr,
 				[]string{},
 				visitArgs.CrawlErrorStr,
 				visitArgs.VisitStartedAt,
