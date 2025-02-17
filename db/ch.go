@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
 	"net"
@@ -13,6 +14,9 @@ import (
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/golang-migrate/migrate/v4"
+	mch "github.com/golang-migrate/migrate/v4/database/clickhouse"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
@@ -20,16 +24,22 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type ClickHouseClientConfig struct {
-	DatabaseHost     string
-	DatabasePort     int
-	DatabaseName     string
-	DatabaseUser     string
-	DatabasePassword string
-	DatabaseSSL      bool
+//go:embed migrations/ch
+var clickhouseMigrations embed.FS
 
-	// TODO: Populate accordingly
-	NetworkID string
+type ClickHouseClientConfig struct {
+	DatabaseHost          string
+	DatabasePort          int
+	DatabaseName          string
+	DatabaseUser          string
+	DatabasePassword      string
+	DatabaseSSL           bool
+	ClusterName           string        // TODO: plumb
+	MigrationsTableEngine string        // TODO: plumb
+	ApplyMigrations       bool          // TODO: plumb
+	BatchSize             int           // TODO: plumb
+	BatchTimeout          time.Duration // TODO: plumb
+	NetworkID             string        // TODO: plumb
 
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
@@ -38,15 +48,7 @@ type ClickHouseClientConfig struct {
 	TracerProvider trace.TracerProvider
 }
 
-type ClickHouseClient struct {
-	conn driver.Conn
-	cfg  *ClickHouseClientConfig
-
-	crawlMu sync.Mutex
-	crawl   *ClickHouseCrawl
-}
-
-func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*ClickHouseClient, error) {
+func (cfg *ClickHouseClientConfig) Options() *clickhouse.Options {
 	options := &clickhouse.Options{
 		Addr: []string{net.JoinHostPort(cfg.DatabaseHost, strconv.Itoa(cfg.DatabasePort))},
 		Auth: clickhouse.Auth{
@@ -55,13 +57,36 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 			Password: cfg.DatabasePassword,
 		},
 	}
-
 	if cfg.DatabaseSSL {
 		// TODO: allow skipping CA verification step
 		options.TLS = &tls.Config{}
 	}
 
-	conn, err := clickhouse.Open(options)
+	return options
+}
+
+type ClickHouseClient struct {
+	conn driver.Conn
+	cfg  *ClickHouseClientConfig
+
+	crawlMu sync.Mutex
+	crawl   *ClickHouseCrawl
+
+	// this channel will receive all new visits information
+	visitsChan chan *VisitArgs
+
+	// this channel can be used to trigger a flush of the prepared batches
+	flushChan chan struct{}
+
+	// this channel is closed when the flusher has exited
+	flusherDone chan struct{}
+
+	// this cancel func can be used to forcefully stop the flusher.
+	flusherCancel context.CancelFunc
+}
+
+func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*ClickHouseClient, error) {
+	conn, err := clickhouse.Open(cfg.Options())
 	if err != nil {
 		return nil, fmt.Errorf("open clickhouse database: %w", err)
 	}
@@ -70,10 +95,186 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 		return nil, fmt.Errorf("ping clickhouse database: %w", err)
 	}
 
-	return &ClickHouseClient{
-		conn: conn,
-		cfg:  cfg,
-	}, nil
+	flusherCtx, flusherCancel := context.WithCancel(context.Background())
+
+	client := &ClickHouseClient{
+		conn:          conn,
+		cfg:           cfg,
+		flusherCancel: flusherCancel,
+		visitsChan:    make(chan *VisitArgs),
+		flushChan:     make(chan struct{}),
+		flusherDone:   make(chan struct{}),
+	}
+
+	if cfg.ApplyMigrations {
+		if err = client.applyMigration(); err != nil {
+			return nil, fmt.Errorf("apply migrations: %w", err)
+		}
+	}
+
+	go client.startFlusher(flusherCtx)
+
+	return client, nil
+}
+
+func (c *ClickHouseClient) applyMigration() error {
+	// load clickhouse migrations files
+	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
+	if err != nil {
+		return fmt.Errorf("create iofs migrations source: %w", err)
+	}
+
+	db := clickhouse.OpenDB(c.cfg.Options())
+
+	migrationsDriver, err := mch.WithInstance(db, &mch.Config{
+		DatabaseName:          c.cfg.DatabaseName,
+		ClusterName:           c.cfg.ClusterName,
+		MigrationsTableEngine: c.cfg.MigrationsTableEngine,
+	})
+	if err != nil {
+		return fmt.Errorf("create migrate driver: %w", err)
+	}
+
+	m, err := migrate.NewWithInstance("iofs", migrationsDir, c.cfg.DatabaseName, migrationsDriver)
+	if err != nil {
+		return fmt.Errorf("create migrate instance: %w", err)
+	}
+
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migrate database: %w", err)
+	}
+
+	return nil
+}
+
+func (c *ClickHouseClient) startFlusher(ctx context.Context) {
+	defer close(c.flusherDone)
+
+	// convenience function to send a batch to clickhouse with error logging
+	send := func(batch driver.Batch, table string) {
+		if err := batch.Send(); err != nil {
+			log.WithError(err).WithField("rows", batch.Rows()).Errorln("Failed to send " + table + " batch")
+		}
+	}
+
+	// convenience function to prepare a batch to be sent to clickhouse with
+	// error logging
+	prepare := func(table string) driver.Batch {
+		batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO "+table)
+		if err != nil {
+			log.WithError(err).Errorln("Failed to prepare " + table + " batch")
+		}
+		return batch
+	}
+
+	// prepare visits and neighbors batches
+	visitsBatch := prepare("visits")
+	neighborsBatch := prepare("neighbors")
+
+	// create a ticker that triggers a write of both batches to clickhouse
+	ticker := time.NewTicker(c.cfg.BatchTimeout)
+	defer ticker.Stop()
+
+	for {
+
+		// prepare new batches if they were sent in the previous iteration
+		if visitsBatch.IsSent() {
+			visitsBatch = prepare("visits")
+		}
+
+		if neighborsBatch.IsSent() {
+			neighborsBatch = prepare("neighbors")
+		}
+
+		// if any of the above batch preparations failed they will be null.
+		// Because the flusher here works asynchronously we can't easily signal
+		// back to the main routine that there was an error. Therefore, we just
+		// log an error here and consume and discard all events until done.
+		// This if-statement is part of the for-loop because later batch
+		// preparations could also fail.
+		if visitsBatch == nil || neighborsBatch == nil {
+			log.Errorln("Failed to prepare visits or neighbors batch. Discarding all events until done.")
+			select {
+			case <-ctx.Done():
+				return
+			case _, done := <-c.visitsChan:
+				if done {
+					return
+				}
+				continue
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			// don't send anything as the context was canceled. The context is
+			// part of the batches. Sending them wouldn't work because of that.
+			return
+		case <-ticker.C:
+			// sending batches to clickhouse because of a timeout
+			send(visitsBatch, "visits")
+			send(neighborsBatch, "neighbors")
+
+		case <-c.flushChan:
+			// sending batches to clickhouse because the user asked for it
+			send(visitsBatch, "visits")
+			send(neighborsBatch, "neighbors")
+
+		case visitArgs, more := <-c.visitsChan:
+			if !more {
+				// we won't receive any more visits
+				send(visitsBatch, "visits")
+				send(neighborsBatch, "neighbors")
+				return
+			}
+
+			// the crawl can be null if it's a visit from the monitoring task
+			var crawlID *string
+			if c.crawl != nil {
+				id := c.crawl.ID.String()
+				crawlID = &id
+			}
+
+			if err := visitsBatch.Append(
+				crawlID,
+				visitArgs.PeerID,
+				visitArgs.AgentVersion,
+				visitArgs.Protocols,
+				visitArgs.VisitType,
+				visitArgs.Maddrs,
+				"empty",
+				[]string{},
+				visitArgs.CrawlErrorStr,
+				visitArgs.VisitStartedAt,
+				visitArgs.VisitEndedAt,
+			); err != nil {
+				log.WithError(err).Errorln("Failed to append visits batch")
+			}
+
+			// check if we have enough data to submit the batch
+			if visitsBatch.Rows() >= c.cfg.BatchSize {
+				send(visitsBatch, "visits")
+			}
+
+			// neighbors are only set during a crawl, so if this is a visit
+			// from the monitoring task continue here.
+			if crawlID == nil {
+				continue
+			}
+
+			// append neighbors to batch
+			for _, neighbor := range visitArgs.Neighbors {
+				if err := neighborsBatch.Append(crawlID, visitArgs.PeerID, neighbor, visitArgs.ErrorBits); err != nil {
+					log.WithError(err).Errorln("Failed to append visits batch")
+				}
+			}
+
+			// check if we have enough data to submit the batch
+			if neighborsBatch.Rows() >= c.cfg.BatchSize {
+				send(neighborsBatch, "neighbors")
+			}
+		}
+	}
 }
 
 type ClickHouseCrawl struct {
@@ -179,6 +380,7 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 	c.crawl.State = string(args.State)
 	c.crawl.FinishedAt = &now
 
+	// Use Batch because of the convenience of AppendStruct
 	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
 	if err != nil {
 		return fmt.Errorf("prepare batch: %w", err)
@@ -201,18 +403,20 @@ func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) (
 }
 
 func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
-	// TODO implement me
-	panic("implement me")
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case c.visitsChan <- args:
+		return nil
+	}
 }
 
 func (c *ClickHouseClient) InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error {
-	// TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
-	// TODO implement me
-	panic("implement me")
+	return nil
 }
 
 func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
@@ -221,11 +425,27 @@ func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrI
 }
 
 func (c *ClickHouseClient) Flush(ctx context.Context) error {
-	// TODO implement me
-	panic("implement me")
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case c.flushChan <- struct{}{}:
+		return nil
+	}
 }
 
 func (c *ClickHouseClient) Close() error {
+	close(c.visitsChan)
+
+	select {
+	case <-c.flusherDone:
+	case <-time.After(5 * time.Second):
+		log.Warnln("Flusher did not finish in time, forcing shutdown")
+		c.flusherCancel()
+		<-c.flusherDone
+	}
+
+	close(c.flushChan)
+
 	return c.conn.Close()
 }
 

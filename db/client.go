@@ -27,6 +27,10 @@ const (
 	VisitTypeCrawl VisitType = "crawl"
 )
 
+func (v VisitType) String() string {
+	return string(v)
+}
+
 type SealCrawlArgs struct {
 	Crawled    int
 	Dialable   int

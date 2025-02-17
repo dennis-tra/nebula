@@ -1,10 +1,10 @@
-CREATE TABLE visit
+CREATE TABLE visits
 (
     crawl_id              Nullable(UUID),
     peer_id               String,
     agent_version         String,
     protocols             Array(LowCardinality(String)),
-    type                  Enum('crawl', 'dial'),
+    type                  LowCardinality(String),
     multi_addresses       Array(String),
     connect_multi_address Nullable(String),
     connect_errors        Array(LowCardinality(String)),
