@@ -8,9 +8,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,8 +16,9 @@ import (
 	"unsafe"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	mpg "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	lru "github.com/hashicorp/golang-lru"
 	_ "github.com/lib/pq"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -69,6 +67,9 @@ type PostgresClientConfig struct {
 	// The database SSL configuration. For Postgres SSL mode should be
 	// one of the supported values here: https://www.postgresql.org/docs/current/libpq-ssl.html)
 	DatabaseSSL string
+
+	// Whether to apply migrations on startup
+	ApplyMigrations bool
 
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
@@ -143,8 +144,7 @@ type PostgresClient struct {
 	telemetry *telemetry
 }
 
-// NewClickHouseClient establishes a database connection with the provided configuration
-// and applies any pending migrations.
+// NewPostgresClient establishes a database connection with the provided configuration
 func NewPostgresClient(ctx context.Context, cfg *PostgresClientConfig) (*PostgresClient, error) {
 	log.WithFields(log.Fields{
 		"host": cfg.DatabaseHost,
@@ -189,7 +189,12 @@ func NewPostgresClient(ctx context.Context, cfg *PostgresClientConfig) (*Postgre
 		}),
 		telemetry: telemetry,
 	}
-	client.applyMigrations(cfg, dbh)
+
+	if cfg.ApplyMigrations {
+		if err = client.applyMigrations(dbh); err != nil {
+			return nil, fmt.Errorf("apply migrations: %w", err)
+		}
+	}
 
 	client.agentVersions, err = lru.New(cfg.AgentVersionsCacheSize)
 	if err != nil {
@@ -239,54 +244,27 @@ func (c *PostgresClient) Close() error {
 	return c.dbh.Close()
 }
 
-func (c *PostgresClient) applyMigrations(cfg *PostgresClientConfig, dbh *sql.DB) {
-	tmpDir, err := os.MkdirTemp("", "nebula")
+func (c *PostgresClient) applyMigrations(dbh *sql.DB) error {
+	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
 	if err != nil {
-		log.WithError(err).WithField("pattern", "nebula").Warnln("Could not create tmp directory for migrations")
-		return
-	}
-	defer func() {
-		if err = os.RemoveAll(tmpDir); err != nil {
-			log.WithError(err).WithField("tmpDir", tmpDir).Warnln("Could not clean up tmp directory")
-		}
-	}()
-	log.WithField("dir", tmpDir).Debugln("Created temporary directory")
-
-	err = fs.WalkDir(migrations, ".", func(path string, d fs.DirEntry, err error) error {
-		join := filepath.Join(tmpDir, path)
-		if d.IsDir() {
-			return os.MkdirAll(join, 0o755)
-		}
-
-		data, err := migrations.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read file: %w", err)
-		}
-
-		return os.WriteFile(join, data, 0o644)
-	})
-	if err != nil {
-		log.WithError(err).Warnln("Could not create migrations files")
-		return
+		return fmt.Errorf("create iofs migrations source: %w", err)
 	}
 
-	// Apply migrations
-	driver, err := postgres.WithInstance(dbh, &postgres.Config{})
+	driver, err := mpg.WithInstance(dbh, &mpg.Config{})
 	if err != nil {
-		log.WithError(err).Warnln("Could not create driver instance")
-		return
+		return fmt.Errorf("create driver instance: %w", err)
 	}
 
-	m, err := migrate.NewWithDatabaseInstance("file://"+filepath.Join(tmpDir, "migrations/pg"), cfg.DatabaseName, driver)
+	m, err := migrate.NewWithInstance("iofs", migrationsDir, c.cfg.DatabaseName, driver)
 	if err != nil {
-		log.WithError(err).Warnln("Could not create migrate instance")
-		return
+		return fmt.Errorf("create migrate instance: %w", err)
 	}
 
 	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		log.WithError(err).Warnln("Couldn't apply migrations")
-		return
+		return fmt.Errorf("migrate database: %w", err)
 	}
+
+	return nil
 }
 
 func (c *PostgresClient) ensurePartitions(ctx context.Context, baseDate time.Time) {
