@@ -55,6 +55,9 @@ type P2PResult struct {
 	// know about that protocol.
 	ListenAddrs []ma.Multiaddr
 
+	// The multiaddress of the successful connection
+	ConnectMaddr ma.Multiaddr
+
 	// the transport of a successful connection
 	Transport string
 }
@@ -74,6 +77,9 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
+
+			// keep track of the multi address over which we successfully connected
+			result.ConnectMaddr = conn.RemoteMultiaddr()
 
 			// keep track of the transport of the open connection
 			result.Transport = conn.ConnState().Transport

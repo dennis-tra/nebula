@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
@@ -56,6 +57,9 @@ type CrawlResult[I PeerInfo[I]] struct {
 
 	// As it can take some time to handle the result we track the timestamp explicitly
 	ConnectEndTime time.Time
+
+	// The multi address of the connection that we have established to the peer
+	ConnectMaddr ma.Multiaddr
 
 	// Additional properties of that specific peer we have crawled
 	Properties json.RawMessage

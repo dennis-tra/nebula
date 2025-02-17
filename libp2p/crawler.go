@@ -111,6 +111,12 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.CrawlError = p2pRes.CrawlError
 	r.CrawlErrorStr = p2pRes.CrawlErrorStr
 
+	// keep track of the multi address that we used to connect to the peer
+	r.ConnectMaddr = p2pRes.ConnectMaddr
+	if r.ConnectMaddr == nil {
+		r.ConnectMaddr = apiRes.ConnectMaddr
+	}
+
 	properties := map[string]any{}
 	// If we attempted to crawl the API (only if we had at least one IP address for the peer)
 	// and we received either the ID or routing table information

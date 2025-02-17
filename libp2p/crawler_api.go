@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +22,9 @@ type APIResult struct {
 
 	// The Kubo routing table. Doesn't contain multi addresses. Don't use this to continue crawling.
 	RoutingTable *kubo.RoutingTableResponse
+
+	// The multiaddress that contained the IP over which we successfully connected to the API
+	ConnectMaddr ma.Multiaddr
 }
 
 func (c *Crawler) crawlAPI(ctx context.Context, pi PeerInfo) <-chan APIResult {
@@ -99,6 +103,7 @@ func (c *Crawler) crawlAPI(ctx context.Context, pi PeerInfo) <-chan APIResult {
 				Attempted:    true,
 				ID:           idResp,
 				RoutingTable: rtResp,
+				ConnectMaddr: maddr,
 			}
 
 			select {
