@@ -69,7 +69,7 @@ type ClickHouseClient struct {
 	conn driver.Conn
 	cfg  *ClickHouseClientConfig
 
-	crawlMu sync.Mutex
+	crawlMu sync.RWMutex
 	crawl   *ClickHouseCrawl
 
 	// this channel will receive all new visits information
@@ -397,8 +397,7 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 }
 
 func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
-	// TODO implement me
-	panic("implement me")
+	return []peer.AddrInfo{}, nil // TODO: ...
 }
 
 func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
@@ -415,8 +414,8 @@ func (c *ClickHouseClient) InsertCrawlProperties(ctx context.Context, properties
 }
 
 func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
-	c.crawlMu.Lock()
-	defer c.crawlMu.Unlock()
+	c.crawlMu.RLock()
+	defer c.crawlMu.RUnlock()
 	if c.crawl == nil {
 		return fmt.Errorf("crawl not initialized")
 	}
@@ -427,8 +426,7 @@ func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, 
 }
 
 func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
-	// TODO implement me
-	panic("implement me")
+	return []peer.AddrInfo{}, nil // TODO: ...
 }
 
 func (c *ClickHouseClient) Flush(ctx context.Context) error {
