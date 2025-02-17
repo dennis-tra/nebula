@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/netip"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/config"
@@ -118,6 +120,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		logEntry.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
+	connectMaddr := devp2pResult.ConnectMaddr
+	if connectMaddr == nil {
+		connectMaddr = discV4Result.ConnectMaddr
+	}
+
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
 		Info:                task,
@@ -133,6 +140,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    devp2pResult.ConnectStartTime,
 		ConnectEndTime:      devp2pResult.ConnectEndTime,
+		ConnectMaddr:        connectMaddr,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
 	}
@@ -149,6 +157,9 @@ type DiscV4Result struct {
 
 	// The updated ethereum node record
 	ENR *enode.Node
+
+	// The multiaddress via which we have received a response
+	ConnectMaddr ma.Multiaddr
 
 	// The neighbors of the crawled peer
 	RoutingTable *core.RoutingTable[PeerInfo]
@@ -192,8 +203,24 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 		if err == nil {
 			// track the respondedAt timestamp if it wasn't already set
-			if result.RespondedAt != nil && !respondedAt.IsZero() {
+			if result.RespondedAt == nil && !respondedAt.IsZero() {
 				result.RespondedAt = &respondedAt
+
+				// construct connect maddr if we have received a response
+				var ipScheme string
+				if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
+					ipScheme = "ip4"
+				} else {
+					ipScheme = "ip6"
+				}
+
+				maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, pi.IP(), pi.UDP())
+				maddr, err := ma.NewMultiaddr(maddrStr)
+				if err != nil {
+					log.WithError(err).Warnln("Failed parsing ethereum node multi address")
+				} else {
+					result.ConnectMaddr = maddr
+				}
 			}
 
 			result.Strategy = determineStrategy(closestSet)
@@ -384,6 +411,7 @@ type Devp2pResult struct {
 	IdentifyEndTime  time.Time
 	ConnectError     error
 	ConnectErrorStr  string
+	ConnectMaddr     ma.Multiaddr
 	Agent            string
 	Protocols        []string
 	Status           *eth.StatusPacket
@@ -401,6 +429,22 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		result.ConnectError = err
 
 		if result.ConnectError == nil {
+
+			// construct connect maddr if we have received a response
+			var ipScheme string
+			if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
+				ipScheme = "ip4"
+			} else {
+				ipScheme = "ip6"
+			}
+
+			maddrStr := fmt.Sprintf("/%s/%s/tcp/%d", ipScheme, pi.IP(), pi.UDP())
+			maddr, err := ma.NewMultiaddr(maddrStr)
+			if err != nil {
+				log.WithError(err).Warnln("Failed parsing ethereum node multi address")
+			} else {
+				result.ConnectMaddr = maddr
+			}
 
 			// start another go routine to cancel the entire operation if it
 			// times out. The context will be cancelled when this function

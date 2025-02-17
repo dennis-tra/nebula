@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/btcsuite/btcd/wire"
@@ -107,6 +109,7 @@ type BitcoinResult struct {
 	ConnectEndTime   time.Time
 	ConnectError     error
 	ConnectErrorStr  string
+	ConnectMaddr     ma.Multiaddr
 	Agent            string
 	ProtocolVersion  int32
 	Protocols        []string
@@ -148,6 +151,29 @@ func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinRes
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
+
+			tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr)
+			if ok {
+				// construct connect maddr if we have received a response
+				var ipScheme string
+				if p4 := tcpAddr.IP.To4(); len(p4) == net.IPv4len {
+					ipScheme = "ip4"
+				} else {
+					ipScheme = "ip6"
+				}
+
+				maddrStr := strings.Join([]string{"", ipScheme, tcpAddr.IP.String(), tcpAddr.Network(), strconv.Itoa(tcpAddr.Port)}, "/")
+				maddr, err := ma.NewMultiaddr(maddrStr)
+				if err != nil {
+					log.WithError(err).WithField("maddr", maddrStr).Warnln("Could not construct connect maddr")
+				} else {
+					result.ConnectMaddr = maddr
+				}
+			} else {
+				log.WithField("addr", conn.RemoteAddr()).Warnln("Not a TCP address, cannot construct connect maddr")
+			}
+
+			result.ConnectMaddr = pi.AddrInfo.Addr[0]
 
 			nodeRes, err := c.Handshake(conn)
 			result.Agent = nodeRes.UserAgent
