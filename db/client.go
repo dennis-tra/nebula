@@ -51,6 +51,7 @@ type VisitArgs struct {
 	VisitEndedAt    time.Time
 	ConnectErrorStr string
 	CrawlErrorStr   string
+	ConnectMaddr    ma.Multiaddr
 	VisitType       VisitType
 	Neighbors       []peer.ID
 	ErrorBits       uint16
