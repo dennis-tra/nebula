@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"strings"
 	"time"
 
@@ -107,6 +108,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		properties["crawl_error"] = discV5Result.Error.Error()
 	}
 
+	// keep track of the connection multi address
+	connectMaddr := libp2pResult.ConnectMaddr
+	if connectMaddr == nil {
+		connectMaddr = discV5Result.ConnectMaddr
+	}
+
 	// extract waku information
 	if libp2pResult.WakuClusterID != 0 && len(libp2pResult.WakuClusterShards) > 0 {
 		properties["waku_cluster_id"] = libp2pResult.WakuClusterID
@@ -137,6 +144,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    libp2pResult.ConnectStartTime,
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
+		ConnectMaddr:        connectMaddr,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
 	}
@@ -201,6 +209,7 @@ type Libp2pResult struct {
 	ConnectEndTime        time.Time
 	ConnectError          error
 	ConnectErrorStr       string
+	ConnectMaddr          ma.Multiaddr
 	Agent                 string
 	Protocols             []string
 	ListenAddrs           []ma.Multiaddr
@@ -235,6 +244,9 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 		result.ConnectEndTime = time.Now()
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
+
+			// keep track of the multi address via which connected successfully
+			result.ConnectMaddr = conn.RemoteMultiaddr()
 
 			// keep track of the transport of the open connection
 			result.Transport = conn.ConnState().Transport
@@ -435,6 +447,9 @@ type DiscV5Result struct {
 	// The time we received the first successful response
 	RespondedAt *time.Time
 
+	// The multi address via which we received a response
+	ConnectMaddr ma.Multiaddr
+
 	// The updated ethereum node record
 	ENR *enode.Node
 
@@ -502,6 +517,22 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			if result.RespondedAt == nil {
 				now := time.Now()
 				result.RespondedAt = &now
+
+				// construct connect maddr if we have received a response
+				var ipScheme string
+				if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
+					ipScheme = "ip4"
+				} else {
+					ipScheme = "ip6"
+				}
+
+				maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, pi.IP(), pi.UDP())
+				maddr, err := ma.NewMultiaddr(maddrStr)
+				if err != nil {
+					log.WithError(err).Warnln("Failed parsing ethereum node multi address")
+				} else {
+					result.ConnectMaddr = maddr
+				}
 			}
 
 			for _, n := range neighbors {
