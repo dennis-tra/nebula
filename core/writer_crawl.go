@@ -83,6 +83,7 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		VisitEndedAt:    task.CrawlEndTime,
 		ConnectErrorStr: task.ConnectErrorStr,
 		CrawlErrorStr:   task.CrawlErrorStr,
+		ConnectMaddr:    task.ConnectMaddr,
 		VisitType:       db.VisitTypeCrawl,
 		Neighbors:       neighbors,
 		ErrorBits:       errorBits,

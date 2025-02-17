@@ -210,7 +210,7 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 		CrawlErrorStr:   "crawl_err",
 		VisitType:       "dial",
 		Neighbors:       neighbors,
-		ErrorBits:       0,
+		ErrorBits:       20,
 		Properties:      null.JSON{},
 	}
 
@@ -221,7 +221,25 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 	suite.Require().NoError(err)
 
 	suite.Require().NoError(suite.client.Flush(ctx))
-	fmt.Println("flushing")
+
+	storedVisit, err := suite.client.selectLatestVisit(ctx)
+	suite.Require().NoError(err)
+
+	suite.Assert().Equal(suite.client.crawl.ID, *storedVisit.CrawlID)
+	suite.Assert().Equal(args.PeerID.String(), storedVisit.PeerID)
+	suite.Assert().Equal(args.AgentVersion, *storedVisit.AgentVersion)
+	suite.Assert().Equal(args.VisitStartedAt.Truncate(time.Millisecond), storedVisit.VisitStartedAt)
+	suite.Assert().Equal(args.VisitEndedAt.Truncate(time.Millisecond), storedVisit.VisitEndedAt)
+	suite.Assert().Equal(args.CrawlErrorStr, *storedVisit.CrawlError)
+	suite.Assert().Equal(args.VisitType.String(), storedVisit.VisitType)
+
+	storedNeighbors, err := suite.client.selectNeighbors(ctx, suite.client.crawl.ID)
+	suite.Require().NoError(err)
+
+	suite.Assert().Len(storedNeighbors, len(neighbors))
+	for i := range neighbors {
+		suite.Assert().Equal(args.ErrorBits, storedNeighbors[i].ErrorBits)
+	}
 }
 
 // In order for 'go test' to run this suite, we need to create
