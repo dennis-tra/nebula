@@ -416,7 +416,15 @@ func (c *ClickHouseClient) InsertCrawlProperties(ctx context.Context, properties
 }
 
 func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error {
-	return nil
+	c.crawlMu.Lock()
+	defer c.crawlMu.Unlock()
+	if c.crawl == nil {
+		return fmt.Errorf("crawl not initialized")
+	}
+
+	query := "INSERT INTO neighbors (crawl_id, peer_id, neighbor, error_bits) VALUES (?, ?, ?, ?)"
+
+	return c.conn.Exec(ctx, query, c.crawl.ID, peerID, neighbors, errorBits)
 }
 
 func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
