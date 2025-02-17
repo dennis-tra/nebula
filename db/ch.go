@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -22,6 +23,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 //go:embed migrations/ch
@@ -72,11 +75,12 @@ type ClickHouseClient struct {
 	crawlMu sync.RWMutex
 	crawl   *ClickHouseCrawl
 
-	// this channel will receive all new visits information
-	visitsChan chan *VisitArgs
+	// this channel will receive all new visits
+	visitsChan chan *ClickHouseVisit
 
 	// this channel can be used to trigger a flush of the prepared batches
-	flushChan chan struct{}
+	// the channel in the channel will be closed when the flush is done.
+	flushChan chan chan struct{}
 
 	// this channel is closed when the flusher has exited
 	flusherDone chan struct{}
@@ -101,8 +105,8 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 		conn:          conn,
 		cfg:           cfg,
 		flusherCancel: flusherCancel,
-		visitsChan:    make(chan *VisitArgs),
-		flushChan:     make(chan struct{}),
+		visitsChan:    make(chan *ClickHouseVisit),
+		flushChan:     make(chan chan struct{}),
 		flusherDone:   make(chan struct{}),
 	}
 
@@ -214,12 +218,13 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			send(visitsBatch, "visits")
 			send(neighborsBatch, "neighbors")
 
-		case <-c.flushChan:
+		case doneChan := <-c.flushChan:
 			// sending batches to clickhouse because the user asked for it
 			send(visitsBatch, "visits")
 			send(neighborsBatch, "neighbors")
+			close(doneChan)
 
-		case visitArgs, more := <-c.visitsChan:
+		case visit, more := <-c.visitsChan:
 			if !more {
 				// we won't receive any more visits
 				send(visitsBatch, "visits")
@@ -227,26 +232,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 				return
 			}
 
-			// the crawl can be null if it's a visit from the monitoring task
-			var crawlID *string
-			if c.crawl != nil {
-				id := c.crawl.ID.String()
-				crawlID = &id
-			}
-
-			if err := visitsBatch.Append(
-				crawlID,
-				visitArgs.PeerID,
-				visitArgs.AgentVersion,
-				visitArgs.Protocols,
-				visitArgs.VisitType,
-				visitArgs.Maddrs,
-				visitArgs.ConnectMaddr,
-				[]string{},
-				visitArgs.CrawlErrorStr,
-				visitArgs.VisitStartedAt,
-				visitArgs.VisitEndedAt,
-			); err != nil {
+			if err := visitsBatch.AppendStruct(visit); err != nil {
 				log.WithError(err).Errorln("Failed to append visits batch")
 			}
 
@@ -257,13 +243,13 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 
 			// neighbors are only set during a crawl, so if this is a visit
 			// from the monitoring task continue here.
-			if crawlID == nil {
+			if visit.CrawlID == nil {
 				continue
 			}
 
 			// append neighbors to batch
-			for _, neighbor := range visitArgs.Neighbors {
-				if err := neighborsBatch.Append(crawlID, visitArgs.PeerID, neighbor, visitArgs.ErrorBits); err != nil {
+			for _, neighbor := range visit.neighbors {
+				if err := neighborsBatch.AppendStruct(neighbor); err != nil {
 					log.WithError(err).Errorln("Failed to append visits batch")
 				}
 			}
@@ -288,6 +274,28 @@ type ClickHouseCrawl struct {
 	RemainingPeers  *int32     `ch:"remaining_peers"`
 	Version         string     `ch:"version"`
 	NetworkID       string     `ch:"network_id"`
+}
+
+type ClickHouseVisit struct {
+	CrawlID        *uuid.UUID `ch:"crawl_id"`
+	PeerID         string     `ch:"peer_id"`
+	AgentVersion   *string    `ch:"agent_version"`
+	Protocols      []string   `ch:"protocols"`
+	VisitType      string     `ch:"type"`
+	Maddrs         []string   `ch:"multi_addresses"`
+	ConnectMaddr   *string    `ch:"connect_multi_address"`
+	ConnectErrors  []string   `ch:"connect_errors"`
+	CrawlError     *string    `ch:"crawl_error"`
+	VisitStartedAt time.Time  `ch:"visit_started_at"`
+	VisitEndedAt   time.Time  `ch:"visit_ended_at"`
+	neighbors      []*ClickhouseNeighbor
+}
+
+type ClickhouseNeighbor struct {
+	CrawlID   uuid.UUID `ch:"crawl_id"`
+	PeerID    string    `ch:"peer_id"`
+	Neighbor  string    `ch:"neighbor_id"`
+	ErrorBits uint16    `ch:"error_bits"`
 }
 
 func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error {
@@ -397,19 +405,107 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 }
 
 func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
-	return []peer.AddrInfo{}, nil // TODO: ...
+	query := `
+		SELECT peer_id, multi_addresses
+		FROM visits
+		WHERE empty(connect_errors)
+		  AND visit_started_at BETWEEN (now() - INTERVAL '24 hours') AND now()
+		limit ?
+	`
+	rows, err := c.conn.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var addrInfos []peer.AddrInfo
+	for rows.Next() {
+		var pidStr string
+		var maddrStrs []string
+		if err := rows.Scan(&pidStr, &maddrStrs); err != nil {
+			return nil, err
+		}
+
+		maddrs, err := utils.AddrsToMaddrs(maddrStrs)
+		if err != nil {
+			log.WithError(err).WithField("maddrs", maddrStrs).Warnln("Could not parse bootstrap multi addresses from database")
+			continue
+		}
+
+		pid, err := peer.Decode(pidStr)
+		if err != nil {
+			log.WithError(err).WithField("pid", pidStr).Warnln("Could not parse bootstrap peer ID from database")
+			continue
+		}
+		addrInfos = append(addrInfos, peer.AddrInfo{
+			ID:    pid,
+			Addrs: maddrs,
+		})
+	}
+
+	return addrInfos, nil
 }
 
 func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
+	// the crawl can be null if it's a visit from the monitoring task
+	var crawlID *uuid.UUID
+	if c.crawl != nil {
+		crawlID = &c.crawl.ID
+	}
+
+	var av *string
+	if args.AgentVersion != "" {
+		av = &args.AgentVersion
+	}
+
+	var connMaddrStr *string
+	if args.ConnectMaddr != nil {
+		maddrStr := args.ConnectMaddr.String()
+		connMaddrStr = &maddrStr
+	}
+
+	var crawlErrStr *string
+	if args.CrawlErrorStr != "" {
+		crawlErrStr = &args.CrawlErrorStr
+	}
+
+	visit := &ClickHouseVisit{
+		CrawlID:        crawlID,
+		PeerID:         args.PeerID.String(),
+		AgentVersion:   av,
+		Protocols:      args.Protocols,
+		VisitType:      args.VisitType.String(),
+		Maddrs:         utils.MaddrsToAddrs(args.Maddrs),
+		ConnectMaddr:   connMaddrStr,
+		ConnectErrors:  []string{},
+		CrawlError:     crawlErrStr,
+		VisitStartedAt: args.VisitStartedAt,
+		VisitEndedAt:   args.VisitEndedAt,
+	}
+
+	sort.Strings(visit.Protocols)
+
+	if crawlID != nil {
+		visit.neighbors = make([]*ClickhouseNeighbor, len(args.Neighbors))
+		for i, neighbor := range args.Neighbors {
+			visit.neighbors[i] = &ClickhouseNeighbor{
+				CrawlID:   *crawlID,
+				PeerID:    args.PeerID.String(),
+				Neighbor:  neighbor.String(),
+				ErrorBits: args.ErrorBits,
+			}
+		}
+	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case c.visitsChan <- args:
+	case c.visitsChan <- visit:
 		return nil
 	}
 }
 
 func (c *ClickHouseClient) InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error {
+	// irrelevant for clickhouse
 	return nil
 }
 
@@ -420,7 +516,7 @@ func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, 
 		return fmt.Errorf("crawl not initialized")
 	}
 
-	query := "INSERT INTO neighbors (crawl_id, peer_id, neighbor, error_bits) VALUES (?, ?, ?, ?)"
+	query := "INSERT INTO neighbors (crawl_id, peer_id, neighbor_id, error_bits) VALUES (?, ?, ?, ?)"
 
 	return c.conn.Exec(ctx, query, c.crawl.ID, peerID, neighbors, errorBits)
 }
@@ -430,10 +526,17 @@ func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrI
 }
 
 func (c *ClickHouseClient) Flush(ctx context.Context) error {
+	flushed := make(chan struct{})
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case c.flushChan <- struct{}{}:
+	case c.flushChan <- flushed:
+	}
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-flushed:
 		return nil
 	}
 }
@@ -464,4 +567,27 @@ func (c *ClickHouseClient) selectLatestCrawl(ctx context.Context) (*ClickHouseCr
 	crawl := &ClickHouseCrawl{}
 	err := c.conn.QueryRow(ctx, "SELECT * FROM crawls FINAL ORDER BY created_at desc LIMIT 1").ScanStruct(crawl)
 	return crawl, err
+}
+
+func (c *ClickHouseClient) selectLatestVisit(ctx context.Context) (*ClickHouseVisit, error) {
+	visit := &ClickHouseVisit{}
+	err := c.conn.QueryRow(ctx, "SELECT * FROM visits ORDER BY visit_started_at desc LIMIT 1").ScanStruct(visit)
+	return visit, err
+}
+
+func (c *ClickHouseClient) selectNeighbors(ctx context.Context, crawlID uuid.UUID) ([]ClickhouseNeighbor, error) {
+	rows, err := c.conn.Query(ctx, "SELECT * FROM neighbors WHERE crawl_id = ?", crawlID)
+	if err != nil {
+		return nil, err
+	}
+
+	var neighbors []ClickhouseNeighbor
+	for rows.Next() {
+		neighbor := ClickhouseNeighbor{}
+		if err := rows.ScanStruct(&neighbor); err != nil {
+			return nil, err
+		}
+		neighbors = append(neighbors, neighbor)
+	}
+	return neighbors, err
 }

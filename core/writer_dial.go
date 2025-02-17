@@ -96,6 +96,7 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 		DialDuration:    &dialDuration,
 		ConnectDuration: nil,
 		CrawlDuration:   nil,
+		// ConnectMaddr: task // TODO
 		VisitStartedAt:  task.DialStartTime,
 		VisitEndedAt:    task.DialEndTime,
 		ConnectErrorStr: task.DialError,
