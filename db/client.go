@@ -84,9 +84,6 @@ type Client interface {
 	// InsertCrawlProperties TODO
 	InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error
 
-	// InsertNeighbors TODO this function is actually obsolete
-	InsertNeighbors(ctx context.Context, peerID peer.ID, neighbors []peer.ID, errorBits uint16) error
-
 	// SelectPeersToProbe TODO
 	SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error)
 
