@@ -9,6 +9,35 @@ import (
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
+type DialError string
+
+const (
+
+	// KnownDialErrorUnknown represents an unknown dialing error.
+	KnownDialErrorUnknown DialError = "unknown"
+
+	// KnownDialErrorTimeout indicates a dialing error caused by a timeout.
+	KnownDialErrorTimeout               DialError = "timeout"
+	KnownDialErrorNotDialed             DialError = "not_dialed"
+	KnownDialErrorCanceled              DialError = "canceled"
+	KnownDialErrorConnectionRefused     DialError = "connection_refused"
+	KnownDialErrorConnectionResetByPeer DialError = "connection_reset_by_peer"
+	KnownDialErrorPeerIDMismatch        DialError = "peer_id_mismatch"
+	KnownDialErrorNoRouteToHost         DialError = "no_route_to_host"
+	KnownDialErrorNetworkUnreachable    DialError = "network_unreachable"
+	KnownDialErrorNoGoodAddresses       DialError = "no_good_addresses"
+	KnownDialErrorNoIPAddress           DialError = "no_ip_address"
+)
+
+type CrawlError string
+
+const (
+	KnownCrawlErrorUnknown              CrawlError = "unknown"
+	KnownCrawlErrorTimeout              CrawlError = "timeout"
+	KnownCrawlErrorProtocolNotSupported CrawlError = "protocol_not_supported"
+	KnownCrawlErrorStreamReset          CrawlError = "stream_reset"
+)
+
 // KnownErrors contains a list of known errors. Property key + string to match for
 var KnownErrors = map[string]string{
 	"i/o timeout":                                pgmodels.NetErrorIoTimeout,

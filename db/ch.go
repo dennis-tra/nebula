@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -306,16 +307,17 @@ type ClickHouseCrawl struct {
 }
 
 type ClickHouseVisit struct {
-	CrawlID        *uuid.UUID `ch:"crawl_id"`
-	PeerID         string     `ch:"peer_id"`
-	AgentVersion   *string    `ch:"agent_version"`
-	Protocols      []string   `ch:"protocols"`
-	DialMaddrs     []string   `ch:"dial_maddrs"`
-	DialErrors     []string   `ch:"dial_errors"`
-	ConnectMaddr   *string    `ch:"connect_maddr"`
-	CrawlError     *string    `ch:"crawl_error"`
-	VisitStartedAt time.Time  `ch:"visit_started_at"`
-	VisitEndedAt   time.Time  `ch:"visit_ended_at"`
+	CrawlID        *uuid.UUID      `ch:"crawl_id"`
+	PeerID         string          `ch:"peer_id"`
+	AgentVersion   *string         `ch:"agent_version"`
+	Protocols      []string        `ch:"protocols"`
+	ListenMaddrs   []string        `ch:"listen_maddrs"`
+	DialErrors     []string        `ch:"dial_errors"`
+	ConnectMaddr   *string         `ch:"connect_maddr"`
+	CrawlError     *string         `ch:"crawl_error"`
+	VisitStartedAt time.Time       `ch:"visit_started_at"`
+	VisitEndedAt   time.Time       `ch:"visit_ended_at"`
+	Properties     json.RawMessage `ch:"peer_properties"`
 	neighbors      []*ClickhouseNeighbor
 }
 
@@ -389,6 +391,8 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 
 	// cache the crawl.
 	c.crawl = crawl
+
+	log.WithField("id", c.crawl.ID).Infoln("Initialized crawl")
 
 	return nil
 }
@@ -511,12 +515,13 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		PeerID:         args.PeerID.String(),
 		AgentVersion:   av,
 		Protocols:      args.Protocols,
-		DialMaddrs:     utils.MaddrsToAddrs(args.Maddrs),
+		ListenMaddrs:   utils.MaddrsToAddrs(args.Maddrs),
 		ConnectMaddr:   connMaddrStr,
-		DialErrors:     []string{},
+		DialErrors:     args.DialErrors,
 		CrawlError:     crawlErrStr,
 		VisitStartedAt: args.VisitStartedAt,
 		VisitEndedAt:   args.VisitEndedAt,
+		Properties:     args.Properties,
 	}
 
 	sort.Strings(visit.Protocols)

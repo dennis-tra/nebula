@@ -344,7 +344,13 @@ func (c *PostgresClient) InitCrawl(ctx context.Context, version string) (err err
 		Version:   version,
 	}
 
-	return c.crawl.Insert(ctx, c.dbh, boil.Infer())
+	if err := c.crawl.Insert(ctx, c.dbh, boil.Infer()); err != nil {
+		return fmt.Errorf("insert crawl: %w", err)
+	}
+
+	log.WithField("id", c.crawl.ID).Infoln("Initialized crawl")
+
+	return nil
 }
 
 func (c *PostgresClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (err error) {

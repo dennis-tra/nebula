@@ -99,6 +99,9 @@ var CrawlCommand = &cli.Command{
 		// closing connections to the database
 		rootConfig.Database.MaxIdleConns = crawlConfig.WriteWorkerCount
 
+		// set the network ID on the database object
+		rootConfig.Database.NetworkID = crawlConfig.Network
+
 		return nil
 	},
 	Flags: []cli.Flag{
@@ -223,7 +226,7 @@ func CrawlAction(c *cli.Context) error {
 
 	// initialize a new database client based on the given configuration.
 	// Options are Postgres, JSON, and noop (dry-run).
-	dbc, err := rootConfig.Database.NewClient(ctx, cfg.Network)
+	dbc, err := rootConfig.Database.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("new database client: %w", err)
 	}

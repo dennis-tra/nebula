@@ -3,17 +3,20 @@ package libp2p
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
+	"github.com/dennis-tra/nebula-crawler/db"
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
@@ -106,6 +109,7 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.Protocols = p2pRes.Protocols
 	r.ConnectStartTime = p2pRes.ConnectStartTime
 	r.ConnectEndTime = p2pRes.ConnectEndTime
+	r.DialErrors = make([]string, len(r.Info.AddrInfo.Addrs))
 	r.ConnectError = p2pRes.ConnectError
 	r.ConnectErrorStr = p2pRes.ConnectErrorStr
 	r.CrawlError = p2pRes.CrawlError
@@ -138,6 +142,33 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	// keep track of all unknown crawl errors
 	if p2pRes.CrawlErrorStr == pgmodels.NetErrorUnknown && p2pRes.CrawlError != nil {
 		properties["crawl_error"] = p2pRes.CrawlError.Error()
+	}
+
+	var serr *swarm.DialError
+	if errors.As(p2pRes.ConnectError, &serr) {
+		maddrErr := make(map[ma.Multiaddr]error, len(serr.DialErrors))
+		for _, derr := range serr.DialErrors {
+			maddrErr[derr.Address] = derr.Cause
+		}
+
+		for i, maddr := range r.Info.AddrInfo.Addrs {
+			derr, ok := maddrErr[maddr]
+			if ok {
+				r.DialErrors[i] = db.NetError(derr)
+			} else {
+				r.DialErrors[i] = string(db.KnownDialErrorNotDialed)
+			}
+		}
+	} else {
+		commonErr := db.KnownDialErrorUnknown
+		if errors.Is(p2pRes.ConnectError, ErrNoPublicIP) {
+			commonErr = db.KnownDialErrorNotDialed
+		} else if errors.Is(p2pRes.ConnectError, context.Canceled) {
+			commonErr = db.KnownDialErrorCanceled
+		}
+		for i := range r.Info.AddrInfo.Addrs {
+			r.DialErrors[i] = string(commonErr)
+		}
 	}
 
 	var err error

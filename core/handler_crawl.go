@@ -34,7 +34,13 @@ type CrawlResult[I PeerInfo[I]] struct {
 	// The API routing table does not include MultiAddresses, so we won't use them for further crawls.
 	RoutingTableFromAPI bool
 
-	// Any error that has occurred when connecting to the peer
+	// A list of errors that belong to each of the addresses stored in Info. The
+	// list is guaranteed to have the same length as the Info.Addrs() if a
+	// connection could not be established.
+	DialErrors []string
+
+	// An error that summaries the DialErrors into a single one (deprecated and
+	// used in postgres). The aggregation should be done later in the process.
 	ConnectError error
 
 	// The above error transferred to a known error

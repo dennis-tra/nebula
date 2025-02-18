@@ -2,13 +2,12 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"time"
 
-	ma "github.com/multiformats/go-multiaddr"
-	"github.com/volatiletech/null/v8"
-
 	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type CrawlState string
@@ -49,13 +48,14 @@ type VisitArgs struct {
 	CrawlDuration   *time.Duration
 	VisitStartedAt  time.Time
 	VisitEndedAt    time.Time
+	DialErrors      []string
 	ConnectErrorStr string
 	CrawlErrorStr   string
 	ConnectMaddr    ma.Multiaddr
 	VisitType       VisitType
 	Neighbors       []peer.ID
 	ErrorBits       uint16
-	Properties      null.JSON
+	Properties      json.RawMessage
 }
 
 type Client interface {

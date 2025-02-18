@@ -183,7 +183,7 @@ func (c *JSONClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
 		VisitEndedAt:    args.VisitEndedAt,
 		ConnectErrorStr: args.ConnectErrorStr,
 		CrawlErrorStr:   args.CrawlErrorStr,
-		Properties:      args.Properties,
+		Properties:      null.JSONFrom(args.Properties),
 	}
 
 	if len(args.Neighbors) > 0 || args.ErrorBits != 0 {

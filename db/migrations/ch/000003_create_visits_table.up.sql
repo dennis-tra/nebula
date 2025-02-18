@@ -1,6 +1,3 @@
--- Enable the JSON column type
-SET enable_json_type = 1;
-
 -- Captures the information when crawling a peer
 CREATE TABLE visits
 (
@@ -14,8 +11,10 @@ CREATE TABLE visits
     agent_version    String,
     -- the set of protocols/capabilities that the peer claims to support
     protocols        Array(LowCardinality(String)),
-    -- a list of sorted multi addresses that we used to dial/connect to the peer
-    dial_maddrs      Array(String),
+    -- a list of unsorted multi addresses that the peer advertised to be reachable
+    -- at. This is not necessarily the set of addresses we tried to dial because
+    -- it could contain only private addresses which we don't even try to dial.
+    listen_maddrs    Array(String),
     -- in case we could not connect to the peer, this field will contain a list
     -- of errors that occurred for each of the multi addresses that we dialed.
     dial_errors      Array(LowCardinality(String)),

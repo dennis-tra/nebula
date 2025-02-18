@@ -207,6 +207,9 @@ type Database struct {
 	// Whether to skip database interactions
 	DryRun bool
 
+	// The network identifier that we are collecting data for
+	NetworkID string
+
 	// File path to the JSON output directory
 	JSONOut string
 
@@ -293,7 +296,7 @@ func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
 	}
 }
 
-func (cfg *Database) ClickHouseClientConfig(network string) *db.ClickHouseClientConfig {
+func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
 	if cfg.DatabasePort == 0 {
 		cfg.DatabasePort = 9000
 	}
@@ -316,7 +319,7 @@ func (cfg *Database) ClickHouseClientConfig(network string) *db.ClickHouseClient
 		ApplyMigrations:       cfg.ApplyMigrations,
 		BatchSize:             cfg.ClickHouseBatchSize,
 		BatchTimeout:          cfg.ClickHouseBatchTimeout,
-		NetworkID:             network,
+		NetworkID:             cfg.NetworkID,
 		MeterProvider:         cfg.MeterProvider,
 		TracerProvider:        cfg.TracerProvider,
 	}
@@ -330,7 +333,7 @@ func (cfg *Database) ClickHouseClientConfig(network string) *db.ClickHouseClient
 // the user specifies a JSON output directory. Then JSON files with crawl
 // information are written to that directory. In any other case, the Postgres
 // or ClickHouse client is used based on the configured database engine.
-func (cfg *Database) NewClient(ctx context.Context, network string) (db.Client, error) {
+func (cfg *Database) NewClient(ctx context.Context) (db.Client, error) {
 	var (
 		dbc db.Client
 		err error
@@ -348,7 +351,7 @@ func (cfg *Database) NewClient(ctx context.Context, network string) (db.Client, 
 		case "postgres", "pg":
 			dbc, err = db.NewPostgresClient(ctx, cfg.PostgresClientConfig())
 		case "clickhouse", "ch":
-			dbc, err = db.NewClickHouseClient(ctx, cfg.ClickHouseClientConfig(network))
+			dbc, err = db.NewClickHouseClient(ctx, cfg.ClickHouseClientConfig())
 		default:
 			return nil, fmt.Errorf("unknown database engine: %s", cfg.DatabaseEngine)
 		}
