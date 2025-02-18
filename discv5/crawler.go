@@ -130,8 +130,8 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	listenAddrs := make([]ma.Multiaddr, 0, len(task.maddrs)+len(libp2pResult.ListenAddrs))
 	listenAddrs = append(listenAddrs, task.maddrs...)
 	listenAddrs = append(listenAddrs, libp2pResult.ListenAddrs...)
-	task.maddrs = slices.CompactFunc(listenAddrs, func(maddr1 ma.Multiaddr, maddr2 ma.Multiaddr) bool {
-		return maddr1.Equal(maddr2)
+	task.maddrs = slices.CompactFunc(listenAddrs, func(a ma.Multiaddr, b ma.Multiaddr) bool {
+		return a.Equal(b)
 	})
 
 	cr := core.CrawlResult[PeerInfo]{

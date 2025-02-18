@@ -381,11 +381,11 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 		return fmt.Errorf("prepare batch: %w", err)
 	}
 
-	if err := batch.AppendStruct(crawl); err != nil {
+	if err = batch.AppendStruct(crawl); err != nil {
 		return fmt.Errorf("append crawl struct: %w", err)
 	}
 
-	if err := batch.Send(); err != nil {
+	if err = batch.Send(); err != nil {
 		return fmt.Errorf("insert crawl: %w", err)
 	}
 
