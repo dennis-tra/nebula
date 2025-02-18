@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"slices"
 	"strings"
 	"time"
 
@@ -125,9 +126,13 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
-	if len(libp2pResult.ListenAddrs) > 0 {
-		task.maddrs = libp2pResult.ListenAddrs
-	}
+	// collect all addresses we've found
+	listenAddrs := make([]ma.Multiaddr, 0, len(task.maddrs)+len(libp2pResult.ListenAddrs))
+	listenAddrs = append(listenAddrs, task.maddrs...)
+	listenAddrs = append(listenAddrs, libp2pResult.ListenAddrs...)
+	task.maddrs = slices.CompactFunc(listenAddrs, func(maddr1 ma.Multiaddr, maddr2 ma.Multiaddr) bool {
+		return maddr1.Equal(maddr2)
+	})
 
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
@@ -137,6 +142,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV5Result.RoutingTable,
 		Agent:               libp2pResult.Agent,
 		Protocols:           libp2pResult.Protocols,
+		DialErrors:          db.MaddrErrors(task.maddrs, libp2pResult.ConnectError),
 		ConnectError:        libp2pResult.ConnectError,
 		ConnectErrorStr:     libp2pResult.ConnectErrorStr,
 		CrawlError:          discV5Result.Error,
@@ -242,6 +248,7 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 		result.ConnectStartTime = time.Now()
 		conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
 		result.ConnectEndTime = time.Now()
+
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
@@ -290,10 +297,8 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 			// Extract listen addresses
 			result.ListenAddrs = ps.Addrs(pi.ID())
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
+		} else {
+			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
 
@@ -317,7 +322,7 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 // connect establishes a connection to the given peer. It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, error) {
 	if len(pi.Addrs) == 0 {
-		return nil, fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
+		return nil, db.ErrNoPublicIP
 	}
 
 	// init an exponential backoff
@@ -326,7 +331,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, 
 	bo.MaxInterval = 10 * time.Second
 	bo.MaxElapsedTime = time.Minute
 
-	var retry int = 0
+	retry := 0
 
 	for {
 		logEntry := log.WithFields(log.Fields{

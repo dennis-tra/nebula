@@ -14,6 +14,8 @@ CREATE TABLE visits
     -- a list of unsorted multi addresses that the peer advertised to be reachable
     -- at. This is not necessarily the set of addresses we tried to dial because
     -- it could contain only private addresses which we don't even try to dial.
+    -- Also, the peer could have served us with additional addresses that it
+    -- listens on than we tried to dial.
     listen_maddrs    Array(String),
     -- in case we could not connect to the peer, this field will contain a list
     -- of errors that occurred for each of the multi addresses that we dialed.

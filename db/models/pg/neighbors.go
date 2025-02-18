@@ -64,23 +64,18 @@ type whereHelpertypes_Int64Array struct{ field string }
 func (w whereHelpertypes_Int64Array) EQ(x types.Int64Array) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-
 func (w whereHelpertypes_Int64Array) NEQ(x types.Int64Array) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-
 func (w whereHelpertypes_Int64Array) LT(x types.Int64Array) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-
 func (w whereHelpertypes_Int64Array) LTE(x types.Int64Array) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-
 func (w whereHelpertypes_Int64Array) GT(x types.Int64Array) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-
 func (w whereHelpertypes_Int64Array) GTE(x types.Int64Array) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
@@ -103,7 +98,6 @@ func (w whereHelperint16) IN(slice []int16) qm.QueryMod {
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-
 func (w whereHelperint16) NIN(slice []int16) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -125,10 +119,12 @@ var NeighborWhere = struct {
 }
 
 // NeighborRels is where relationship names are stored.
-var NeighborRels = struct{}{}
+var NeighborRels = struct {
+}{}
 
 // neighborR is where relationships are stored.
-type neighborR struct{}
+type neighborR struct {
+}
 
 // NewStruct creates a new relationship struct
 func (*neighborR) NewStruct() *neighborR {
@@ -181,25 +177,17 @@ var (
 
 var neighborAfterSelectHooks []NeighborHook
 
-var (
-	neighborBeforeInsertHooks []NeighborHook
-	neighborAfterInsertHooks  []NeighborHook
-)
+var neighborBeforeInsertHooks []NeighborHook
+var neighborAfterInsertHooks []NeighborHook
 
-var (
-	neighborBeforeUpdateHooks []NeighborHook
-	neighborAfterUpdateHooks  []NeighborHook
-)
+var neighborBeforeUpdateHooks []NeighborHook
+var neighborAfterUpdateHooks []NeighborHook
 
-var (
-	neighborBeforeDeleteHooks []NeighborHook
-	neighborAfterDeleteHooks  []NeighborHook
-)
+var neighborBeforeDeleteHooks []NeighborHook
+var neighborAfterDeleteHooks []NeighborHook
 
-var (
-	neighborBeforeUpsertHooks []NeighborHook
-	neighborAfterUpsertHooks  []NeighborHook
-)
+var neighborBeforeUpsertHooks []NeighborHook
+var neighborAfterUpsertHooks []NeighborHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *Neighbor) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -371,7 +359,7 @@ func (q neighborQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Nei
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for neighbors")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for neighbors")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -387,7 +375,7 @@ func (q neighborQuery) All(ctx context.Context, exec boil.ContextExecutor) (Neig
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to Neighbor slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to Neighbor slice")
 	}
 
 	if len(neighborAfterSelectHooks) != 0 {
@@ -410,7 +398,7 @@ func (q neighborQuery) Count(ctx context.Context, exec boil.ContextExecutor) (in
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count neighbors rows")
+		return 0, errors.Wrap(err, "pg: failed to count neighbors rows")
 	}
 
 	return count, nil
@@ -426,7 +414,7 @@ func (q neighborQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (b
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if neighbors exists")
+		return false, errors.Wrap(err, "pg: failed to check if neighbors exists")
 	}
 
 	return count > 0, nil
@@ -463,7 +451,7 @@ func FindNeighbor(ctx context.Context, exec boil.ContextExecutor, crawlID int, p
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from neighbors")
+		return nil, errors.Wrap(err, "pg: unable to select from neighbors")
 	}
 
 	if err = neighborObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -477,7 +465,7 @@ func FindNeighbor(ctx context.Context, exec boil.ContextExecutor, crawlID int, p
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *Neighbor) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no neighbors provided for insertion")
+		return errors.New("pg: no neighbors provided for insertion")
 	}
 
 	var err error
@@ -540,7 +528,7 @@ func (o *Neighbor) Insert(ctx context.Context, exec boil.ContextExecutor, column
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into neighbors")
+		return errors.Wrap(err, "pg: unable to insert into neighbors")
 	}
 
 	if !cached {
@@ -575,7 +563,7 @@ func (o *Neighbor) Update(ctx context.Context, exec boil.ContextExecutor, column
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update neighbors, could not build whitelist")
+			return 0, errors.New("pg: unable to update neighbors, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"neighbors\" SET %s WHERE %s",
@@ -598,12 +586,12 @@ func (o *Neighbor) Update(ctx context.Context, exec boil.ContextExecutor, column
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update neighbors row")
+		return 0, errors.Wrap(err, "pg: unable to update neighbors row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for neighbors")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for neighbors")
 	}
 
 	if !cached {
@@ -621,12 +609,12 @@ func (q neighborQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for neighbors")
+		return 0, errors.Wrap(err, "pg: unable to update all for neighbors")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for neighbors")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for neighbors")
 	}
 
 	return rowsAff, nil
@@ -640,7 +628,7 @@ func (o NeighborSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -670,12 +658,12 @@ func (o NeighborSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in neighbor slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in neighbor slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all neighbor")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all neighbor")
 	}
 	return rowsAff, nil
 }
@@ -684,7 +672,7 @@ func (o NeighborSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *Neighbor) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no neighbors provided for upsert")
+		return errors.New("pg: no neighbors provided for upsert")
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
@@ -741,7 +729,7 @@ func (o *Neighbor) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 		)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert neighbors, could not build update column list")
+			return errors.New("pg: unable to upsert neighbors, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -784,7 +772,7 @@ func (o *Neighbor) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert neighbors")
+		return errors.Wrap(err, "pg: unable to upsert neighbors")
 	}
 
 	if !cached {
@@ -800,7 +788,7 @@ func (o *Neighbor) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 // Delete will match against the primary key column to find the record to delete.
 func (o *Neighbor) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no Neighbor provided for delete")
+		return 0, errors.New("pg: no Neighbor provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -817,12 +805,12 @@ func (o *Neighbor) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from neighbors")
+		return 0, errors.Wrap(err, "pg: unable to delete from neighbors")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for neighbors")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for neighbors")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -835,19 +823,19 @@ func (o *Neighbor) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 // DeleteAll deletes all matching rows.
 func (q neighborQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no neighborQuery provided for delete all")
+		return 0, errors.New("pg: no neighborQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from neighbors")
+		return 0, errors.Wrap(err, "pg: unable to delete all from neighbors")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for neighbors")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for neighbors")
 	}
 
 	return rowsAff, nil
@@ -883,12 +871,12 @@ func (o NeighborSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from neighbor slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from neighbor slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for neighbors")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for neighbors")
 	}
 
 	if len(neighborAfterDeleteHooks) != 0 {
@@ -935,7 +923,7 @@ func (o *NeighborSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in NeighborSlice")
+		return errors.Wrap(err, "pg: unable to reload all in NeighborSlice")
 	}
 
 	*o = slice
@@ -957,7 +945,7 @@ func NeighborExists(ctx context.Context, exec boil.ContextExecutor, crawlID int,
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if neighbors exists")
+		return false, errors.Wrap(err, "pg: unable to check if neighbors exists")
 	}
 
 	return exists, nil

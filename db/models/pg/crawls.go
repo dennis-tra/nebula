@@ -108,23 +108,18 @@ type whereHelpernull_Time struct{ field string }
 func (w whereHelpernull_Time) EQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-
 func (w whereHelpernull_Time) NEQ(x null.Time) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-
 func (w whereHelpernull_Time) LT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-
 func (w whereHelpernull_Time) LTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-
 func (w whereHelpernull_Time) GT(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-
 func (w whereHelpernull_Time) GTE(x null.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
@@ -228,25 +223,17 @@ var (
 
 var crawlAfterSelectHooks []CrawlHook
 
-var (
-	crawlBeforeInsertHooks []CrawlHook
-	crawlAfterInsertHooks  []CrawlHook
-)
+var crawlBeforeInsertHooks []CrawlHook
+var crawlAfterInsertHooks []CrawlHook
 
-var (
-	crawlBeforeUpdateHooks []CrawlHook
-	crawlAfterUpdateHooks  []CrawlHook
-)
+var crawlBeforeUpdateHooks []CrawlHook
+var crawlAfterUpdateHooks []CrawlHook
 
-var (
-	crawlBeforeDeleteHooks []CrawlHook
-	crawlAfterDeleteHooks  []CrawlHook
-)
+var crawlBeforeDeleteHooks []CrawlHook
+var crawlAfterDeleteHooks []CrawlHook
 
-var (
-	crawlBeforeUpsertHooks []CrawlHook
-	crawlAfterUpsertHooks  []CrawlHook
-)
+var crawlBeforeUpsertHooks []CrawlHook
+var crawlAfterUpsertHooks []CrawlHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *Crawl) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -418,7 +405,7 @@ func (q crawlQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Crawl,
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for crawls")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for crawls")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -434,7 +421,7 @@ func (q crawlQuery) All(ctx context.Context, exec boil.ContextExecutor) (CrawlSl
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to Crawl slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to Crawl slice")
 	}
 
 	if len(crawlAfterSelectHooks) != 0 {
@@ -457,7 +444,7 @@ func (q crawlQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count crawls rows")
+		return 0, errors.Wrap(err, "pg: failed to count crawls rows")
 	}
 
 	return count, nil
@@ -473,7 +460,7 @@ func (q crawlQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if crawls exists")
+		return false, errors.Wrap(err, "pg: failed to check if crawls exists")
 	}
 
 	return count > 0, nil
@@ -691,7 +678,7 @@ func FindCrawl(ctx context.Context, exec boil.ContextExecutor, iD int, selectCol
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from crawls")
+		return nil, errors.Wrap(err, "pg: unable to select from crawls")
 	}
 
 	if err = crawlObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -705,7 +692,7 @@ func FindCrawl(ctx context.Context, exec boil.ContextExecutor, iD int, selectCol
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *Crawl) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no crawls provided for insertion")
+		return errors.New("pg: no crawls provided for insertion")
 	}
 
 	var err error
@@ -779,7 +766,7 @@ func (o *Crawl) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into crawls")
+		return errors.Wrap(err, "pg: unable to insert into crawls")
 	}
 
 	if !cached {
@@ -821,7 +808,7 @@ func (o *Crawl) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update crawls, could not build whitelist")
+			return 0, errors.New("pg: unable to update crawls, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"crawls\" SET %s WHERE %s",
@@ -844,12 +831,12 @@ func (o *Crawl) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update crawls row")
+		return 0, errors.Wrap(err, "pg: unable to update crawls row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for crawls")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for crawls")
 	}
 
 	if !cached {
@@ -867,12 +854,12 @@ func (q crawlQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for crawls")
+		return 0, errors.Wrap(err, "pg: unable to update all for crawls")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for crawls")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for crawls")
 	}
 
 	return rowsAff, nil
@@ -886,7 +873,7 @@ func (o CrawlSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -916,12 +903,12 @@ func (o CrawlSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in crawl slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in crawl slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all crawl")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all crawl")
 	}
 	return rowsAff, nil
 }
@@ -930,7 +917,7 @@ func (o CrawlSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *Crawl) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no crawls provided for upsert")
+		return errors.New("pg: no crawls provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -998,7 +985,7 @@ func (o *Crawl) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 		update = strmangle.SetComplement(update, crawlGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert crawls, could not build update column list")
+			return errors.New("pg: unable to upsert crawls, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1041,7 +1028,7 @@ func (o *Crawl) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert crawls")
+		return errors.Wrap(err, "pg: unable to upsert crawls")
 	}
 
 	if !cached {
@@ -1057,7 +1044,7 @@ func (o *Crawl) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 // Delete will match against the primary key column to find the record to delete.
 func (o *Crawl) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no Crawl provided for delete")
+		return 0, errors.New("pg: no Crawl provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1074,12 +1061,12 @@ func (o *Crawl) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, e
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from crawls")
+		return 0, errors.Wrap(err, "pg: unable to delete from crawls")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for crawls")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for crawls")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1092,19 +1079,19 @@ func (o *Crawl) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, e
 // DeleteAll deletes all matching rows.
 func (q crawlQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no crawlQuery provided for delete all")
+		return 0, errors.New("pg: no crawlQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from crawls")
+		return 0, errors.Wrap(err, "pg: unable to delete all from crawls")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for crawls")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for crawls")
 	}
 
 	return rowsAff, nil
@@ -1140,12 +1127,12 @@ func (o CrawlSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from crawl slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from crawl slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for crawls")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for crawls")
 	}
 
 	if len(crawlAfterDeleteHooks) != 0 {
@@ -1192,7 +1179,7 @@ func (o *CrawlSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) e
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in CrawlSlice")
+		return errors.Wrap(err, "pg: unable to reload all in CrawlSlice")
 	}
 
 	*o = slice
@@ -1214,7 +1201,7 @@ func CrawlExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bool, 
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if crawls exists")
+		return false, errors.Wrap(err, "pg: unable to check if crawls exists")
 	}
 
 	return exists, nil

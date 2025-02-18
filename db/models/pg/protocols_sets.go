@@ -145,25 +145,17 @@ var (
 
 var protocolsSetAfterSelectHooks []ProtocolsSetHook
 
-var (
-	protocolsSetBeforeInsertHooks []ProtocolsSetHook
-	protocolsSetAfterInsertHooks  []ProtocolsSetHook
-)
+var protocolsSetBeforeInsertHooks []ProtocolsSetHook
+var protocolsSetAfterInsertHooks []ProtocolsSetHook
 
-var (
-	protocolsSetBeforeUpdateHooks []ProtocolsSetHook
-	protocolsSetAfterUpdateHooks  []ProtocolsSetHook
-)
+var protocolsSetBeforeUpdateHooks []ProtocolsSetHook
+var protocolsSetAfterUpdateHooks []ProtocolsSetHook
 
-var (
-	protocolsSetBeforeDeleteHooks []ProtocolsSetHook
-	protocolsSetAfterDeleteHooks  []ProtocolsSetHook
-)
+var protocolsSetBeforeDeleteHooks []ProtocolsSetHook
+var protocolsSetAfterDeleteHooks []ProtocolsSetHook
 
-var (
-	protocolsSetBeforeUpsertHooks []ProtocolsSetHook
-	protocolsSetAfterUpsertHooks  []ProtocolsSetHook
-)
+var protocolsSetBeforeUpsertHooks []ProtocolsSetHook
+var protocolsSetAfterUpsertHooks []ProtocolsSetHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *ProtocolsSet) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -335,7 +327,7 @@ func (q protocolsSetQuery) One(ctx context.Context, exec boil.ContextExecutor) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for protocols_sets")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for protocols_sets")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -351,7 +343,7 @@ func (q protocolsSetQuery) All(ctx context.Context, exec boil.ContextExecutor) (
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to ProtocolsSet slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to ProtocolsSet slice")
 	}
 
 	if len(protocolsSetAfterSelectHooks) != 0 {
@@ -374,7 +366,7 @@ func (q protocolsSetQuery) Count(ctx context.Context, exec boil.ContextExecutor)
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count protocols_sets rows")
+		return 0, errors.Wrap(err, "pg: failed to count protocols_sets rows")
 	}
 
 	return count, nil
@@ -390,7 +382,7 @@ func (q protocolsSetQuery) Exists(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if protocols_sets exists")
+		return false, errors.Wrap(err, "pg: failed to check if protocols_sets exists")
 	}
 
 	return count > 0, nil
@@ -682,7 +674,7 @@ func FindProtocolsSet(ctx context.Context, exec boil.ContextExecutor, iD int, se
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from protocols_sets")
+		return nil, errors.Wrap(err, "pg: unable to select from protocols_sets")
 	}
 
 	if err = protocolsSetObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -696,7 +688,7 @@ func FindProtocolsSet(ctx context.Context, exec boil.ContextExecutor, iD int, se
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *ProtocolsSet) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no protocols_sets provided for insertion")
+		return errors.New("pg: no protocols_sets provided for insertion")
 	}
 
 	var err error
@@ -760,7 +752,7 @@ func (o *ProtocolsSet) Insert(ctx context.Context, exec boil.ContextExecutor, co
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into protocols_sets")
+		return errors.Wrap(err, "pg: unable to insert into protocols_sets")
 	}
 
 	if !cached {
@@ -796,7 +788,7 @@ func (o *ProtocolsSet) Update(ctx context.Context, exec boil.ContextExecutor, co
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update protocols_sets, could not build whitelist")
+			return 0, errors.New("pg: unable to update protocols_sets, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"protocols_sets\" SET %s WHERE %s",
@@ -819,12 +811,12 @@ func (o *ProtocolsSet) Update(ctx context.Context, exec boil.ContextExecutor, co
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update protocols_sets row")
+		return 0, errors.Wrap(err, "pg: unable to update protocols_sets row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for protocols_sets")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for protocols_sets")
 	}
 
 	if !cached {
@@ -842,12 +834,12 @@ func (q protocolsSetQuery) UpdateAll(ctx context.Context, exec boil.ContextExecu
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for protocols_sets")
+		return 0, errors.Wrap(err, "pg: unable to update all for protocols_sets")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for protocols_sets")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for protocols_sets")
 	}
 
 	return rowsAff, nil
@@ -861,7 +853,7 @@ func (o ProtocolsSetSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -891,12 +883,12 @@ func (o ProtocolsSetSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in protocolsSet slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in protocolsSet slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all protocolsSet")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all protocolsSet")
 	}
 	return rowsAff, nil
 }
@@ -905,7 +897,7 @@ func (o ProtocolsSetSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *ProtocolsSet) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no protocols_sets provided for upsert")
+		return errors.New("pg: no protocols_sets provided for upsert")
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
@@ -965,7 +957,7 @@ func (o *ProtocolsSet) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		update = strmangle.SetComplement(update, protocolsSetGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert protocols_sets, could not build update column list")
+			return errors.New("pg: unable to upsert protocols_sets, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1008,7 +1000,7 @@ func (o *ProtocolsSet) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert protocols_sets")
+		return errors.Wrap(err, "pg: unable to upsert protocols_sets")
 	}
 
 	if !cached {
@@ -1024,7 +1016,7 @@ func (o *ProtocolsSet) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 // Delete will match against the primary key column to find the record to delete.
 func (o *ProtocolsSet) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no ProtocolsSet provided for delete")
+		return 0, errors.New("pg: no ProtocolsSet provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1041,12 +1033,12 @@ func (o *ProtocolsSet) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from protocols_sets")
+		return 0, errors.Wrap(err, "pg: unable to delete from protocols_sets")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for protocols_sets")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for protocols_sets")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1059,19 +1051,19 @@ func (o *ProtocolsSet) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 // DeleteAll deletes all matching rows.
 func (q protocolsSetQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no protocolsSetQuery provided for delete all")
+		return 0, errors.New("pg: no protocolsSetQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from protocols_sets")
+		return 0, errors.Wrap(err, "pg: unable to delete all from protocols_sets")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for protocols_sets")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for protocols_sets")
 	}
 
 	return rowsAff, nil
@@ -1107,12 +1099,12 @@ func (o ProtocolsSetSlice) DeleteAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from protocolsSet slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from protocolsSet slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for protocols_sets")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for protocols_sets")
 	}
 
 	if len(protocolsSetAfterDeleteHooks) != 0 {
@@ -1159,7 +1151,7 @@ func (o *ProtocolsSetSlice) ReloadAll(ctx context.Context, exec boil.ContextExec
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in ProtocolsSetSlice")
+		return errors.Wrap(err, "pg: unable to reload all in ProtocolsSetSlice")
 	}
 
 	*o = slice
@@ -1181,7 +1173,7 @@ func ProtocolsSetExists(ctx context.Context, exec boil.ContextExecutor, iD int) 
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if protocols_sets exists")
+		return false, errors.Wrap(err, "pg: unable to check if protocols_sets exists")
 	}
 
 	return exists, nil

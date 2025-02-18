@@ -30,6 +30,35 @@ func MaddrsToAddrs(maddrs []ma.Multiaddr) []string {
 	return addrs
 }
 
+// EllipsizeMaddr shortens the certhashes
+func EllipsizeMaddr(input string, maxLength int) string {
+	parts := strings.Split(input, "/")
+	for i := 0; i < len(parts); i++ {
+		// If the part is "certhash", the next part (if it exists) is the one to shorten
+		if parts[i] == "certhash" && i+1 < len(parts) {
+			parts[i+1] = ellipsize(parts[i+1], maxLength)
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
+// ellipsize truncates a string by keeping the first and last parts intact and replacing the middle with "..."
+func ellipsize(input string, maxLength int) string {
+	if len(input) <= maxLength {
+		return input // No need to truncate
+	}
+
+	partLength := (maxLength - 2) / 2
+	if partLength < 1 {
+		partLength = 1
+	}
+
+	start := input[:partLength]
+	end := input[len(input)-partLength:]
+
+	return fmt.Sprintf("%s..%s", start, end)
+}
+
 // AddrsToMaddrs maps a slice of addresses to their multiaddress representation.
 func AddrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
 	maddrs := make([]ma.Multiaddr, len(addrs))

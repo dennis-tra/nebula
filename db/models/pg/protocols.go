@@ -135,25 +135,17 @@ var (
 
 var protocolAfterSelectHooks []ProtocolHook
 
-var (
-	protocolBeforeInsertHooks []ProtocolHook
-	protocolAfterInsertHooks  []ProtocolHook
-)
+var protocolBeforeInsertHooks []ProtocolHook
+var protocolAfterInsertHooks []ProtocolHook
 
-var (
-	protocolBeforeUpdateHooks []ProtocolHook
-	protocolAfterUpdateHooks  []ProtocolHook
-)
+var protocolBeforeUpdateHooks []ProtocolHook
+var protocolAfterUpdateHooks []ProtocolHook
 
-var (
-	protocolBeforeDeleteHooks []ProtocolHook
-	protocolAfterDeleteHooks  []ProtocolHook
-)
+var protocolBeforeDeleteHooks []ProtocolHook
+var protocolAfterDeleteHooks []ProtocolHook
 
-var (
-	protocolBeforeUpsertHooks []ProtocolHook
-	protocolAfterUpsertHooks  []ProtocolHook
-)
+var protocolBeforeUpsertHooks []ProtocolHook
+var protocolAfterUpsertHooks []ProtocolHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *Protocol) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -325,7 +317,7 @@ func (q protocolQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Pro
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for protocols")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for protocols")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -341,7 +333,7 @@ func (q protocolQuery) All(ctx context.Context, exec boil.ContextExecutor) (Prot
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to Protocol slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to Protocol slice")
 	}
 
 	if len(protocolAfterSelectHooks) != 0 {
@@ -364,7 +356,7 @@ func (q protocolQuery) Count(ctx context.Context, exec boil.ContextExecutor) (in
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count protocols rows")
+		return 0, errors.Wrap(err, "pg: failed to count protocols rows")
 	}
 
 	return count, nil
@@ -380,7 +372,7 @@ func (q protocolQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (b
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if protocols exists")
+		return false, errors.Wrap(err, "pg: failed to check if protocols exists")
 	}
 
 	return count > 0, nil
@@ -672,7 +664,7 @@ func FindProtocol(ctx context.Context, exec boil.ContextExecutor, iD int, select
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from protocols")
+		return nil, errors.Wrap(err, "pg: unable to select from protocols")
 	}
 
 	if err = protocolObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -686,7 +678,7 @@ func FindProtocol(ctx context.Context, exec boil.ContextExecutor, iD int, select
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *Protocol) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no protocols provided for insertion")
+		return errors.New("pg: no protocols provided for insertion")
 	}
 
 	var err error
@@ -757,7 +749,7 @@ func (o *Protocol) Insert(ctx context.Context, exec boil.ContextExecutor, column
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into protocols")
+		return errors.Wrap(err, "pg: unable to insert into protocols")
 	}
 
 	if !cached {
@@ -793,7 +785,7 @@ func (o *Protocol) Update(ctx context.Context, exec boil.ContextExecutor, column
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update protocols, could not build whitelist")
+			return 0, errors.New("pg: unable to update protocols, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"protocols\" SET %s WHERE %s",
@@ -816,12 +808,12 @@ func (o *Protocol) Update(ctx context.Context, exec boil.ContextExecutor, column
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update protocols row")
+		return 0, errors.Wrap(err, "pg: unable to update protocols row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for protocols")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for protocols")
 	}
 
 	if !cached {
@@ -839,12 +831,12 @@ func (q protocolQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for protocols")
+		return 0, errors.Wrap(err, "pg: unable to update all for protocols")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for protocols")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for protocols")
 	}
 
 	return rowsAff, nil
@@ -858,7 +850,7 @@ func (o ProtocolSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -888,12 +880,12 @@ func (o ProtocolSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in protocol slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in protocol slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all protocol")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all protocol")
 	}
 	return rowsAff, nil
 }
@@ -902,7 +894,7 @@ func (o ProtocolSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor,
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *Protocol) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no protocols provided for upsert")
+		return errors.New("pg: no protocols provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -969,7 +961,7 @@ func (o *Protocol) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 		update = strmangle.SetComplement(update, protocolGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert protocols, could not build update column list")
+			return errors.New("pg: unable to upsert protocols, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1012,7 +1004,7 @@ func (o *Protocol) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert protocols")
+		return errors.Wrap(err, "pg: unable to upsert protocols")
 	}
 
 	if !cached {
@@ -1028,7 +1020,7 @@ func (o *Protocol) Upsert(ctx context.Context, exec boil.ContextExecutor, update
 // Delete will match against the primary key column to find the record to delete.
 func (o *Protocol) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no Protocol provided for delete")
+		return 0, errors.New("pg: no Protocol provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1045,12 +1037,12 @@ func (o *Protocol) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from protocols")
+		return 0, errors.Wrap(err, "pg: unable to delete from protocols")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for protocols")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for protocols")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1063,19 +1055,19 @@ func (o *Protocol) Delete(ctx context.Context, exec boil.ContextExecutor) (int64
 // DeleteAll deletes all matching rows.
 func (q protocolQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no protocolQuery provided for delete all")
+		return 0, errors.New("pg: no protocolQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from protocols")
+		return 0, errors.Wrap(err, "pg: unable to delete all from protocols")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for protocols")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for protocols")
 	}
 
 	return rowsAff, nil
@@ -1111,12 +1103,12 @@ func (o ProtocolSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor)
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from protocol slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from protocol slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for protocols")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for protocols")
 	}
 
 	if len(protocolAfterDeleteHooks) != 0 {
@@ -1163,7 +1155,7 @@ func (o *ProtocolSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in ProtocolSlice")
+		return errors.Wrap(err, "pg: unable to reload all in ProtocolSlice")
 	}
 
 	*o = slice
@@ -1185,7 +1177,7 @@ func ProtocolExists(ctx context.Context, exec boil.ContextExecutor, iD int) (boo
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if protocols exists")
+		return false, errors.Wrap(err, "pg: unable to check if protocols exists")
 	}
 
 	return exists, nil

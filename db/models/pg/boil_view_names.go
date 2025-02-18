@@ -3,4 +3,5 @@
 
 package pg
 
-var ViewNames = struct{}{}
+var ViewNames = struct {
+}{}

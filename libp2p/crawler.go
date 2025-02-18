@@ -3,14 +3,13 @@ package libp2p
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/peer"
-	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
@@ -109,11 +108,17 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.Protocols = p2pRes.Protocols
 	r.ConnectStartTime = p2pRes.ConnectStartTime
 	r.ConnectEndTime = p2pRes.ConnectEndTime
-	r.DialErrors = make([]string, len(r.Info.AddrInfo.Addrs))
 	r.ConnectError = p2pRes.ConnectError
 	r.ConnectErrorStr = p2pRes.ConnectErrorStr
-	r.CrawlError = p2pRes.CrawlError
-	r.CrawlErrorStr = p2pRes.CrawlErrorStr
+
+	// only track a crawl error if there was one and we didn't get any neighbors.
+	// as soon as we have a single neighbor we consider this as a successful crawl.
+	// the details about which bucket requests have failed can be analysed with
+	// the error bits.
+	if p2pRes.CrawlError != nil && (p2pRes.RoutingTable == nil || len(p2pRes.RoutingTable.Neighbors) == 0) {
+		r.CrawlError = p2pRes.CrawlError
+		r.CrawlErrorStr = p2pRes.CrawlErrorStr
+	}
 
 	// keep track of the multi address that we used to connect to the peer
 	r.ConnectMaddr = p2pRes.ConnectMaddr
@@ -144,33 +149,6 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		properties["crawl_error"] = p2pRes.CrawlError.Error()
 	}
 
-	var serr *swarm.DialError
-	if errors.As(p2pRes.ConnectError, &serr) {
-		maddrErr := make(map[ma.Multiaddr]error, len(serr.DialErrors))
-		for _, derr := range serr.DialErrors {
-			maddrErr[derr.Address] = derr.Cause
-		}
-
-		for i, maddr := range r.Info.AddrInfo.Addrs {
-			derr, ok := maddrErr[maddr]
-			if ok {
-				r.DialErrors[i] = db.NetError(derr)
-			} else {
-				r.DialErrors[i] = string(db.KnownDialErrorNotDialed)
-			}
-		}
-	} else {
-		commonErr := db.KnownDialErrorUnknown
-		if errors.Is(p2pRes.ConnectError, ErrNoPublicIP) {
-			commonErr = db.KnownDialErrorNotDialed
-		} else if errors.Is(p2pRes.ConnectError, context.Canceled) {
-			commonErr = db.KnownDialErrorCanceled
-		}
-		for i := range r.Info.AddrInfo.Addrs {
-			r.DialErrors[i] = string(commonErr)
-		}
-	}
-
 	var err error
 	r.Properties, err = json.Marshal(properties)
 	if err != nil {
@@ -190,11 +168,16 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		}
 	}
 
-	if len(apiResMaddrs) > 0 {
-		r.Info.AddrInfo.Addrs = apiResMaddrs
-	} else if len(p2pRes.ListenAddrs) > 0 {
-		r.Info.AddrInfo.Addrs = p2pRes.ListenAddrs
-	}
+	// collect all addresses we've found
+	listenAddrs := make([]ma.Multiaddr, 0, len(r.Info.AddrInfo.Addrs)+len(apiResMaddrs)+len(p2pRes.ListenAddrs))
+	listenAddrs = append(listenAddrs, r.Info.AddrInfo.Addrs...)
+	listenAddrs = append(listenAddrs, apiResMaddrs...)
+	listenAddrs = append(listenAddrs, p2pRes.ListenAddrs...)
+	r.Info.AddrInfo.Addrs = slices.CompactFunc(listenAddrs, func(maddr1 ma.Multiaddr, maddr2 ma.Multiaddr) bool {
+		return maddr1.Equal(maddr2)
+	})
+
+	r.DialErrors = db.MaddrErrors(r.Info.AddrInfo.Addrs, p2pRes.ConnectError)
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {
 		// construct routing table struct from API response
