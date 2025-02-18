@@ -288,7 +288,7 @@ func main() {
 			},
 			&cli.StringFlag{
 				Name:        "clickhouse-migrations-table-engine",
-				Usage:       "\tEngine to use for the migrations table",
+				Usage:       "Engine to use for the migrations table",
 				EnvVars:     []string{"NEBULA_CLICKHOUSE_MIGRATIONS_TABLE_ENGINE"},
 				Value:       rootConfig.Database.ClickHouseMigrationsTableEngine,
 				Destination: &rootConfig.Database.ClickHouseMigrationsTableEngine,

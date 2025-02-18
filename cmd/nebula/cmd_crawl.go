@@ -223,7 +223,7 @@ func CrawlAction(c *cli.Context) error {
 
 	// initialize a new database client based on the given configuration.
 	// Options are Postgres, JSON, and noop (dry-run).
-	dbc, err := rootConfig.Database.NewClient(ctx)
+	dbc, err := rootConfig.Database.NewClient(ctx, cfg.Network)
 	if err != nil {
 		return fmt.Errorf("new database client: %w", err)
 	}
