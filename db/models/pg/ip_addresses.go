@@ -184,25 +184,17 @@ var (
 
 var ipAddressAfterSelectHooks []IPAddressHook
 
-var (
-	ipAddressBeforeInsertHooks []IPAddressHook
-	ipAddressAfterInsertHooks  []IPAddressHook
-)
+var ipAddressBeforeInsertHooks []IPAddressHook
+var ipAddressAfterInsertHooks []IPAddressHook
 
-var (
-	ipAddressBeforeUpdateHooks []IPAddressHook
-	ipAddressAfterUpdateHooks  []IPAddressHook
-)
+var ipAddressBeforeUpdateHooks []IPAddressHook
+var ipAddressAfterUpdateHooks []IPAddressHook
 
-var (
-	ipAddressBeforeDeleteHooks []IPAddressHook
-	ipAddressAfterDeleteHooks  []IPAddressHook
-)
+var ipAddressBeforeDeleteHooks []IPAddressHook
+var ipAddressAfterDeleteHooks []IPAddressHook
 
-var (
-	ipAddressBeforeUpsertHooks []IPAddressHook
-	ipAddressAfterUpsertHooks  []IPAddressHook
-)
+var ipAddressBeforeUpsertHooks []IPAddressHook
+var ipAddressAfterUpsertHooks []IPAddressHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *IPAddress) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -374,7 +366,7 @@ func (q ipAddressQuery) One(ctx context.Context, exec boil.ContextExecutor) (*IP
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for ip_addresses")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for ip_addresses")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -390,7 +382,7 @@ func (q ipAddressQuery) All(ctx context.Context, exec boil.ContextExecutor) (IPA
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to IPAddress slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to IPAddress slice")
 	}
 
 	if len(ipAddressAfterSelectHooks) != 0 {
@@ -413,7 +405,7 @@ func (q ipAddressQuery) Count(ctx context.Context, exec boil.ContextExecutor) (i
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count ip_addresses rows")
+		return 0, errors.Wrap(err, "pg: failed to count ip_addresses rows")
 	}
 
 	return count, nil
@@ -429,7 +421,7 @@ func (q ipAddressQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if ip_addresses exists")
+		return false, errors.Wrap(err, "pg: failed to check if ip_addresses exists")
 	}
 
 	return count > 0, nil
@@ -644,7 +636,7 @@ func FindIPAddress(ctx context.Context, exec boil.ContextExecutor, iD int, selec
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from ip_addresses")
+		return nil, errors.Wrap(err, "pg: unable to select from ip_addresses")
 	}
 
 	if err = ipAddressObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -658,7 +650,7 @@ func FindIPAddress(ctx context.Context, exec boil.ContextExecutor, iD int, selec
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *IPAddress) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no ip_addresses provided for insertion")
+		return errors.New("pg: no ip_addresses provided for insertion")
 	}
 
 	var err error
@@ -732,7 +724,7 @@ func (o *IPAddress) Insert(ctx context.Context, exec boil.ContextExecutor, colum
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into ip_addresses")
+		return errors.Wrap(err, "pg: unable to insert into ip_addresses")
 	}
 
 	if !cached {
@@ -774,7 +766,7 @@ func (o *IPAddress) Update(ctx context.Context, exec boil.ContextExecutor, colum
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update ip_addresses, could not build whitelist")
+			return 0, errors.New("pg: unable to update ip_addresses, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"ip_addresses\" SET %s WHERE %s",
@@ -797,12 +789,12 @@ func (o *IPAddress) Update(ctx context.Context, exec boil.ContextExecutor, colum
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update ip_addresses row")
+		return 0, errors.Wrap(err, "pg: unable to update ip_addresses row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for ip_addresses")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for ip_addresses")
 	}
 
 	if !cached {
@@ -820,12 +812,12 @@ func (q ipAddressQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for ip_addresses")
+		return 0, errors.Wrap(err, "pg: unable to update all for ip_addresses")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for ip_addresses")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for ip_addresses")
 	}
 
 	return rowsAff, nil
@@ -839,7 +831,7 @@ func (o IPAddressSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -869,12 +861,12 @@ func (o IPAddressSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in ipAddress slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in ipAddress slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all ipAddress")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all ipAddress")
 	}
 	return rowsAff, nil
 }
@@ -883,7 +875,7 @@ func (o IPAddressSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *IPAddress) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no ip_addresses provided for upsert")
+		return errors.New("pg: no ip_addresses provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -951,7 +943,7 @@ func (o *IPAddress) Upsert(ctx context.Context, exec boil.ContextExecutor, updat
 		update = strmangle.SetComplement(update, ipAddressGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert ip_addresses, could not build update column list")
+			return errors.New("pg: unable to upsert ip_addresses, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -994,7 +986,7 @@ func (o *IPAddress) Upsert(ctx context.Context, exec boil.ContextExecutor, updat
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert ip_addresses")
+		return errors.Wrap(err, "pg: unable to upsert ip_addresses")
 	}
 
 	if !cached {
@@ -1010,7 +1002,7 @@ func (o *IPAddress) Upsert(ctx context.Context, exec boil.ContextExecutor, updat
 // Delete will match against the primary key column to find the record to delete.
 func (o *IPAddress) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no IPAddress provided for delete")
+		return 0, errors.New("pg: no IPAddress provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1027,12 +1019,12 @@ func (o *IPAddress) Delete(ctx context.Context, exec boil.ContextExecutor) (int6
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from ip_addresses")
+		return 0, errors.Wrap(err, "pg: unable to delete from ip_addresses")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for ip_addresses")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for ip_addresses")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1045,19 +1037,19 @@ func (o *IPAddress) Delete(ctx context.Context, exec boil.ContextExecutor) (int6
 // DeleteAll deletes all matching rows.
 func (q ipAddressQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no ipAddressQuery provided for delete all")
+		return 0, errors.New("pg: no ipAddressQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from ip_addresses")
+		return 0, errors.Wrap(err, "pg: unable to delete all from ip_addresses")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for ip_addresses")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for ip_addresses")
 	}
 
 	return rowsAff, nil
@@ -1093,12 +1085,12 @@ func (o IPAddressSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from ipAddress slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from ipAddress slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for ip_addresses")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for ip_addresses")
 	}
 
 	if len(ipAddressAfterDeleteHooks) != 0 {
@@ -1145,7 +1137,7 @@ func (o *IPAddressSlice) ReloadAll(ctx context.Context, exec boil.ContextExecuto
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in IPAddressSlice")
+		return errors.Wrap(err, "pg: unable to reload all in IPAddressSlice")
 	}
 
 	*o = slice
@@ -1167,7 +1159,7 @@ func IPAddressExists(ctx context.Context, exec boil.ContextExecutor, iD int) (bo
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if ip_addresses exists")
+		return false, errors.Wrap(err, "pg: unable to check if ip_addresses exists")
 	}
 
 	return exists, nil

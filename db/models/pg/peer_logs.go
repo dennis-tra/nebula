@@ -85,10 +85,12 @@ var PeerLogWhere = struct {
 }
 
 // PeerLogRels is where relationship names are stored.
-var PeerLogRels = struct{}{}
+var PeerLogRels = struct {
+}{}
 
 // peerLogR is where relationships are stored.
-type peerLogR struct{}
+type peerLogR struct {
+}
 
 // NewStruct creates a new relationship struct
 func (*peerLogR) NewStruct() *peerLogR {
@@ -141,25 +143,17 @@ var (
 
 var peerLogAfterSelectHooks []PeerLogHook
 
-var (
-	peerLogBeforeInsertHooks []PeerLogHook
-	peerLogAfterInsertHooks  []PeerLogHook
-)
+var peerLogBeforeInsertHooks []PeerLogHook
+var peerLogAfterInsertHooks []PeerLogHook
 
-var (
-	peerLogBeforeUpdateHooks []PeerLogHook
-	peerLogAfterUpdateHooks  []PeerLogHook
-)
+var peerLogBeforeUpdateHooks []PeerLogHook
+var peerLogAfterUpdateHooks []PeerLogHook
 
-var (
-	peerLogBeforeDeleteHooks []PeerLogHook
-	peerLogAfterDeleteHooks  []PeerLogHook
-)
+var peerLogBeforeDeleteHooks []PeerLogHook
+var peerLogAfterDeleteHooks []PeerLogHook
 
-var (
-	peerLogBeforeUpsertHooks []PeerLogHook
-	peerLogAfterUpsertHooks  []PeerLogHook
-)
+var peerLogBeforeUpsertHooks []PeerLogHook
+var peerLogAfterUpsertHooks []PeerLogHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *PeerLog) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -331,7 +325,7 @@ func (q peerLogQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Peer
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for peer_logs")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for peer_logs")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -347,7 +341,7 @@ func (q peerLogQuery) All(ctx context.Context, exec boil.ContextExecutor) (PeerL
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to PeerLog slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to PeerLog slice")
 	}
 
 	if len(peerLogAfterSelectHooks) != 0 {
@@ -370,7 +364,7 @@ func (q peerLogQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count peer_logs rows")
+		return 0, errors.Wrap(err, "pg: failed to count peer_logs rows")
 	}
 
 	return count, nil
@@ -386,7 +380,7 @@ func (q peerLogQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bo
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if peer_logs exists")
+		return false, errors.Wrap(err, "pg: failed to check if peer_logs exists")
 	}
 
 	return count > 0, nil
@@ -423,7 +417,7 @@ func FindPeerLog(ctx context.Context, exec boil.ContextExecutor, iD int, created
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from peer_logs")
+		return nil, errors.Wrap(err, "pg: unable to select from peer_logs")
 	}
 
 	if err = peerLogObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -437,7 +431,7 @@ func FindPeerLog(ctx context.Context, exec boil.ContextExecutor, iD int, created
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *PeerLog) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no peer_logs provided for insertion")
+		return errors.New("pg: no peer_logs provided for insertion")
 	}
 
 	var err error
@@ -508,7 +502,7 @@ func (o *PeerLog) Insert(ctx context.Context, exec boil.ContextExecutor, columns
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into peer_logs")
+		return errors.Wrap(err, "pg: unable to insert into peer_logs")
 	}
 
 	if !cached {
@@ -544,7 +538,7 @@ func (o *PeerLog) Update(ctx context.Context, exec boil.ContextExecutor, columns
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update peer_logs, could not build whitelist")
+			return 0, errors.New("pg: unable to update peer_logs, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"peer_logs\" SET %s WHERE %s",
@@ -567,12 +561,12 @@ func (o *PeerLog) Update(ctx context.Context, exec boil.ContextExecutor, columns
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update peer_logs row")
+		return 0, errors.Wrap(err, "pg: unable to update peer_logs row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for peer_logs")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for peer_logs")
 	}
 
 	if !cached {
@@ -590,12 +584,12 @@ func (q peerLogQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, 
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for peer_logs")
+		return 0, errors.Wrap(err, "pg: unable to update all for peer_logs")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for peer_logs")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for peer_logs")
 	}
 
 	return rowsAff, nil
@@ -609,7 +603,7 @@ func (o PeerLogSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, 
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -639,12 +633,12 @@ func (o PeerLogSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, 
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in peerLog slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in peerLog slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all peerLog")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all peerLog")
 	}
 	return rowsAff, nil
 }
@@ -653,7 +647,7 @@ func (o PeerLogSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, 
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *PeerLog) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no peer_logs provided for upsert")
+		return errors.New("pg: no peer_logs provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -720,7 +714,7 @@ func (o *PeerLog) Upsert(ctx context.Context, exec boil.ContextExecutor, updateO
 		update = strmangle.SetComplement(update, peerLogGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert peer_logs, could not build update column list")
+			return errors.New("pg: unable to upsert peer_logs, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -763,7 +757,7 @@ func (o *PeerLog) Upsert(ctx context.Context, exec boil.ContextExecutor, updateO
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert peer_logs")
+		return errors.Wrap(err, "pg: unable to upsert peer_logs")
 	}
 
 	if !cached {
@@ -779,7 +773,7 @@ func (o *PeerLog) Upsert(ctx context.Context, exec boil.ContextExecutor, updateO
 // Delete will match against the primary key column to find the record to delete.
 func (o *PeerLog) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no PeerLog provided for delete")
+		return 0, errors.New("pg: no PeerLog provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -796,12 +790,12 @@ func (o *PeerLog) Delete(ctx context.Context, exec boil.ContextExecutor) (int64,
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from peer_logs")
+		return 0, errors.Wrap(err, "pg: unable to delete from peer_logs")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for peer_logs")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for peer_logs")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -814,19 +808,19 @@ func (o *PeerLog) Delete(ctx context.Context, exec boil.ContextExecutor) (int64,
 // DeleteAll deletes all matching rows.
 func (q peerLogQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no peerLogQuery provided for delete all")
+		return 0, errors.New("pg: no peerLogQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from peer_logs")
+		return 0, errors.Wrap(err, "pg: unable to delete all from peer_logs")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for peer_logs")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for peer_logs")
 	}
 
 	return rowsAff, nil
@@ -862,12 +856,12 @@ func (o PeerLogSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) 
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from peerLog slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from peerLog slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for peer_logs")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for peer_logs")
 	}
 
 	if len(peerLogAfterDeleteHooks) != 0 {
@@ -914,7 +908,7 @@ func (o *PeerLogSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor)
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in PeerLogSlice")
+		return errors.Wrap(err, "pg: unable to reload all in PeerLogSlice")
 	}
 
 	*o = slice
@@ -936,7 +930,7 @@ func PeerLogExists(ctx context.Context, exec boil.ContextExecutor, iD int, creat
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if peer_logs exists")
+		return false, errors.Wrap(err, "pg: unable to check if peer_logs exists")
 	}
 
 	return exists, nil

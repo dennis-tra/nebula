@@ -133,6 +133,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV4Result.RoutingTable,
 		Agent:               devp2pResult.Agent,
 		Protocols:           devp2pResult.Protocols,
+		DialErrors:          db.MaddrErrors(task.maddrs, devp2pResult.ConnectError),
 		ConnectError:        devp2pResult.ConnectError,
 		ConnectErrorStr:     devp2pResult.ConnectErrorStr,
 		CrawlError:          discV4Result.Error,
@@ -477,10 +478,8 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 				}
 				result.Protocols = protocols
 			}
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
+		} else {
+			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
 

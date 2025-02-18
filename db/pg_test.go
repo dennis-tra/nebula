@@ -276,7 +276,7 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 		VisitType:       VisitTypeCrawl,
 		Neighbors:       nil,
 		ErrorBits:       0,
-		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+		Properties:      json.RawMessage(marshalProperties(t, "is_exposed", true)),
 	}
 	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
@@ -319,7 +319,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		VisitType:       VisitTypeCrawl,
 		Neighbors:       nil,
 		ErrorBits:       0,
-		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+		Properties:      json.RawMessage(marshalProperties(t, "is_exposed", true)),
 	}
 	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestClient_SessionScenario_1(t *testing.T) {
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeCrawl,
-		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", true)),
+		Properties:      json.RawMessage(marshalProperties(t, "is_exposed", true)),
 	}
 	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)
@@ -515,7 +515,7 @@ func TestClient_SessionScenario_2(t *testing.T) {
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeCrawl,
-		Properties:      null.JSONFrom(marshalProperties(t, "is_exposed", false)),
+		Properties:      json.RawMessage(marshalProperties(t, "is_exposed", false)),
 	}
 	err = client.InsertVisit(ctx, args)
 	require.NoError(t, err)

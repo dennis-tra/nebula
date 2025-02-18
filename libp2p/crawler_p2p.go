@@ -120,7 +120,7 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 			// Extract listen addresses
 			result.ListenAddrs = ps.Addrs(pi.ID())
-		} else if result.ConnectError != nil {
+		} else {
 			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
@@ -142,12 +142,10 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 	return resultCh
 }
 
-var ErrNoPublicIP = fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
-
 // connect establishes a connection to the given peer.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, error) {
 	if len(pi.Addrs) == 0 {
-		return nil, ErrNoPublicIP
+		return nil, db.ErrNoPublicIP
 	}
 
 	// init an exponential backoff

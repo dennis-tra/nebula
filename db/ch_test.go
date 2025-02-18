@@ -1,6 +1,7 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/host/peerstore/test"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/suite"
-	"github.com/volatiletech/null/v8"
 	mnoop "go.opentelemetry.io/otel/metric/noop"
 	tnoop "go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/net/context"
@@ -211,7 +211,7 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 		VisitType:       "dial",
 		Neighbors:       neighbors,
 		ErrorBits:       20,
-		Properties:      null.JSON{},
+		Properties:      json.RawMessage{},
 	}
 
 	err = suite.client.InitCrawl(ctx, "v1")

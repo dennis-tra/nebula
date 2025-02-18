@@ -2,41 +2,59 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+	ma "github.com/multiformats/go-multiaddr"
+	"golang.org/x/net/context"
 
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
-type DialError string
+var ErrNoPublicIP = fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
 
-const (
+func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
+	if err == nil {
+		return []string{}
+	}
+	dialErrors := make([]string, len(maddrs))
 
-	// KnownDialErrorUnknown represents an unknown dialing error.
-	KnownDialErrorUnknown DialError = "unknown"
+	var serr *swarm.DialError
+	if errors.As(err, &serr) {
+		maddrErr := make(map[string]error, len(serr.DialErrors))
+		for _, derr := range serr.DialErrors {
+			maddrErr[string(derr.Address.Bytes())] = derr.Cause
+		}
 
-	// KnownDialErrorTimeout indicates a dialing error caused by a timeout.
-	KnownDialErrorTimeout               DialError = "timeout"
-	KnownDialErrorNotDialed             DialError = "not_dialed"
-	KnownDialErrorCanceled              DialError = "canceled"
-	KnownDialErrorConnectionRefused     DialError = "connection_refused"
-	KnownDialErrorConnectionResetByPeer DialError = "connection_reset_by_peer"
-	KnownDialErrorPeerIDMismatch        DialError = "peer_id_mismatch"
-	KnownDialErrorNoRouteToHost         DialError = "no_route_to_host"
-	KnownDialErrorNetworkUnreachable    DialError = "network_unreachable"
-	KnownDialErrorNoGoodAddresses       DialError = "no_good_addresses"
-	KnownDialErrorNoIPAddress           DialError = "no_ip_address"
-)
+		for i, maddr := range maddrs {
+			derr, ok := maddrErr[string(maddr.Bytes())]
+			if ok {
+				if errors.Is(derr, context.Canceled) {
+					dialErrors[i] = "canceled"
+				} else {
+					dialErrors[i] = NetError(derr)
+				}
+			} else {
+				dialErrors[i] = "not_dialed"
+			}
+		}
+	} else {
+		var commonErr string
+		if errors.Is(err, ErrNoPublicIP) {
+			commonErr = "not_dialed"
+		} else if errors.Is(err, context.Canceled) {
+			commonErr = "canceled"
+		} else {
+			commonErr = NetError(err)
+		}
+		for i := range maddrs {
+			dialErrors[i] = commonErr
+		}
+	}
 
-type CrawlError string
-
-const (
-	KnownCrawlErrorUnknown              CrawlError = "unknown"
-	KnownCrawlErrorTimeout              CrawlError = "timeout"
-	KnownCrawlErrorProtocolNotSupported CrawlError = "protocol_not_supported"
-	KnownCrawlErrorStreamReset          CrawlError = "stream_reset"
-)
+	return dialErrors
+}
 
 // KnownErrors contains a list of known errors. Property key + string to match for
 var KnownErrors = map[string]string{
@@ -60,6 +78,7 @@ var KnownErrors = map[string]string{
 	"stream reset":                               pgmodels.NetErrorStreamReset,
 	"stream closed":                              pgmodels.NetErrorStreamReset,
 	"failed to negotiate security protocol: EOF": pgmodels.NetErrorNegotiateSecurityProtocol, // connect retry logic in discv5 relies on the ": EOF" suffix.
+	"failed to negotiate security protocol":      pgmodels.NetErrorNegotiateSecurityProtocol,
 	"failed to negotiate stream multiplexer":     pgmodels.NetErrorNegotiateStreamMultiplexer,
 	"resource limit exceeded":                    pgmodels.NetErrorResourceLimitExceeded,
 	"Write on stream":                            pgmodels.NetErrorWriteOnStream,
@@ -69,23 +88,24 @@ var KnownErrors = map[string]string{
 	"RESOURCE_LIMIT_EXCEEDED (201)":              pgmodels.NetErrorCantConnectOverRelay,       // transient error
 	"NO_RESERVATION (204)":                       pgmodels.NetErrorCantConnectOverRelay,       // permanent error
 	// devp2p errors
-	"no good ip address":                pgmodels.NetErrorNoIPAddress,
-	"disconnect requested":              pgmodels.NetErrorDevp2pDisconnectRequested,
-	"network error":                     pgmodels.NetErrorDevp2pNetworkError,
-	"breach of protocol":                pgmodels.NetErrorDevp2pBreachOfProtocol,
-	"useless peer":                      pgmodels.NetErrorDevp2pUselessPeer,
-	"too many peers":                    pgmodels.NetErrorDevp2pTooManyPeers,
-	"already connected":                 pgmodels.NetErrorDevp2pAlreadyConnected,
-	"incompatible p2p protocol version": pgmodels.NetErrorDevp2pIncompatibleP2PProtocolVersion,
-	"invalid node identity":             pgmodels.NetErrorDevp2pInvalidNodeIdentity,
-	"client quitting":                   pgmodels.NetErrorDevp2pClientQuitting,
-	"unexpected identity":               pgmodels.NetErrorDevp2pUnexpectedIdentity,
-	"connected to self":                 pgmodels.NetErrorDevp2pConnectedToSelf,
-	"read timeout":                      pgmodels.NetErrorDevp2pReadTimeout,
-	"subprotocol error":                 pgmodels.NetErrorDevp2pSubprotocolError,
-	"could not negotiate eth protocol":  pgmodels.NetErrorDevp2pEthprotocolError,
-	"handshake failed: EOF":             pgmodels.NetErrorDevp2pHandshakeEOF,               // dependent on error string in discv4
-	"malformed disconnect message":      pgmodels.NetErrorDevp2pMalformedDisconnectMessage, // dependent on error string in discv4
+	"no good ip address":                 pgmodels.NetErrorNoIPAddress,
+	"disconnect requested":               pgmodels.NetErrorDevp2pDisconnectRequested,
+	"network error":                      pgmodels.NetErrorDevp2pNetworkError,
+	"breach of protocol":                 pgmodels.NetErrorDevp2pBreachOfProtocol,
+	"useless peer":                       pgmodels.NetErrorDevp2pUselessPeer,
+	"too many peers":                     pgmodels.NetErrorDevp2pTooManyPeers,
+	"already connected":                  pgmodels.NetErrorDevp2pAlreadyConnected,
+	"incompatible p2p protocol version":  pgmodels.NetErrorDevp2pIncompatibleP2PProtocolVersion,
+	"invalid node identity":              pgmodels.NetErrorDevp2pInvalidNodeIdentity,
+	"client quitting":                    pgmodels.NetErrorDevp2pClientQuitting,
+	"unexpected identity":                pgmodels.NetErrorDevp2pUnexpectedIdentity,
+	"connected to self":                  pgmodels.NetErrorDevp2pConnectedToSelf,
+	"read timeout":                       pgmodels.NetErrorDevp2pReadTimeout,
+	"subprotocol error":                  pgmodels.NetErrorDevp2pSubprotocolError,
+	"could not negotiate eth protocol":   pgmodels.NetErrorDevp2pEthprotocolError,
+	"handshake failed: EOF":              pgmodels.NetErrorDevp2pHandshakeEOF,               // dependent on error string in discv4
+	"malformed disconnect message":       pgmodels.NetErrorDevp2pMalformedDisconnectMessage, // dependent on error string in discv4
+	"dial refused because of black hole": pgmodels.NetErrorBlackHoleRefused,
 }
 
 var ErrorStr = map[string]string{}
@@ -146,6 +166,8 @@ var knownErrorsPrecedence = []string{
 	"subprotocol error",
 	"could not negotiate eth protocol",
 	"handshake failed: EOF",
+	"dial refused because of black hole",
+	"failed to negotiate security protocol",
 }
 
 // NetError extracts the appropriate error type from the given error.

@@ -70,7 +70,6 @@ func (w whereHelperint) IN(slice []int) qm.QueryMod {
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-
 func (w whereHelperint) NIN(slice []int) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -84,23 +83,18 @@ type whereHelpertime_Time struct{ field string }
 func (w whereHelpertime_Time) EQ(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.EQ, x)
 }
-
 func (w whereHelpertime_Time) NEQ(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.NEQ, x)
 }
-
 func (w whereHelpertime_Time) LT(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-
 func (w whereHelpertime_Time) LTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-
 func (w whereHelpertime_Time) GT(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-
 func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
@@ -120,7 +114,6 @@ func (w whereHelperstring) IN(slice []string) qm.QueryMod {
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-
 func (w whereHelperstring) NIN(slice []string) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -219,25 +212,17 @@ var (
 
 var agentVersionAfterSelectHooks []AgentVersionHook
 
-var (
-	agentVersionBeforeInsertHooks []AgentVersionHook
-	agentVersionAfterInsertHooks  []AgentVersionHook
-)
+var agentVersionBeforeInsertHooks []AgentVersionHook
+var agentVersionAfterInsertHooks []AgentVersionHook
 
-var (
-	agentVersionBeforeUpdateHooks []AgentVersionHook
-	agentVersionAfterUpdateHooks  []AgentVersionHook
-)
+var agentVersionBeforeUpdateHooks []AgentVersionHook
+var agentVersionAfterUpdateHooks []AgentVersionHook
 
-var (
-	agentVersionBeforeDeleteHooks []AgentVersionHook
-	agentVersionAfterDeleteHooks  []AgentVersionHook
-)
+var agentVersionBeforeDeleteHooks []AgentVersionHook
+var agentVersionAfterDeleteHooks []AgentVersionHook
 
-var (
-	agentVersionBeforeUpsertHooks []AgentVersionHook
-	agentVersionAfterUpsertHooks  []AgentVersionHook
-)
+var agentVersionBeforeUpsertHooks []AgentVersionHook
+var agentVersionAfterUpsertHooks []AgentVersionHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *AgentVersion) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -409,7 +394,7 @@ func (q agentVersionQuery) One(ctx context.Context, exec boil.ContextExecutor) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for agent_versions")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for agent_versions")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -425,7 +410,7 @@ func (q agentVersionQuery) All(ctx context.Context, exec boil.ContextExecutor) (
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to AgentVersion slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to AgentVersion slice")
 	}
 
 	if len(agentVersionAfterSelectHooks) != 0 {
@@ -448,7 +433,7 @@ func (q agentVersionQuery) Count(ctx context.Context, exec boil.ContextExecutor)
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count agent_versions rows")
+		return 0, errors.Wrap(err, "pg: failed to count agent_versions rows")
 	}
 
 	return count, nil
@@ -464,7 +449,7 @@ func (q agentVersionQuery) Exists(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if agent_versions exists")
+		return false, errors.Wrap(err, "pg: failed to check if agent_versions exists")
 	}
 
 	return count > 0, nil
@@ -1011,7 +996,7 @@ func FindAgentVersion(ctx context.Context, exec boil.ContextExecutor, iD int, se
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from agent_versions")
+		return nil, errors.Wrap(err, "pg: unable to select from agent_versions")
 	}
 
 	if err = agentVersionObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -1025,7 +1010,7 @@ func FindAgentVersion(ctx context.Context, exec boil.ContextExecutor, iD int, se
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *AgentVersion) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no agent_versions provided for insertion")
+		return errors.New("pg: no agent_versions provided for insertion")
 	}
 
 	var err error
@@ -1096,7 +1081,7 @@ func (o *AgentVersion) Insert(ctx context.Context, exec boil.ContextExecutor, co
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into agent_versions")
+		return errors.Wrap(err, "pg: unable to insert into agent_versions")
 	}
 
 	if !cached {
@@ -1132,7 +1117,7 @@ func (o *AgentVersion) Update(ctx context.Context, exec boil.ContextExecutor, co
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update agent_versions, could not build whitelist")
+			return 0, errors.New("pg: unable to update agent_versions, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"agent_versions\" SET %s WHERE %s",
@@ -1155,12 +1140,12 @@ func (o *AgentVersion) Update(ctx context.Context, exec boil.ContextExecutor, co
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update agent_versions row")
+		return 0, errors.Wrap(err, "pg: unable to update agent_versions row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for agent_versions")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for agent_versions")
 	}
 
 	if !cached {
@@ -1178,12 +1163,12 @@ func (q agentVersionQuery) UpdateAll(ctx context.Context, exec boil.ContextExecu
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for agent_versions")
+		return 0, errors.Wrap(err, "pg: unable to update all for agent_versions")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for agent_versions")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for agent_versions")
 	}
 
 	return rowsAff, nil
@@ -1197,7 +1182,7 @@ func (o AgentVersionSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -1227,12 +1212,12 @@ func (o AgentVersionSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in agentVersion slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in agentVersion slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all agentVersion")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all agentVersion")
 	}
 	return rowsAff, nil
 }
@@ -1241,7 +1226,7 @@ func (o AgentVersionSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *AgentVersion) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no agent_versions provided for upsert")
+		return errors.New("pg: no agent_versions provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -1308,7 +1293,7 @@ func (o *AgentVersion) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		update = strmangle.SetComplement(update, agentVersionGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert agent_versions, could not build update column list")
+			return errors.New("pg: unable to upsert agent_versions, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1351,7 +1336,7 @@ func (o *AgentVersion) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert agent_versions")
+		return errors.Wrap(err, "pg: unable to upsert agent_versions")
 	}
 
 	if !cached {
@@ -1367,7 +1352,7 @@ func (o *AgentVersion) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 // Delete will match against the primary key column to find the record to delete.
 func (o *AgentVersion) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no AgentVersion provided for delete")
+		return 0, errors.New("pg: no AgentVersion provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1384,12 +1369,12 @@ func (o *AgentVersion) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from agent_versions")
+		return 0, errors.Wrap(err, "pg: unable to delete from agent_versions")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for agent_versions")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for agent_versions")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1402,19 +1387,19 @@ func (o *AgentVersion) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 // DeleteAll deletes all matching rows.
 func (q agentVersionQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no agentVersionQuery provided for delete all")
+		return 0, errors.New("pg: no agentVersionQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from agent_versions")
+		return 0, errors.Wrap(err, "pg: unable to delete all from agent_versions")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for agent_versions")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for agent_versions")
 	}
 
 	return rowsAff, nil
@@ -1450,12 +1435,12 @@ func (o AgentVersionSlice) DeleteAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from agentVersion slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from agentVersion slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for agent_versions")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for agent_versions")
 	}
 
 	if len(agentVersionAfterDeleteHooks) != 0 {
@@ -1502,7 +1487,7 @@ func (o *AgentVersionSlice) ReloadAll(ctx context.Context, exec boil.ContextExec
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in AgentVersionSlice")
+		return errors.Wrap(err, "pg: unable to reload all in AgentVersionSlice")
 	}
 
 	*o = slice
@@ -1524,7 +1509,7 @@ func AgentVersionExists(ctx context.Context, exec boil.ContextExecutor, iD int) 
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if agent_versions exists")
+		return false, errors.Wrap(err, "pg: unable to check if agent_versions exists")
 	}
 
 	return exists, nil

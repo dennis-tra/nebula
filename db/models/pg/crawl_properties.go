@@ -79,27 +79,21 @@ type whereHelpernull_Int struct{ field string }
 func (w whereHelpernull_Int) EQ(x null.Int) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-
 func (w whereHelpernull_Int) NEQ(x null.Int) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-
 func (w whereHelpernull_Int) LT(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-
 func (w whereHelpernull_Int) LTE(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-
 func (w whereHelpernull_Int) GT(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-
 func (w whereHelpernull_Int) GTE(x null.Int) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
-
 func (w whereHelpernull_Int) IN(slice []int) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -107,7 +101,6 @@ func (w whereHelpernull_Int) IN(slice []int) qm.QueryMod {
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-
 func (w whereHelpernull_Int) NIN(slice []int) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -124,27 +117,21 @@ type whereHelpernull_String struct{ field string }
 func (w whereHelpernull_String) EQ(x null.String) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, false, x)
 }
-
 func (w whereHelpernull_String) NEQ(x null.String) qm.QueryMod {
 	return qmhelper.WhereNullEQ(w.field, true, x)
 }
-
 func (w whereHelpernull_String) LT(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LT, x)
 }
-
 func (w whereHelpernull_String) LTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.LTE, x)
 }
-
 func (w whereHelpernull_String) GT(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GT, x)
 }
-
 func (w whereHelpernull_String) GTE(x null.String) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
-
 func (w whereHelpernull_String) IN(slice []string) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -152,7 +139,6 @@ func (w whereHelpernull_String) IN(slice []string) qm.QueryMod {
 	}
 	return qm.WhereIn(fmt.Sprintf("%s IN ?", w.field), values...)
 }
-
 func (w whereHelpernull_String) NIN(slice []string) qm.QueryMod {
 	values := make([]interface{}, 0, len(slice))
 	for _, value := range slice {
@@ -270,25 +256,17 @@ var (
 
 var crawlPropertyAfterSelectHooks []CrawlPropertyHook
 
-var (
-	crawlPropertyBeforeInsertHooks []CrawlPropertyHook
-	crawlPropertyAfterInsertHooks  []CrawlPropertyHook
-)
+var crawlPropertyBeforeInsertHooks []CrawlPropertyHook
+var crawlPropertyAfterInsertHooks []CrawlPropertyHook
 
-var (
-	crawlPropertyBeforeUpdateHooks []CrawlPropertyHook
-	crawlPropertyAfterUpdateHooks  []CrawlPropertyHook
-)
+var crawlPropertyBeforeUpdateHooks []CrawlPropertyHook
+var crawlPropertyAfterUpdateHooks []CrawlPropertyHook
 
-var (
-	crawlPropertyBeforeDeleteHooks []CrawlPropertyHook
-	crawlPropertyAfterDeleteHooks  []CrawlPropertyHook
-)
+var crawlPropertyBeforeDeleteHooks []CrawlPropertyHook
+var crawlPropertyAfterDeleteHooks []CrawlPropertyHook
 
-var (
-	crawlPropertyBeforeUpsertHooks []CrawlPropertyHook
-	crawlPropertyAfterUpsertHooks  []CrawlPropertyHook
-)
+var crawlPropertyBeforeUpsertHooks []CrawlPropertyHook
+var crawlPropertyAfterUpsertHooks []CrawlPropertyHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *CrawlProperty) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -460,7 +438,7 @@ func (q crawlPropertyQuery) One(ctx context.Context, exec boil.ContextExecutor) 
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for crawl_properties")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for crawl_properties")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -476,7 +454,7 @@ func (q crawlPropertyQuery) All(ctx context.Context, exec boil.ContextExecutor) 
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to CrawlProperty slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to CrawlProperty slice")
 	}
 
 	if len(crawlPropertyAfterSelectHooks) != 0 {
@@ -499,7 +477,7 @@ func (q crawlPropertyQuery) Count(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count crawl_properties rows")
+		return 0, errors.Wrap(err, "pg: failed to count crawl_properties rows")
 	}
 
 	return count, nil
@@ -515,7 +493,7 @@ func (q crawlPropertyQuery) Exists(ctx context.Context, exec boil.ContextExecuto
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if crawl_properties exists")
+		return false, errors.Wrap(err, "pg: failed to check if crawl_properties exists")
 	}
 
 	return count > 0, nil
@@ -1160,7 +1138,7 @@ func FindCrawlProperty(ctx context.Context, exec boil.ContextExecutor, iD int, s
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from crawl_properties")
+		return nil, errors.Wrap(err, "pg: unable to select from crawl_properties")
 	}
 
 	if err = crawlPropertyObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -1174,7 +1152,7 @@ func FindCrawlProperty(ctx context.Context, exec boil.ContextExecutor, iD int, s
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *CrawlProperty) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no crawl_properties provided for insertion")
+		return errors.New("pg: no crawl_properties provided for insertion")
 	}
 
 	var err error
@@ -1238,7 +1216,7 @@ func (o *CrawlProperty) Insert(ctx context.Context, exec boil.ContextExecutor, c
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into crawl_properties")
+		return errors.Wrap(err, "pg: unable to insert into crawl_properties")
 	}
 
 	if !cached {
@@ -1274,7 +1252,7 @@ func (o *CrawlProperty) Update(ctx context.Context, exec boil.ContextExecutor, c
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update crawl_properties, could not build whitelist")
+			return 0, errors.New("pg: unable to update crawl_properties, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"crawl_properties\" SET %s WHERE %s",
@@ -1297,12 +1275,12 @@ func (o *CrawlProperty) Update(ctx context.Context, exec boil.ContextExecutor, c
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update crawl_properties row")
+		return 0, errors.Wrap(err, "pg: unable to update crawl_properties row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for crawl_properties")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for crawl_properties")
 	}
 
 	if !cached {
@@ -1320,12 +1298,12 @@ func (q crawlPropertyQuery) UpdateAll(ctx context.Context, exec boil.ContextExec
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for crawl_properties")
+		return 0, errors.Wrap(err, "pg: unable to update all for crawl_properties")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for crawl_properties")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for crawl_properties")
 	}
 
 	return rowsAff, nil
@@ -1339,7 +1317,7 @@ func (o CrawlPropertySlice) UpdateAll(ctx context.Context, exec boil.ContextExec
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -1369,12 +1347,12 @@ func (o CrawlPropertySlice) UpdateAll(ctx context.Context, exec boil.ContextExec
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in crawlProperty slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in crawlProperty slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all crawlProperty")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all crawlProperty")
 	}
 	return rowsAff, nil
 }
@@ -1383,7 +1361,7 @@ func (o CrawlPropertySlice) UpdateAll(ctx context.Context, exec boil.ContextExec
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *CrawlProperty) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no crawl_properties provided for upsert")
+		return errors.New("pg: no crawl_properties provided for upsert")
 	}
 
 	if err := o.doBeforeUpsertHooks(ctx, exec); err != nil {
@@ -1443,7 +1421,7 @@ func (o *CrawlProperty) Upsert(ctx context.Context, exec boil.ContextExecutor, u
 		update = strmangle.SetComplement(update, crawlPropertyGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert crawl_properties, could not build update column list")
+			return errors.New("pg: unable to upsert crawl_properties, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1486,7 +1464,7 @@ func (o *CrawlProperty) Upsert(ctx context.Context, exec boil.ContextExecutor, u
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert crawl_properties")
+		return errors.Wrap(err, "pg: unable to upsert crawl_properties")
 	}
 
 	if !cached {
@@ -1502,7 +1480,7 @@ func (o *CrawlProperty) Upsert(ctx context.Context, exec boil.ContextExecutor, u
 // Delete will match against the primary key column to find the record to delete.
 func (o *CrawlProperty) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no CrawlProperty provided for delete")
+		return 0, errors.New("pg: no CrawlProperty provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1519,12 +1497,12 @@ func (o *CrawlProperty) Delete(ctx context.Context, exec boil.ContextExecutor) (
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from crawl_properties")
+		return 0, errors.Wrap(err, "pg: unable to delete from crawl_properties")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for crawl_properties")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for crawl_properties")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1537,19 +1515,19 @@ func (o *CrawlProperty) Delete(ctx context.Context, exec boil.ContextExecutor) (
 // DeleteAll deletes all matching rows.
 func (q crawlPropertyQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no crawlPropertyQuery provided for delete all")
+		return 0, errors.New("pg: no crawlPropertyQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from crawl_properties")
+		return 0, errors.Wrap(err, "pg: unable to delete all from crawl_properties")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for crawl_properties")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for crawl_properties")
 	}
 
 	return rowsAff, nil
@@ -1585,12 +1563,12 @@ func (o CrawlPropertySlice) DeleteAll(ctx context.Context, exec boil.ContextExec
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from crawlProperty slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from crawlProperty slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for crawl_properties")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for crawl_properties")
 	}
 
 	if len(crawlPropertyAfterDeleteHooks) != 0 {
@@ -1637,7 +1615,7 @@ func (o *CrawlPropertySlice) ReloadAll(ctx context.Context, exec boil.ContextExe
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in CrawlPropertySlice")
+		return errors.Wrap(err, "pg: unable to reload all in CrawlPropertySlice")
 	}
 
 	*o = slice
@@ -1659,7 +1637,7 @@ func CrawlPropertyExists(ctx context.Context, exec boil.ContextExecutor, iD int)
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if crawl_properties exists")
+		return false, errors.Wrap(err, "pg: unable to check if crawl_properties exists")
 	}
 
 	return exists, nil

@@ -225,25 +225,17 @@ var (
 
 var sessionsOpenAfterSelectHooks []SessionsOpenHook
 
-var (
-	sessionsOpenBeforeInsertHooks []SessionsOpenHook
-	sessionsOpenAfterInsertHooks  []SessionsOpenHook
-)
+var sessionsOpenBeforeInsertHooks []SessionsOpenHook
+var sessionsOpenAfterInsertHooks []SessionsOpenHook
 
-var (
-	sessionsOpenBeforeUpdateHooks []SessionsOpenHook
-	sessionsOpenAfterUpdateHooks  []SessionsOpenHook
-)
+var sessionsOpenBeforeUpdateHooks []SessionsOpenHook
+var sessionsOpenAfterUpdateHooks []SessionsOpenHook
 
-var (
-	sessionsOpenBeforeDeleteHooks []SessionsOpenHook
-	sessionsOpenAfterDeleteHooks  []SessionsOpenHook
-)
+var sessionsOpenBeforeDeleteHooks []SessionsOpenHook
+var sessionsOpenAfterDeleteHooks []SessionsOpenHook
 
-var (
-	sessionsOpenBeforeUpsertHooks []SessionsOpenHook
-	sessionsOpenAfterUpsertHooks  []SessionsOpenHook
-)
+var sessionsOpenBeforeUpsertHooks []SessionsOpenHook
+var sessionsOpenAfterUpsertHooks []SessionsOpenHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *SessionsOpen) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -415,7 +407,7 @@ func (q sessionsOpenQuery) One(ctx context.Context, exec boil.ContextExecutor) (
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for sessions_open")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for sessions_open")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -431,7 +423,7 @@ func (q sessionsOpenQuery) All(ctx context.Context, exec boil.ContextExecutor) (
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to SessionsOpen slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to SessionsOpen slice")
 	}
 
 	if len(sessionsOpenAfterSelectHooks) != 0 {
@@ -454,7 +446,7 @@ func (q sessionsOpenQuery) Count(ctx context.Context, exec boil.ContextExecutor)
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count sessions_open rows")
+		return 0, errors.Wrap(err, "pg: failed to count sessions_open rows")
 	}
 
 	return count, nil
@@ -470,7 +462,7 @@ func (q sessionsOpenQuery) Exists(ctx context.Context, exec boil.ContextExecutor
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if sessions_open exists")
+		return false, errors.Wrap(err, "pg: failed to check if sessions_open exists")
 	}
 
 	return count > 0, nil
@@ -685,7 +677,7 @@ func FindSessionsOpen(ctx context.Context, exec boil.ContextExecutor, iD int, st
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from sessions_open")
+		return nil, errors.Wrap(err, "pg: unable to select from sessions_open")
 	}
 
 	if err = sessionsOpenObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -699,7 +691,7 @@ func FindSessionsOpen(ctx context.Context, exec boil.ContextExecutor, iD int, st
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *SessionsOpen) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no sessions_open provided for insertion")
+		return errors.New("pg: no sessions_open provided for insertion")
 	}
 
 	var err error
@@ -772,7 +764,7 @@ func (o *SessionsOpen) Insert(ctx context.Context, exec boil.ContextExecutor, co
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into sessions_open")
+		return errors.Wrap(err, "pg: unable to insert into sessions_open")
 	}
 
 	if !cached {
@@ -813,7 +805,7 @@ func (o *SessionsOpen) Update(ctx context.Context, exec boil.ContextExecutor, co
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update sessions_open, could not build whitelist")
+			return 0, errors.New("pg: unable to update sessions_open, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"sessions_open\" SET %s WHERE %s",
@@ -836,12 +828,12 @@ func (o *SessionsOpen) Update(ctx context.Context, exec boil.ContextExecutor, co
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update sessions_open row")
+		return 0, errors.Wrap(err, "pg: unable to update sessions_open row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for sessions_open")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for sessions_open")
 	}
 
 	if !cached {
@@ -859,12 +851,12 @@ func (q sessionsOpenQuery) UpdateAll(ctx context.Context, exec boil.ContextExecu
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for sessions_open")
+		return 0, errors.Wrap(err, "pg: unable to update all for sessions_open")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for sessions_open")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for sessions_open")
 	}
 
 	return rowsAff, nil
@@ -878,7 +870,7 @@ func (o SessionsOpenSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -908,12 +900,12 @@ func (o SessionsOpenSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in sessionsOpen slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in sessionsOpen slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all sessionsOpen")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all sessionsOpen")
 	}
 	return rowsAff, nil
 }
@@ -922,7 +914,7 @@ func (o SessionsOpenSlice) UpdateAll(ctx context.Context, exec boil.ContextExecu
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *SessionsOpen) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no sessions_open provided for upsert")
+		return errors.New("pg: no sessions_open provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -987,7 +979,7 @@ func (o *SessionsOpen) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert sessions_open, could not build update column list")
+			return errors.New("pg: unable to upsert sessions_open, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -1030,7 +1022,7 @@ func (o *SessionsOpen) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert sessions_open")
+		return errors.Wrap(err, "pg: unable to upsert sessions_open")
 	}
 
 	if !cached {
@@ -1046,7 +1038,7 @@ func (o *SessionsOpen) Upsert(ctx context.Context, exec boil.ContextExecutor, up
 // Delete will match against the primary key column to find the record to delete.
 func (o *SessionsOpen) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no SessionsOpen provided for delete")
+		return 0, errors.New("pg: no SessionsOpen provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -1063,12 +1055,12 @@ func (o *SessionsOpen) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from sessions_open")
+		return 0, errors.Wrap(err, "pg: unable to delete from sessions_open")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for sessions_open")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for sessions_open")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -1081,19 +1073,19 @@ func (o *SessionsOpen) Delete(ctx context.Context, exec boil.ContextExecutor) (i
 // DeleteAll deletes all matching rows.
 func (q sessionsOpenQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no sessionsOpenQuery provided for delete all")
+		return 0, errors.New("pg: no sessionsOpenQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from sessions_open")
+		return 0, errors.Wrap(err, "pg: unable to delete all from sessions_open")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for sessions_open")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for sessions_open")
 	}
 
 	return rowsAff, nil
@@ -1129,12 +1121,12 @@ func (o SessionsOpenSlice) DeleteAll(ctx context.Context, exec boil.ContextExecu
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from sessionsOpen slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from sessionsOpen slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for sessions_open")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for sessions_open")
 	}
 
 	if len(sessionsOpenAfterDeleteHooks) != 0 {
@@ -1181,7 +1173,7 @@ func (o *SessionsOpenSlice) ReloadAll(ctx context.Context, exec boil.ContextExec
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in SessionsOpenSlice")
+		return errors.Wrap(err, "pg: unable to reload all in SessionsOpenSlice")
 	}
 
 	*o = slice
@@ -1203,7 +1195,7 @@ func SessionsOpenExists(ctx context.Context, exec boil.ContextExecutor, iD int, 
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if sessions_open exists")
+		return false, errors.Wrap(err, "pg: unable to check if sessions_open exists")
 	}
 
 	return exists, nil

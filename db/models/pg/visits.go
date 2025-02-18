@@ -164,10 +164,12 @@ var VisitWhere = struct {
 }
 
 // VisitRels is where relationship names are stored.
-var VisitRels = struct{}{}
+var VisitRels = struct {
+}{}
 
 // visitR is where relationships are stored.
-type visitR struct{}
+type visitR struct {
+}
 
 // NewStruct creates a new relationship struct
 func (*visitR) NewStruct() *visitR {
@@ -220,25 +222,17 @@ var (
 
 var visitAfterSelectHooks []VisitHook
 
-var (
-	visitBeforeInsertHooks []VisitHook
-	visitAfterInsertHooks  []VisitHook
-)
+var visitBeforeInsertHooks []VisitHook
+var visitAfterInsertHooks []VisitHook
 
-var (
-	visitBeforeUpdateHooks []VisitHook
-	visitAfterUpdateHooks  []VisitHook
-)
+var visitBeforeUpdateHooks []VisitHook
+var visitAfterUpdateHooks []VisitHook
 
-var (
-	visitBeforeDeleteHooks []VisitHook
-	visitAfterDeleteHooks  []VisitHook
-)
+var visitBeforeDeleteHooks []VisitHook
+var visitAfterDeleteHooks []VisitHook
 
-var (
-	visitBeforeUpsertHooks []VisitHook
-	visitAfterUpsertHooks  []VisitHook
-)
+var visitBeforeUpsertHooks []VisitHook
+var visitAfterUpsertHooks []VisitHook
 
 // doAfterSelectHooks executes all "after Select" hooks.
 func (o *Visit) doAfterSelectHooks(ctx context.Context, exec boil.ContextExecutor) (err error) {
@@ -410,7 +404,7 @@ func (q visitQuery) One(ctx context.Context, exec boil.ContextExecutor) (*Visit,
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: failed to execute a one query for visits")
+		return nil, errors.Wrap(err, "pg: failed to execute a one query for visits")
 	}
 
 	if err := o.doAfterSelectHooks(ctx, exec); err != nil {
@@ -426,7 +420,7 @@ func (q visitQuery) All(ctx context.Context, exec boil.ContextExecutor) (VisitSl
 
 	err := q.Bind(ctx, exec, &o)
 	if err != nil {
-		return nil, errors.Wrap(err, "models: failed to assign all query results to Visit slice")
+		return nil, errors.Wrap(err, "pg: failed to assign all query results to Visit slice")
 	}
 
 	if len(visitAfterSelectHooks) != 0 {
@@ -449,7 +443,7 @@ func (q visitQuery) Count(ctx context.Context, exec boil.ContextExecutor) (int64
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to count visits rows")
+		return 0, errors.Wrap(err, "pg: failed to count visits rows")
 	}
 
 	return count, nil
@@ -465,7 +459,7 @@ func (q visitQuery) Exists(ctx context.Context, exec boil.ContextExecutor) (bool
 
 	err := q.Query.QueryRowContext(ctx, exec).Scan(&count)
 	if err != nil {
-		return false, errors.Wrap(err, "models: failed to check if visits exists")
+		return false, errors.Wrap(err, "pg: failed to check if visits exists")
 	}
 
 	return count > 0, nil
@@ -502,7 +496,7 @@ func FindVisit(ctx context.Context, exec boil.ContextExecutor, iD int, visitStar
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
 		}
-		return nil, errors.Wrap(err, "models: unable to select from visits")
+		return nil, errors.Wrap(err, "pg: unable to select from visits")
 	}
 
 	if err = visitObj.doAfterSelectHooks(ctx, exec); err != nil {
@@ -516,7 +510,7 @@ func FindVisit(ctx context.Context, exec boil.ContextExecutor, iD int, visitStar
 // See boil.Columns.InsertColumnSet documentation to understand column list inference for inserts.
 func (o *Visit) Insert(ctx context.Context, exec boil.ContextExecutor, columns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no visits provided for insertion")
+		return errors.New("pg: no visits provided for insertion")
 	}
 
 	var err error
@@ -587,7 +581,7 @@ func (o *Visit) Insert(ctx context.Context, exec boil.ContextExecutor, columns b
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "models: unable to insert into visits")
+		return errors.Wrap(err, "pg: unable to insert into visits")
 	}
 
 	if !cached {
@@ -623,7 +617,7 @@ func (o *Visit) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 			wl = strmangle.SetComplement(wl, []string{"created_at"})
 		}
 		if len(wl) == 0 {
-			return 0, errors.New("models: unable to update visits, could not build whitelist")
+			return 0, errors.New("pg: unable to update visits, could not build whitelist")
 		}
 
 		cache.query = fmt.Sprintf("UPDATE \"visits\" SET %s WHERE %s",
@@ -646,12 +640,12 @@ func (o *Visit) Update(ctx context.Context, exec boil.ContextExecutor, columns b
 	var result sql.Result
 	result, err = exec.ExecContext(ctx, cache.query, values...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update visits row")
+		return 0, errors.Wrap(err, "pg: unable to update visits row")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by update for visits")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by update for visits")
 	}
 
 	if !cached {
@@ -669,12 +663,12 @@ func (q visitQuery) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all for visits")
+		return 0, errors.Wrap(err, "pg: unable to update all for visits")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected for visits")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected for visits")
 	}
 
 	return rowsAff, nil
@@ -688,7 +682,7 @@ func (o VisitSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 	}
 
 	if len(cols) == 0 {
-		return 0, errors.New("models: update all requires at least one column argument")
+		return 0, errors.New("pg: update all requires at least one column argument")
 	}
 
 	colNames := make([]string, len(cols))
@@ -718,12 +712,12 @@ func (o VisitSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to update all in visit slice")
+		return 0, errors.Wrap(err, "pg: unable to update all in visit slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to retrieve rows affected all in update all visit")
+		return 0, errors.Wrap(err, "pg: unable to retrieve rows affected all in update all visit")
 	}
 	return rowsAff, nil
 }
@@ -732,7 +726,7 @@ func (o VisitSlice) UpdateAll(ctx context.Context, exec boil.ContextExecutor, co
 // See boil.Columns documentation for how to properly use updateColumns and insertColumns.
 func (o *Visit) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnConflict bool, conflictColumns []string, updateColumns, insertColumns boil.Columns) error {
 	if o == nil {
-		return errors.New("models: no visits provided for upsert")
+		return errors.New("pg: no visits provided for upsert")
 	}
 	if !boil.TimestampsAreSkipped(ctx) {
 		currTime := time.Now().In(boil.GetLocation())
@@ -799,7 +793,7 @@ func (o *Visit) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 		update = strmangle.SetComplement(update, visitGeneratedColumns)
 
 		if updateOnConflict && len(update) == 0 {
-			return errors.New("models: unable to upsert visits, could not build update column list")
+			return errors.New("pg: unable to upsert visits, could not build update column list")
 		}
 
 		conflict := conflictColumns
@@ -842,7 +836,7 @@ func (o *Visit) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 		_, err = exec.ExecContext(ctx, cache.query, vals...)
 	}
 	if err != nil {
-		return errors.Wrap(err, "models: unable to upsert visits")
+		return errors.Wrap(err, "pg: unable to upsert visits")
 	}
 
 	if !cached {
@@ -858,7 +852,7 @@ func (o *Visit) Upsert(ctx context.Context, exec boil.ContextExecutor, updateOnC
 // Delete will match against the primary key column to find the record to delete.
 func (o *Visit) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if o == nil {
-		return 0, errors.New("models: no Visit provided for delete")
+		return 0, errors.New("pg: no Visit provided for delete")
 	}
 
 	if err := o.doBeforeDeleteHooks(ctx, exec); err != nil {
@@ -875,12 +869,12 @@ func (o *Visit) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, e
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete from visits")
+		return 0, errors.Wrap(err, "pg: unable to delete from visits")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by delete for visits")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by delete for visits")
 	}
 
 	if err := o.doAfterDeleteHooks(ctx, exec); err != nil {
@@ -893,19 +887,19 @@ func (o *Visit) Delete(ctx context.Context, exec boil.ContextExecutor) (int64, e
 // DeleteAll deletes all matching rows.
 func (q visitQuery) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (int64, error) {
 	if q.Query == nil {
-		return 0, errors.New("models: no visitQuery provided for delete all")
+		return 0, errors.New("pg: no visitQuery provided for delete all")
 	}
 
 	queries.SetDelete(q.Query)
 
 	result, err := q.Query.ExecContext(ctx, exec)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from visits")
+		return 0, errors.Wrap(err, "pg: unable to delete all from visits")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for visits")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for visits")
 	}
 
 	return rowsAff, nil
@@ -941,12 +935,12 @@ func (o VisitSlice) DeleteAll(ctx context.Context, exec boil.ContextExecutor) (i
 	}
 	result, err := exec.ExecContext(ctx, sql, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "models: unable to delete all from visit slice")
+		return 0, errors.Wrap(err, "pg: unable to delete all from visit slice")
 	}
 
 	rowsAff, err := result.RowsAffected()
 	if err != nil {
-		return 0, errors.Wrap(err, "models: failed to get rows affected by deleteall for visits")
+		return 0, errors.Wrap(err, "pg: failed to get rows affected by deleteall for visits")
 	}
 
 	if len(visitAfterDeleteHooks) != 0 {
@@ -993,7 +987,7 @@ func (o *VisitSlice) ReloadAll(ctx context.Context, exec boil.ContextExecutor) e
 
 	err := q.Bind(ctx, exec, &slice)
 	if err != nil {
-		return errors.Wrap(err, "models: unable to reload all in VisitSlice")
+		return errors.Wrap(err, "pg: unable to reload all in VisitSlice")
 	}
 
 	*o = slice
@@ -1015,7 +1009,7 @@ func VisitExists(ctx context.Context, exec boil.ContextExecutor, iD int, visitSt
 
 	err := row.Scan(&exists)
 	if err != nil {
-		return false, errors.Wrap(err, "models: unable to check if visits exists")
+		return false, errors.Wrap(err, "pg: unable to check if visits exists")
 	}
 
 	return exists, nil
