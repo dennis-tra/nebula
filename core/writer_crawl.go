@@ -7,7 +7,6 @@ import (
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
-	"github.com/volatiletech/null/v8"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db"
@@ -72,6 +71,7 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 
 	connectDur := task.ConnectDuration()
 	dialDur := task.CrawlDuration()
+
 	args := &db.VisitArgs{
 		PeerID:          task.Info.ID(),
 		Maddrs:          task.Info.Addrs(),
@@ -81,13 +81,14 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		CrawlDuration:   &dialDur,
 		VisitStartedAt:  task.CrawlStartTime,
 		VisitEndedAt:    task.CrawlEndTime,
+		DialErrors:      task.DialErrors,
 		ConnectErrorStr: task.ConnectErrorStr,
 		CrawlErrorStr:   task.CrawlErrorStr,
 		ConnectMaddr:    task.ConnectMaddr,
 		VisitType:       db.VisitTypeCrawl,
 		Neighbors:       neighbors,
 		ErrorBits:       errorBits,
-		Properties:      null.JSONFrom(task.Properties),
+		Properties:      task.Properties,
 	}
 
 	start := time.Now()

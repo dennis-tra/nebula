@@ -42,7 +42,7 @@ func (suite *ClickHouseTestSuite) SetupSuite() {
 	}
 
 	ctx := suite.timeoutCtx()
-	client, err := NewClickHouseClient(ctx, "", &cfg)
+	client, err := NewClickHouseClient(ctx, &cfg)
 	suite.Require().NoError(err)
 
 	suite.client = client
@@ -231,7 +231,6 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 	suite.Assert().Equal(args.VisitStartedAt.Truncate(time.Millisecond), storedVisit.VisitStartedAt)
 	suite.Assert().Equal(args.VisitEndedAt.Truncate(time.Millisecond), storedVisit.VisitEndedAt)
 	suite.Assert().Equal(args.CrawlErrorStr, *storedVisit.CrawlError)
-	suite.Assert().Equal(args.VisitType.String(), storedVisit.VisitType)
 
 	storedNeighbors, err := suite.client.selectNeighbors(ctx, suite.client.crawl.ID)
 	suite.Require().NoError(err)

@@ -52,6 +52,9 @@ var MonitorCommand = &cli.Command{
 		// closing connections to the database
 		rootConfig.Database.MaxIdleConns = monitorConfig.WriteWorkerCount
 
+		// set the network ID on the database object
+		rootConfig.Database.NetworkID = monitorConfig.Network
+
 		return nil
 	},
 	Flags: []cli.Flag{

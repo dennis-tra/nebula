@@ -16,12 +16,6 @@ postgres_pass_prefix := "password_"
 default:
     @just --list --justfile {{ justfile() }}
 
-migrate-up env="local":
-    migrate -database 'clickhouse://localhost:{{ if env == "local" { "9000" } else { "9001" } }}?username={{clickhouse_user_prefix}}{{env}}&database={{clickhouse_dbname_prefix}}{{env}}&password={{clickhouse_pass_prefix}}{{env}}&x-multi-statement=true' -path db/migrations/ch up
-
-migrate-down env="local":
-    migrate -database 'clickhouse://localhost:{{ if env == "local" { "9000" } else { "9001" } }}?username={{clickhouse_user_prefix}}{{env}}&database={{clickhouse_dbname_prefix}}{{env}}&password={{clickhouse_pass_prefix}}{{env}}&x-multi-statement=true' -path db/migrations/ch down
-
 # start a clickhouse server
 start-clickhouse env="local" detached="true":
     @echo "Starting ClickHouse server..."
