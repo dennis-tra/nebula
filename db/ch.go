@@ -30,6 +30,8 @@ import (
 //go:embed migrations/ch
 var clickhouseMigrations embed.FS
 
+// ClickHouseClientConfig holds configuration for ClickHouse client connection.
+// Enables setting up database connection details, migrations, batching, and tracing.
 type ClickHouseClientConfig struct {
 	DatabaseHost          string
 	DatabasePort          int
@@ -51,6 +53,9 @@ type ClickHouseClientConfig struct {
 	TracerProvider trace.TracerProvider
 }
 
+// Options returns a ClickHouse client options configuration.
+// It includes address, authentication, and optional TLS settings.
+// The address is built from the host and port in the configuration.
 func (cfg *ClickHouseClientConfig) Options() *clickhouse.Options {
 	options := &clickhouse.Options{
 		Addr: []string{net.JoinHostPort(cfg.DatabaseHost, strconv.Itoa(cfg.DatabasePort))},
@@ -68,14 +73,24 @@ func (cfg *ClickHouseClientConfig) Options() *clickhouse.Options {
 	return options
 }
 
+// ClickHouseClient is a client for interacting with a ClickHouse database.
+// It implements the database [Client] interface.
 type ClickHouseClient struct {
-	conn driver.Conn
-	cfg  *ClickHouseClientConfig
+	// the client configuration object
+	cfg *ClickHouseClientConfig
 
+	// the database connection to clickhouse
+	conn driver.Conn
+
+	// database client implementations must track the crawl object internally.
+	// For more details see the [Client] documentation.
 	crawlMu sync.RWMutex
 	crawl   *ClickHouseCrawl
 
-	// this channel will receive all new visits
+	// this channel will receive all new visits. This channel is read in the
+	// [startFlusher] method. The visits are batched and pushed to clickhouse
+	// in chunks. Chunk size and flush interval can be configured in
+	// [ClickHouseClientConfig].
 	visitsChan chan *ClickHouseVisit
 
 	// this channel can be used to trigger a flush of the prepared batches
@@ -89,6 +104,12 @@ type ClickHouseClient struct {
 	flusherCancel context.CancelFunc
 }
 
+// NewClickHouseClient initializes and returns a new ClickHouseClient instance.
+// It establishes a connection to the ClickHouse database and applies migrations
+// if enabled in the provided configuration. The function starts a background
+// flusher to manage batched writes and returns an error if any step fails.
+// Always call [Close] when the client isn't needed anymore to clean up
+// resources.
 func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*ClickHouseClient, error) {
 	conn, err := clickhouse.Open(cfg.Options())
 	if err != nil {
@@ -121,6 +142,9 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 	return client, nil
 }
 
+// applyMigration applies database migrations for the ClickHouse client.
+// It uses the configured migrations directory and executes them against
+// the database. Returns an error if migrations fail or cannot be applied.
 func (c *ClickHouseClient) applyMigration() error {
 	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
 	if err != nil {
@@ -150,6 +174,11 @@ func (c *ClickHouseClient) applyMigration() error {
 	return nil
 }
 
+// startFlusher is responsible for managing the asynchronous flushing of
+// batched data to the ClickHouse database, ensuring timely submission
+// based on configured timeouts or explicit flush triggers.
+// When closing the [ClickHouseClient] the flusher will transmit all pending
+// visits. You can also [Flush] on the client to trigger a write manually.
 func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 	defer close(c.flusherDone)
 
@@ -281,10 +310,9 @@ type ClickHouseVisit struct {
 	PeerID         string     `ch:"peer_id"`
 	AgentVersion   *string    `ch:"agent_version"`
 	Protocols      []string   `ch:"protocols"`
-	VisitType      string     `ch:"type"`
-	Maddrs         []string   `ch:"multi_addresses"`
-	ConnectMaddr   *string    `ch:"connect_multi_address"`
-	ConnectErrors  []string   `ch:"connect_errors"`
+	DialMaddrs     []string   `ch:"dial_maddrs"`
+	DialErrors     []string   `ch:"dial_errors"`
+	ConnectMaddr   *string    `ch:"connect_maddr"`
 	CrawlError     *string    `ch:"crawl_error"`
 	VisitStartedAt time.Time  `ch:"visit_started_at"`
 	VisitEndedAt   time.Time  `ch:"visit_ended_at"`
@@ -302,10 +330,15 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 	c.crawlMu.Lock()
 	defer c.crawlMu.Unlock()
 
+	// check if we have already initialized a crawl
 	if c.crawl != nil {
 		return fmt.Errorf("crawl already initialized")
 	}
 
+	// check if the database already contains crawl information. Then make sure
+	// that we are crawling the same network (to avoid mixing network data).
+	// Log a warning if the previous crawl hasn't finished before we start this
+	// crawl.
 	latestCrawl, err := c.selectLatestCrawl(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		// ok
@@ -317,13 +350,14 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 		log.WithField("id", latestCrawl.ID).Warnln("Another crawl is already running")
 	}
 
+	// generate an ID for the crawl. UUIDv7 are time-sorted which is relevant
+	// for the ClickHouse table index which is (id, created_at).
 	uuidv7, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("new uuid v7: %w", err)
 	}
 
 	now := time.Now()
-
 	crawl := &ClickHouseCrawl{
 		ID:              uuidv7,
 		State:           string(CrawlStateStarted),
@@ -338,6 +372,8 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 		NetworkID:       c.cfg.NetworkID,
 	}
 
+	// prepare a batch instead of a regular Exec/Query because of the convenient
+	// AppendStruct method.
 	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
 	if err != nil {
 		return fmt.Errorf("prepare batch: %w", err)
@@ -351,6 +387,7 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 		return fmt.Errorf("insert crawl: %w", err)
 	}
 
+	// cache the crawl.
 	c.crawl = crawl
 
 	return nil
@@ -364,7 +401,7 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 		return fmt.Errorf("crawl not initialized")
 	}
 
-	// TODO: does this perform a deep copy?
+	// TODO: does this perform a deep copy? (not really relevant)
 	original := *c.crawl
 	defer func() {
 		// roll back in case of an error
@@ -436,6 +473,7 @@ func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) (
 			log.WithError(err).WithField("pid", pidStr).Warnln("Could not parse bootstrap peer ID from database")
 			continue
 		}
+
 		addrInfos = append(addrInfos, peer.AddrInfo{
 			ID:    pid,
 			Addrs: maddrs,
@@ -473,10 +511,9 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		PeerID:         args.PeerID.String(),
 		AgentVersion:   av,
 		Protocols:      args.Protocols,
-		VisitType:      args.VisitType.String(),
-		Maddrs:         utils.MaddrsToAddrs(args.Maddrs),
+		DialMaddrs:     utils.MaddrsToAddrs(args.Maddrs),
 		ConnectMaddr:   connMaddrStr,
-		ConnectErrors:  []string{},
+		DialErrors:     []string{},
 		CrawlError:     crawlErrStr,
 		VisitStartedAt: args.VisitStartedAt,
 		VisitEndedAt:   args.VisitEndedAt,
@@ -541,17 +578,27 @@ func (c *ClickHouseClient) Flush(ctx context.Context) error {
 	}
 }
 
+// Close releases resources associated with the clickhouse client. Make sure
+// that you don't call any other method anymore before calling close.
 func (c *ClickHouseClient) Close() error {
+	// signal to the flusher that we're done. This will instruct the flusher
+	// to transmit the remaining data and exit its goroutine.
 	close(c.visitsChan)
 
+	// wait for the flusher to finish
 	select {
 	case <-c.flusherDone:
+		// flusher exited, release context resources
+		c.flusherCancel()
 	case <-time.After(5 * time.Second):
+		// flusher didn't exit in time, cancel the flusher context which will
+		// cancel all inflight queries.
 		log.Warnln("Flusher did not finish in time, forcing shutdown")
 		c.flusherCancel()
 		<-c.flusherDone
 	}
 
+	// close the flush channel because it's not needed anymore
 	close(c.flushChan)
 
 	return c.conn.Close()
@@ -589,5 +636,6 @@ func (c *ClickHouseClient) selectNeighbors(ctx context.Context, crawlID uuid.UUI
 		}
 		neighbors = append(neighbors, neighbor)
 	}
+
 	return neighbors, err
 }

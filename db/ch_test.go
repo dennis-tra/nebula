@@ -42,7 +42,7 @@ func (suite *ClickHouseTestSuite) SetupSuite() {
 	}
 
 	ctx := suite.timeoutCtx()
-	client, err := NewClickHouseClient(ctx, &cfg)
+	client, err := NewClickHouseClient(ctx, "", &cfg)
 	suite.Require().NoError(err)
 
 	suite.client = client
@@ -65,7 +65,7 @@ func (suite *ClickHouseTestSuite) TearDownTest() {
 }
 
 func (suite *ClickHouseTestSuite) clearDatabase(ctx context.Context) {
-	for _, table := range []string{"crawls", "visits"} {
+	for _, table := range []string{"crawls", "visits", "neighbors"} {
 		err := suite.client.conn.Exec(ctx, fmt.Sprintf("DELETE FROM %s WHERE TRUE", table))
 		suite.Assert().NoError(err)
 	}
