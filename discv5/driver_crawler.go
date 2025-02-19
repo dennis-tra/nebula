@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
@@ -360,6 +362,9 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		libp2p.DisableMetrics(),
 		libp2p.ConnectionManager(cm),
 		libp2p.EnableRelay(), // enable the relay transport
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)

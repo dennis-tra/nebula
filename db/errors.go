@@ -7,7 +7,6 @@ import (
 
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	ma "github.com/multiformats/go-multiaddr"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
@@ -35,9 +34,6 @@ func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
 					dialErrors[i] = "canceled"
 				} else {
 					dialErrors[i] = NetError(derr)
-					if dialErrors[i] == pgmodels.NetErrorUnknown {
-						log.Error("unknown error 2: ", derr)
-					}
 				}
 			} else {
 				dialErrors[i] = "not_dialed"
@@ -51,9 +47,6 @@ func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
 			commonErr = "canceled"
 		} else {
 			commonErr = NetError(err)
-			if commonErr == pgmodels.NetErrorUnknown {
-				log.WithField("type", fmt.Sprintf("%T", err)).Error("unknown error 1: ", err)
-			}
 		}
 		for i := range maddrs {
 			dialErrors[i] = commonErr
@@ -65,36 +58,40 @@ func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
 
 // KnownErrors contains a list of known errors. Property key + string to match for
 var KnownErrors = map[string]string{
-	"i/o timeout":                                pgmodels.NetErrorIoTimeout,
-	"RPC timeout":                                pgmodels.NetErrorIoTimeout,
-	"no recent network activity":                 pgmodels.NetErrorIoTimeout, // formerly NetErrorNoRecentNetworkActivity (equivalent to a timeout)
-	"handshake did not complete in time":         pgmodels.NetErrorIoTimeout, // quic error
-	"connection refused":                         pgmodels.NetErrorConnectionRefused,
-	"connection reset by peer":                   pgmodels.NetErrorConnectionResetByPeer,
-	"protocol not supported":                     pgmodels.NetErrorProtocolNotSupported,
-	"protocols not supported":                    pgmodels.NetErrorProtocolNotSupported,
-	"peer id mismatch":                           pgmodels.NetErrorPeerIDMismatch,
-	"peer IDs don't match":                       pgmodels.NetErrorPeerIDMismatch,
-	"no route to host":                           pgmodels.NetErrorNoRouteToHost,
-	"network is unreachable":                     pgmodels.NetErrorNetworkUnreachable,
-	"no good addresses":                          pgmodels.NetErrorNoGoodAddresses,
-	"context deadline exceeded":                  pgmodels.NetErrorIoTimeout, // formerly NetErrorContextDeadlineExceeded
-	"no public IP address":                       pgmodels.NetErrorNoIPAddress,
-	"max dial attempts exceeded":                 pgmodels.NetErrorMaxDialAttemptsExceeded,
-	"host is down":                               pgmodels.NetErrorHostIsDown,
-	"stream reset":                               pgmodels.NetErrorStreamReset,
-	"stream closed":                              pgmodels.NetErrorStreamReset,
-	"failed to negotiate security protocol: EOF": pgmodels.NetErrorNegotiateSecurityProtocol, // connect retry logic in discv5 relies on the ": EOF" suffix.
-	"failed to negotiate security protocol":      pgmodels.NetErrorNegotiateSecurityProtocol,
-	"failed to negotiate stream multiplexer":     pgmodels.NetErrorNegotiateStreamMultiplexer,
-	"resource limit exceeded":                    pgmodels.NetErrorResourceLimitExceeded,
-	"Write on stream":                            pgmodels.NetErrorWriteOnStream,
-	"can't assign requested address":             pgmodels.NetErrorCantAssignRequestedAddress, // transient error
-	"cannot assign requested address":            pgmodels.NetErrorCantAssignRequestedAddress, // transient error
-	"connection gated":                           pgmodels.NetErrorConnectionGated,            // transient error
-	"RESOURCE_LIMIT_EXCEEDED (201)":              pgmodels.NetErrorCantConnectOverRelay,       // transient error
-	"NO_RESERVATION (204)":                       pgmodels.NetErrorCantConnectOverRelay,       // permanent error
-	"no transport for protocol":                  pgmodels.NetErrorNoTransportForProtocol,
+	"i/o timeout":                                         pgmodels.NetErrorIoTimeout,
+	"RPC timeout":                                         pgmodels.NetErrorIoTimeout,
+	"no recent network activity":                          pgmodels.NetErrorIoTimeout, // formerly NetErrorNoRecentNetworkActivity (equivalent to a timeout)
+	"handshake did not complete in time":                  pgmodels.NetErrorIoTimeout, // quic error
+	"connection refused":                                  pgmodels.NetErrorConnectionRefused,
+	"CONNECTION_REFUSED":                                  pgmodels.NetErrorConnectionRefused,
+	"connection reset by peer":                            pgmodels.NetErrorConnectionResetByPeer,
+	"protocol not supported":                              pgmodels.NetErrorProtocolNotSupported,
+	"protocols not supported":                             pgmodels.NetErrorProtocolNotSupported,
+	"peer id mismatch":                                    pgmodels.NetErrorPeerIDMismatch,
+	"peer IDs don't match":                                pgmodels.NetErrorPeerIDMismatch,
+	"no route to host":                                    pgmodels.NetErrorNoRouteToHost,
+	"network is unreachable":                              pgmodels.NetErrorNetworkUnreachable,
+	"no good addresses":                                   pgmodels.NetErrorNoGoodAddresses,
+	"context deadline exceeded":                           pgmodels.NetErrorIoTimeout, // formerly NetErrorContextDeadlineExceeded
+	"no public IP address":                                pgmodels.NetErrorNoIPAddress,
+	"max dial attempts exceeded":                          pgmodels.NetErrorMaxDialAttemptsExceeded,
+	"host is down":                                        pgmodels.NetErrorHostIsDown,
+	"stream reset":                                        pgmodels.NetErrorStreamReset,
+	"stream closed":                                       pgmodels.NetErrorStreamReset,
+	"failed to negotiate security protocol: EOF":          pgmodels.NetErrorNegotiateSecurityProtocol, // connect retry logic in discv5 relies on the ": EOF" suffix.
+	"failed to negotiate security protocol":               pgmodels.NetErrorNegotiateSecurityProtocol,
+	"failed to negotiate stream multiplexer":              pgmodels.NetErrorNegotiateStreamMultiplexer,
+	"resource limit exceeded":                             pgmodels.NetErrorResourceLimitExceeded,
+	"Write on stream":                                     pgmodels.NetErrorWriteOnStream,
+	"can't assign requested address":                      pgmodels.NetErrorCantAssignRequestedAddress, // transient error
+	"cannot assign requested address":                     pgmodels.NetErrorCantAssignRequestedAddress, // transient error
+	"connection gated":                                    pgmodels.NetErrorConnectionGated,            // transient error
+	"RESOURCE_LIMIT_EXCEEDED (201)":                       pgmodels.NetErrorCantConnectOverRelay,       // transient error
+	"opening relay circuit: CONNECTION_FAILED (203)":      pgmodels.NetErrorCantConnectOverRelay,       // transient error
+	"NO_RESERVATION (204)":                                pgmodels.NetErrorCantConnectOverRelay,       // permanent error
+	"relay failed with a protocol error":                  pgmodels.NetErrorCantConnectOverRelay,
+	"can't dial a p2p-circuit without specifying a relay": pgmodels.NetErrorNoIPAddress,
+	"no transport for protocol":                           pgmodels.NetErrorNoTransportForProtocol,
 	// devp2p errors
 	"no good ip address":                 pgmodels.NetErrorNoIPAddress,
 	"disconnect requested":               pgmodels.NetErrorDevp2pDisconnectRequested,
@@ -156,6 +153,10 @@ var knownErrorsPrecedence = []string{
 	"Write on stream",
 	"RESOURCE_LIMIT_EXCEEDED (201)",
 	"NO_RESERVATION (204)",
+	"no transport for protocol",
+	"relay failed with a protocol error",
+	"opening relay circuit: CONNECTION_FAILED (203)",
+	"can't dial a p2p-circuit without specifying a relay",
 	"too many peers",
 	"no good ip address",
 	"malformed disconnect message",
