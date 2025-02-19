@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"embed"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	mch "github.com/golang-migrate/migrate/v4/database/clickhouse"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/metric"
@@ -324,7 +326,8 @@ type ClickHouseVisit struct {
 type ClickhouseNeighbor struct {
 	CrawlID   uuid.UUID `ch:"crawl_id"`
 	PeerID    string    `ch:"peer_id"`
-	Neighbor  string    `ch:"neighbor_id"`
+	PeerID    uint64    `ch:"peer_kad_id_prefix"`
+	Neighbor  uint64    `ch:"neighbor_kad_id_prefix"`
 	ErrorBits uint16    `ch:"error_bits"`
 }
 
@@ -527,12 +530,16 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 	sort.Strings(visit.Protocols)
 
 	if crawlID != nil {
+		peerKadID := kbucket.ConvertPeerID(args.PeerID)
+		peerKadIDPrefix := binary.BigEndian.Uint64(peerKadID[:8])
+
 		visit.neighbors = make([]*ClickhouseNeighbor, len(args.Neighbors))
 		for i, neighbor := range args.Neighbors {
+			neighborKadID := binary.BigEndian.Uint64(kbucket.ConvertPeerID(neighbor)[:8])
 			visit.neighbors[i] = &ClickhouseNeighbor{
 				CrawlID:   *crawlID,
-				PeerID:    args.PeerID.String(),
-				Neighbor:  neighbor.String(),
+				PeerID:    peerKadIDPrefix,
+				Neighbor:  neighborKadID,
 				ErrorBits: args.ErrorBits,
 			}
 		}
