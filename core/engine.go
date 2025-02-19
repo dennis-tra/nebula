@@ -406,7 +406,7 @@ func (e *Engine[I, R]) handlePeerResult(ctx context.Context, result Result[R]) {
 	logEntry.WithFields(map[string]interface{}{
 		"queued":   e.peerQueue.Len(),
 		"inflight": len(e.inflight),
-	}).Infof("Handled worker result [%.2f%%]\n", pct)
+	}).Infof("Handled worker result [%.2f%%]", pct)
 }
 
 func (e *Engine[I, R]) handleWriteResult(ctx context.Context, result Result[WriteResult]) {
