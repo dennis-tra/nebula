@@ -60,9 +60,7 @@ func TestNewEngine(t *testing.T) {
 	driver.On("NewWriter").Return(newTestWriter(), nil)
 	driver.On("Tasks").Return(make(<-chan *testPeerInfo))
 
-	handlerCfg := &CrawlHandlerConfig{
-		TrackNeighbors: true,
-	}
+	handlerCfg := &CrawlHandlerConfig{}
 
 	t.Run("nil config", func(t *testing.T) {
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
@@ -94,7 +92,6 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, eng.peerQueue)
 		assert.NotNil(t, eng.writeQueue)
 		assert.NotNil(t, eng.handler)
-		assert.NotNil(t, handler.RoutingTables)
 		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
 		assert.NotNil(t, eng.processed)
@@ -116,20 +113,17 @@ func TestNewEngine_Run(t *testing.T) {
 
 		close(tasksChan)
 
-		handlerCfg := &CrawlHandlerConfig{
-			TrackNeighbors: true,
-		}
+		handlerCfg := &CrawlHandlerConfig{}
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 		cfg := DefaultEngineConfig()
 		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		queuedPeers, err := eng.Run(context.Background())
+		summary, err := eng.Run(context.Background())
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(queuedPeers))
+		assert.NotNil(t, summary)
 		assert.Equal(t, 0, handler.CrawledPeers)
-		assert.Len(t, handler.RoutingTables, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 
@@ -171,21 +165,18 @@ func TestNewEngine_Run(t *testing.T) {
 
 		close(tasksChan)
 
-		handlerCfg := &CrawlHandlerConfig{
-			TrackNeighbors: false,
-		}
+		handlerCfg := &CrawlHandlerConfig{}
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 
 		cfg := DefaultEngineConfig()
 		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		queuedPeers, err := eng.Run(ctx)
+		summary, err := eng.Run(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(queuedPeers))
+		assert.NotNil(t, summary)
 		assert.Equal(t, 1, handler.CrawledPeers)
-		assert.Len(t, handler.RoutingTables, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 }
@@ -280,8 +271,8 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 	require.NoError(t, err)
 
-	queuedPeers, err := eng.Run(ctx)
+	summary, err := eng.Run(ctx)
 	require.NoError(t, err)
 
-	require.Len(t, queuedPeers, 0)
+	require.NotNil(t, summary)
 }

@@ -41,7 +41,7 @@ import (
 )
 
 //go:embed migrations/pg
-var migrations embed.FS
+var postgresMigrations embed.FS
 
 var (
 	ErrEmptyAgentVersion = fmt.Errorf("empty agent version")
@@ -249,7 +249,7 @@ func (c *PostgresClient) Close() error {
 }
 
 func (c *PostgresClient) applyMigrations(dbh *sql.DB) error {
-	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
+	migrationsDir, err := iofs.New(postgresMigrations, "migrations/pg")
 	if err != nil {
 		return fmt.Errorf("create iofs migrations source: %w", err)
 	}
@@ -673,7 +673,7 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 		args.VisitType,
 		null.NewString(args.ConnectErrorStr, args.ConnectErrorStr != ""),
 		null.NewString(args.CrawlErrorStr, args.CrawlErrorStr != ""),
-		args.Properties,
+		null.JSONFrom(args.Properties),
 	).QueryContext(ctx, c.dbh)
 	c.telemetry.insertVisitHistogram.Record(ctx, time.Since(start).Milliseconds(), metric.WithAttributes(
 		attribute.String("type", string(args.VisitType)),

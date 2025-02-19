@@ -15,11 +15,17 @@ CREATE TABLE visits
     -- a sorted list of protocols/capabilities that the peer claims to support
     protocols        Array(LowCardinality(String)),
 
-    -- a list of unsorted multi addresses that the crawler tried to dial. This can
+    -- a list of unsorted multi addresses that the crawler tried to dial. This can be
     -- fewer addresses than we found in the network because, e.g., the crawler
-    -- won't try to connect to IP addresses in the private CIDRs by default. It
+    -- won't try to connect to IP addresses in private CIDRs by default. It
     -- could also be that the peer advertised multi addresses with protocols
-    -- that the crawler does not yet support (unlikely though).
+    -- that the crawler does not yet support (unlikely though). If libp2p
+    -- detects that an IP address is unreachable but we have multiple multi
+    -- addresses with that IP address in the dial_maddrs list, we might not
+    -- try to dial these additional maddrs. The dial_errors will contain a
+    -- not_dialed entry for the respective multi address. This can also
+    -- happen if there is a webtransport address and another plain quic address
+    -- if the quic connection fails we won't even try the webtransport address.
     dial_maddrs      Array(String),
 
     -- a list of unsorted multi addresses that we found in the network for the

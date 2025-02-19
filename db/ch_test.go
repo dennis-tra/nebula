@@ -1,7 +1,6 @@
 package db
 
 import (
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -37,6 +36,7 @@ func (suite *ClickHouseTestSuite) SetupSuite() {
 		BatchSize:        10_000,
 		BatchTimeout:     time.Second,
 		NetworkID:        "test_network",
+		PersistNeighbors: true,
 		MeterProvider:    mnoop.NewMeterProvider(),
 		TracerProvider:   tnoop.NewTracerProvider(),
 	}
@@ -196,14 +196,13 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 
 	args := &VisitArgs{
 		PeerID: pid,
-		Maddrs: []multiaddr.Multiaddr{
+		DialMaddrs: []multiaddr.Multiaddr{
 			utils.MustMultiaddr(suite.T(), "/ip4/127.0.0.1/tcp/1234"),
 		},
 		Protocols:       []string{"/ipfs/1.0.0"},
 		AgentVersion:    "my-agent",
-		DialDuration:    nil,
-		ConnectDuration: &connDur,
-		CrawlDuration:   &crawlDur,
+		ConnectDuration: connDur,
+		CrawlDuration:   crawlDur,
 		VisitStartedAt:  start,
 		VisitEndedAt:    end,
 		ConnectErrorStr: "conn_err",
@@ -211,7 +210,6 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 		VisitType:       "dial",
 		Neighbors:       neighbors,
 		ErrorBits:       20,
-		Properties:      json.RawMessage{},
 	}
 
 	err = suite.client.InitCrawl(ctx, "v1")
@@ -239,6 +237,37 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 	for i := range neighbors {
 		suite.Assert().Equal(args.ErrorBits, storedNeighbors[i].ErrorBits)
 	}
+}
+
+func (suite *ClickHouseTestSuite) TestSealCrawl_queryBootstrapPeers() {
+	ctx := suite.timeoutCtx()
+
+	count := 100
+	neighbors := test.GeneratePeerIDs(count)
+	maddr := utils.MustMultiaddr(suite.T(), "/ip4/127.0.0.1/tcp/1234")
+
+	for i, neighbor := range neighbors {
+		var connectMaddr multiaddr.Multiaddr
+		if i%2 == 0 {
+			connectMaddr = maddr
+		}
+		args := &VisitArgs{
+			PeerID:         neighbor,
+			DialMaddrs:     []multiaddr.Multiaddr{maddr},
+			ConnectMaddr:   connectMaddr,
+			VisitStartedAt: time.Now().Add(-time.Minute).UTC(),
+			VisitEndedAt:   time.Now().Add(-time.Minute).UTC(),
+		}
+
+		err := suite.client.InsertVisit(ctx, args)
+		suite.Require().NoError(err)
+	}
+
+	suite.Require().NoError(suite.client.Flush(ctx))
+
+	peers, err := suite.client.QueryBootstrapPeers(ctx, count)
+	suite.Require().NoError(err)
+	suite.Assert().Len(peers, count/2)
 }
 
 // In order for 'go test' to run this suite, we need to create
