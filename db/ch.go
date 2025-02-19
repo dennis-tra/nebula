@@ -348,7 +348,7 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 		return fmt.Errorf("select latest crawl: %w", err)
 	} else if latestCrawl.NetworkID != c.cfg.NetworkID {
 		return fmt.Errorf("network id mismatch (expected %s, got %s)", c.cfg.NetworkID, latestCrawl.NetworkID)
-	} else if latestCrawl.State != string(CrawlStateStarted) {
+	} else if latestCrawl.State == string(CrawlStateStarted) {
 		log.WithField("id", latestCrawl.ID).Warnln("Another crawl is already running")
 	}
 
