@@ -2,6 +2,7 @@ package discv5
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -201,6 +202,58 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 	if err := node.Load(&enrEntryOpStack); err == nil {
 		properties["opstack_chain_id"] = enrEntryOpStack.ChainID
 		properties["opstack_version"] = enrEntryOpStack.Version
+	}
+
+	var enrEntryLes ENREntryLes
+	if err := node.Load(&enrEntryLes); err == nil {
+		properties["vfx_version"] = enrEntryLes.VfxVersion
+	}
+
+	var enrEntrySnap ENREntrySnap
+	if err := node.Load(&enrEntrySnap); err == nil {
+		properties["snap"] = true
+	}
+
+	var enrEntryBsc ENREntryBsc
+	if err := node.Load(&enrEntryBsc); err == nil {
+		properties["bsc"] = true
+	}
+
+	var enrEntryPtStack ENREntryPtStack
+	if err := node.Load(&enrEntryPtStack); err == nil {
+		properties["ptstack_chain_id"] = enrEntryPtStack.ChainID
+		properties["ptstack_version"] = enrEntryPtStack.Version
+	}
+
+	var enrEntryOptimism ENREntryOptimism
+	if err := node.Load(&enrEntryOptimism); err == nil {
+		properties["optimism_chain_id"] = enrEntryOptimism.ChainID
+		properties["optimism_version"] = enrEntryOptimism.Version
+	}
+
+	var enrEntryTrust ENREntryTrust
+	if err := node.Load(&enrEntryTrust); err == nil {
+		properties["trust"] = true
+	}
+
+	var enrEntryTestID ENREntryTestID
+	if err := node.Load(&enrEntryTestID); err == nil {
+		properties["test_id"] = "0x" + hex.EncodeToString(enrEntryTestID)
+	}
+
+	var enrEntryOpera ENREntryOpera
+	if err := node.Load(&enrEntryOpera); err == nil {
+		properties["opera_fork_id_crc32"] = "0x" + hex.EncodeToString(enrEntryOpera.ForkID.Hash[:])
+		properties["opera_fork_id_next"] = enrEntryOpera.ForkID.Next
+	}
+
+	var enrEntryCaps ENREntryCaps
+	if err := node.Load(&enrEntryCaps); err == nil {
+		caps := make([]string, len(enrEntryCaps))
+		for i, c := range enrEntryCaps {
+			caps[i] = c.String()
+		}
+		properties["caps"] = caps
 	}
 
 	if c.cfg.KeepENR {
