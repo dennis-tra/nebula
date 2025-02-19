@@ -17,6 +17,16 @@ var goleakIgnore = []goleak.Option{
 	goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
 	// could be solved with ipfslog.WriterGroup.Close()
 	goleak.IgnoreTopFunction("github.com/ipfs/go-log/writer.(*MirrorWriter).logRoutine"),
+	// seelog is imported via:
+	// github.com/dennis-tra/nebula-crawler/tele
+	// github.com/prometheus-community/ecs_exporter/ecsmetadata
+	// github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v4/state
+	// github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/v2
+	// github.com/aws/amazon-ecs-agent/ecs-agent/tmds/handlers/utils
+	// github.com/cihub/seelog
+	//
+	// It initializes a go routine via init(). Closing the default logger doesn't fix it.
+	goleak.IgnoreAnyFunction("github.com/cihub/seelog.(*asyncLoopLogger).processItem"),
 }
 
 func TestPoolNoWorker(t *testing.T) {

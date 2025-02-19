@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dennis-tra/nebula-crawler/db"
+
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
@@ -14,8 +16,7 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 
 	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	"github.com/dennis-tra/nebula-crawler/maxmind"
 	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/udger"
@@ -61,6 +62,14 @@ var ResolveCommand = &cli.Command{
 			Destination: &resolveConfig.FilePathMaxmindCountry,
 		},
 	},
+	Before: func(c *cli.Context) error {
+		if resolveConfig.Root.Database.DatabaseEngine != "postgres" &&
+			resolveConfig.Root.Database.DatabaseEngine != "pg" {
+			return fmt.Errorf("resolve command only supports postgres database engine")
+		}
+
+		return nil
+	},
 }
 
 // ResolveAction is the function that is called when running `nebula resolve`.
@@ -68,9 +77,14 @@ func ResolveAction(c *cli.Context) error {
 	log.Infoln("Starting Nebula multi address resolver...")
 
 	// Initialize the database client
-	dbc, err := db.InitDBClient(c.Context, rootConfig.Database)
+	genericClient, err := rootConfig.Database.NewClient(c.Context)
 	if err != nil {
 		return err
+	}
+
+	dbc, ok := genericClient.(*db.PostgresClient)
+	if !ok {
+		return fmt.Errorf("resolution is only supported for postgres database engine")
 	}
 
 	// can't bother extracting the limited functionality below to a separate
@@ -114,7 +128,7 @@ func ResolveAction(c *cli.Context) error {
 }
 
 // resolve saves the resolved IP addresses + their countries in a transaction
-func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs models.MultiAddressSlice) error {
+func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddrs pgmodels.MultiAddressSlice) error {
 	log.WithField("size", len(dbmaddrs)).Infoln("Resolving batch of multi addresses...")
 
 	for _, dbmaddr := range dbmaddrs {
@@ -126,7 +140,7 @@ func resolve(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udg
 	return nil
 }
 
-func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddr *models.MultiAddress) error {
+func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient *udger.Client, dbmaddr *pgmodels.MultiAddress) error {
 	logEntry := log.WithField("maddr", dbmaddr.Maddr)
 	txn, err := dbh.BeginTx(ctx, nil)
 	if err != nil {
@@ -197,7 +211,7 @@ func resolveAddr(ctx context.Context, dbh *sql.DB, mmc *maxmind.Client, uclient 
 			}
 
 			// Save the IP address + country information + asn information
-			ipaddr := &models.IPAddress{
+			ipaddr := &pgmodels.IPAddress{
 				Asn:       null.NewInt(int(addrInfo.ASN), addrInfo.ASN != 0),
 				IsCloud:   null.NewInt(datacenterID, datacenterID != 0),
 				Country:   null.NewString(addrInfo.Country, addrInfo.Country != ""),

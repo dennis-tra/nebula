@@ -14,7 +14,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/nebtest"
+	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 func TestEngineConfig_Validate(t *testing.T) {
@@ -60,9 +60,7 @@ func TestNewEngine(t *testing.T) {
 	driver.On("NewWriter").Return(newTestWriter(), nil)
 	driver.On("Tasks").Return(make(<-chan *testPeerInfo))
 
-	handlerCfg := &CrawlHandlerConfig{
-		TrackNeighbors: true,
-	}
+	handlerCfg := &CrawlHandlerConfig{}
 
 	t.Run("nil config", func(t *testing.T) {
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
@@ -94,8 +92,6 @@ func TestNewEngine(t *testing.T) {
 		assert.NotNil(t, eng.peerQueue)
 		assert.NotNil(t, eng.writeQueue)
 		assert.NotNil(t, eng.handler)
-		assert.NotNil(t, handler.PeerMappings)
-		assert.NotNil(t, handler.RoutingTables)
 		assert.NotNil(t, handler.CrawlErrs)
 		assert.NotNil(t, eng.inflight)
 		assert.NotNil(t, eng.processed)
@@ -117,21 +113,17 @@ func TestNewEngine_Run(t *testing.T) {
 
 		close(tasksChan)
 
-		handlerCfg := &CrawlHandlerConfig{
-			TrackNeighbors: true,
-		}
+		handlerCfg := &CrawlHandlerConfig{}
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 		cfg := DefaultEngineConfig()
 		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		queuedPeers, err := eng.Run(context.Background())
+		summary, err := eng.Run(context.Background())
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(queuedPeers))
+		assert.NotNil(t, summary)
 		assert.Equal(t, 0, handler.CrawledPeers)
-		assert.Len(t, handler.RoutingTables, 0)
-		assert.Len(t, handler.PeerMappings, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 
@@ -163,9 +155,7 @@ func TestNewEngine_Run(t *testing.T) {
 		crawler.On("Work", mock.IsType(ctx), mock.IsType(testPeer)).Return(cr, nil)
 
 		writer := newTestWriter()
-		writer.On("Work", mock.IsType(ctx), mock.IsType(cr)).Return(WriteResult{
-			InsertVisitResult: &db.InsertVisitResult{},
-		}, nil)
+		writer.On("Work", mock.IsType(ctx), mock.IsType(cr)).Return(WriteResult{}, nil)
 
 		driver := &testDriver{}
 		driver.On("NewWorker").Return(crawler, nil)
@@ -175,22 +165,18 @@ func TestNewEngine_Run(t *testing.T) {
 
 		close(tasksChan)
 
-		handlerCfg := &CrawlHandlerConfig{
-			TrackNeighbors: false,
-		}
+		handlerCfg := &CrawlHandlerConfig{}
 		handler := NewCrawlHandler[*testPeerInfo](handlerCfg)
 
 		cfg := DefaultEngineConfig()
 		eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 		require.NoError(t, err)
 
-		queuedPeers, err := eng.Run(ctx)
+		summary, err := eng.Run(ctx)
 		require.NoError(t, err)
 
-		assert.Equal(t, 0, len(queuedPeers))
+		assert.NotNil(t, summary)
 		assert.Equal(t, 1, handler.CrawledPeers)
-		assert.Len(t, handler.RoutingTables, 0)
-		assert.Len(t, handler.PeerMappings, 0)
 		assert.Len(t, handler.CrawlErrs, 0)
 	})
 }
@@ -204,7 +190,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 
 	bootstrapPeer := &testPeerInfo{
 		peerID: peer.ID("bootstrap"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3000")},
 	}
 	targetPeerWithoutAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
@@ -212,11 +198,11 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	}
 	intermediatePeer := &testPeerInfo{
 		peerID: peer.ID("intermediate"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3002")},
 	}
 	targetPeerWithAddrs := &testPeerInfo{
 		peerID: peer.ID("target"),
-		addrs:  []ma.Multiaddr{nebtest.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
+		addrs:  []ma.Multiaddr{utils.MustMultiaddr(t, "/ip4/127.0.0.1/tcp/3001")},
 	}
 
 	tasksChan := make(chan *testPeerInfo, 1)
@@ -263,7 +249,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	writerCfg := &CrawlWriterConfig{
 		AddrTrackType: config.AddrTypeAny,
 	}
-	writer := NewCrawlWriter[*testPeerInfo]("1", db.InitNoopClient(), 1, writerCfg)
+	writer := NewCrawlWriter[*testPeerInfo]("1", db.NewNoopClient(), writerCfg)
 
 	crawler.On("Work", mock.IsType(ctx), bootstrapPeer).
 		Return(bootstrapPeerCrawlResult, nil).Times(1)
@@ -285,8 +271,8 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	eng, err := NewEngine[*testPeerInfo, CrawlResult[*testPeerInfo]](driver, handler, cfg)
 	require.NoError(t, err)
 
-	queuedPeers, err := eng.Run(ctx)
+	summary, err := eng.Run(ctx)
 	require.NoError(t, err)
 
-	require.Len(t, queuedPeers, 0)
+	require.NotNil(t, summary)
 }

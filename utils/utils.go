@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -17,6 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+	"github.com/stretchr/testify/require"
 )
 
 // MaddrsToAddrs maps a slice of multi addresses to their string representation.
@@ -26,6 +28,35 @@ func MaddrsToAddrs(maddrs []ma.Multiaddr) []string {
 		addrs[i] = maddr.String()
 	}
 	return addrs
+}
+
+// EllipsizeMaddr shortens the certhashes
+func EllipsizeMaddr(input string, maxLength int) string {
+	parts := strings.Split(input, "/")
+	for i := 0; i < len(parts); i++ {
+		// If the part is "certhash", the next part (if it exists) is the one to shorten
+		if parts[i] == "certhash" && i+1 < len(parts) {
+			parts[i+1] = ellipsize(parts[i+1], maxLength)
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
+// ellipsize truncates a string by keeping the first and last parts intact and replacing the middle with "..."
+func ellipsize(input string, maxLength int) string {
+	if len(input) <= maxLength {
+		return input // No need to truncate
+	}
+
+	partLength := (maxLength - 2) / 2
+	if partLength < 1 {
+		partLength = 1
+	}
+
+	start := input[:partLength]
+	end := input[len(input)-partLength:]
+
+	return fmt.Sprintf("%s..%s", start, end)
 }
 
 // AddrsToMaddrs maps a slice of addresses to their multiaddress representation.
@@ -42,9 +73,25 @@ func AddrsToMaddrs(addrs []string) ([]ma.Multiaddr, error) {
 	return maddrs, nil
 }
 
-// AddrInfoFilterPrivateMaddrs strips private multiaddrs from the given peer address information.
-func AddrInfoFilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
-	filtered := peer.AddrInfo{
+// MustMultiaddr returns parses the given multi address string and stops the
+// test with an error if that fails.
+func MustMultiaddr(t testing.TB, maddrStr string) ma.Multiaddr {
+	maddr, err := ma.NewMultiaddr(maddrStr)
+	require.NoError(t, err)
+	return maddr
+}
+
+// AddrInfoFilterPrivateMaddrs strips private multiaddrs from the given peer
+// address information. It returns two new AddrInfo structs. The first contains
+// only non-private multi addresses and the second return value contains only
+// private multi addresses.
+func AddrInfoFilterPrivateMaddrs(pi peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo) {
+	keep := peer.AddrInfo{
+		ID:    pi.ID,
+		Addrs: []ma.Multiaddr{},
+	}
+
+	drop := peer.AddrInfo{
 		ID:    pi.ID,
 		Addrs: []ma.Multiaddr{},
 	}
@@ -52,17 +99,26 @@ func AddrInfoFilterPrivateMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	// Just keep public multi addresses
 	for _, maddr := range pi.Addrs {
 		if manet.IsPrivateAddr(maddr) {
+			drop.Addrs = append(drop.Addrs, maddr)
 			continue
 		}
-		filtered.Addrs = append(filtered.Addrs, maddr)
+		keep.Addrs = append(keep.Addrs, maddr)
 	}
 
-	return filtered
+	return keep, drop
 }
 
-// AddrInfoFilterPublicMaddrs strips public multiaddrs from the given peer address information.
-func AddrInfoFilterPublicMaddrs(pi peer.AddrInfo) peer.AddrInfo {
-	filtered := peer.AddrInfo{
+// AddrInfoFilterPublicMaddrs strips public multiaddrs from the given peer
+// address information. It returns two new AddrInfo structs. The first contains
+// only non-public multi addresses and the second return value contains only
+// public multi addresses.
+func AddrInfoFilterPublicMaddrs(pi peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo) {
+	keep := peer.AddrInfo{
+		ID:    pi.ID,
+		Addrs: []ma.Multiaddr{},
+	}
+
+	drop := peer.AddrInfo{
 		ID:    pi.ID,
 		Addrs: []ma.Multiaddr{},
 	}
@@ -70,12 +126,13 @@ func AddrInfoFilterPublicMaddrs(pi peer.AddrInfo) peer.AddrInfo {
 	// Just keep public multi addresses
 	for _, maddr := range pi.Addrs {
 		if manet.IsPublicAddr(maddr) {
+			drop.Addrs = append(drop.Addrs, maddr)
 			continue
 		}
-		filtered.Addrs = append(filtered.Addrs, maddr)
+		keep.Addrs = append(keep.Addrs, maddr)
 	}
 
-	return filtered
+	return keep, drop
 }
 
 // FilterPrivateMaddrs strips private multiaddrs from the given peer address information.

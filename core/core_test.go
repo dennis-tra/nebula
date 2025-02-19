@@ -92,6 +92,10 @@ func (h *testHandler) HandleWriteResult(ctx context.Context, r Result[WriteResul
 	h.Called()
 }
 
+func (h *testHandler) Summary(state *EngineState) *Summary {
+	return &Summary{}
+}
+
 type testWorker[IN any, OUT any] struct {
 	mock.Mock
 }
