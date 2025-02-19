@@ -35,6 +35,8 @@ type PeerInfo struct {
 	maddrs  []ma.Multiaddr
 	udpAddr netip.AddrPort
 	enr     string
+	udpIdx  int8
+	tcpIdx  int8
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -63,7 +65,11 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		ipScheme = "ip6"
 	}
 
-	maddrs := []ma.Multiaddr{}
+	var (
+		udpIdx int8 = -1
+		tcpIdx int8 = -1
+		maddrs []ma.Multiaddr
+	)
 	if node.UDP() != 0 {
 		maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, node.IP(), node.UDP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
@@ -71,6 +77,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		udpIdx = 0
 	}
 
 	if node.TCP() != 0 {
@@ -80,6 +87,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		tcpIdx = int8(len(maddrs) - 1)
 	}
 
 	ipAddr, ok := netip.AddrFromSlice(node.IP())
@@ -92,6 +100,8 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		Node:    node,
 		peerID:  peerID,
 		maddrs:  maddrs,
+		udpIdx:  udpIdx,
+		tcpIdx:  tcpIdx,
 		udpAddr: udpAddr,
 		enr:     node.String(),
 	}
@@ -119,9 +129,22 @@ func (p PeerInfo) DeduplicationKey() string {
 	return p.enr
 }
 
+func (p PeerInfo) UDPMaddr() ma.Multiaddr {
+	if p.udpIdx != -1 {
+		return p.maddrs[p.udpIdx]
+	}
+	return nil
+}
+
+func (p PeerInfo) TCPMaddr() ma.Multiaddr {
+	if p.tcpIdx != -1 {
+		return p.maddrs[p.tcpIdx]
+	}
+	return nil
+}
+
 type CrawlDriverConfig struct {
 	Version          string
-	TrackNeighbors   bool
 	CrawlWorkerCount int
 	DialTimeout      time.Duration
 	BootstrapPeers   []*enode.Node

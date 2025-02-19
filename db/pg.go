@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -82,6 +83,9 @@ type PostgresClientConfig struct {
 
 	// Set the maximum idle connections for the database handler.
 	MaxIdleConns int
+
+	// Whether to persist the routing tables to disk
+	PersistNeighbors bool
 
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
@@ -635,7 +639,7 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 	}
 	wg.Wait()
 
-	if len(args.Neighbors) > 0 || args.ErrorBits != 0 {
+	if c.cfg.PersistNeighbors && (len(args.Neighbors) > 0 || args.ErrorBits != 0) {
 		c.routingTables[args.PeerID] = struct {
 			neighbors []peer.ID
 			errorBits uint16
@@ -648,15 +652,17 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 	var crawlID *int
 	if c.crawl != nil {
 		crawlID = &c.crawl.ID
-	} else if args.CrawlDuration != nil {
+	} else if args.CrawlDuration > 0 {
 		log.Warnln("Crawl duration provided but no crawl initialized.")
 	}
+
+	maddrs := slices.Concat(args.DialMaddrs, args.FilteredMaddrs, args.ExtraMaddrs)
 
 	start := time.Now()
 	rows, err := queries.Raw("SELECT insert_visit($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
 		crawlID,
 		args.PeerID.String(),
-		types.StringArray(utils.MaddrsToAddrs(args.Maddrs)),
+		types.StringArray(utils.MaddrsToAddrs(maddrs)),
 		agentVersionID,
 		protocolsSetID,
 		durationToInterval(args.DialDuration),
@@ -737,8 +743,8 @@ func (ivr *insertVisitResult) Scan(value interface{}) error {
 	return nil
 }
 
-func durationToInterval(dur *time.Duration) *string {
-	if dur == nil || *dur == 0 {
+func durationToInterval(dur time.Duration) *string {
+	if dur == 0 {
 		return nil
 	}
 	s := fmt.Sprintf("%f seconds", dur.Seconds())
@@ -927,7 +933,7 @@ func (c *PostgresClient) FetchUnresolvedMultiAddresses(ctx context.Context, limi
 
 // Flush .
 func (c *PostgresClient) Flush(ctx context.Context) error {
-	if len(c.routingTables) == 0 {
+	if len(c.routingTables) == 0 || !c.cfg.PersistNeighbors {
 		return nil
 	}
 

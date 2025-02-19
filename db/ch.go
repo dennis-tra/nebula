@@ -48,12 +48,9 @@ type ClickHouseClientConfig struct {
 	BatchSize             int
 	BatchTimeout          time.Duration
 	NetworkID             string
-
-	// MeterProvider is the meter provider to use when initialising metric instruments.
-	MeterProvider metric.MeterProvider
-
-	// TracerProvider is the tracer provider to use when initialising tracing
-	TracerProvider trace.TracerProvider
+	PersistNeighbors      bool
+	MeterProvider         metric.MeterProvider
+	TracerProvider        trace.TracerProvider
 }
 
 // Options returns a ClickHouse client options configuration.
@@ -313,7 +310,9 @@ type ClickHouseVisit struct {
 	PeerID         string          `ch:"peer_id"`
 	AgentVersion   *string         `ch:"agent_version"`
 	Protocols      []string        `ch:"protocols"`
-	ListenMaddrs   []string        `ch:"listen_maddrs"`
+	DialMaddrs     []string        `ch:"dial_maddrs"`
+	FilteredMaddrs []string        `ch:"filtered_maddrs"`
+	ExtraMaddrs    []string        `ch:"extra_maddrs"`
 	DialErrors     []string        `ch:"dial_errors"`
 	ConnectMaddr   *string         `ch:"connect_maddr"`
 	CrawlError     *string         `ch:"crawl_error"`
@@ -325,7 +324,6 @@ type ClickHouseVisit struct {
 
 type ClickhouseNeighbor struct {
 	CrawlID   uuid.UUID `ch:"crawl_id"`
-	PeerID    string    `ch:"peer_id"`
 	PeerID    uint64    `ch:"peer_kad_id_prefix"`
 	Neighbor  uint64    `ch:"neighbor_kad_id_prefix"`
 	ErrorBits uint16    `ch:"error_bits"`
@@ -450,9 +448,9 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 
 func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
 	query := `
-		SELECT peer_id, multi_addresses
+		SELECT peer_id, dial_maddrs
 		FROM visits
-		WHERE empty(connect_errors)
+		WHERE empty(dial_errors)
 		  AND visit_started_at BETWEEN (now() - INTERVAL '24 hours') AND now()
 		limit ?
 	`
@@ -513,12 +511,16 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		crawlErrStr = &args.CrawlErrorStr
 	}
 
+	sort.Strings(args.Protocols)
+
 	visit := &ClickHouseVisit{
 		CrawlID:        crawlID,
 		PeerID:         args.PeerID.String(),
 		AgentVersion:   av,
 		Protocols:      args.Protocols,
-		ListenMaddrs:   utils.MaddrsToAddrs(args.Maddrs),
+		DialMaddrs:     utils.MaddrsToAddrs(args.DialMaddrs),
+		FilteredMaddrs: utils.MaddrsToAddrs(args.FilteredMaddrs),
+		ExtraMaddrs:    utils.MaddrsToAddrs(args.ExtraMaddrs),
 		ConnectMaddr:   connMaddrStr,
 		DialErrors:     args.DialErrors,
 		CrawlError:     crawlErrStr,
@@ -527,9 +529,7 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		Properties:     args.Properties,
 	}
 
-	sort.Strings(visit.Protocols)
-
-	if crawlID != nil {
+	if c.cfg.PersistNeighbors && crawlID != nil {
 		peerKadID := kbucket.ConvertPeerID(args.PeerID)
 		peerKadIDPrefix := binary.BigEndian.Uint64(peerKadID[:8])
 

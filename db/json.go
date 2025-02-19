@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 	"sync"
 	"time"
 
@@ -174,7 +175,7 @@ type JSONVisit struct {
 func (c *JSONClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
 	data := JSONVisit{
 		PeerID:          args.PeerID,
-		Maddrs:          args.Maddrs,
+		Maddrs:          slices.Concat(args.DialMaddrs, args.FilteredMaddrs, args.ExtraMaddrs),
 		Protocols:       args.Protocols,
 		AgentVersion:    args.AgentVersion,
 		ConnectDuration: args.ConnectDuration.String(),

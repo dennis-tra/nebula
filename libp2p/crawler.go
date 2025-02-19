@@ -22,22 +22,20 @@ import (
 )
 
 type CrawlerConfig struct {
-	TrackNeighbors bool
-	DialTimeout    time.Duration
-	CheckExposed   bool
-	AddrDialType   config.AddrType
-	LogErrors      bool
-	Clock          clock.Clock
+	DialTimeout  time.Duration
+	CheckExposed bool
+	AddrDialType config.AddrType
+	LogErrors    bool
+	Clock        clock.Clock
 }
 
 func DefaultCrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		TrackNeighbors: false,
-		DialTimeout:    15 * time.Second,
-		CheckExposed:   false,
-		AddrDialType:   config.AddrTypePublic,
-		LogErrors:      false,
-		Clock:          clock.New(),
+		DialTimeout:  15 * time.Second,
+		CheckExposed: false,
+		AddrDialType: config.AddrTypePublic,
+		LogErrors:    false,
+		Clock:        clock.New(),
 	}
 }
 
@@ -61,26 +59,33 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	logEntry.Debugln("Crawling peer")
 	defer logEntry.Debugln("Crawled peer")
 
+	// adhere to the addr-dial-type command line flag and only work with
+	// private/public addresses if the user asked for it.
+	var filterFn func(info peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo)
+	switch c.cfg.AddrDialType {
+	case config.AddrTypePrivate:
+		filterFn = utils.AddrInfoFilterPublicMaddrs
+	case config.AddrTypePublic:
+		filterFn = utils.AddrInfoFilterPrivateMaddrs
+	default:
+		// use all maddrs
+		filterFn = func(info peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo) {
+			return info, peer.AddrInfo{ID: info.ID}
+		}
+	}
+	dialAddrInfo, filteredAddrInfo := filterFn(task.AddrInfo)
+
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:      c.id,
 		Info:           task,
 		CrawlStartTime: time.Now(),
 		LogErrors:      c.cfg.LogErrors,
-	}
-
-	// adhere to the addr-dial-type command line flag and only work with
-	// private/public addresses if the user asked for it.
-	crawlInfo := task
-	switch c.cfg.AddrDialType {
-	case config.AddrTypePrivate:
-		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPublicMaddrs(task.AddrInfo)}
-	case config.AddrTypePublic:
-		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPrivateMaddrs(task.AddrInfo)}
-	default:
-		// use any address
+		DialMaddrs:     dialAddrInfo.Addrs,
+		FilteredMaddrs: filteredAddrInfo.Addrs,
 	}
 
 	// start crawling both ways
+	crawlInfo := PeerInfo{AddrInfo: dialAddrInfo}
 	p2pResultCh := c.crawlP2P(ctx, crawlInfo)
 	apiResultCh := c.crawlAPI(ctx, crawlInfo)
 
@@ -110,8 +115,9 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.ConnectEndTime = p2pRes.ConnectEndTime
 	r.ConnectError = p2pRes.ConnectError
 	r.ConnectErrorStr = p2pRes.ConnectErrorStr
+	r.DialErrors = db.MaddrErrors(r.DialMaddrs, p2pRes.ConnectError)
 
-	// only track a crawl error if there was one and we didn't get any neighbors.
+	// only track a crawl error if there was one AND we didn't get any neighbors.
 	// as soon as we have a single neighbor we consider this as a successful crawl.
 	// the details about which bucket requests have failed can be analysed with
 	// the error bits.
@@ -160,24 +166,22 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		r.Protocols = apiRes.ID.Protocols
 	}
 
-	var apiResMaddrs []ma.Multiaddr
-	if apiRes.ID != nil {
-		maddrs, err := utils.AddrsToMaddrs(apiRes.ID.Addresses)
-		if err == nil {
-			apiResMaddrs = maddrs
-		}
+	// determine addresses we didn't know before we crawled the peer.
+	// here, we build the ExtraMaddrs list which will contain multi addresses
+	// that we didn't know when connecting to the peer but only discovered after
+	// the peer told us about it in the identify exchange.
+	knownMaddrs := map[string]struct{}{}
+	for _, maddr := range r.Info.AddrInfo.Addrs {
+		knownMaddrs[string(maddr.Bytes())] = struct{}{}
 	}
 
-	// collect all addresses we've found
-	listenAddrs := make([]ma.Multiaddr, 0, len(r.Info.AddrInfo.Addrs)+len(apiResMaddrs)+len(p2pRes.ListenAddrs))
-	listenAddrs = append(listenAddrs, r.Info.AddrInfo.Addrs...)
-	listenAddrs = append(listenAddrs, apiResMaddrs...)
-	listenAddrs = append(listenAddrs, p2pRes.ListenAddrs...)
-	r.Info.AddrInfo.Addrs = slices.CompactFunc(listenAddrs, func(maddr1 ma.Multiaddr, maddr2 ma.Multiaddr) bool {
-		return maddr1.Equal(maddr2)
-	})
-
-	r.DialErrors = db.MaddrErrors(r.Info.AddrInfo.Addrs, p2pRes.ConnectError)
+	r.ExtraMaddrs = []ma.Multiaddr{}
+	for _, maddr := range slices.Concat(apiRes.ListenMaddrs(), p2pRes.ListenMaddrs) {
+		if _, ok := knownMaddrs[string(maddr.Bytes())]; ok {
+			continue
+		}
+		r.ExtraMaddrs = append(r.ExtraMaddrs, maddr)
+	}
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {
 		// construct routing table struct from API response

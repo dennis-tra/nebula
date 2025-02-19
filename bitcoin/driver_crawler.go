@@ -53,7 +53,6 @@ func (p PeerInfo) DeduplicationKey() string {
 
 type CrawlDriverConfig struct {
 	Version        string
-	TrackNeighbors bool
 	DialTimeout    time.Duration
 	BootstrapPeers []ma.Multiaddr
 	MeterProvider  metric.MeterProvider

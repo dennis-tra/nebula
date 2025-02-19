@@ -128,7 +128,12 @@ type Engine[I PeerInfo[I], R WorkResult[I]] struct {
 	// a counter that tracks the number of handled write results
 	writeCount int
 
-	// a filter function that removes multi addresses from the given slice
+	// a filter function that removes multi addresses from the given slice.
+	// this is used to determine the position of a peer in the priority queue.
+	// If this field contains a filter function that removes all private
+	// addresses and as a result we find a peer that then has no other multi
+	// addresses we put that peer at the end of the queue in hoping that we'll
+	// find more addresses for the peer while crawling the rest of the network.
 	maddrFilter func([]ma.Multiaddr) []ma.Multiaddr
 
 	// a reference to the engine's telemetry meters and tracer

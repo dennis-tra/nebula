@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net"
 	"net/netip"
 	"strings"
 	"time"
@@ -121,8 +120,30 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	connectMaddr := devp2pResult.ConnectMaddr
-	if connectMaddr == nil {
+	if connectMaddr == nil && discV4Result.Error == nil {
 		connectMaddr = discV4Result.ConnectMaddr
+	}
+
+	// construct a lookup map with maddrs we tried to dial
+	dialMaddrsMap := make(map[string]struct{})
+	for _, maddr := range devp2pResult.DialMaddrs {
+		dialMaddrsMap[string(maddr.Bytes())] = struct{}{}
+	}
+
+	// construct a slice with multi addresses that we did NOT try to dial
+	// We loop through all known addrs and check if we dialed it.
+	// Further, build a lookup map with known multi addresses for the peer.
+	// this map contains all maddrs we've found via the discovery protocol
+	var (
+		knownMaddrsMap = make(map[string]struct{}, len(task.maddrs))
+		filteredMaddrs []ma.Multiaddr
+	)
+	for _, maddr := range task.maddrs {
+		knownMaddrsMap[string(maddr.Bytes())] = struct{}{}
+		if _, ok := dialMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		filteredMaddrs = append(filteredMaddrs, maddr)
 	}
 
 	cr := core.CrawlResult[PeerInfo]{
@@ -133,7 +154,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV4Result.RoutingTable,
 		Agent:               devp2pResult.Agent,
 		Protocols:           devp2pResult.Protocols,
-		DialErrors:          db.MaddrErrors(task.maddrs, devp2pResult.ConnectError),
+		DialMaddrs:          devp2pResult.DialMaddrs,
+		FilteredMaddrs:      filteredMaddrs,
+		ExtraMaddrs:         []ma.Multiaddr{},
+		ConnectMaddr:        connectMaddr,
+		DialErrors:          db.MaddrErrors(devp2pResult.DialMaddrs, devp2pResult.ConnectError),
 		ConnectError:        devp2pResult.ConnectError,
 		ConnectErrorStr:     devp2pResult.ConnectErrorStr,
 		CrawlError:          discV4Result.Error,
@@ -141,7 +166,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    devp2pResult.ConnectStartTime,
 		ConnectEndTime:      devp2pResult.ConnectEndTime,
-		ConnectMaddr:        connectMaddr,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
 	}
@@ -206,22 +230,7 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 			// track the respondedAt timestamp if it wasn't already set
 			if result.RespondedAt == nil && !respondedAt.IsZero() {
 				result.RespondedAt = &respondedAt
-
-				// construct connect maddr if we have received a response
-				var ipScheme string
-				if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
-					ipScheme = "ip4"
-				} else {
-					ipScheme = "ip6"
-				}
-
-				maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, pi.IP(), pi.UDP())
-				maddr, err := ma.NewMultiaddr(maddrStr)
-				if err != nil {
-					log.WithError(err).Warnln("Failed parsing ethereum node multi address")
-				} else {
-					result.ConnectMaddr = maddr
-				}
+				result.ConnectMaddr = pi.UDPMaddr()
 			}
 
 			result.Strategy = determineStrategy(closestSet)
@@ -407,6 +416,7 @@ OUTER:
 }
 
 type Devp2pResult struct {
+	DialMaddrs       []ma.Multiaddr
 	ConnectStartTime time.Time
 	ConnectEndTime   time.Time
 	IdentifyEndTime  time.Time
@@ -421,8 +431,15 @@ type Devp2pResult struct {
 func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pResult {
 	resultCh := make(chan Devp2pResult)
 	go func() {
+		var dialMaddrs []ma.Multiaddr
+		if tcpMaddr := pi.TCPMaddr(); tcpMaddr != nil {
+			dialMaddrs = []ma.Multiaddr{tcpMaddr}
+		}
+
 		// the final result struct
-		result := Devp2pResult{}
+		result := Devp2pResult{
+			DialMaddrs: dialMaddrs,
+		}
 
 		result.ConnectStartTime = time.Now()
 		conn, err := c.client.Connect(ctx, pi)
@@ -430,22 +447,7 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		result.ConnectError = err
 
 		if result.ConnectError == nil {
-
-			// construct connect maddr if we have received a response
-			var ipScheme string
-			if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
-				ipScheme = "ip4"
-			} else {
-				ipScheme = "ip6"
-			}
-
-			maddrStr := fmt.Sprintf("/%s/%s/tcp/%d", ipScheme, pi.IP(), pi.UDP())
-			maddr, err := ma.NewMultiaddr(maddrStr)
-			if err != nil {
-				log.WithError(err).Warnln("Failed parsing ethereum node multi address")
-			} else {
-				result.ConnectMaddr = maddr
-			}
+			result.ConnectMaddr = pi.TCPMaddr()
 
 			// start another go routine to cancel the entire operation if it
 			// times out. The context will be cancelled when this function

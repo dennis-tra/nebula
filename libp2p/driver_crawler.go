@@ -68,7 +68,6 @@ type CrawlDriverConfig struct {
 	Network        config.Network
 	Protocols      []string
 	DialTimeout    time.Duration
-	TrackNeighbors bool
 	CheckExposed   bool
 	BootstrapPeers []peer.AddrInfo
 	AddrTrackType  config.AddrType
@@ -80,7 +79,6 @@ type CrawlDriverConfig struct {
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	crawlerCfg := DefaultCrawlerConfig()
-	crawlerCfg.TrackNeighbors = cfg.TrackNeighbors
 	crawlerCfg.DialTimeout = cfg.DialTimeout
 	crawlerCfg.CheckExposed = cfg.CheckExposed
 	crawlerCfg.AddrDialType = cfg.AddrDialType
