@@ -103,6 +103,18 @@ tools:
 	go install go.uber.org/mock/mockgen@v0.5.0
 	go install mvdan.cc/gofumpt@v0.7.0
 
+# starts a crawl for the given network and stores results in a clickhouse database
+crawl-clickhouse network neighbors="true": (start-clickhouse "local")
+    go run ./cmd/nebula --db-engine clickhouse --db-password password_local --db-user nebula_local --db-name nebula_local crawl --network {{network}} --neighbors={{neighbors}}
+
+# starts a REPL in a running clickhouse instance
+repl-clickhouse env="local": (start-clickhouse env)
+    docker exec -it {{clickhouse_container_prefix}}{{env}} clickhouse-client -d nebula_{{env}}
+
+# starts a REPL in a running postgres instance
+repl-postgres env="local": (start-postgres env)
+     PGPASSWORD=password_{{env}} docker exec -it {{postgres_container_prefix}}{{env}} psql -d nebula_{{env}} -U nebula_{{env}}
+
 # generates go mocks
 mocks:
     mockgen -source=libp2p/driver_crawler.go -destination=libp2p/mock_host_test.go -package=libp2p
