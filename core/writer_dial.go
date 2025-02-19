@@ -89,14 +89,14 @@ func (w *DialWriter[I]) Work(ctx context.Context, task DialResult[I]) (WriteResu
 
 	start := time.Now()
 
-	dialDuration := task.DialDuration()
 	args := &db.VisitArgs{
 		PeerID:          task.Info.ID(),
-		Maddrs:          task.Info.Addrs(),
-		DialDuration:    &dialDuration,
-		ConnectDuration: nil,
-		CrawlDuration:   nil,
-		// ConnectMaddr: task // TODO
+		DialMaddrs:      task.Info.Addrs(),
+		FilteredMaddrs:  nil,
+		ExtraMaddrs:     nil,
+		DialErrors:      nil,
+		ConnectMaddr:    nil,
+		DialDuration:    task.DialDuration(),
 		VisitStartedAt:  task.DialStartTime,
 		VisitEndedAt:    task.DialEndTime,
 		ConnectErrorStr: task.DialError,

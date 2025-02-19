@@ -102,6 +102,9 @@ var CrawlCommand = &cli.Command{
 		// set the network ID on the database object
 		rootConfig.Database.NetworkID = crawlConfig.Network
 
+		// set the persist neighbors flag on the database object
+		rootConfig.Database.PersistNeighbors = crawlConfig.PersistNeighbors
+
 		return nil
 	},
 	Flags: []cli.Flag{
@@ -261,9 +264,7 @@ func CrawlAction(c *cli.Context) error {
 	// see: https://github.com/plprobelab/go-libp2p/commit/f6d73ce3093ded293f0de032d239709069fac586
 	ctx = network.WithDisableBackoff(ctx, "prevent backoff")
 
-	handlerCfg := &core.CrawlHandlerConfig{
-		TrackNeighbors: cfg.PersistNeighbors,
-	}
+	handlerCfg := &core.CrawlHandlerConfig{}
 
 	engineCfg := &core.EngineConfig{
 		WorkerCount:         cfg.CrawlWorkerCount,
@@ -307,7 +308,6 @@ func CrawlAction(c *cli.Context) error {
 			Version:          cfg.Root.Version(),
 			DialTimeout:      cfg.Root.DialTimeout,
 			CrawlWorkerCount: cfg.CrawlWorkerCount,
-			TrackNeighbors:   cfg.PersistNeighbors,
 			BootstrapPeers:   bpEnodes,
 			AddrDialType:     cfg.AddrDialType(),
 			AddrTrackType:    cfg.AddrTrackType(),
@@ -350,7 +350,6 @@ func CrawlAction(c *cli.Context) error {
 		driverCfg := &bitcoin.CrawlDriverConfig{
 			Version:        cfg.Root.Version(),
 			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
 			BootstrapPeers: bpEnodes,
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
@@ -413,7 +412,6 @@ func CrawlAction(c *cli.Context) error {
 			Version:           cfg.Root.Version(),
 			Network:           config.Network(cfg.Network),
 			DialTimeout:       cfg.Root.DialTimeout,
-			TrackNeighbors:    cfg.PersistNeighbors,
 			BootstrapPeers:    bpEnodes,
 			CrawlWorkerCount:  cfg.CrawlWorkerCount,
 			AddrDialType:      cfg.AddrDialType(),
@@ -462,7 +460,6 @@ func CrawlAction(c *cli.Context) error {
 			Network:        config.Network(cfg.Network),
 			Protocols:      cfg.Protocols.Value(),
 			DialTimeout:    cfg.Root.DialTimeout,
-			TrackNeighbors: cfg.PersistNeighbors,
 			CheckExposed:   cfg.CheckExposed,
 			BootstrapPeers: bpAddrInfos,
 			AddrDialType:   cfg.AddrDialType(),

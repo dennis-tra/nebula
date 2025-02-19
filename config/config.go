@@ -263,6 +263,9 @@ type Database struct {
 	// Set the maximum idle connections for the database handler.
 	MaxIdleConns int
 
+	// Whether to store the routing table of the entire network
+	PersistNeighbors bool
+
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
 
@@ -291,6 +294,7 @@ func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
 		ProtocolsCacheSize:     cfg.ProtocolsCacheSize,
 		ProtocolsSetCacheSize:  cfg.ProtocolsSetCacheSize,
 		MaxIdleConns:           cfg.MaxIdleConns,
+		PersistNeighbors:       cfg.PersistNeighbors,
 		MeterProvider:          cfg.MeterProvider,
 		TracerProvider:         cfg.TracerProvider,
 	}
@@ -320,6 +324,7 @@ func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
 		BatchSize:             cfg.ClickHouseBatchSize,
 		BatchTimeout:          cfg.ClickHouseBatchTimeout,
 		NetworkID:             cfg.NetworkID,
+		PersistNeighbors:      cfg.PersistNeighbors,
 		MeterProvider:         cfg.MeterProvider,
 		TracerProvider:        cfg.TracerProvider,
 	}

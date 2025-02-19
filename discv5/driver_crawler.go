@@ -26,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -43,6 +44,7 @@ type PeerInfo struct {
 	peerID peer.ID
 	maddrs []ma.Multiaddr
 	enr    string
+	udpIdx int8
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -70,8 +72,10 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	} else {
 		ipScheme = "ip6"
 	}
-
-	maddrs := []ma.Multiaddr{}
+	var (
+		udpIdx int8 = -1
+		maddrs []ma.Multiaddr
+	)
 	if node.UDP() != 0 {
 		maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, node.IP(), node.UDP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
@@ -79,6 +83,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		udpIdx = 0
 	}
 
 	if node.TCP() != 0 {
@@ -111,6 +116,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		Node:   node,
 		peerID: peerID,
 		maddrs: maddrs,
+		udpIdx: udpIdx,
 		enr:    node.String(),
 	}
 
@@ -137,10 +143,16 @@ func (p PeerInfo) DeduplicationKey() string {
 	return string(p.peerID)
 }
 
+func (p PeerInfo) UDPMaddr() ma.Multiaddr {
+	if p.udpIdx != -1 {
+		return p.maddrs[p.udpIdx]
+	}
+	return nil
+}
+
 type CrawlDriverConfig struct {
 	Version           string
 	Network           config.Network
-	TrackNeighbors    bool
 	DialTimeout       time.Duration
 	BootstrapPeers    []*enode.Node
 	CrawlWorkerCount  int
@@ -342,6 +354,7 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		libp2p.Security(noise.ID, noise.New),
 		libp2p.UserAgent("nebula/"+cfg.Version),
 		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Transport(quic.NewTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
 		libp2p.DisableMetrics(),

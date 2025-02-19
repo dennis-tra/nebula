@@ -7,6 +7,7 @@ import (
 
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	ma "github.com/multiformats/go-multiaddr"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
@@ -34,6 +35,9 @@ func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
 					dialErrors[i] = "canceled"
 				} else {
 					dialErrors[i] = NetError(derr)
+					if dialErrors[i] == pgmodels.NetErrorUnknown {
+						log.Error("unknown error 2: ", derr)
+					}
 				}
 			} else {
 				dialErrors[i] = "not_dialed"
@@ -47,6 +51,9 @@ func MaddrErrors(maddrs []ma.Multiaddr, err error) []string {
 			commonErr = "canceled"
 		} else {
 			commonErr = NetError(err)
+			if commonErr == pgmodels.NetErrorUnknown {
+				log.WithField("type", fmt.Sprintf("%T", err)).Error("unknown error 1: ", err)
+			}
 		}
 		for i := range maddrs {
 			dialErrors[i] = commonErr
@@ -87,6 +94,7 @@ var KnownErrors = map[string]string{
 	"connection gated":                           pgmodels.NetErrorConnectionGated,            // transient error
 	"RESOURCE_LIMIT_EXCEEDED (201)":              pgmodels.NetErrorCantConnectOverRelay,       // transient error
 	"NO_RESERVATION (204)":                       pgmodels.NetErrorCantConnectOverRelay,       // permanent error
+	"no transport for protocol":                  pgmodels.NetErrorNoTransportForProtocol,
 	// devp2p errors
 	"no good ip address":                 pgmodels.NetErrorNoIPAddress,
 	"disconnect requested":               pgmodels.NetErrorDevp2pDisconnectRequested,
@@ -168,6 +176,7 @@ var knownErrorsPrecedence = []string{
 	"handshake failed: EOF",
 	"dial refused because of black hole",
 	"failed to negotiate security protocol",
+	"no transport for protocol",
 }
 
 // NetError extracts the appropriate error type from the given error.

@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net"
-	"slices"
 	"strings"
 	"time"
 
@@ -110,12 +108,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		properties["crawl_error"] = discV5Result.Error.Error()
 	}
 
-	// keep track of the connection multi address
-	connectMaddr := libp2pResult.ConnectMaddr
-	if connectMaddr == nil {
-		connectMaddr = discV5Result.ConnectMaddr
-	}
-
 	// extract waku information
 	if libp2pResult.WakuClusterID != 0 && len(libp2pResult.WakuClusterShards) > 0 {
 		properties["waku_cluster_id"] = libp2pResult.WakuClusterID
@@ -127,13 +119,43 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
-	// collect all addresses we've found
-	listenAddrs := make([]ma.Multiaddr, 0, len(task.maddrs)+len(libp2pResult.ListenAddrs))
-	listenAddrs = append(listenAddrs, task.maddrs...)
-	listenAddrs = append(listenAddrs, libp2pResult.ListenAddrs...)
-	task.maddrs = slices.CompactFunc(listenAddrs, func(a ma.Multiaddr, b ma.Multiaddr) bool {
-		return a.Equal(b)
-	})
+	// keep track of the connection multi address
+	connectMaddr := libp2pResult.ConnectMaddr
+	if connectMaddr == nil {
+		connectMaddr = discV5Result.ConnectMaddr
+	}
+
+	// construct a lookup map with maddrs we tried to dial
+	dialMaddrsMap := make(map[string]struct{})
+	for _, maddr := range libp2pResult.DialMaddrs {
+		dialMaddrsMap[string(maddr.Bytes())] = struct{}{}
+	}
+
+	// construct a slice with multi addresses that we did NOT try to dial
+	// We loop through all known addrs and check if we dialed it.
+	// Further, build a lookup map with known multi addresses for the peer.
+	// this map contains all maddrs we've found via the discovery protocol
+	var (
+		knownMaddrsMap = make(map[string]struct{}, len(task.maddrs))
+		filteredMaddrs []ma.Multiaddr
+	)
+	for _, maddr := range task.maddrs {
+		knownMaddrsMap[string(maddr.Bytes())] = struct{}{}
+		if _, ok := dialMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		filteredMaddrs = append(filteredMaddrs, maddr)
+	}
+
+	// construct a slice with multi addresses that the peer replied with which
+	// we didn't know before.
+	var extraMaddrs []ma.Multiaddr
+	for _, maddr := range libp2pResult.ListenAddrs {
+		if _, ok := knownMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		extraMaddrs = append(extraMaddrs, maddr)
+	}
 
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
@@ -143,7 +165,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV5Result.RoutingTable,
 		Agent:               libp2pResult.Agent,
 		Protocols:           libp2pResult.Protocols,
-		DialErrors:          db.MaddrErrors(task.maddrs, libp2pResult.ConnectError),
+		DialMaddrs:          libp2pResult.DialMaddrs,
+		FilteredMaddrs:      filteredMaddrs,
+		ExtraMaddrs:         extraMaddrs,
+		ConnectMaddr:        connectMaddr,
+		DialErrors:          db.MaddrErrors(libp2pResult.DialMaddrs, libp2pResult.ConnectError),
 		ConnectError:        libp2pResult.ConnectError,
 		ConnectErrorStr:     libp2pResult.ConnectErrorStr,
 		CrawlError:          discV5Result.Error,
@@ -151,7 +177,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		CrawlEndTime:        time.Now(),
 		ConnectStartTime:    libp2pResult.ConnectStartTime,
 		ConnectEndTime:      libp2pResult.ConnectEndTime,
-		ConnectMaddr:        connectMaddr,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
 	}
@@ -178,6 +203,12 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 
 	if node.TCP() != 0 {
 		properties["tcp"] = node.TCP()
+	}
+
+	var enrEntryEth ENREntryEth
+	if err := node.Load(&enrEntryEth); err == nil {
+		properties["eth_fork_digest"] = "0x" + hex.EncodeToString(enrEntryEth.ForkID.Hash[:])
+		properties["eth_fork_next"] = enrEntryEth.ForkID.Next
 	}
 
 	var enrEntryEth2 ENREntryEth2
@@ -243,8 +274,8 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 
 	var enrEntryOpera ENREntryOpera
 	if err := node.Load(&enrEntryOpera); err == nil {
-		properties["opera_fork_id_crc32"] = "0x" + hex.EncodeToString(enrEntryOpera.ForkID.Hash[:])
-		properties["opera_fork_id_next"] = enrEntryOpera.ForkID.Next
+		properties["opera_fork_digest"] = "0x" + hex.EncodeToString(enrEntryOpera.ForkID.Hash[:])
+		properties["opera_fork_next"] = enrEntryOpera.ForkID.Next
 	}
 
 	var enrEntryCaps ENREntryCaps
@@ -268,6 +299,7 @@ type Libp2pResult struct {
 	ConnectEndTime        time.Time
 	ConnectError          error
 	ConnectErrorStr       string
+	DialMaddrs            []ma.Multiaddr
 	ConnectMaddr          ma.Multiaddr
 	Agent                 string
 	Protocols             []string
@@ -287,14 +319,12 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 		// sanitize the given addresses like removing UDP-only addresses and
 		// adding corresponding TCP addresses.
-		sanitizedAddrs, generated := sanitizeAddrs(pi.Addrs())
-
-		// keep track if we generated a TCP address to dial
-		result.GenTCPAddr = generated
+		// Also keep track if we generated a TCP address to dial
+		result.DialMaddrs, result.GenTCPAddr = sanitizeAddrs(pi.Addrs())
 
 		addrInfo := peer.AddrInfo{
 			ID:    pi.ID(),
-			Addrs: sanitizedAddrs,
+			Addrs: result.DialMaddrs,
 		}
 
 		var conn network.Conn
@@ -528,6 +558,8 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 	resultCh := make(chan DiscV5Result)
 
 	go func() {
+		defer close(resultCh)
+
 		result := DiscV5Result{}
 
 		// all neighbors of pi. We're using a map to deduplicate.
@@ -575,22 +607,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			if result.RespondedAt == nil {
 				now := time.Now()
 				result.RespondedAt = &now
-
-				// construct connect maddr if we have received a response
-				var ipScheme string
-				if p4 := pi.IP().To4(); len(p4) == net.IPv4len {
-					ipScheme = "ip4"
-				} else {
-					ipScheme = "ip6"
-				}
-
-				maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, pi.IP(), pi.UDP())
-				maddr, err := ma.NewMultiaddr(maddrStr)
-				if err != nil {
-					log.WithError(err).Warnln("Failed parsing ethereum node multi address")
-				} else {
-					result.ConnectMaddr = maddr
-				}
+				result.ConnectMaddr = pi.UDPMaddr()
 			}
 
 			for _, n := range neighbors {
@@ -630,7 +647,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		case resultCh <- result:
 		case <-ctx.Done():
 		}
-		close(resultCh)
 	}()
 
 	return resultCh

@@ -40,18 +40,20 @@ type SealCrawlArgs struct {
 
 type VisitArgs struct {
 	PeerID          peer.ID
-	Maddrs          []ma.Multiaddr
-	Protocols       []string
 	AgentVersion    string
-	DialDuration    *time.Duration
-	ConnectDuration *time.Duration
-	CrawlDuration   *time.Duration
+	Protocols       []string
+	DialMaddrs      []ma.Multiaddr
+	FilteredMaddrs  []ma.Multiaddr
+	ExtraMaddrs     []ma.Multiaddr
+	DialErrors      []string
+	ConnectMaddr    ma.Multiaddr
+	DialDuration    time.Duration
+	ConnectDuration time.Duration
+	CrawlDuration   time.Duration
 	VisitStartedAt  time.Time
 	VisitEndedAt    time.Time
-	DialErrors      []string
 	ConnectErrorStr string
 	CrawlErrorStr   string
-	ConnectMaddr    ma.Multiaddr
 	VisitType       VisitType
 	Neighbors       []peer.ID
 	ErrorBits       uint16

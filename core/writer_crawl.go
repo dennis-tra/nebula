@@ -69,22 +69,21 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		errorBits = task.RoutingTable.ErrorBits
 	}
 
-	connectDur := task.ConnectDuration()
-	dialDur := task.CrawlDuration()
-
 	args := &db.VisitArgs{
 		PeerID:          task.Info.ID(),
-		Maddrs:          task.Info.Addrs(),
 		Protocols:       task.Protocols,
 		AgentVersion:    task.Agent,
-		ConnectDuration: &connectDur,
-		CrawlDuration:   &dialDur,
+		DialMaddrs:      task.DialMaddrs,
+		FilteredMaddrs:  task.FilteredMaddrs,
+		ExtraMaddrs:     task.ExtraMaddrs,
+		ConnectMaddr:    task.ConnectMaddr,
+		DialErrors:      task.DialErrors,
+		ConnectDuration: task.ConnectDuration(),
+		CrawlDuration:   task.CrawlDuration(),
 		VisitStartedAt:  task.CrawlStartTime,
 		VisitEndedAt:    task.CrawlEndTime,
-		DialErrors:      task.DialErrors,
 		ConnectErrorStr: task.ConnectErrorStr,
 		CrawlErrorStr:   task.CrawlErrorStr,
-		ConnectMaddr:    task.ConnectMaddr,
 		VisitType:       db.VisitTypeCrawl,
 		Neighbors:       neighbors,
 		ErrorBits:       errorBits,

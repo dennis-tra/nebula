@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dennis-tra/nebula-crawler/utils"
+
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
@@ -25,6 +27,19 @@ type APIResult struct {
 
 	// The multiaddress that contained the IP over which we successfully connected to the API
 	ConnectMaddr ma.Multiaddr
+}
+
+func (r *APIResult) ListenMaddrs() []ma.Multiaddr {
+	if r.ID == nil {
+		return nil
+	}
+
+	maddrs, err := utils.AddrsToMaddrs(r.ID.Addresses)
+	if err != nil {
+		log.WithError(err).WithField("addresses", r.ID.Addresses).Warnln("Could not convert addresses to maddrs")
+	}
+
+	return maddrs
 }
 
 func (c *Crawler) crawlAPI(ctx context.Context, pi PeerInfo) <-chan APIResult {
@@ -73,18 +88,13 @@ func (c *Crawler) crawlAPI(ctx context.Context, pi PeerInfo) <-chan APIResult {
 				return nil
 			})
 
-			// Only crawl routing table if we actually want to persist neighbors. The result from this API
-			// call cannot be used to continue our crawls because the response does not contain multiaddresses
-			// of remote peers.
-			if c.cfg.TrackNeighbors {
-				errg.Go(func() error {
-					rtResp, err = c.client.RoutingTable(tCtx, ip.String())
-					if err != nil {
-						return fmt.Errorf("could not crawl routing table api: %w", err)
-					}
-					return nil
-				})
-			}
+			errg.Go(func() error {
+				rtResp, err = c.client.RoutingTable(tCtx, ip.String())
+				if err != nil {
+					return fmt.Errorf("could not crawl routing table api: %w", err)
+				}
+				return nil
+			})
 
 			// wait for an error or two successes
 			err = errg.Wait()

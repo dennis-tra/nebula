@@ -25,6 +25,12 @@ import (
 type P2PResult struct {
 	RoutingTable *core.RoutingTable[PeerInfo]
 
+	// All multi addresses that the remote peer claims to listen on
+	// this can be different from the ones that we received from another peer
+	// e.g., they could miss quic-v1 addresses if the reporting peer doesn't
+	// know about that protocol.
+	ListenMaddrs []ma.Multiaddr
+
 	// The agent version of the crawled peer
 	Agent string
 
@@ -49,12 +55,6 @@ type P2PResult struct {
 	// When have we established a successful connection
 	ConnectEndTime time.Time
 
-	// All connections that the remote peer claims to listen on
-	// this can be different from the ones that we received from another peer
-	// e.g., they could miss quic-v1 addresses if the reporting peer doesn't
-	// know about that protocol.
-	ListenAddrs []ma.Multiaddr
-
 	// The multiaddress of the successful connection
 	ConnectMaddr ma.Multiaddr
 
@@ -66,6 +66,14 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 	resultCh := make(chan P2PResult)
 
 	go func() {
+		defer close(resultCh)
+		defer func() {
+			// Free connection resources
+			if err := c.host.Network().ClosePeer(pi.ID()); err != nil {
+				log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+			}
+		}()
+
 		result := P2PResult{
 			RoutingTable: &core.RoutingTable[PeerInfo]{PeerID: pi.ID()},
 		}
@@ -119,15 +127,10 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 			}
 
 			// Extract listen addresses
-			result.ListenAddrs = ps.Addrs(pi.ID())
+			result.ListenMaddrs = ps.Addrs(pi.ID())
 		} else {
 			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
-		}
-
-		// Free connection resources
-		if err := c.host.Network().ClosePeer(pi.ID()); err != nil {
-			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
 		}
 
 		// send the result back and close channel
@@ -135,8 +138,6 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 		case resultCh <- result:
 		case <-ctx.Done():
 		}
-
-		close(resultCh)
 	}()
 
 	return resultCh

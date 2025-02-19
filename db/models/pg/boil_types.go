@@ -93,6 +93,7 @@ const (
 	NetErrorDevp2pEthprotocolError               string = "devp2p_ethprotocol_error"
 	NetErrorDevp2pMalformedDisconnectMessage     string = "devp2p_malformed_disconnect_message"
 	NetErrorBlackHoleRefused                     string = "black_hole_refused"
+	NetErrorNoTransportForProtocol               string = "no_transport_for_protocol"
 )
 
 func AllNetError() []string {
@@ -137,6 +138,7 @@ func AllNetError() []string {
 		NetErrorDevp2pEthprotocolError,
 		NetErrorDevp2pMalformedDisconnectMessage,
 		NetErrorBlackHoleRefused,
+		NetErrorNoTransportForProtocol,
 	}
 }
 
