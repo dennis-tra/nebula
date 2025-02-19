@@ -12,6 +12,7 @@ require (
 	github.com/ethereum/go-ethereum v1.15.1
 	github.com/friendsofgo/errors v0.9.2
 	github.com/golang-migrate/migrate/v4 v4.18.2
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/lib/pq v1.10.9
 	github.com/libp2p/go-libp2p v0.39.1
@@ -102,7 +103,6 @@ require (
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/google/pprof v0.0.0-20250208200701-d0013a598941 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
@@ -248,5 +248,5 @@ replace (
 	// replace go-libp2p with fork (branch nebula-v0.38.2). Changes:
 	// - avoid running into dial backoffs even if forceDirectDial is set to false
 	// - exports closeable host
-	github.com/libp2p/go-libp2p => github.com/probe-lab/go-libp2p v0.38.3-0.20250129164005-4ccb0c738d3a
+	github.com/libp2p/go-libp2p => github.com/probe-lab/go-libp2p v0.38.3-0.20250219152713-c85063380ac0
 )

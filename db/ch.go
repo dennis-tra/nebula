@@ -513,6 +513,10 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 
 	sort.Strings(args.Protocols)
 
+	if len(args.Properties) == 0 {
+		args.Properties = json.RawMessage("{}")
+	}
+
 	visit := &ClickHouseVisit{
 		CrawlID:        crawlID,
 		PeerID:         args.PeerID.String(),
@@ -630,7 +634,25 @@ func (c *ClickHouseClient) selectLatestCrawl(ctx context.Context) (*ClickHouseCr
 
 func (c *ClickHouseClient) selectLatestVisit(ctx context.Context) (*ClickHouseVisit, error) {
 	visit := &ClickHouseVisit{}
-	err := c.conn.QueryRow(ctx, "SELECT * FROM visits ORDER BY visit_started_at desc LIMIT 1").ScanStruct(visit)
+	err := c.conn.QueryRow(ctx, `
+		SELECT
+			crawl_id,
+			peer_id,
+			agent_version,
+			protocols,
+			dial_maddrs,
+			filtered_maddrs,
+			extra_maddrs,
+			dial_errors,
+			connect_maddr,
+			crawl_error,
+			visit_started_at,
+			visit_ended_at
+			-- peer_properties -> can't be parsed correctly into the struct, so we're skipping it for now 
+		FROM visits
+		ORDER BY visit_started_at desc
+		LIMIT 1
+	`).ScanStruct(visit)
 	return visit, err
 }
 

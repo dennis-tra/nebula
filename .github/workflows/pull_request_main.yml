@@ -13,7 +13,7 @@ jobs:
       postgres:
         image: postgres
         ports:
-          - "5432:5432"
+          - "5433:5432"
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_USER: nebula_test
@@ -46,5 +46,8 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Setting up just
+        uses: extractions/setup-just@v2
+
       - name: Running tests
-        run: make test
+        run: just test-plain

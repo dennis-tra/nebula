@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	tnoop "go.opentelemetry.io/otel/trace/noop"
+
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	lp2ptest "github.com/libp2p/go-libp2p/core/test"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/assert"
@@ -15,9 +18,6 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	mnoop "go.opentelemetry.io/otel/metric/noop"
-	"go.opentelemetry.io/otel/trace"
-
-	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 func clearDatabase(ctx context.Context, db *sql.DB) error {
@@ -56,16 +56,17 @@ func setup(t *testing.T) (context.Context, *PostgresClient, func(t *testing.T)) 
 
 	c := PostgresClientConfig{
 		DatabaseHost:           "localhost",
-		DatabasePort:           5432,
+		DatabasePort:           5433,
 		DatabaseName:           "nebula_test",
-		DatabasePassword:       "password",
+		DatabasePassword:       "password_test",
 		DatabaseUser:           "nebula_test",
 		DatabaseSSL:            "disable",
+		ApplyMigrations:        true,
 		AgentVersionsCacheSize: 100,
 		ProtocolsCacheSize:     100,
 		ProtocolsSetCacheSize:  100,
 		MeterProvider:          mnoop.NewMeterProvider(),
-		TracerProvider:         trace.NewNoopTracerProvider(),
+		TracerProvider:         tnoop.NewTracerProvider(),
 	}
 
 	client, err := NewPostgresClient(ctx, &c)
@@ -259,16 +260,14 @@ func TestClient_PersistCrawlVisit(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
-	sec := time.Second
 
 	args := &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
 		Protocols:       protocols,
 		AgentVersion:    agentVersion,
-		DialDuration:    nil,
-		ConnectDuration: &sec,
-		CrawlDuration:   &sec,
+		ConnectDuration: time.Second,
+		CrawlDuration:   time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		ConnectErrorStr: pgmodels.NetErrorIoTimeout,
@@ -303,15 +302,14 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	visitStart := time.Now().Add(-time.Second)
 	visitEnd := time.Now()
-	sec := time.Second
 
 	args := &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
 		Protocols:       protocols,
 		AgentVersion:    agentVersion,
-		ConnectDuration: &sec,
-		CrawlDuration:   &sec,
+		ConnectDuration: time.Second,
+		CrawlDuration:   time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		ConnectErrorStr: "",
@@ -351,8 +349,8 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:         peerID,
-		Maddrs:         []multiaddr.Multiaddr{ma1, ma2},
-		DialDuration:   &sec,
+		DialMaddrs:     []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:   time.Second,
 		VisitStartedAt: visitStart,
 		VisitEndedAt:   visitEnd,
 		VisitType:      VisitTypeDial,
@@ -380,10 +378,10 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
 		Protocols:       protocols,
 		AgentVersion:    agentVersion,
-		DialDuration:    &sec,
+		DialDuration:    time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		ConnectErrorStr: pgmodels.NetErrorConnectionRefused,
@@ -419,11 +417,11 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
 		Protocols:       []string{},
 		AgentVersion:    "",
-		ConnectDuration: &sec,
-		CrawlDuration:   &sec,
+		ConnectDuration: time.Second,
+		CrawlDuration:   time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeCrawl,
@@ -437,8 +435,8 @@ func TestClient_SessionScenario_1(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
-		DialDuration:    &sec,
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		ConnectErrorStr: pgmodels.NetErrorNegotiateSecurityProtocol,
@@ -504,14 +502,13 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	visitStart := time.Now()
 	visitEnd := time.Now().Add(time.Second)
 
-	sec := time.Second
 	args := &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
 		Protocols:       protocols,
 		AgentVersion:    agentVersion,
-		ConnectDuration: &sec,
-		CrawlDuration:   &sec,
+		ConnectDuration: time.Second,
+		CrawlDuration:   time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeCrawl,
@@ -524,8 +521,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:         peerID,
-		Maddrs:         []multiaddr.Multiaddr{ma1, ma2},
-		DialDuration:   &sec,
+		DialMaddrs:     []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:   time.Second,
 		VisitStartedAt: visitStart,
 		VisitEndedAt:   visitEnd,
 		VisitType:      VisitTypeDial,
@@ -537,8 +534,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 
 	args = &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
-		DialDuration:    &sec,
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeDial,
@@ -564,8 +561,8 @@ func TestClient_SessionScenario_2(t *testing.T) {
 	visitEnd = time.Now()
 	args = &VisitArgs{
 		PeerID:          peerID,
-		Maddrs:          []multiaddr.Multiaddr{ma1, ma2},
-		DialDuration:    &sec,
+		DialMaddrs:      []multiaddr.Multiaddr{ma1, ma2},
+		DialDuration:    time.Second,
 		VisitStartedAt:  visitStart,
 		VisitEndedAt:    visitEnd,
 		VisitType:       VisitTypeDial,
