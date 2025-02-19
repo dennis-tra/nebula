@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+
 	"github.com/libp2p/go-libp2p"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
 	"github.com/libp2p/go-libp2p/core/connmgr"
@@ -190,7 +192,9 @@ func newLibp2pHost(userAgent string) (Host, error) {
 		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
-
 	return h.(Host), err
 }

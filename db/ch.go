@@ -450,7 +450,7 @@ func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) (
 	query := `
 		SELECT peer_id, dial_maddrs
 		FROM visits
-		WHERE empty(dial_errors)
+		WHERE connect_maddr IS NOT NULL
 		  AND visit_started_at BETWEEN (now() - INTERVAL '24 hours') AND now()
 		limit ?
 	`
