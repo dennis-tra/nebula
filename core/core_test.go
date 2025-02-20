@@ -27,10 +27,6 @@ type testPeerInfo struct {
 	addrs  []ma.Multiaddr
 }
 
-func (p *testPeerInfo) DeduplicationKey() string {
-	return string(p.peerID)
-}
-
 var _ PeerInfo[*testPeerInfo] = (*testPeerInfo)(nil)
 
 func (p *testPeerInfo) Addrs() []ma.Multiaddr {
@@ -50,6 +46,14 @@ func (p *testPeerInfo) Merge(other *testPeerInfo) *testPeerInfo {
 		peerID: p.peerID,
 		addrs:  utils.MergeMaddrs(p.addrs, other.addrs),
 	}
+}
+
+func (p *testPeerInfo) DeduplicationKey() string {
+	return string(p.peerID)
+}
+
+func (p *testPeerInfo) DiscoveryPrefix() uint64 {
+	return 0
 }
 
 type testDriver struct {

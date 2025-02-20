@@ -199,17 +199,18 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 		DialMaddrs: []multiaddr.Multiaddr{
 			utils.MustMultiaddr(suite.T(), "/ip4/127.0.0.1/tcp/1234"),
 		},
-		Protocols:       []string{"/ipfs/1.0.0"},
-		AgentVersion:    "my-agent",
-		ConnectDuration: connDur,
-		CrawlDuration:   crawlDur,
-		VisitStartedAt:  start,
-		VisitEndedAt:    end,
-		ConnectErrorStr: "conn_err",
-		CrawlErrorStr:   "crawl_err",
-		VisitType:       "dial",
-		Neighbors:       neighbors,
-		ErrorBits:       20,
+		Protocols:        []string{"/ipfs/1.0.0"},
+		AgentVersion:     "my-agent",
+		ConnectDuration:  connDur,
+		CrawlDuration:    crawlDur,
+		VisitStartedAt:   start,
+		VisitEndedAt:     end,
+		ConnectErrorStr:  "conn_err",
+		CrawlErrorStr:    "crawl_err",
+		VisitType:        "dial",
+		Neighbors:        neighbors,
+		NeighborPrefixes: make([]uint64, len(neighbors)),
+		ErrorBits:        20,
 	}
 
 	err = suite.client.InitCrawl(ctx, "v1")
@@ -219,6 +220,7 @@ func (suite *ClickHouseTestSuite) TestSealCrawl_insertVisit() {
 	suite.Require().NoError(err)
 
 	suite.Require().NoError(suite.client.Flush(ctx))
+	time.Sleep(100 * time.Millisecond)
 
 	storedVisit, err := suite.client.selectLatestVisit(ctx)
 	suite.Require().NoError(err)
