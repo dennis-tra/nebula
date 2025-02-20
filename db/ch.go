@@ -279,6 +279,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			go send(visitsBatch, TableNameVisits, &wg)
 			go send(neighborsBatch, TableNameNeighbors, &wg)
 			go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
+			wg.Wait()
 
 		case doneChan := <-c.flushChan:
 			// sending batches to clickhouse because the user asked for it
@@ -286,6 +287,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			go send(visitsBatch, TableNameVisits, &wg)
 			go send(neighborsBatch, TableNameNeighbors, &wg)
 			go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
+			wg.Wait()
 			close(doneChan)
 
 		case visit, more := <-c.visitsChan:
@@ -339,9 +341,9 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 				wg.Add(1)
 				go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
 			}
-		}
 
-		wg.Wait()
+			wg.Wait()
+		}
 	}
 }
 
@@ -438,7 +440,7 @@ func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error 
 
 	// prepare a batch instead of a regular Exec/Query because of the convenient
 	// AppendStruct method.
-	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
+	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO "+TableNameCrawls)
 	if err != nil {
 		return fmt.Errorf("prepare batch: %w", err)
 	}
@@ -491,7 +493,7 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 	c.crawl.FinishedAt = &now
 
 	// Use Batch because of the convenience of AppendStruct
-	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO crawls")
+	batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO "+TableNameCrawls)
 	if err != nil {
 		return fmt.Errorf("prepare batch: %w", err)
 	}
@@ -510,12 +512,12 @@ func (c *ClickHouseClient) SealCrawl(ctx context.Context, args *SealCrawlArgs) (
 func (c *ClickHouseClient) QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error) {
 	query := `
 		SELECT peer_id, dial_maddrs
-		FROM visits
+		FROM ?
 		WHERE connect_maddr IS NOT NULL
 		  AND visit_started_at BETWEEN (now() - INTERVAL '24 hours') AND now()
 		limit ?
 	`
-	rows, err := c.conn.Query(ctx, query, limit)
+	rows, err := c.conn.Query(ctx, query, TableNameVisits, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -688,13 +690,13 @@ func (c *ClickHouseClient) Close() error {
 
 func (c *ClickHouseClient) selectCrawl(ctx context.Context, id uuid.UUID) (*ClickHouseCrawl, error) {
 	crawl := &ClickHouseCrawl{}
-	err := c.conn.QueryRow(ctx, "SELECT * FROM crawls FINAL WHERE id = ? LIMIT 1", id).ScanStruct(crawl)
+	err := c.conn.QueryRow(ctx, "SELECT * FROM ? FINAL WHERE id = ? LIMIT 1", TableNameCrawls, id).ScanStruct(crawl)
 	return crawl, err
 }
 
 func (c *ClickHouseClient) selectLatestCrawl(ctx context.Context) (*ClickHouseCrawl, error) {
 	crawl := &ClickHouseCrawl{}
-	err := c.conn.QueryRow(ctx, "SELECT * FROM crawls FINAL ORDER BY created_at desc LIMIT 1").ScanStruct(crawl)
+	err := c.conn.QueryRow(ctx, "SELECT * FROM ? FINAL ORDER BY created_at desc LIMIT 1", TableNameCrawls).ScanStruct(crawl)
 	return crawl, err
 }
 
@@ -715,15 +717,15 @@ func (c *ClickHouseClient) selectLatestVisit(ctx context.Context) (*ClickHouseVi
 			visit_started_at,
 			visit_ended_at
 			-- peer_properties -> can't be parsed correctly into the struct, so we're skipping it for now 
-		FROM visits
+		FROM ?
 		ORDER BY visit_started_at desc
 		LIMIT 1
-	`).ScanStruct(visit)
+	`, TableNameVisits).ScanStruct(visit)
 	return visit, err
 }
 
 func (c *ClickHouseClient) selectNeighbors(ctx context.Context, crawlID uuid.UUID) ([]ClickhouseNeighbor, error) {
-	rows, err := c.conn.Query(ctx, "SELECT * FROM neighbors WHERE crawl_id = ?", crawlID)
+	rows, err := c.conn.Query(ctx, "SELECT * FROM ? WHERE crawl_id = ?", TableNameNeighbors, crawlID)
 	if err != nil {
 		return nil, err
 	}
