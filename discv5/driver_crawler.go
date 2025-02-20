@@ -4,14 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
 	"runtime"
 	"sync"
 	"time"
-
-	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 
 	secp256k1v4 "github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
@@ -27,6 +26,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
 	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
@@ -143,6 +143,11 @@ func (p PeerInfo) DeduplicationKey() string {
 	// be coordinated with changes to our analysis scripts, so I'm keeping it as
 	// it is.
 	return string(p.peerID)
+}
+
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := p.Node.ID()
+	return binary.BigEndian.Uint64(kadID[:8])
 }
 
 func (p PeerInfo) UDPMaddr() ma.Multiaddr {

@@ -2,6 +2,7 @@ package discv4
 
 import (
 	"crypto/elliptic"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"net"
@@ -127,6 +128,11 @@ func (p PeerInfo) DeduplicationKey() string {
 	// process of encoding the public key takes a lot CPU cycles. Especially
 	// because we're calling DeduplicationKey very often!
 	return p.enr
+}
+
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := p.Node.ID()
+	return binary.BigEndian.Uint64(kadID[:8])
 }
 
 func (p PeerInfo) UDPMaddr() ma.Multiaddr {

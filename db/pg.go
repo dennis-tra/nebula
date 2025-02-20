@@ -145,7 +145,7 @@ type PostgresClient struct {
 	crawl   *pgmodels.Crawl
 
 	// reference to all relevant db telemetry
-	telemetry *telemetry
+	telemetry *pgTelemetry
 }
 
 // NewPostgresClient establishes a database connection with the provided configuration
@@ -177,9 +177,9 @@ func NewPostgresClient(ctx context.Context, cfg *PostgresClientConfig) (*Postgre
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
-	telemetry, err := newTelemetry(cfg.TracerProvider, cfg.MeterProvider)
+	telemetry, err := newPGTelemetry(cfg.TracerProvider, cfg.MeterProvider)
 	if err != nil {
-		return nil, fmt.Errorf("new telemetry: %w", err)
+		return nil, fmt.Errorf("new pgTelemetry: %w", err)
 	}
 
 	client := &PostgresClient{

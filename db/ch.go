@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"embed"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,9 +20,9 @@ import (
 	mch "github.com/golang-migrate/migrate/v4/database/clickhouse"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/google/uuid"
-	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
@@ -109,6 +108,7 @@ type ClickHouseClient struct {
 
 	// this cancel func can be used to forcefully stop the flusher.
 	flusherCancel context.CancelFunc
+	telemetry     *chTelemetry
 }
 
 // NewClickHouseClient initializes and returns a new ClickHouseClient instance.
@@ -127,6 +127,11 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 		return nil, fmt.Errorf("ping clickhouse database: %w", err)
 	}
 
+	telemetry, err := newCHTelemetry(cfg.TracerProvider, cfg.MeterProvider)
+	if err != nil {
+		return nil, fmt.Errorf("new pgTelemetry: %w", err)
+	}
+
 	flusherCtx, flusherCancel := context.WithCancel(context.Background())
 
 	client := &ClickHouseClient{
@@ -136,6 +141,7 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 		visitsChan:    make(chan *ClickHouseVisit),
 		flushChan:     make(chan chan struct{}),
 		flusherDone:   make(chan struct{}),
+		telemetry:     telemetry,
 	}
 
 	if cfg.ApplyMigrations {
@@ -190,10 +196,21 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 	defer close(c.flusherDone)
 
 	// convenience function to send a batch to clickhouse with error logging
-	send := func(batch driver.Batch, table string) {
-		if err := batch.Send(); err != nil {
-			log.WithError(err).WithField("rows", batch.Rows()).Errorln("Failed to send " + table + " batch")
+	send := func(batch driver.Batch, table string, wg *sync.WaitGroup) {
+		defer wg.Done()
+		start := time.Now()
+
+		err := batch.Send()
+		if err != nil {
+			log.WithError(err).WithField("rows", batch.Rows()).Warnln("Failed to send " + table + " batch")
 		}
+
+		attributes := metric.WithAttributes(
+			attribute.String("type", table),
+			attribute.Bool("success", err == nil),
+		)
+		c.telemetry.insertCounter.Add(ctx, int64(batch.Rows()), attributes)
+		c.telemetry.insertLatencyHistogram.Record(ctx, time.Since(start).Milliseconds(), attributes)
 	}
 
 	// convenience function to prepare a batch to be sent to clickhouse with
@@ -201,7 +218,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 	prepare := func(table string) driver.Batch {
 		batch, err := c.conn.PrepareBatch(ctx, "INSERT INTO "+table)
 		if err != nil {
-			log.WithError(err).Errorln("Failed to prepare " + table + " batch")
+			log.WithError(err).Warnln("Failed to prepare " + table + " batch")
 		}
 		return batch
 	}
@@ -237,7 +254,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 		// This if-statement is part of the for-loop because later batch
 		// preparations could also fail.
 		if visitsBatch == nil || neighborsBatch == nil || prefixesBatch == nil {
-			log.Errorln("Failed to prepare visits or neighbors batch. Discarding all events until done.")
+			log.Warnln("Failed to prepare visits or neighbors batch. Discarding all events until done.")
 			select {
 			case <-ctx.Done():
 				return
@@ -249,6 +266,8 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			}
 		}
 
+		var wg sync.WaitGroup
+
 		select {
 		case <-ctx.Done():
 			// don't send anything as the context was canceled. The context is
@@ -256,38 +275,44 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// sending batches to clickhouse because of a timeout
-			send(visitsBatch, TableNameVisits)
-			send(neighborsBatch, TableNameNeighbors)
-			send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
+			wg.Add(3)
+			go send(visitsBatch, TableNameVisits, &wg)
+			go send(neighborsBatch, TableNameNeighbors, &wg)
+			go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
 
 		case doneChan := <-c.flushChan:
 			// sending batches to clickhouse because the user asked for it
-			send(visitsBatch, TableNameVisits)
-			send(neighborsBatch, TableNameNeighbors)
-			send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
+			wg.Add(3)
+			go send(visitsBatch, TableNameVisits, &wg)
+			go send(neighborsBatch, TableNameNeighbors, &wg)
+			go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
 			close(doneChan)
 
 		case visit, more := <-c.visitsChan:
 			if !more {
+				wg.Add(3)
 				// we won't receive any more visits
-				send(visitsBatch, TableNameVisits)
-				send(neighborsBatch, TableNameNeighbors)
-				send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
+				go send(visitsBatch, TableNameVisits, &wg)
+				go send(neighborsBatch, TableNameNeighbors, &wg)
+				go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
+				wg.Wait()
 				return
 			}
 
 			if err := visitsBatch.AppendStruct(visit); err != nil {
-				log.WithError(err).Errorln("Failed to append visits batch")
+				log.WithError(err).Warnln("Failed to append visits batch")
 			}
 
 			// check if we have enough data to submit the batch
 			if visitsBatch.Rows() >= c.cfg.BatchSize {
-				send(visitsBatch, TableNameVisits)
+				wg.Add(1)
+				go send(visitsBatch, TableNameVisits, &wg)
 			}
 
 			// neighbors are only set during a crawl, so if this is a visit
 			// from the monitoring task continue here.
 			if visit.CrawlID == nil {
+				wg.Wait()
 				continue
 			}
 
@@ -295,24 +320,28 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			for _, neighbor := range visit.neighbors {
 
 				if err := prefixesBatch.AppendStruct(neighbor.prefix); err != nil {
-					log.WithError(err).Errorln("Failed to append prefixes batch")
+					log.WithError(err).Warnln("Failed to append prefixes batch")
 				}
 
 				if err := neighborsBatch.AppendStruct(neighbor); err != nil {
-					log.WithError(err).Errorln("Failed to append neighbors batch")
+					log.WithError(err).Warnln("Failed to append neighbors batch")
 				}
 			}
 
 			// check if we have enough data to submit the batch
 			if neighborsBatch.Rows() >= c.cfg.BatchSize {
-				send(neighborsBatch, TableNameNeighbors)
+				wg.Add(1)
+				go send(neighborsBatch, TableNameNeighbors, &wg)
 			}
 
 			// check if we have enough data to submit the batch
 			if prefixesBatch.Rows() >= c.cfg.BatchSize {
-				send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
+				wg.Add(1)
+				go send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs, &wg)
 			}
 		}
+
+		wg.Wait()
 	}
 }
 
@@ -350,8 +379,8 @@ type ClickHouseVisit struct {
 
 type ClickhouseNeighbor struct {
 	CrawlID   uuid.UUID `ch:"crawl_id"`
-	PeerID    uint64    `ch:"peer_kad_id_prefix"`
-	Neighbor  uint64    `ch:"neighbor_kad_id_prefix"`
+	PeerID    uint64    `ch:"peer_discovery_id_prefix"`
+	Neighbor  uint64    `ch:"neighbor_discovery_id_prefix"`
 	ErrorBits uint16    `ch:"error_bits"`
 	prefix    *ClickhouseDiscoveryIDPrefix
 }
@@ -549,9 +578,6 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		args.Properties = json.RawMessage("{}")
 	}
 
-	peerKadID := kbucket.ConvertPeerID(args.PeerID)
-	peerKadIDPrefix := binary.BigEndian.Uint64(peerKadID[:8])
-
 	visit := &ClickHouseVisit{
 		CrawlID:        crawlID,
 		PeerID:         args.PeerID.String(),
@@ -568,7 +594,7 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		Properties:     args.Properties,
 		prefix: &ClickhouseDiscoveryIDPrefix{
 			PeerID: args.PeerID.String(),
-			Prefix: peerKadIDPrefix,
+			Prefix: args.DiscoveryPrefix,
 		},
 	}
 
@@ -576,15 +602,14 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 
 		visit.neighbors = make([]*ClickhouseNeighbor, len(args.Neighbors))
 		for i, neighbor := range args.Neighbors {
-			neighborKadID := binary.BigEndian.Uint64(kbucket.ConvertPeerID(neighbor)[:8])
 			visit.neighbors[i] = &ClickhouseNeighbor{
 				CrawlID:   *crawlID,
-				PeerID:    peerKadIDPrefix,
-				Neighbor:  neighborKadID,
+				PeerID:    args.DiscoveryPrefix,
+				Neighbor:  args.NeighborPrefixes[i],
 				ErrorBits: args.ErrorBits,
 				prefix: &ClickhouseDiscoveryIDPrefix{
 					PeerID: neighbor.String(),
-					Prefix: neighborKadID,
+					Prefix: args.NeighborPrefixes[i],
 				},
 			}
 		}

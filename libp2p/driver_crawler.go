@@ -1,9 +1,12 @@
 package libp2p
 
 import (
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"time"
+
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
 
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 
@@ -59,6 +62,11 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 			Addrs: utils.MergeMaddrs(p.AddrInfo.Addrs, other.AddrInfo.Addrs),
 		},
 	}
+}
+
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := kbucket.ConvertPeerID(p.AddrInfo.ID)
+	return binary.BigEndian.Uint64(kadID[:8])
 }
 
 func (p PeerInfo) DeduplicationKey() string {

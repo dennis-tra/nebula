@@ -115,6 +115,20 @@ repl-clickhouse env="local": (start-clickhouse env)
 repl-postgres env="local": (start-postgres env)
      PGPASSWORD=password_{{env}} docker exec -it {{postgres_container_prefix}}{{env}} psql -d nebula_{{env}} -U nebula_{{env}}
 
+# starts a prometheus server that monitors a locally running nebula crawler
+start-prometheus detached="true":
+    docker run --rm {{ if detached == "true" { "-d" } else { "" } }} --name nebula-prometheus -p 9090:9090 -v $(pwd)/config/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus
+
+# stops a locally running prometheus server
+stop-prometheus:
+    @echo "Stopping and removing prometheus server container nebula-prometheus..."
+    -@docker stop nebula-prometheus >/dev/null 2>&1
+    -@docker rm nebula-prometheus >/dev/null 2>&1
+
+# restarts a local prometheus server
+restart-prometheus: stop-prometheus
+    just start-prometheus
+
 # generates go mocks
 mocks:
     mockgen -source=libp2p/driver_crawler.go -destination=libp2p/mock_host_test.go -package=libp2p

@@ -39,25 +39,27 @@ type SealCrawlArgs struct {
 }
 
 type VisitArgs struct {
-	PeerID          peer.ID
-	AgentVersion    string
-	Protocols       []string
-	DialMaddrs      []ma.Multiaddr
-	FilteredMaddrs  []ma.Multiaddr
-	ExtraMaddrs     []ma.Multiaddr
-	DialErrors      []string
-	ConnectMaddr    ma.Multiaddr
-	DialDuration    time.Duration
-	ConnectDuration time.Duration
-	CrawlDuration   time.Duration
-	VisitStartedAt  time.Time
-	VisitEndedAt    time.Time
-	ConnectErrorStr string
-	CrawlErrorStr   string
-	VisitType       VisitType
-	Neighbors       []peer.ID
-	ErrorBits       uint16
-	Properties      json.RawMessage
+	PeerID           peer.ID
+	DiscoveryPrefix  uint64
+	AgentVersion     string
+	Protocols        []string
+	DialMaddrs       []ma.Multiaddr
+	FilteredMaddrs   []ma.Multiaddr
+	ExtraMaddrs      []ma.Multiaddr
+	DialErrors       []string
+	ConnectMaddr     ma.Multiaddr
+	DialDuration     time.Duration
+	ConnectDuration  time.Duration
+	CrawlDuration    time.Duration
+	VisitStartedAt   time.Time
+	VisitEndedAt     time.Time
+	ConnectErrorStr  string
+	CrawlErrorStr    string
+	VisitType        VisitType
+	Neighbors        []peer.ID
+	NeighborPrefixes []uint64
+	ErrorBits        uint16
+	Properties       json.RawMessage
 }
 
 type Client interface {

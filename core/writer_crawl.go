@@ -58,36 +58,41 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 	}
 
 	var (
-		errorBits uint16
-		neighbors []peer.ID
+		errorBits        uint16
+		neighbors        []peer.ID
+		neighborPrefixes []uint64
 	)
 	if task.RoutingTable != nil {
 		neighbors = make([]peer.ID, len(task.RoutingTable.Neighbors))
+		neighborPrefixes = make([]uint64, len(task.RoutingTable.Neighbors))
 		for i, n := range task.RoutingTable.Neighbors {
 			neighbors[i] = n.ID()
+			neighborPrefixes[i] = n.DiscoveryPrefix()
 		}
 		errorBits = task.RoutingTable.ErrorBits
 	}
 
 	args := &db.VisitArgs{
-		PeerID:          task.Info.ID(),
-		Protocols:       task.Protocols,
-		AgentVersion:    task.Agent,
-		DialMaddrs:      task.DialMaddrs,
-		FilteredMaddrs:  task.FilteredMaddrs,
-		ExtraMaddrs:     task.ExtraMaddrs,
-		ConnectMaddr:    task.ConnectMaddr,
-		DialErrors:      task.DialErrors,
-		ConnectDuration: task.ConnectDuration(),
-		CrawlDuration:   task.CrawlDuration(),
-		VisitStartedAt:  task.CrawlStartTime,
-		VisitEndedAt:    task.CrawlEndTime,
-		ConnectErrorStr: task.ConnectErrorStr,
-		CrawlErrorStr:   task.CrawlErrorStr,
-		VisitType:       db.VisitTypeCrawl,
-		Neighbors:       neighbors,
-		ErrorBits:       errorBits,
-		Properties:      task.Properties,
+		PeerID:           task.Info.ID(),
+		DiscoveryPrefix:  task.Info.DiscoveryPrefix(),
+		Protocols:        task.Protocols,
+		AgentVersion:     task.Agent,
+		DialMaddrs:       task.DialMaddrs,
+		FilteredMaddrs:   task.FilteredMaddrs,
+		ExtraMaddrs:      task.ExtraMaddrs,
+		ConnectMaddr:     task.ConnectMaddr,
+		DialErrors:       task.DialErrors,
+		ConnectDuration:  task.ConnectDuration(),
+		CrawlDuration:    task.CrawlDuration(),
+		VisitStartedAt:   task.CrawlStartTime,
+		VisitEndedAt:     task.CrawlEndTime,
+		ConnectErrorStr:  task.ConnectErrorStr,
+		CrawlErrorStr:    task.CrawlErrorStr,
+		VisitType:        db.VisitTypeCrawl,
+		Neighbors:        neighbors,
+		NeighborPrefixes: neighborPrefixes,
+		ErrorBits:        errorBits,
+		Properties:       task.Properties,
 	}
 
 	start := time.Now()
