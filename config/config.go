@@ -52,6 +52,7 @@ const (
 	NetworkDria           Network = "DRIA"
 	NetworkWakuStatus     Network = "WAKU_STATUS"
 	NetworkWakuTWN        Network = "WAKU_TWN"
+	NetworkGnosis         Network = "GNOSIS"
 )
 
 func Networks() []Network {
@@ -80,6 +81,7 @@ func Networks() []Network {
 		NetworkDria,
 		NetworkWakuStatus,
 		NetworkWakuTWN,
+		NetworkGnosis,
 	}
 }
 
@@ -645,6 +647,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthCons:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumConsensus...)
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
+	case NetworkGnosis:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGnosis...)
 		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
 	case NetworkEthExec:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumExecution...)
