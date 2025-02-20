@@ -1,6 +1,7 @@
 package bitcoin
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -49,6 +50,10 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 
 func (p PeerInfo) DeduplicationKey() string {
 	return p.AddrInfo.id
+}
+
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	return binary.BigEndian.Uint64([]byte(p.id)[:8])
 }
 
 type CrawlDriverConfig struct {

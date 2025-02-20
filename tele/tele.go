@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	MeterName  = "github.com/dennis-tra/nebula-crawler"
-	TracerName = "github.com/dennis-tra/nebula-crawler"
+	MeterName  = "github.com/dennis-tra/nebula"
+	TracerName = "github.com/dennis-tra/nebula"
 )
 
 // HealthStatus is a global variable that indicates the health of the current

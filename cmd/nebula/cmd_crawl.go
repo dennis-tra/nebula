@@ -560,6 +560,8 @@ func updateCrawl(ctx context.Context, dbc db.Client, runErr error, summary *core
 func persistCrawlProperties(ctx context.Context, dbc db.Client, summary *core.Summary) error {
 	if _, ok := dbc.(*db.NoopClient); ok {
 		return nil
+	} else if _, ok := dbc.(*db.ClickHouseClient); ok {
+		return nil
 	}
 
 	log.Infoln("Persisting crawl properties...")

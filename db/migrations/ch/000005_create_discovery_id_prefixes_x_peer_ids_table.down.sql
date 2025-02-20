@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS peer_ids_x_kad_ids;
+DROP TABLE IF EXISTS discovery_id_prefixes_x_peer_ids;

@@ -31,6 +31,12 @@ type PeerInfo[T any] interface {
 	// if the deduplication key was the entire ENR, we would crawl the same peer
 	// with different (potentially newer) connectivity information again.
 	DeduplicationKey() string
+
+	// DiscoveryPrefix returns the first 64 bits of the ID that's used for the
+	// discovery protocol. In the go-libp2p-kad-dht case this is the sha256 of
+	// the multihash part of the peer ID. In the discv5 case, it's the keccak
+	// hash of the node ID.
+	DiscoveryPrefix() uint64
 }
 
 // A Driver is a data structure that provides the necessary implementations and
