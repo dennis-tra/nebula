@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS peer_ids_x_kad_ids;

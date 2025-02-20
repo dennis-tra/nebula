@@ -33,6 +33,13 @@ import (
 //go:embed migrations/ch
 var clickhouseMigrations embed.FS
 
+const (
+	TableNameVisits                      = "visits"
+	TableNameNeighbors                   = "neighbors"
+	TableNameCrawls                      = "crawls"
+	TableNameDiscoveryIDPrefixesXPeerIDs = "discovery_id_prefixes_x_peer_ids"
+)
+
 // ClickHouseClientConfig holds configuration for ClickHouse client connection.
 // Enables setting up database connection details, migrations, batching, and tracing.
 type ClickHouseClientConfig struct {
@@ -200,8 +207,9 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 	}
 
 	// prepare visits and neighbors batches
-	visitsBatch := prepare("visits")
-	neighborsBatch := prepare("neighbors")
+	visitsBatch := prepare(TableNameVisits)
+	neighborsBatch := prepare(TableNameNeighbors)
+	prefixesBatch := prepare(TableNameDiscoveryIDPrefixesXPeerIDs)
 
 	// create a ticker that triggers a write of both batches to clickhouse
 	ticker := time.NewTicker(c.cfg.BatchTimeout)
@@ -211,11 +219,15 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 
 		// prepare new batches if they were sent in the previous iteration
 		if visitsBatch.IsSent() {
-			visitsBatch = prepare("visits")
+			visitsBatch = prepare(TableNameVisits)
 		}
 
 		if neighborsBatch.IsSent() {
-			neighborsBatch = prepare("neighbors")
+			neighborsBatch = prepare(TableNameNeighbors)
+		}
+
+		if prefixesBatch.IsSent() {
+			prefixesBatch = prepare(TableNameDiscoveryIDPrefixesXPeerIDs)
 		}
 
 		// if any of the above batch preparations failed they will be null.
@@ -224,7 +236,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 		// log an error here and consume and discard all events until done.
 		// This if-statement is part of the for-loop because later batch
 		// preparations could also fail.
-		if visitsBatch == nil || neighborsBatch == nil {
+		if visitsBatch == nil || neighborsBatch == nil || prefixesBatch == nil {
 			log.Errorln("Failed to prepare visits or neighbors batch. Discarding all events until done.")
 			select {
 			case <-ctx.Done():
@@ -244,20 +256,23 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// sending batches to clickhouse because of a timeout
-			send(visitsBatch, "visits")
-			send(neighborsBatch, "neighbors")
+			send(visitsBatch, TableNameVisits)
+			send(neighborsBatch, TableNameNeighbors)
+			send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
 
 		case doneChan := <-c.flushChan:
 			// sending batches to clickhouse because the user asked for it
-			send(visitsBatch, "visits")
-			send(neighborsBatch, "neighbors")
+			send(visitsBatch, TableNameVisits)
+			send(neighborsBatch, TableNameNeighbors)
+			send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
 			close(doneChan)
 
 		case visit, more := <-c.visitsChan:
 			if !more {
 				// we won't receive any more visits
-				send(visitsBatch, "visits")
-				send(neighborsBatch, "neighbors")
+				send(visitsBatch, TableNameVisits)
+				send(neighborsBatch, TableNameNeighbors)
+				send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
 				return
 			}
 
@@ -267,7 +282,7 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 
 			// check if we have enough data to submit the batch
 			if visitsBatch.Rows() >= c.cfg.BatchSize {
-				send(visitsBatch, "visits")
+				send(visitsBatch, TableNameVisits)
 			}
 
 			// neighbors are only set during a crawl, so if this is a visit
@@ -278,14 +293,24 @@ func (c *ClickHouseClient) startFlusher(ctx context.Context) {
 
 			// append neighbors to batch
 			for _, neighbor := range visit.neighbors {
+
+				if err := prefixesBatch.AppendStruct(neighbor.prefix); err != nil {
+					log.WithError(err).Errorln("Failed to append prefixes batch")
+				}
+
 				if err := neighborsBatch.AppendStruct(neighbor); err != nil {
-					log.WithError(err).Errorln("Failed to append visits batch")
+					log.WithError(err).Errorln("Failed to append neighbors batch")
 				}
 			}
 
 			// check if we have enough data to submit the batch
 			if neighborsBatch.Rows() >= c.cfg.BatchSize {
-				send(neighborsBatch, "neighbors")
+				send(neighborsBatch, TableNameNeighbors)
+			}
+
+			// check if we have enough data to submit the batch
+			if prefixesBatch.Rows() >= c.cfg.BatchSize {
+				send(prefixesBatch, TableNameDiscoveryIDPrefixesXPeerIDs)
 			}
 		}
 	}
@@ -320,6 +345,7 @@ type ClickHouseVisit struct {
 	VisitEndedAt   time.Time       `ch:"visit_ended_at"`
 	Properties     json.RawMessage `ch:"peer_properties"`
 	neighbors      []*ClickhouseNeighbor
+	prefix         *ClickhouseDiscoveryIDPrefix
 }
 
 type ClickhouseNeighbor struct {
@@ -327,6 +353,12 @@ type ClickhouseNeighbor struct {
 	PeerID    uint64    `ch:"peer_kad_id_prefix"`
 	Neighbor  uint64    `ch:"neighbor_kad_id_prefix"`
 	ErrorBits uint16    `ch:"error_bits"`
+	prefix    *ClickhouseDiscoveryIDPrefix
+}
+
+type ClickhouseDiscoveryIDPrefix struct {
+	Prefix uint64 `ch:"discovery_id_prefix"`
+	PeerID string `ch:"peer_id"`
 }
 
 func (c *ClickHouseClient) InitCrawl(ctx context.Context, version string) error {
@@ -517,6 +549,9 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		args.Properties = json.RawMessage("{}")
 	}
 
+	peerKadID := kbucket.ConvertPeerID(args.PeerID)
+	peerKadIDPrefix := binary.BigEndian.Uint64(peerKadID[:8])
+
 	visit := &ClickHouseVisit{
 		CrawlID:        crawlID,
 		PeerID:         args.PeerID.String(),
@@ -531,11 +566,13 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		VisitStartedAt: args.VisitStartedAt,
 		VisitEndedAt:   args.VisitEndedAt,
 		Properties:     args.Properties,
+		prefix: &ClickhouseDiscoveryIDPrefix{
+			PeerID: args.PeerID.String(),
+			Prefix: peerKadIDPrefix,
+		},
 	}
 
 	if c.cfg.PersistNeighbors && crawlID != nil {
-		peerKadID := kbucket.ConvertPeerID(args.PeerID)
-		peerKadIDPrefix := binary.BigEndian.Uint64(peerKadID[:8])
 
 		visit.neighbors = make([]*ClickhouseNeighbor, len(args.Neighbors))
 		for i, neighbor := range args.Neighbors {
@@ -545,6 +582,10 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 				PeerID:    peerKadIDPrefix,
 				Neighbor:  neighborKadID,
 				ErrorBits: args.ErrorBits,
+				prefix: &ClickhouseDiscoveryIDPrefix{
+					PeerID: neighbor.String(),
+					Prefix: neighborKadID,
+				},
 			}
 		}
 	}
