@@ -2,6 +2,11 @@
 # CGO to be enabled and I'd like use an alpine base image for the final image.
 FROM golang:1.23-alpine AS builder
 
+ARG VERSION
+ARG COMMIT
+ARG DATE
+ARG BUILT_BY
+
 # Switch to an isolated build directory
 WORKDIR /build
 
@@ -16,7 +21,7 @@ RUN apk add --no-cache gcc musl-dev
 COPY . ./
 
 # Finally build Nebula
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.RawVersion=`cat version`" -o nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$USER" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
 
 # Create lightweight container to run nebula
 FROM alpine:latest

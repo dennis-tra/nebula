@@ -12,9 +12,34 @@ postgres_user_prefix := "nebula_"
 postgres_dbname_prefix := "nebula_"
 postgres_pass_prefix := "password_"
 
+COMMIT := `git rev-parse --short HEAD`
+DATE := `date "+%Y-%m-%dT%H:%M:%SZ"`
+USER := `id -un`
+VERSION := `git describe --tags --abbrev=0`
+
 # lists all available recipes
 default:
     @just --list --justfile {{ justfile() }}
+
+# build a nebula executable to the ./dist/ folder
+build:
+	go build -ldflags "-X main.version={{VERSION}} -X main.commit={{COMMIT}} -X main.date={{DATE}} -X main.builtBy={{USER}}" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
+
+# build a nebula docker image
+docker platform="linux/amd64":
+	docker build --platform {{platform}} \
+	  --build-arg VERSION={{VERSION}} \
+	  --build-arg COMMIT={{COMMIT}} \
+	  --build-arg BUILT_BY={{USER}} \
+	  --build-arg DATE={{DATE}} \
+	  -t dennistra/nebula:latest \
+	  -t dennistra/nebula:{{COMMIT}} \
+	  -t 019120760881.dkr.ecr.us-east-1.amazonaws.com/probelab:nebula-sha{{COMMIT}} \
+	  .
+
+# push a nebula image to docker hub
+docker-push: docker
+	docker push dennistra/nebula:latest dennistra/nebula:${GIT_SHA}
 
 # start a clickhouse server
 start-clickhouse env="local" detached="true":
