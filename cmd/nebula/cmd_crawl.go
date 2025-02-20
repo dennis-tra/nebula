@@ -378,7 +378,8 @@ func CrawlAction(c *cli.Context) error {
 		string(config.NetworkHolesky),
 		string(config.NetworkPortal),
 		string(config.NetworkWakuStatus),
-		string(config.NetworkWakuTWN):
+		string(config.NetworkWakuTWN),
+		string(config.NetworkGnosis):
 		// use a different driver etc. for the Ethereum consensus layer + Holeksy Testnet + Waku networks
 
 		bpEnodes, err := cfg.BootstrapEnodesV5()
