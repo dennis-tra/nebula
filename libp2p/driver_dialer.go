@@ -10,7 +10,8 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/host"
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/core"
@@ -38,24 +39,20 @@ var _ core.Driver[PeerInfo, core.DialResult[PeerInfo]] = (*DialDriver)(nil)
 
 func NewDialDriver(dbc db.Client, cfg *DialDriverConfig) (*DialDriver, error) {
 	// Configure the resource manager to not limit anything
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
 	// Don't use a connection manager that could potentially
-	// prune any connections. We _theoretically_ clean up after
-	// ourselves.
+	// prune any connections. We clean up after ourselves.
 	cm := connmgr.NullConnMgr{}
+	rm := network.NullResourceManager{}
 
 	// Initialize a single libp2p node that's shared between all dialers.
 	h, err := libp2p.New(
 		libp2p.UserAgent("nebula/"+cfg.Version),
-		libp2p.ResourceManager(rm),
+		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
-		libp2p.EnableRelay(), // enable the relay transport
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
