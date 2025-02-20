@@ -8,7 +8,12 @@
 [![GitHub license](https://img.shields.io/github/license/dennis-tra/nebula)](https://github.com/dennis-tra/nebula/blob/main/LICENSE)
 [![Hits](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdennis-tra%2Fnebula&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=hits&edge_flat=false)](https://hits.seeyoufarm.com)
 
-A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https://en.wikipedia.org/wiki/Distributed_hash_table) bootstrappers and then recursively follows all entries in their [k-buckets](https://en.wikipedia.org/wiki/Kademlia) until all peers have been visited. The crawler supports the following networks:
+A network agnostic peer crawler and monitor. Nebula starts with a set of bootstrap peers, 
+asks them for other peers in the network and recursively repeats the process until all
+peers in the network have been contacted. Originally, Nebula only supported DHT
+networks, but this restriction was lifted.
+
+Currently, Nebula supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer (discv5)_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery) | [_Execution Layer (discv4)_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
@@ -20,8 +25,13 @@ A network agnostic DHT crawler and monitor. The crawler connects to [DHT](https:
 - [Pactus](https://pactus.org)
 - [Bitcoin](https://bitcoin.org/) (_alpha-monitoring not implemented_)
 - [Dria](https://dria.co/)
+- [Gnosis](https://www.gnosis.io/)
+- ... your network? Get in touch [team@probelab.io](team@probelab.io).
 
 You can run `nebula networks` to get a list of all supported networks
+
+Nebula supports the following storage backends: JSON, Postgres, ClickHouse
+
 
 The crawler was:
 
@@ -65,7 +75,7 @@ You can find a demo on YouTube: [Nebula: A Network Agnostic DHT Crawler](https:/
 ## Project Status
 
 The crawler is powering critical [IPFS](https://ipfs.tech) [Amino DHT](https://blog.ipfs.tech/2023-09-amino-refactoring/) [KPIs](https://de.wikipedia.org/wiki/Key-Performance-Indicator), used for [Weekly IPFS Reports](https://github.com/probe-lab/network-measurements/tree/main/reports) as well as for many metrics on [`probelab.io`](https://probelab.io).
-The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.2.0](https://github.com/dennis-tra/nebula/releases/tag/2.2.0).
+The `main` branch will contain the latest changes and should not be considered stable. The latest stable release that is production ready is version [2.4.0](https://github.com/dennis-tra/nebula/releases/tag/2.4.0).
 
 ## Install
 
@@ -78,7 +88,7 @@ Head over to the release section and download binaries from the [latest stable r
 ```shell
 git clone https://github.com/dennis-tra/nebula
 cd nebula
-make build
+just build
 ```
 
 Now you should find the `nebula` executable in the `dist` subfolder.
@@ -95,7 +105,10 @@ To simply crawl the IPFS Amino DHT network run:
 nebula --dry-run crawl
 ```
 
-The crawler can store its results as JSON documents or in a postgres database -
+> [!NOTE]
+> For backwards compatibility reasons IPFS is the default if no network is provided
+
+The crawler can store its results as JSON documents in a [Postgres](https://www.postgresql.org/) or [Clickhouse](https://clickhouse.com/) database -
 the `--dry-run` flag prevents it from doing any of it. Nebula will just print a
 summary of the crawl at the end instead. A crawl takes ~5-10 min depending on
 your internet connection. You can also specify the network you want to crawl by
@@ -142,12 +155,12 @@ operate with [adjacency lists](https://en.wikipedia.org/wiki/Adjacency_list). To
 to an adjacency list, you can use [`jq`](https://stedolan.github.io/jq/) and the following command:
 
 ```shell
-jq -r '.NeighborIDs[] as $neighbor | [.PeerID, $neighbor] | @csv' ./results/2023-04-16T14:32_neighbors.json > ./results/2023-04-16T14:32_neighbors.csv
+jq -r '.NeighborIDs[] as $neighbor | [.PeerID, $neighbor] | @csv' ./results/2025-02-16T14:32_neighbors.json > ./results/2025-02-16T14:32_neighbors.csv
 ```
 
 ### Postgres
 
-If you want to store the information in a proper database, you could run `make database` or `make databased` (for running it in the background) to start a local postgres instance and run Nebula like:
+If you want to store the information in a proper database, you could run `just start-postgres` to start a local postgres instance via docker in the background and run Nebula like:
 
 ```shell
 nebula --db-user nebula_test --db-name nebula_test crawl --neighbors
@@ -312,10 +325,10 @@ To install the necessary tools you can run `make tools`. This will use the `go i
 
 ### Database
 
-You need a running postgres instance to persist and/or read the crawl results. Run `make database` or use the following command to start a local instance of postgres:
+You need a running postgres instance to persist and/or read the crawl results. Run `just start-postgres` or use the following command to start a local instance of postgres:
 
 ```shell
-docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebula_test -e POSTGRES_DB=nebula_test --name nebula_test_db postgres:14
+docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password_password -e POSTGRES_USER=nebula_local -e POSTGRES_DB=nebula_local --name nebula_local_db postgres:14
 ```
 
 > [!TIP]
@@ -324,9 +337,9 @@ docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password -e POSTGRES_USER=nebu
 The default database settings for local development are:
 
 ```
-Name     = "nebula_test"
-Password = "password"
-User     = "nebula_test"
+Name     = "nebula_local"
+Password = "password_local"
+User     = "nebula_local"
 Host     = "localhost"
 Port     = 5432
 ```
@@ -337,19 +350,18 @@ To run them manually you can run:
 
 ```shell
 # Up migrations
-make migrate-up
+just migrate-postgres up
 
 # Down migrations
-make migrate-down
+just migrate-postgres down
 
 # Generate the ORM with SQLBoiler
-make models # runs: sqlboiler
-# This will update all files in the `pkg/models` directory.
+just models # runs: sqlboiler
 ```
 
 ```shell
 # Create new migration
-migrate create -ext sql -dir pkg/db/migrations -seq some_migration_name
+migrate create -ext sql -dir db/migrations/pg -seq some_migration_name
 ```
 
 ### Tests
@@ -357,8 +369,7 @@ migrate create -ext sql -dir pkg/db/migrations -seq some_migration_name
 To run the tests you need a running test database instance:
 
 ```shell
-make database # or make databased (note the d suffix for "daemon") to start the DB in the background
-make test
+just test
 ```
 
 ## Release Checklist
