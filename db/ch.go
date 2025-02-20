@@ -643,7 +643,45 @@ func (c *ClickHouseClient) InsertNeighbors(ctx context.Context, peerID peer.ID, 
 }
 
 func (c *ClickHouseClient) SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error) {
-	return []peer.AddrInfo{}, nil // TODO: ...
+	query := `
+	SELECT
+		peer_id,
+		arrayConcat(dial_maddrs, extra_maddrs) AS multi_addresses
+	FROM ?
+	WHERE dial_errors IS NULL
+      AND visit_started_at BETWEEN (now() - INTERVAL '24 hours') AND now()
+	`
+
+	rows, err := c.conn.Query(ctx, query, TableNameVisits)
+	if err != nil {
+		return nil, err
+	}
+
+	var addrInfos []peer.AddrInfo
+	for rows.Next() {
+		var pidStr string
+		var maddrStrs []string
+		if err := rows.Scan(&pidStr, &maddrStrs); err != nil {
+			return nil, err
+		}
+
+		pid, err := peer.Decode(pidStr)
+		if err != nil {
+			return nil, fmt.Errorf("decode peer id: %w", err)
+		}
+
+		maddrs, err := utils.AddrsToMaddrs(maddrStrs)
+		if err != nil {
+			return nil, fmt.Errorf("parse multi addresses: %w", err)
+		}
+
+		addrInfos = append(addrInfos, peer.AddrInfo{
+			ID:    pid,
+			Addrs: maddrs,
+		})
+	}
+
+	return addrInfos, err
 }
 
 func (c *ClickHouseClient) Flush(ctx context.Context) error {
