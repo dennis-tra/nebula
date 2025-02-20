@@ -15,7 +15,7 @@ postgres_pass_prefix := "password_"
 COMMIT := `git rev-parse --short HEAD`
 DATE := `date "+%Y-%m-%dT%H:%M:%SZ"`
 USER := `id -un`
-VERSION := `git describe --tags --abbrev=0`
+VERSION := `git describe --tags --abbrev=0 || true`
 
 # lists all available recipes
 default:
