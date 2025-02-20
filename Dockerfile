@@ -21,7 +21,7 @@ RUN apk add --no-cache gcc musl-dev
 COPY . ./
 
 # Finally build Nebula
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$USER" -o dist/nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
+RUN CGO_ENABLED=1 GOOS=linux go build -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY" -o nebula github.com/dennis-tra/nebula-crawler/cmd/nebula
 
 # Create lightweight container to run nebula
 FROM alpine:latest
