@@ -3,11 +3,12 @@ package bitcoin
 import (
 	"encoding/binary"
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/btcsuite/btcd/wire"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr/net"
 	log "github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -17,47 +18,57 @@ import (
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
-type AddrInfo struct {
-	id   string
-	Addr []ma.Multiaddr
-}
 type PeerInfo struct {
-	AddrInfo
+	id       string
+	maddrs   []ma.Multiaddr
+	services wire.ServiceFlag
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
 
 func (p PeerInfo) ID() peer.ID {
-	return peer.ID(p.AddrInfo.id)
+	return peer.ID(p.id)
 }
 
 func (p PeerInfo) Addrs() []ma.Multiaddr {
-	return p.AddrInfo.Addr
+	return p.maddrs
 }
 
 func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
-	if p.AddrInfo.id != other.AddrInfo.id {
+	if p.ID() != other.ID() {
 		panic("merge peer ID mismatch")
 	}
 
 	return PeerInfo{
-		AddrInfo: AddrInfo{
-			id:   p.AddrInfo.id,
-			Addr: utils.MergeMaddrs(p.AddrInfo.Addr, other.AddrInfo.Addr),
-		},
+		id:       p.id,
+		maddrs:   utils.MergeMaddrs(p.maddrs, other.maddrs),
+		services: p.services & other.services,
 	}
 }
 
 func (p PeerInfo) DeduplicationKey() string {
-	return p.AddrInfo.id
+	return p.id
 }
 
 func (p PeerInfo) DiscoveryPrefix() uint64 {
 	return binary.BigEndian.Uint64([]byte(p.id)[:8])
 }
 
+var serviceFlags = []wire.ServiceFlag{
+	wire.SFNodeNetwork,
+	wire.SFNodeGetUTXO,
+	wire.SFNodeBloom,
+	wire.SFNodeWitness,
+	wire.SFNodeXthin,
+	wire.SFNodeBit5,
+	wire.SFNodeCF,
+	wire.SFNode2X,
+	wire.SFNodeNetworkLimited,
+}
+
 type CrawlDriverConfig struct {
 	Version        string
+	BitcoinNetwork wire.BitcoinNet
 	DialTimeout    time.Duration
 	BootstrapPeers []ma.Multiaddr
 	MeterProvider  metric.MeterProvider
@@ -67,9 +78,10 @@ type CrawlDriverConfig struct {
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		DialTimeout: cfg.DialTimeout,
-		LogErrors:   cfg.LogErrors,
-		Version:     cfg.Version,
+		DialTimeout:    cfg.DialTimeout,
+		BitcoinNetwork: cfg.BitcoinNetwork,
+		LogErrors:      cfg.LogErrors,
+		Version:        cfg.Version,
 	}
 }
 
@@ -90,12 +102,17 @@ var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	tasksChan := make(chan PeerInfo, len(cfg.BootstrapPeers))
-	for _, addrInfo := range cfg.BootstrapPeers {
+	for _, maddr := range cfg.BootstrapPeers {
+		_, addr, err := manet.DialArgs(maddr)
+		if err != nil {
+			log.WithError(err).Warnln("Invalid bootstrap peer", maddr)
+			continue
+		}
+
 		tasksChan <- PeerInfo{
-			AddrInfo: AddrInfo{
-				id:   addrInfo.String(),
-				Addr: []ma.Multiaddr{addrInfo},
-			},
+			id:       addr,
+			maddrs:   []ma.Multiaddr{maddr},
+			services: 0,
 		}
 	}
 	close(tasksChan)
@@ -107,9 +124,6 @@ func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error)
 		crawler:   make([]*Crawler, 0),
 	}, nil
 }
-
-// NewWorker is called multiple times but only log the configured buffer sizes once
-var logOnce sync.Once
 
 func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerInfo]], error) {
 	c := &Crawler{

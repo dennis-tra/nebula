@@ -1,5 +1,24 @@
 package config
 
+import (
+	"fmt"
+
+	btcchaincfg "github.com/btcsuite/btcd/chaincfg"
+	ltcchaincfg "github.com/ltcsuite/ltcd/chaincfg"
+)
+
+func init() {
+	BootstrapPeersBitcoinMainnet = make([]string, len(btcchaincfg.MainNetParams.DNSSeeds))
+	for i, seed := range btcchaincfg.MainNetParams.DNSSeeds {
+		BootstrapPeersBitcoinMainnet[i] = fmt.Sprintf("/dns/%s/tcp/%s", seed, btcchaincfg.MainNetParams.DefaultPort)
+	}
+
+	BootstrapPeersLitecoinMainnet = make([]string, len(ltcchaincfg.MainNetParams.DNSSeeds))
+	for i, seed := range ltcchaincfg.MainNetParams.DNSSeeds {
+		BootstrapPeersLitecoinMainnet[i] = fmt.Sprintf("/dns/%s/tcp/%s", seed, ltcchaincfg.MainNetParams.DefaultPort)
+	}
+}
+
 var (
 
 	// BootstrapPeersFilecoin extracted from:
@@ -334,14 +353,14 @@ var (
 		"/dns/pactus-bootstrap1.dezh.tech/tcp/21888/p2p/12D3KooWK1z7QAskVrQd98r98UMSPwTLr4out8B9NkQTrCdZPCZx",
 	}
 
-	BootstrapPeersBitcoinDNSSeeds = []string{
-		"seed.bitcoin.sipa.be",
-		"dnsseed.bluematt.me",
-		"dnsseed.bitcoin.dashjr.org",
-		"seed.bitcoinstats.com",
-		"seed.bitnodes.io",
-		"bitseed.xf2.org",
-	}
+	// BootstrapPeersBitcoinMainnet extracted from:
+	// https://github.com/btcsuite/btcd/blob/bb52d7d78d9cf335e0611b9ae06ad8c77e75de0b/chaincfg/params.go#L284
+	BootstrapPeersBitcoinMainnet []string
+
+	// BootstrapPeersLitecoinMainnet extracted from:
+	// https://github.com/ltcsuite/ltcd/blob/ec0bfad6e7104120d872c89fb1fa7aa7033a4ae2/chaincfg/params.go#L282
+	BootstrapPeersLitecoinMainnet []string
+
 	// BootstrapPeersPortalMainnet extracted from:
 	//	https://github.com/status-im/portal-mainnet/blob/master/config/bootstrap_nodes.txt
 	//  https://github.com/ethereum/portal-network-specs/blob/master/bootnodes.md

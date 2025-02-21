@@ -337,20 +337,18 @@ func CrawlAction(c *cli.Context) error {
 		// finally, start the crawl
 		summary, runErr = eng.Run(ctx)
 
-	case string(config.NetworkBitcoin):
-		bpEnodes, err := cfg.BootstrapBitcoinEntries()
+	case string(config.NetworkBitcoin), string(config.NetworkLitecoin):
+		bpStrs := cfg.BootstrapPeers.Value()
+		bpMaddrs, err := utils.AddrsToMaddrs(bpStrs)
 		if err != nil {
-			return err
+			return fmt.Errorf("parse bootstrap peers: %w", err)
 		}
 
-		for _, addrInfo := range bpAddrInfos {
-			bpEnodes = append(bpEnodes, addrInfo.Addrs...)
-		}
-		// configure the crawl driver
 		driverCfg := &bitcoin.CrawlDriverConfig{
 			Version:        cfg.Root.Version(),
+			BitcoinNetwork: config.BitcoinNetwork(cfg.Network),
 			DialTimeout:    cfg.Root.DialTimeout,
-			BootstrapPeers: bpEnodes,
+			BootstrapPeers: bpMaddrs,
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
 			LogErrors:      cfg.Root.LogErrors,
