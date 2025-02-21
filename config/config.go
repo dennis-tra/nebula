@@ -253,6 +253,9 @@ type Database struct {
 	// The maximum time to hold records in memory before flushing the data to clickhouse
 	ClickHouseBatchInterval time.Duration
 
+	// Whether to use the replicated merge tree engine variants for migrations
+	ClickHouseReplicatedTableEngines bool
+
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
 
@@ -314,21 +317,22 @@ func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
 	}
 
 	return &db.ClickHouseClientConfig{
-		DatabaseHost:          cfg.DatabaseHost,
-		DatabasePort:          cfg.DatabasePort,
-		DatabaseName:          cfg.DatabaseName,
-		DatabaseUser:          cfg.DatabaseUser,
-		DatabasePassword:      cfg.DatabasePassword,
-		DatabaseSSL:           databaseSSL,
-		ClusterName:           cfg.ClickHouseClusterName,
-		MigrationsTableEngine: cfg.ClickHouseMigrationsTableEngine,
-		ApplyMigrations:       cfg.ApplyMigrations,
-		BatchSize:             cfg.ClickHouseBatchSize,
-		BatchTimeout:          cfg.ClickHouseBatchInterval,
-		NetworkID:             cfg.NetworkID,
-		PersistNeighbors:      cfg.PersistNeighbors,
-		MeterProvider:         cfg.MeterProvider,
-		TracerProvider:        cfg.TracerProvider,
+		DatabaseHost:           cfg.DatabaseHost,
+		DatabasePort:           cfg.DatabasePort,
+		DatabaseName:           cfg.DatabaseName,
+		DatabaseUser:           cfg.DatabaseUser,
+		DatabasePassword:       cfg.DatabasePassword,
+		DatabaseSSL:            databaseSSL,
+		ClusterName:            cfg.ClickHouseClusterName,
+		MigrationsTableEngine:  cfg.ClickHouseMigrationsTableEngine,
+		ReplicatedTableEngines: cfg.ClickHouseReplicatedTableEngines,
+		ApplyMigrations:        cfg.ApplyMigrations,
+		BatchSize:              cfg.ClickHouseBatchSize,
+		BatchTimeout:           cfg.ClickHouseBatchInterval,
+		NetworkID:              cfg.NetworkID,
+		PersistNeighbors:       cfg.PersistNeighbors,
+		MeterProvider:          cfg.MeterProvider,
+		TracerProvider:         cfg.TracerProvider,
 	}
 }
 

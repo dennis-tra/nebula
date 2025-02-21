@@ -45,21 +45,22 @@ const (
 // ClickHouseClientConfig holds configuration for ClickHouse client connection.
 // Enables setting up database connection details, migrations, batching, and tracing.
 type ClickHouseClientConfig struct {
-	DatabaseHost          string
-	DatabasePort          int
-	DatabaseName          string
-	DatabaseUser          string
-	DatabasePassword      string
-	DatabaseSSL           bool
-	ClusterName           string
-	MigrationsTableEngine string
-	ApplyMigrations       bool
-	BatchSize             int
-	BatchTimeout          time.Duration
-	NetworkID             string
-	PersistNeighbors      bool
-	MeterProvider         metric.MeterProvider
-	TracerProvider        trace.TracerProvider
+	DatabaseHost           string
+	DatabasePort           int
+	DatabaseName           string
+	DatabaseUser           string
+	DatabasePassword       string
+	DatabaseSSL            bool
+	ClusterName            string
+	MigrationsTableEngine  string
+	ReplicatedTableEngines bool
+	ApplyMigrations        bool
+	BatchSize              int
+	BatchTimeout           time.Duration
+	NetworkID              string
+	PersistNeighbors       bool
+	MeterProvider          metric.MeterProvider
+	TracerProvider         trace.TracerProvider
 }
 
 // Options returns a ClickHouse client options configuration.
@@ -166,13 +167,12 @@ func (c *ClickHouseClient) applyMigration() error {
 		migrations embed.FS
 		path       string
 	)
-	switch c.cfg.DatabaseHost {
-	case "localhost", "127.0.0.1":
-		migrations = clickhouseLocalMigrations
-		path = "migrations/chlocal"
-	default:
+	if c.cfg.ReplicatedTableEngines {
 		migrations = clickhouseClusterMigrations
 		path = "migrations/chcluster"
+	} else {
+		migrations = clickhouseLocalMigrations
+		path = "migrations/chlocal"
 	}
 
 	migrationsDir, err := iofs.New(migrations, path)
