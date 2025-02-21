@@ -1,3 +1,5 @@
+-- DO NOT EDIT: This file was generated with: just generate-local-clickhouse-migrations
+
 -- Captures the state and aggregated results of one particular crawl.
 CREATE TABLE crawls
 (

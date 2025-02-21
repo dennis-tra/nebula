@@ -29,8 +29,11 @@ import (
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
-//go:embed migrations/ch
-var clickhouseMigrations embed.FS
+//go:embed migrations/chcluster
+var clickhouseClusterMigrations embed.FS
+
+//go:embed migrations/chlocal
+var clickhouseLocalMigrations embed.FS
 
 const (
 	TableNameVisits                      = "visits"
@@ -159,7 +162,20 @@ func NewClickHouseClient(ctx context.Context, cfg *ClickHouseClientConfig) (*Cli
 // It uses the configured migrations directory and executes them against
 // the database. Returns an error if migrations fail or cannot be applied.
 func (c *ClickHouseClient) applyMigration() error {
-	migrationsDir, err := iofs.New(clickhouseMigrations, "migrations/ch")
+	var (
+		migrations embed.FS
+		path       string
+	)
+	switch c.cfg.DatabaseHost {
+	case "localhost", "127.0.0.1":
+		migrations = clickhouseLocalMigrations
+		path = "migrations/chlocal"
+	default:
+		migrations = clickhouseClusterMigrations
+		path = "migrations/chcluster"
+	}
+
+	migrationsDir, err := iofs.New(migrations, path)
 	if err != nil {
 		return fmt.Errorf("create iofs migrations source: %w", err)
 	}
