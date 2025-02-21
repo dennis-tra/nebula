@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/btcsuite/btcd/peer"
 
 	"github.com/btcsuite/btcd/wire"
 	ma "github.com/multiformats/go-multiaddr"
@@ -19,12 +22,11 @@ import (
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
-const MaxCrawlRetriesAfterTimeout = 2 // magic
-
 type CrawlerConfig struct {
-	DialTimeout time.Duration
-	LogErrors   bool
-	Version     string
+	DialTimeout    time.Duration
+	BitcoinNetwork wire.BitcoinNet
+	LogErrors      bool
+	Version        string
 }
 
 type Crawler struct {
@@ -47,18 +49,34 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	crawlStart := time.Now()
 
 	// start crawling
-	bitcoinResult := <-c.crawlBitcoin(ctx, task)
+	result := c.crawlBitcoin(ctx, task)
+	properties := c.PeerProperties(result)
 
-	properties := c.PeerProperties(&task.AddrInfo)
+	var (
+		connectErr      error
+		connectErrorStr string
+		dialErrors      []string
+	)
+	if len(result.ConnectErrors) > 0 {
+		// TODO: join all errors together
+		connectErr = result.ConnectErrors[0]
+		connectErrorStr = db.NetError(result.ConnectErrors[0])
 
-	// keep track of all unknown connection errors
-	if bitcoinResult.ConnectErrorStr == pgmodels.NetErrorUnknown && bitcoinResult.ConnectError != nil {
-		properties["connect_error"] = bitcoinResult.ConnectError.Error()
+		for _, err := range result.ConnectErrors {
+			dialErrors = append(dialErrors, db.NetError(err))
+		}
+
+		// keep track of all unknown connection errors
+		if connectErrorStr == pgmodels.NetErrorUnknown {
+			properties["connect_error"] = result.ConnectErrors[0].Error()
+		}
 	}
 
 	// keep track of all unknown crawl errors
-	if bitcoinResult.ErrorStr == pgmodels.NetErrorUnknown && bitcoinResult.Error != nil {
-		properties["crawl_error"] = bitcoinResult.Error.Error()
+	var crawlErrorStr string
+	if result.CrawlError != nil {
+		crawlErrorStr = db.NetError(result.CrawlError)
+		properties["crawl_error"] = result.CrawlError.Error()
 	}
 
 	data, err := json.Marshal(properties)
@@ -66,25 +84,26 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
-	if len(bitcoinResult.ListenAddrs) > 0 {
-		task.AddrInfo.Addr = bitcoinResult.ListenAddrs
-	}
-
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:           c.id,
 		Info:                task,
 		CrawlStartTime:      crawlStart,
 		RoutingTableFromAPI: false,
-		RoutingTable:        bitcoinResult.RoutingTable,
-		Agent:               bitcoinResult.Agent,
-		Protocols:           bitcoinResult.Protocols,
-		ConnectError:        bitcoinResult.ConnectError,
-		ConnectErrorStr:     bitcoinResult.ConnectErrorStr,
-		CrawlError:          bitcoinResult.Error,
-		CrawlErrorStr:       bitcoinResult.ErrorStr,
+		RoutingTable:        result.RoutingTable,
+		Agent:               result.Agent,
+		Protocols:           result.Protocols,
+		DialMaddrs:          task.Addrs(),
+		ConnectMaddr:        result.ConnectMaddr,
+		ExtraMaddrs:         []ma.Multiaddr{},
+		FilteredMaddrs:      []ma.Multiaddr{},
+		DialErrors:          dialErrors,
+		ConnectError:        connectErr,
+		ConnectErrorStr:     connectErrorStr,
+		CrawlError:          result.CrawlError,
+		CrawlErrorStr:       crawlErrorStr,
 		CrawlEndTime:        time.Now(),
-		ConnectStartTime:    bitcoinResult.ConnectStartTime,
-		ConnectEndTime:      bitcoinResult.ConnectEndTime,
+		ConnectStartTime:    result.ConnectStartTime,
+		ConnectEndTime:      result.ConnectEndTime,
 		Properties:          data,
 		LogErrors:           c.cfg.LogErrors,
 	}
@@ -95,11 +114,10 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	return cr, nil
 }
 
-func (c *Crawler) PeerProperties(node *AddrInfo) map[string]any {
-	// TODO: to be implemented later
+func (c *Crawler) PeerProperties(result BitcoinResult) map[string]any {
 	properties := map[string]any{}
 
-	properties["Services"] = "TBI"
+	properties["last_block"] = result.LastBlock
 
 	return properties
 }
@@ -107,332 +125,354 @@ func (c *Crawler) PeerProperties(node *AddrInfo) map[string]any {
 type BitcoinResult struct {
 	ConnectStartTime time.Time
 	ConnectEndTime   time.Time
-	ConnectError     error
-	ConnectErrorStr  string
+	ConnectErrors    []error
+	CrawlError       error
 	ConnectMaddr     ma.Multiaddr
-	Agent            string
-	ProtocolVersion  int32
-	Protocols        []string
-	ListenAddrs      []ma.Multiaddr
-	Error            error
-	ErrorStr         string
-	RoutingTable     *core.RoutingTable[PeerInfo]
+
+	Agent     string
+	Protocols []string
+	LastBlock int32
+
+	RoutingTable *core.RoutingTable[PeerInfo]
 }
 
-func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) chan BitcoinResult {
-	resultCh := make(chan BitcoinResult)
+func (c *Crawler) crawlBitcoin(ctx context.Context, pi PeerInfo) BitcoinResult {
+	result := BitcoinResult{
+		RoutingTable: &core.RoutingTable[PeerInfo]{
+			PeerID: pi.ID(),
+		},
+	}
 
+	// connect to the peer
+	var conn net.Conn
+	result.ConnectStartTime = time.Now()
+	conn, result.ConnectErrors = c.connect(ctx, pi.Addrs())
+	result.ConnectEndTime = time.Now()
+
+	if conn == nil {
+		return result
+	}
+	// sendVerMsg.ProtocolVersion = int32(wire.ProtocolVersion)
+	// sendVerMsg.Services = wire.SFNodeNetwork
+	// sendVerMsg.Timestamp = time.Now()
+	// sendVerMsg.UserAgent = "nebula/" + c.cfg.Version
+	// sendVerMsg.DisableRelayTx = true
+
+	cfg := &peer.Config{
+		UserAgentName:    "nebula",
+		UserAgentVersion: c.cfg.Version,
+		ChainParams:      &chaincfg.MainNetParams,
+		DisableRelayTx:   true,
+		Listeners: peer.MessageListeners{
+			OnVersion: func(p *peer.Peer, msg *wire.MsgVersion) *wire.MsgReject {
+				fmt.Println("version")
+				return nil
+			},
+			OnVerAck: func(p *peer.Peer, msg *wire.MsgVerAck) {
+				fmt.Println("verack")
+			},
+			OnAddr: func(peer *peer.Peer, msg *wire.MsgAddr) {
+				fmt.Println("addr", len(msg.AddrList))
+			},
+			OnAddrV2: func(p *peer.Peer, msg *wire.MsgAddrV2) {
+				fmt.Println("addrv2", len(msg.AddrList))
+			},
+		},
+	}
+	p, err := peer.NewOutboundPeer(cfg, conn.RemoteAddr().String())
+	if err != nil {
+		result.ConnectErrors = append(result.ConnectErrors, err)
+		return result
+	}
+	p.AssociateConnection(conn)
+
+	done := make(chan struct{})
+	p.QueueMessage(wire.NewMsgGetAddr(), done)
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	go func() {
-		result := BitcoinResult{}
-		defer close(resultCh)
-		neighbours := make([]PeerInfo, 0)
-
-		addrs := pi.Addrs()
-
-		var conn net.Conn
-		result.ConnectStartTime = time.Now()
-		conn, result.ConnectError = c.connect(ctx, addrs) // use filtered addr list
-
-		if conn == nil {
-			result.RoutingTable = &core.RoutingTable[PeerInfo]{
-				PeerID:    pi.ID(),
-				Neighbors: neighbours,
-				ErrorBits: uint16(0), // FIXME
-				Error:     result.Error,
-			}
-			result.Error = result.ConnectError
-			resultCh <- result
-			return
-		}
-
-		result.ConnectEndTime = time.Now()
-
-		defer conn.Close()
-
-		// If we could successfully connect to the peer we actually crawl it.
-		if result.ConnectError == nil {
-
-			tcpAddr, ok := conn.RemoteAddr().(*net.TCPAddr)
-			if ok {
-				// construct connect maddr if we have received a response
-				var ipScheme string
-				if p4 := tcpAddr.IP.To4(); len(p4) == net.IPv4len {
-					ipScheme = "ip4"
-				} else {
-					ipScheme = "ip6"
-				}
-
-				maddrStr := strings.Join([]string{"", ipScheme, tcpAddr.IP.String(), tcpAddr.Network(), strconv.Itoa(tcpAddr.Port)}, "/")
-				maddr, err := ma.NewMultiaddr(maddrStr)
-				if err != nil {
-					log.WithError(err).WithField("maddr", maddrStr).Warnln("Could not construct connect maddr")
-				} else {
-					result.ConnectMaddr = maddr
-				}
-			} else {
-				log.WithField("addr", conn.RemoteAddr()).Warnln("Not a TCP address, cannot construct connect maddr")
-			}
-
-			result.ConnectMaddr = pi.AddrInfo.Addr[0]
-
-			nodeRes, err := c.Handshake(conn)
-			result.Agent = nodeRes.UserAgent
-			result.ProtocolVersion = nodeRes.ProtocolVersion
-			if err != nil {
-				log.Errorf("[%s] Handshake failed: %v", addrs, err)
-			}
-
-			err = c.WriteMessage(conn, wire.NewMsgGetAddr())
-			if err != nil {
-				log.Errorf("[%s] GetAddr failed: %v", addrs, err)
-			}
-
-			// The code tolerates a certain amount of unsolicited
-			// messages after which it just stops. These numbers here
-			// specify the amount of such messages to be tolerated
-			firstReceived := -1
-			tolerateMessages := 5
-			// The nodes send a lot of inv messages
-			tolerateInvMessages := 50
-			tolerateVerAckMessages := 10
-			toleratePingMessages := 3
-
-		Loop:
-			for {
-				// Read messages in a loop and handle the different message types accordingly
-				msg, _, err := c.ReadMessage(conn)
-				if tolerateMessages < 0 {
-					log.Errorf("Tolerated enough messages from: %s", pi.Addr)
-					break Loop
-				}
-				if err != nil {
-					// log.WithField("address", addrInfo).WithField("num_peers", len(neighbours)).WithField("err", err).WithField("otherMessages", otherMessages).Warningf("Giving up with results after tolerating messages: .")
-					log.Errorf("[%s] Failed to read message: %v", pi.Addr, err)
-				}
-
-				switch tmsg := msg.(type) {
-				case *wire.MsgAddr:
-					peers := processAddrs(tmsg.AddrList)
-					neighbours = append(neighbours, peers...)
-					if checkShouldBreak(&firstReceived, len(tmsg.AddrList)) {
-						break Loop
-					}
-				case *wire.MsgAddrV2:
-					legacyAddrs := make([]*wire.NetAddress, len(tmsg.AddrList))
-					for i, addr := range tmsg.AddrList {
-						legacyAddrs[i] = addr.ToLegacy()
-					}
-					peers := processAddrs(legacyAddrs)
-					neighbours = append(neighbours, peers...)
-					if checkShouldBreak(&firstReceived, len(tmsg.AddrList)) {
-						break Loop
-					}
-				case *wire.MsgPing:
-					log.WithField("addr", pi.Addr).WithField("toleratePingMessages", toleratePingMessages).Debugln("Sending Pong message...")
-					toleratePingMessages--
-					err = c.WriteMessage(conn, wire.NewMsgPong(tmsg.Nonce))
-					if err != nil {
-						log.Errorf("Pong msg err: %s", err)
-						break Loop
-					}
-					if toleratePingMessages < 0 {
-						log.Debugln("Ran out of limit to tolerate Ping messages")
-						break Loop
-					}
-				case *wire.MsgVerAck:
-					tolerateVerAckMessages--
-					if tolerateVerAckMessages < 0 {
-						log.Debugln("Ran out of limit to tolerate Ver Ack messages")
-						break Loop
-					}
-				case *wire.MsgInv:
-					tolerateInvMessages--
-					if tolerateInvMessages < 0 {
-						log.Debugln("Ran out of limit to tolerate Inv messages")
-						break Loop
-					}
-				default:
-					if tmsg != nil {
-						log.WithField("msg_type", tmsg.Command()).Debugf("Found other message from %s", pi.Addr)
-					}
-					tolerateMessages--
-				}
-				err = c.WriteMessage(conn, wire.NewMsgGetAddr())
-				if err != nil {
-					log.WithField("error", err).Errorf("Error when requesting peers")
-					break Loop
-				}
-
-			}
-
-			if len(neighbours) > 0 {
-				log.WithField("num_peers", len(neighbours)).WithField("addr", pi.Addr).Infoln("Found peers")
-			} else {
-				log.WithField("addr", pi.Addr).Infoln("Found no peers")
-			}
-
-		} else {
-			result.Error = result.ConnectError
-		}
-
-		result.RoutingTable = &core.RoutingTable[PeerInfo]{
-			PeerID:    pi.ID(),
-			Neighbors: neighbours,
-			ErrorBits: uint16(0),
-			Error:     result.Error,
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
-			result.ConnectErrorStr = db.NetError(result.ConnectError)
-		} else {
-			// Free connection resources
-			if err := conn.Close(); err != nil {
-				log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
-			}
-			conn = nil
-		}
-
-		if result.Error != nil {
-			result.ErrorStr = db.NetError(result.Error)
-		}
-
-		// send the result back and close channel
 		select {
-		case resultCh <- result:
+		case <-timeoutCtx.Done():
+			p.Disconnect()
+		}
+	}()
+
+	p.WaitForDisconnect()
+	cancel()
+	return result
+
+	// wait for the close go routine below to exit
+	closeDone := make(chan struct{})
+	defer func() {
+		select {
+		case <-closeDone:
 		case <-ctx.Done():
 		}
 	}()
 
-	return resultCh
-}
+	// close the connection at the end of crawling this bitcoin node by
+	// canceling the closeCtx on exit of this function which then triggers the
+	// call to Close() below.
+	closeCtx, closeCancel := context.WithCancel(ctx)
+	defer closeCancel()
 
-type BitcoinNodeResult struct {
-	ProtocolVersion int32
-	UserAgent       string
-	pver            int32
-}
+	// start to asynchronously monitor the closeCtx and timeout channel. If
+	// any of the two triggers, we close the connection. We use a timeout
+	// channel here instead of a timeout context because we can reset it after
+	// a successful handshake.
+	// The closeCtx is closed when this function exits. Then at the end, after
+	// we successfully closed the connection, we close the closeDone channel
+	// which blocks the exit of the method in the above `defer` statement.
+	timeout := time.NewTimer(c.cfg.DialTimeout)
+	go func() {
+		defer close(closeDone)
+		select {
+		case <-timeout.C:
+		case <-closeCtx.Done():
+		}
+		if err := conn.Close(); err != nil {
+			log.WithError(err).WithField("remoteID", pi.ID().ShortString()).Warnln("Could not close connection to peer")
+		}
+	}()
 
-func (c *Crawler) Handshake(conn net.Conn) (BitcoinNodeResult, error) {
-	result := BitcoinNodeResult{}
-	if conn == nil {
-		return result, fmt.Errorf("peer is not connected, can't handshake")
-	}
-
-	log.WithField("Address", conn.RemoteAddr()).Debug("Starting handshake.")
-
-	nonce, err := wire.RandomUint64()
+	// We successfully connected to the peer, keep track of the connect-multiaddr
+	maddr, err := manet.FromNetAddr(conn.RemoteAddr())
 	if err != nil {
-		return result, err
+		log.WithError(err).WithField("addr", conn.RemoteAddr()).Warnln("Could not construct connect maddr")
+	} else {
+		result.ConnectMaddr = maddr
 	}
 
-	localAddr := wire.NewNetAddressIPPort(
-		conn.LocalAddr().(*net.TCPAddr).IP,
-		uint16(conn.LocalAddr().(*net.TCPAddr).Port),
-		wire.SFNodeNetwork,
-	)
-	remoteAddr := wire.NewNetAddressIPPort(
-		conn.RemoteAddr().(*net.TCPAddr).IP,
-		uint16(conn.RemoteAddr().(*net.TCPAddr).Port),
-		wire.SFNodeNetwork,
-	)
-
-	msgVersion := wire.NewMsgVersion(localAddr, remoteAddr, nonce, 0)
-
-	msgVersion.ProtocolVersion = int32(wire.ProtocolVersion)
-	msgVersion.Services = wire.SFNodeNetwork
-	msgVersion.Timestamp = time.Now()
-	msgVersion.UserAgent = "nebula/" + c.cfg.Version
-
-	if err := c.WriteMessage(conn, msgVersion); err != nil {
-		return result, err
-	}
-
-	// Read the response version.
-	msg, _, err := c.ReadMessage(conn)
+	// perform the handshake before we can drain the peers from the node
+	versionInfo, err := c.handshake(conn)
 	if err != nil {
-		return result, err
+		// TODO: loop through dial multiaddresses, find the one that matches conn and
+		//       assign the error to it.
+		result.ConnectErrors = []error{err}
+	} else {
+
+		for _, flag := range serviceFlags {
+			and := versionInfo.Services & flag
+			if and != 0 {
+				result.Protocols = append(result.Protocols, fmt.Sprintf("/%d/%s", versionInfo.ProtocolVersion, and.String()))
+			}
+		}
+
+		result.Agent = versionInfo.UserAgent
+		result.LastBlock = versionInfo.LastBlock
+
+		// the handshake was successful, give 10s to drain the peers
+		timeout.Reset(10 * time.Second)
+
+		neighbors, err := c.drainPeer(conn, uint32(versionInfo.ProtocolVersion))
+		if err != nil && len(neighbors) == 0 {
+			result.CrawlError = err
+		}
+
+		result.RoutingTable = &core.RoutingTable[PeerInfo]{
+			PeerID:    pi.ID(),
+			Neighbors: make([]PeerInfo, 0, len(neighbors)),
+			ErrorBits: uint16(0),
+			Error:     err,
+		}
+
+		for _, n := range neighbors {
+			result.RoutingTable.Neighbors = append(result.RoutingTable.Neighbors, n)
+		}
 	}
-	vmsg, ok := msg.(*wire.MsgVersion)
-	if !ok {
-		return result, fmt.Errorf("did not receive version message: %T", vmsg)
-	}
 
-	result.ProtocolVersion = vmsg.ProtocolVersion
-	result.UserAgent = vmsg.UserAgent
-
-	// Negotiate protocol version.
-	if uint32(vmsg.ProtocolVersion) < wire.ProtocolVersion {
-		result.pver = vmsg.ProtocolVersion
-	}
-	log.Debugf("[%s] -> Version: %s", conn.RemoteAddr(), vmsg.UserAgent)
-
-	// Normally we'd check if vmsg.Nonce == p.nonce but the crawler does not
-	// accept external connections so we skip it.
-
-	// Send verack.
-	if err := c.WriteMessage(conn, wire.NewMsgVerAck()); err != nil {
-		return result, err
-	}
-
-	return result, nil
+	return result
 }
 
 // connect establishes a connection to the given peer
-func (c *Crawler) connect(ctx context.Context, addrs []ma.Multiaddr) (net.Conn, error) {
-	var conn net.Conn
-	var err error
-	connectionMaxRetry := 10
-
-	if len(addrs) > 0 {
-		for i := 0; i < connectionMaxRetry; i++ {
-			netAddr, err := manet.ToNetAddr(addrs[0])
-			if err != nil {
-				break
-			}
-			d := net.Dialer{
-				Timeout: c.cfg.DialTimeout,
-			}
-			conn, err = d.DialContext(ctx, netAddr.Network(), netAddr.String())
-			if err == nil {
-				break
-			}
-		}
-	}
-	return conn, err
-}
-
-func (c *Crawler) WriteMessage(conn net.Conn, msg wire.Message) error {
-	return wire.WriteMessage(conn, msg, wire.ProtocolVersion, wire.MainNet)
-}
-
-func (c *Crawler) ReadMessage(conn net.Conn) (wire.Message, []byte, error) {
-	return wire.ReadMessage(conn, wire.ProtocolVersion, wire.MainNet)
-}
-
-func processAddrs(addrs []*wire.NetAddress) []PeerInfo {
-	var peers []PeerInfo
-	for _, addr := range addrs {
-		maStr := fmt.Sprintf("/ip4/%s/tcp/%d", addr.IP.String(), addr.Port)
-		maddr, err := ma.NewMultiaddr(maStr)
+func (c *Crawler) connect(ctx context.Context, maddrs []ma.Multiaddr) (net.Conn, []error) {
+	var errs []error
+	for _, maddr := range maddrs {
+		network, address, err := manet.DialArgs(maddr)
 		if err != nil {
-			continue // Skip invalid addresses
+			log.WithError(err).WithField("maddr", maddr).Warnln("Could not parse maddr")
+			continue
 		}
-		peers = append(peers, PeerInfo{
-			AddrInfo: AddrInfo{
-				id:   maddr.String(),
-				Addr: []ma.Multiaddr{maddr},
-			},
-		})
+
+		dialer := net.Dialer{Timeout: c.cfg.DialTimeout}
+		conn, err := dialer.DialContext(ctx, network, address)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		return conn, nil
 	}
-	return peers
+
+	return nil, errs
 }
 
-// Helper function to handle firstReceived logic
-func checkShouldBreak(firstReceived *int, addrCount int) bool {
-	if *firstReceived == -1 {
-		*firstReceived = addrCount
-		return false
+func (c *Crawler) handshake(conn net.Conn) (*wire.MsgVersion, error) {
+	nonce, err := wire.RandomUint64()
+	if err != nil {
+		return nil, fmt.Errorf("could not generate nonce: %v", err)
 	}
-	return *firstReceived > addrCount || *firstReceived == 0
+
+	localTCPAddr := conn.LocalAddr().(*net.TCPAddr)
+	remoteTCPAddr := conn.RemoteAddr().(*net.TCPAddr)
+
+	localAddr := wire.NewNetAddressIPPort(
+		localTCPAddr.IP,
+		uint16(localTCPAddr.Port),
+		wire.SFNodeNetwork,
+	)
+	remoteAddr := wire.NewNetAddressIPPort(
+		remoteTCPAddr.IP,
+		uint16(remoteTCPAddr.Port),
+		wire.SFNodeNetwork,
+	)
+
+	sendVerMsg := wire.NewMsgVersion(localAddr, remoteAddr, nonce, 0)
+	sendVerMsg.ProtocolVersion = int32(wire.ProtocolVersion)
+	sendVerMsg.Services = wire.SFNodeNetwork
+	sendVerMsg.Timestamp = time.Now()
+	sendVerMsg.UserAgent = "nebula/" + c.cfg.Version
+	sendVerMsg.DisableRelayTx = true
+
+	if err := c.WriteMessage(conn, wire.ProtocolVersion, sendVerMsg); err != nil {
+		return nil, fmt.Errorf("could not write version message: %w", err)
+	}
+
+	// Read the response version.
+	msg, _, err := c.ReadMessage(conn, wire.ProtocolVersion)
+	if err != nil {
+		return nil, fmt.Errorf("could not read version message: %w", err)
+	}
+
+	recVerMsg, ok := msg.(*wire.MsgVersion)
+	if !ok {
+		return nil, fmt.Errorf("did not receive version message: %T", recVerMsg)
+	}
+
+	// Send version acknowledgement
+	if err := c.WriteMessage(conn, uint32(recVerMsg.ProtocolVersion), wire.NewMsgVerAck()); err != nil {
+		return recVerMsg, nil // don't consider this as an error because we got what we want
+	}
+
+	return recVerMsg, nil
+}
+
+func (c *Crawler) drainPeer(conn net.Conn, protocolVersion uint32) (map[string]PeerInfo, error) {
+	if err := c.WriteMessage(conn, protocolVersion, wire.NewMsgGetAddr()); err != nil {
+		return nil, fmt.Errorf("send getaddr: %w", err)
+	}
+
+	neighbors := map[string]PeerInfo{}
+	for {
+		msg, _, err := c.ReadMessage(conn, protocolVersion)
+		if err != nil {
+			return neighbors, fmt.Errorf("read message: %w", err)
+		}
+
+		switch tmsg := msg.(type) {
+		case *wire.MsgAddr:
+			foundNewAddr := false
+			for _, addr := range tmsg.AddrList {
+				fmt.Println(conn.RemoteAddr(), addr.IP, addr.Port)
+
+				netAddr, ok := netip.AddrFromSlice(addr.IP)
+				if !ok {
+					continue
+				}
+
+				addrPort := netip.AddrPortFrom(netAddr, addr.Port)
+
+				id := addrPort.String()
+				if _, ok := neighbors[id]; ok {
+					continue
+				}
+
+				foundNewAddr = true
+
+				ipMaddr, err := manet.FromIP(addr.IP)
+				if err != nil {
+					log.WithError(err).WithField("ip", addr.IP).Warnln("Could not construct maddr")
+					continue
+				}
+
+				trptComp, err := ma.NewComponent("tcp", strconv.Itoa(int(addr.Port)))
+				if err != nil {
+					log.WithError(err).WithField("port", addr.Port).Warnln("Could not construct transport component")
+					continue
+				}
+
+				neighbors[id] = PeerInfo{
+					id:        id,
+					maddrs:    []ma.Multiaddr{ipMaddr.Encapsulate(trptComp)},
+					timestamp: addr.Timestamp,
+					services:  addr.Services,
+				}
+			}
+
+			if !foundNewAddr {
+				return neighbors, nil
+			}
+
+			if err = c.WriteMessage(conn, protocolVersion, wire.NewMsgGetAddr()); err != nil {
+				return neighbors, fmt.Errorf("send getaddr: %w", err)
+			}
+		case *wire.MsgAddrV2:
+
+			foundNewAddr := false
+			for _, addr := range tmsg.AddrList {
+				id := addr.Addr.String()
+				if _, ok := neighbors[id]; ok {
+					continue
+				}
+
+				maddr, err := manet.FromNetAddr(addr.Addr)
+				if err != nil {
+					log.WithError(err).WithField("addr", addr.Addr).Warnln("Could not construct maddr")
+					continue
+				}
+
+				trptComp, err := ma.NewComponent(addr.Addr.Network(), strconv.Itoa(int(addr.Port)))
+				if err != nil {
+					log.WithError(err).WithField("net", addr.Addr.Network()).WithField("port", addr.Port).Warnln("Could not construct transport component")
+					continue
+				}
+
+				foundNewAddr = true
+				neighbors[id] = PeerInfo{
+					id:        id,
+					maddrs:    []ma.Multiaddr{maddr.Encapsulate(trptComp)},
+					timestamp: addr.Timestamp,
+					services:  addr.Services,
+				}
+
+			}
+
+			if !foundNewAddr {
+				return neighbors, nil
+			}
+
+			if err = c.WriteMessage(conn, protocolVersion, wire.NewMsgGetAddr()); err != nil {
+				return neighbors, fmt.Errorf("send getaddr: %w", err)
+			}
+		case *wire.MsgPing:
+			err = c.WriteMessage(conn, protocolVersion, wire.NewMsgPong(tmsg.Nonce))
+			if err != nil {
+				return neighbors, fmt.Errorf("send pong: %w", err)
+			}
+		case *wire.MsgVerAck:
+			// nothing
+		case *wire.MsgInv:
+			// nothing
+		default:
+			log.WithField("type", fmt.Sprintf("%T", msg)).Warnln("Unknown message type")
+			// nothing to do
+		}
+	}
+}
+
+func (c *Crawler) WriteMessage(conn net.Conn, protocolVersion uint32, msg wire.Message) error {
+	return wire.WriteMessage(conn, msg, protocolVersion, c.cfg.BitcoinNetwork)
+}
+
+func (c *Crawler) ReadMessage(conn net.Conn, protocolVersion uint32) (wire.Message, []byte, error) {
+	return wire.ReadMessage(conn, protocolVersion, c.cfg.BitcoinNetwork)
 }
