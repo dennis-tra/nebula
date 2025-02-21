@@ -62,7 +62,7 @@ CREATE TABLE visits
 
     -- an object of arbitrary key value pairs with network-specific information.
     peer_properties  JSON()
-) ENGINE MergeTree()
+) ENGINE ReplicatedMergeTree()
     PRIMARY KEY (visit_started_at)
 TTL toDateTime(visit_started_at) + INTERVAL 180 DAY;
 
