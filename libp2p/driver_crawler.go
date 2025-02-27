@@ -1,9 +1,14 @@
 package libp2p
 
 import (
+	"encoding/binary"
 	"fmt"
 	"runtime"
 	"time"
+
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
+
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 
 	"github.com/libp2p/go-libp2p"
 	pb "github.com/libp2p/go-libp2p-kad-dht/pb"
@@ -20,7 +25,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -60,6 +64,11 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 	}
 }
 
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := kbucket.ConvertPeerID(p.AddrInfo.ID)
+	return binary.BigEndian.Uint64(kadID[:8])
+}
+
 func (p PeerInfo) DeduplicationKey() string {
 	return p.AddrInfo.ID.String()
 }
@@ -69,7 +78,6 @@ type CrawlDriverConfig struct {
 	Network        config.Network
 	Protocols      []string
 	DialTimeout    time.Duration
-	TrackNeighbors bool
 	CheckExposed   bool
 	BootstrapPeers []peer.AddrInfo
 	AddrTrackType  config.AddrType
@@ -81,7 +89,6 @@ type CrawlDriverConfig struct {
 
 func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 	crawlerCfg := DefaultCrawlerConfig()
-	crawlerCfg.TrackNeighbors = cfg.TrackNeighbors
 	crawlerCfg.DialTimeout = cfg.DialTimeout
 	crawlerCfg.CheckExposed = cfg.CheckExposed
 	crawlerCfg.AddrDialType = cfg.AddrDialType
@@ -99,7 +106,6 @@ type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	hosts        []Host
 	dbc          db.Client
-	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	crawlerCount int
 	writerCount  int
@@ -107,7 +113,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	// The Avail light clients verify the agent version:
 	// https://github.com/availproject/avail-light/blob/0ddc5d50d6f3d7217c448d6d008846c6b8c4fec3/src/network/p2p/event_loop.rs#L296
 	// Spoof it
@@ -136,7 +142,6 @@ func NewCrawlDriver(dbc db.Client, dbCrawl *models.Crawl, cfg *CrawlDriverConfig
 		cfg:          cfg,
 		hosts:        hosts,
 		dbc:          dbc,
-		dbCrawl:      dbCrawl,
 		tasksChan:    tasksChan,
 		crawlerCount: 0,
 		writerCount:  0,
@@ -171,7 +176,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
@@ -195,8 +200,9 @@ func newLibp2pHost(userAgent string) (Host, error) {
 		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
-		libp2p.EnableRelay(), // enable the relay transport
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
-
 	return h.(Host), err
 }

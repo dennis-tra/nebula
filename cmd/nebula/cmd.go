@@ -18,11 +18,12 @@ import (
 )
 
 const (
-	flagCategoryDatabase  = "Database Configuration:"
-	flagCategoryDebugging = "Debugging Configuration:"
-	flagCategoryCache     = "Cache Configuration:"
-	flagCategorySystem    = "System Configuration:"
-	flagCategoryNetwork   = "Network Specific Configuration:"
+	flagCategoryDatabase   = "Database Configuration:"
+	flagCategoryClickhouse = "ClickHouse Configuration:"
+	flagCategoryDebugging  = "Debugging Configuration:"
+	flagCategoryCache      = "Cache Configuration:"
+	flagCategorySystem     = "System Configuration:"
+	flagCategoryNetwork    = "Network Specific Configuration:"
 )
 
 var (
@@ -44,17 +45,24 @@ var rootConfig = &config.Root{
 	TracesHost:      "", // disabled
 	TracesPort:      0,  // disabled
 	Database: &config.Database{
-		DryRun:                 false,
-		JSONOut:                "",
-		DatabaseHost:           "localhost",
-		DatabasePort:           5432,
-		DatabaseName:           "nebula",
-		DatabasePassword:       "password",
-		DatabaseUser:           "nebula",
-		DatabaseSSLMode:        "disable",
-		AgentVersionsCacheSize: 200,
-		ProtocolsCacheSize:     100,
-		ProtocolsSetCacheSize:  200,
+		DryRun:                           false,
+		JSONOut:                          "",
+		DatabaseEngine:                   "postgres",
+		DatabaseHost:                     "localhost",
+		DatabasePort:                     0,
+		DatabaseName:                     "nebula_local",
+		DatabasePassword:                 "password_local",
+		DatabaseUser:                     "nebula_local",
+		DatabaseSSL:                      "",
+		ApplyMigrations:                  true,
+		ClickHouseMigrationsTableEngine:  "TinyLog",
+		ClickHouseClusterName:            "",
+		ClickHouseBatchInterval:          2 * time.Second,
+		ClickHouseBatchSize:              10_000,
+		ClickHouseReplicatedTableEngines: false,
+		AgentVersionsCacheSize:           200,
+		ProtocolsCacheSize:               100,
+		ProtocolsSetCacheSize:            200,
 	},
 	UDPBufferSize: 1024 * 1024,
 	RawVersion:    version,
@@ -172,6 +180,22 @@ func main() {
 				Destination: &rootConfig.Database.JSONOut,
 				Category:    flagCategoryDatabase,
 			},
+			&cli.BoolFlag{
+				Name:        "db-apply-migrations",
+				Usage:       "Whether to apply the database migrations on startup",
+				EnvVars:     []string{"NEBULA_DATABASE_APPLY_MIGRATIONS"},
+				Value:       rootConfig.Database.ApplyMigrations,
+				Destination: &rootConfig.Database.ApplyMigrations,
+				Category:    flagCategoryDatabase,
+			},
+			&cli.StringFlag{
+				Name:        "db-engine",
+				Usage:       "Which DB Engine to use (postgres, clickhouse)",
+				EnvVars:     []string{"NEBULA_DATABASE_ENGINE"},
+				Value:       rootConfig.Database.DatabaseEngine,
+				Destination: &rootConfig.Database.DatabaseEngine,
+				Category:    flagCategoryDatabase,
+			},
 			&cli.StringFlag{
 				Name:        "db-host",
 				Usage:       "On which host address can nebula reach the database",
@@ -186,6 +210,7 @@ func main() {
 				EnvVars:     []string{"NEBULA_DATABASE_PORT"},
 				Value:       rootConfig.Database.DatabasePort,
 				Destination: &rootConfig.Database.DatabasePort,
+				DefaultText: "postgres: 5432, clickhouse: 9000",
 				Category:    flagCategoryDatabase,
 			},
 			&cli.StringFlag{
@@ -213,11 +238,13 @@ func main() {
 				Category:    flagCategoryDatabase,
 			},
 			&cli.StringFlag{
-				Name:        "db-sslmode",
-				Usage:       "The sslmode to use when connecting the the database",
-				EnvVars:     []string{"NEBULA_DATABASE_SSL_MODE"},
-				Value:       rootConfig.Database.DatabaseSSLMode,
-				Destination: &rootConfig.Database.DatabaseSSLMode,
+				Name:        "db-ssl",
+				Aliases:     []string{"db-sslmode" /* legacy */},
+				Usage:       "The ssl configuration for the database engine. (postgres: disable/require/verify-ca/verify-full), clickhouse: yes/no)",
+				EnvVars:     []string{"NEBULA_DATABASE_SSL", "NEBULA_DATABASE_SSL_MODE" /* legacy */},
+				Value:       rootConfig.Database.DatabaseSSL,
+				DefaultText: "postgres: disable, clickhouse: no",
+				Destination: &rootConfig.Database.DatabaseSSL,
 				Category:    flagCategoryDatabase,
 			},
 			&cli.IntFlag{
@@ -251,6 +278,46 @@ func main() {
 				Value:       rootConfig.Database.ProtocolsSetCacheSize,
 				Destination: &rootConfig.Database.ProtocolsSetCacheSize,
 				Category:    flagCategoryCache,
+			},
+			&cli.StringFlag{
+				Name:        "clickhouse-cluster-name",
+				Usage:       "Name of the cluster for creating the migrations table cluster wide",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_CLUSTER_NAME"},
+				Value:       rootConfig.Database.ClickHouseClusterName,
+				Destination: &rootConfig.Database.ClickHouseClusterName,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.StringFlag{
+				Name:        "clickhouse-migrations-table-engine",
+				Usage:       "Engine to use for the migrations table",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_MIGRATIONS_TABLE_ENGINE"},
+				Value:       rootConfig.Database.ClickHouseMigrationsTableEngine,
+				Destination: &rootConfig.Database.ClickHouseMigrationsTableEngine,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.IntFlag{
+				Name:        "clickhouse-batch-size",
+				Usage:       "The maximum number of records to hold in memory before flushing the data to clickhouse",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_BATCH_SIZE"},
+				Value:       rootConfig.Database.ClickHouseBatchSize,
+				Destination: &rootConfig.Database.ClickHouseBatchSize,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.DurationFlag{
+				Name:        "clickhouse-batch-timeout",
+				Usage:       "The maximum time to hold records in memory before flushing the data to clickhouse",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_BATCH_TIMEOUT"},
+				Value:       rootConfig.Database.ClickHouseBatchInterval,
+				Destination: &rootConfig.Database.ClickHouseBatchInterval,
+				Category:    flagCategoryClickhouse,
+			},
+			&cli.BoolFlag{
+				Name:        "clickhouse-replicated-table-engines",
+				Usage:       "Whether to use replicated merge trees table engines",
+				EnvVars:     []string{"NEBULA_CLICKHOUSE_REPLICATED_TABLE_ENGINES"},
+				Value:       rootConfig.Database.ClickHouseReplicatedTableEngines,
+				Destination: &rootConfig.Database.ClickHouseReplicatedTableEngines,
+				Category:    flagCategoryClickhouse,
 			},
 		},
 		EnableBashCompletion: true,

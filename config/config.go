@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/ethereum/go-ethereum/p2p/discover/v5wire"
-
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -21,6 +21,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/dennis-tra/nebula-crawler/db"
 )
 
 type Network string
@@ -50,6 +52,7 @@ const (
 	NetworkDria           Network = "DRIA"
 	NetworkWakuStatus     Network = "WAKU_STATUS"
 	NetworkWakuTWN        Network = "WAKU_TWN"
+	NetworkGnosis         Network = "GNOSIS"
 )
 
 func Networks() []Network {
@@ -78,6 +81,7 @@ func Networks() []Network {
 		NetworkDria,
 		NetworkWakuStatus,
 		NetworkWakuTWN,
+		NetworkGnosis,
 	}
 }
 
@@ -205,8 +209,14 @@ type Database struct {
 	// Whether to skip database interactions
 	DryRun bool
 
+	// The network identifier that we are collecting data for
+	NetworkID string
+
 	// File path to the JSON output directory
 	JSONOut string
+
+	// Determines the database engine to which the data should be written
+	DatabaseEngine string
 
 	// Determines the host address of the database.
 	DatabaseHost string
@@ -223,8 +233,28 @@ type Database struct {
 	// Determines the username with which we access the database.
 	DatabaseUser string
 
-	// Postgres SSL mode (should be one supported in https://www.postgresql.org/docs/current/libpq-ssl.html)
-	DatabaseSSLMode string
+	// The database SSL configuration. For Postgres SSL mode should be
+	// one of the supported values here: https://www.postgresql.org/docs/current/libpq-ssl.html)
+	// For clickhouse only a yes or no value is supported
+	DatabaseSSL string
+
+	// Whether to apply the database migrations on startup
+	ApplyMigrations bool
+
+	// Name of the cluster for creating the migrations table cluster wide
+	ClickHouseClusterName string
+
+	// Engine to use for the migrations table, defaults to TinyLog
+	ClickHouseMigrationsTableEngine string
+
+	// The maximum number of records to hold in memory before flushing the data to clickhouse
+	ClickHouseBatchSize int
+
+	// The maximum time to hold records in memory before flushing the data to clickhouse
+	ClickHouseBatchInterval time.Duration
+
+	// Whether to use the replicated merge tree engine variants for migrations
+	ClickHouseReplicatedTableEngines bool
 
 	// The cache size to hold agent versions in memory to skip database queries.
 	AgentVersionsCacheSize int
@@ -238,6 +268,9 @@ type Database struct {
 	// Set the maximum idle connections for the database handler.
 	MaxIdleConns int
 
+	// Whether to store the routing table of the entire network
+	PersistNeighbors bool
+
 	// MeterProvider is the meter provider to use when initialising metric instruments.
 	MeterProvider metric.MeterProvider
 
@@ -245,17 +278,100 @@ type Database struct {
 	TracerProvider trace.TracerProvider
 }
 
-// DatabaseSourceName returns the data source name string to be put into the sql.Open method.
-func (c *Database) DatabaseSourceName() string {
-	return fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
-		c.DatabaseHost,
-		c.DatabasePort,
-		c.DatabaseName,
-		c.DatabaseUser,
-		c.DatabasePassword,
-		c.DatabaseSSLMode,
+func (cfg *Database) PostgresClientConfig() *db.PostgresClientConfig {
+	if cfg.DatabasePort == 0 {
+		cfg.DatabasePort = 5432
+	}
+
+	if cfg.DatabaseSSL == "" {
+		cfg.DatabaseSSL = "disable"
+	}
+
+	return &db.PostgresClientConfig{
+		DatabaseHost:           cfg.DatabaseHost,
+		DatabasePort:           cfg.DatabasePort,
+		DatabaseName:           cfg.DatabaseName,
+		DatabasePassword:       cfg.DatabasePassword,
+		DatabaseUser:           cfg.DatabaseUser,
+		DatabaseSSL:            cfg.DatabaseSSL,
+		ApplyMigrations:        cfg.ApplyMigrations,
+		AgentVersionsCacheSize: cfg.AgentVersionsCacheSize,
+		ProtocolsCacheSize:     cfg.ProtocolsCacheSize,
+		ProtocolsSetCacheSize:  cfg.ProtocolsSetCacheSize,
+		MaxIdleConns:           cfg.MaxIdleConns,
+		PersistNeighbors:       cfg.PersistNeighbors,
+		MeterProvider:          cfg.MeterProvider,
+		TracerProvider:         cfg.TracerProvider,
+	}
+}
+
+func (cfg *Database) ClickHouseClientConfig() *db.ClickHouseClientConfig {
+	if cfg.DatabasePort == 0 {
+		cfg.DatabasePort = 9000
+	}
+
+	databaseSSL := false
+	switch strings.ToLower(cfg.DatabaseSSL) {
+	case "yes", "true", "1":
+		databaseSSL = true
+	}
+
+	return &db.ClickHouseClientConfig{
+		DatabaseHost:           cfg.DatabaseHost,
+		DatabasePort:           cfg.DatabasePort,
+		DatabaseName:           cfg.DatabaseName,
+		DatabaseUser:           cfg.DatabaseUser,
+		DatabasePassword:       cfg.DatabasePassword,
+		DatabaseSSL:            databaseSSL,
+		ClusterName:            cfg.ClickHouseClusterName,
+		MigrationsTableEngine:  cfg.ClickHouseMigrationsTableEngine,
+		ReplicatedTableEngines: cfg.ClickHouseReplicatedTableEngines,
+		ApplyMigrations:        cfg.ApplyMigrations,
+		BatchSize:              cfg.ClickHouseBatchSize,
+		BatchTimeout:           cfg.ClickHouseBatchInterval,
+		NetworkID:              cfg.NetworkID,
+		PersistNeighbors:       cfg.PersistNeighbors,
+		MeterProvider:          cfg.MeterProvider,
+		TracerProvider:         cfg.TracerProvider,
+	}
+}
+
+// NewClient will initialize the right database client based on the given
+// configuration. This can either be a Postgres, ClickHouse, JSON, or noop
+// client. The noop client is a dummy implementation of the [Client] interface
+// that does nothing when the methods are called. That's the one used if the
+// user specifies `--dry-run` on the command line. The JSON client is used when
+// the user specifies a JSON output directory. Then JSON files with crawl
+// information are written to that directory. In any other case, the Postgres
+// or ClickHouse client is used based on the configured database engine.
+func (cfg *Database) NewClient(ctx context.Context) (db.Client, error) {
+	var (
+		dbc db.Client
+		err error
 	)
+
+	// dry run has precedence. Then, if a JSON output directory is given, use
+	// the JSON client. In any other case, use the one configured via the engine
+	// command line flag client.
+	if cfg.DryRun {
+		dbc = db.NewNoopClient()
+	} else if cfg.JSONOut != "" {
+		dbc, err = db.NewJSONClient(cfg.JSONOut)
+	} else {
+		switch strings.ToLower(cfg.DatabaseEngine) {
+		case "postgres", "pg":
+			dbc, err = db.NewPostgresClient(ctx, cfg.PostgresClientConfig())
+		case "clickhouse", "ch":
+			dbc, err = db.NewClickHouseClient(ctx, cfg.ClickHouseClientConfig())
+		default:
+			return nil, fmt.Errorf("unknown database engine: %s", cfg.DatabaseEngine)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("init db client: %w", err)
+	}
+
+	return dbc, nil
 }
 
 // Crawl contains general user configuration.
@@ -419,7 +535,6 @@ func (c *Crawl) BootstrapBitcoinEntries() ([]ma.Multiaddr, error) {
 }
 
 func toMultiAddr(addr string) (ma.Multiaddr, error) {
-
 	ip_type := "4"
 	if addr[0] == '[' {
 		ip_type = "6"
@@ -536,6 +651,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/celestia/blockspacerace-0/kad/1.0.0")
 	case NetworkEthCons:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumConsensus...)
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
+	case NetworkGnosis:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersGnosis...)
 		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
 	case NetworkEthExec:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersEthereumExecution...)

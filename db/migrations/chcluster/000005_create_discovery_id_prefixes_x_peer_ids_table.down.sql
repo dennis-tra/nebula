@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS discovery_id_prefixes_x_peer_ids;

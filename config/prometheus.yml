@@ -1,0 +1,12 @@
+# my global config
+global:
+  scrape_interval: 2s
+
+scrape_configs:
+  - job_name: "nebula_local_crawl"
+    static_configs:
+      - targets: ["host.docker.internal:6666"]
+
+  - job_name: "nebula_local_monitor"
+    static_configs:
+      - targets: ["host.docker.internal:6667"]

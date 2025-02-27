@@ -11,7 +11,7 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 // Dialer encapsulates a libp2p host that dials peers.
@@ -71,16 +71,16 @@ retryLoop:
 			errMsg := fmt.Sprintf("Dial failed, sleeping %s", sleepDur)
 
 			switch dr.DialError {
-			case models.NetErrorPeerIDMismatch:
+			case pgmodels.NetErrorPeerIDMismatch:
 				logEntry.WithError(err).Debugln("Dial failed due to peer ID mismatch - stopping retry")
 				break retryLoop
-			case models.NetErrorNoIPAddress, models.NetErrorNoGoodAddresses:
+			case pgmodels.NetErrorNoIPAddress, pgmodels.NetErrorNoGoodAddresses:
 				logEntry.WithError(err).Debugln("Dial failed due to no public ip - stopping retry")
 				break retryLoop
-			case models.NetErrorMaxDialAttemptsExceeded:
+			case pgmodels.NetErrorMaxDialAttemptsExceeded:
 				sleepDur = 70 * time.Second
 				errMsg = fmt.Sprintf("Max dial attempts exceeded, sleeping longer %s", sleepDur)
-			case models.NetErrorConnectionRefused:
+			case pgmodels.NetErrorConnectionRefused:
 				// The monitoring task receives a lot of "connection refused" messages. I guess there is
 				// a limit somewhere of how often a peer can connect. I could imagine that this rate limiting
 				// is set to one minute ¯\_(ツ)_/¯

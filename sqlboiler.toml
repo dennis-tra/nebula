@@ -1,11 +1,12 @@
-output   = "db/models"
+output   = "db/models/pg"
 wipe     = true
+pkgname  = "pg"
 
 [psql]
 dbname = "nebula_test"
 host = "localhost"
-port = 5432
+port = 5433
 user = "nebula_test"
-pass = "password"
+pass = "password_test"
 sslmode = "disable"
 blacklist = ["schema_migrations"]
