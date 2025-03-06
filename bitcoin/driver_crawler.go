@@ -19,17 +19,8 @@ import (
 )
 
 type PeerInfo struct {
-	id     string
-	maddrs []ma.Multiaddr
-
-	// Last time the address was seen. This is, unfortunately, encoded as a
-	// uint32 on the wire and therefore is limited to 2106. This field is
-	// not present in the bitcoin version message (MsgVersion) nor was it
-	// added until protocol version >= NetAddressTimeVersion.
-	timestamp time.Time
-
-	// Services is a bitfield which identifies the services supported by
-	// the address. This is encoded in CompactSize.
+	id       string
+	maddrs   []ma.Multiaddr
 	services wire.ServiceFlag
 }
 
@@ -48,16 +39,10 @@ func (p PeerInfo) Merge(other PeerInfo) PeerInfo {
 		panic("merge peer ID mismatch")
 	}
 
-	timestamp := p.timestamp
-	if other.timestamp.After(timestamp) {
-		timestamp = other.timestamp
-	}
-
 	return PeerInfo{
-		id:        p.id,
-		maddrs:    utils.MergeMaddrs(p.maddrs, other.maddrs),
-		timestamp: timestamp,
-		services:  p.services & other.services,
+		id:       p.id,
+		maddrs:   utils.MergeMaddrs(p.maddrs, other.maddrs),
+		services: p.services & other.services,
 	}
 }
 
@@ -125,10 +110,9 @@ func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error)
 		}
 
 		tasksChan <- PeerInfo{
-			id:        addr,
-			maddrs:    []ma.Multiaddr{maddr},
-			timestamp: time.Time{},
-			services:  0,
+			id:       addr,
+			maddrs:   []ma.Multiaddr{maddr},
+			services: 0,
 		}
 	}
 	close(tasksChan)
