@@ -357,6 +357,14 @@ var (
 	// https://github.com/btcsuite/btcd/blob/bb52d7d78d9cf335e0611b9ae06ad8c77e75de0b/chaincfg/params.go#L284
 	BootstrapPeersBitcoinMainnet []string
 
+	// BootstrapPeersBitcoinCashMainnet extracted from:
+	BootstrapPeersBitcoinCashMainnet = []string{
+		"/dns/seed.bchd.cash/tcp/8333",
+		"/dns/btccash-seeder.bitcoinunlimited.info/tcp/8333",
+		"/dns/seed.bch.loping.net/tcp/8333",
+		"/dns/dnsseed.electroncash.de/tcp/8333",
+	}
+
 	// BootstrapPeersLitecoinMainnet extracted from:
 	// https://github.com/ltcsuite/ltcd/blob/ec0bfad6e7104120d872c89fb1fa7aa7033a4ae2/chaincfg/params.go#L282
 	BootstrapPeersLitecoinMainnet []string

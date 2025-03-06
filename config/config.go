@@ -47,6 +47,7 @@ const (
 	NetworkAvailTuringFN  Network = "AVAIL_TURING_FN"
 	NetworkPactus         Network = "PACTUS"
 	NetworkBitcoin        Network = "BITCOIN"
+	NetworkBitcoinCash    Network = "BITCOIN_CASH"
 	NetworkLitecoin       Network = "LITECOIN"
 	NetworkDoge           Network = "DOGE"
 	NetworkDria           Network = "DRIA"
@@ -78,6 +79,7 @@ func Networks() []Network {
 		NetworkAvailTuringFN,
 		NetworkPactus,
 		NetworkBitcoin,
+		NetworkBitcoinCash,
 		NetworkLitecoin,
 		NetworkDoge,
 		NetworkDria,
@@ -555,6 +557,9 @@ func BitcoinNetwork(network string) wire.BitcoinNet {
 	case NetworkDoge:
 		// https://github.com/dogecoin/libdohj/blob/3dd6d7548843fe1891366e0325a05587eb21d1aa/core/src/main/java/org/libdohj/params/DogecoinMainNetParams.java#L40
 		return wire.BitcoinNet(0xc0c0c0c0)
+	case NetworkBitcoinCash:
+		// https://github.com/gcash/bchd/blob/d0aa921b1b3eea1614597f272e73cc3efffdd3e6/wire/protocol.go#L180
+		return wire.BitcoinNet(0xe8f3e1e3)
 	default:
 		panic(fmt.Sprintf("unknown network: %s", network))
 	}
@@ -637,6 +642,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkBitcoin:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBitcoinMainnet...)
 		protocols = cli.NewStringSlice("bitcoin")
+	case NetworkBitcoinCash:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersBitcoinCashMainnet...)
+		protocols = cli.NewStringSlice("bitcoin_cash")
 	case NetworkLitecoin:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersLitecoinMainnet...)
 		protocols = cli.NewStringSlice("litecoin")

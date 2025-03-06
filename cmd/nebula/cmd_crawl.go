@@ -337,7 +337,7 @@ func CrawlAction(c *cli.Context) error {
 		// finally, start the crawl
 		summary, runErr = eng.Run(ctx)
 
-	case string(config.NetworkBitcoin), string(config.NetworkLitecoin), string(config.NetworkDoge):
+	case string(config.NetworkBitcoin), string(config.NetworkLitecoin), string(config.NetworkDoge), string(config.NetworkBitcoinCash):
 		bpStrs := cfg.BootstrapPeers.Value()
 		bpMaddrs, err := utils.AddrsToMaddrs(bpStrs)
 		if err != nil {
