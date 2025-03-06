@@ -361,6 +361,14 @@ var (
 	// https://github.com/ltcsuite/ltcd/blob/ec0bfad6e7104120d872c89fb1fa7aa7033a4ae2/chaincfg/params.go#L282
 	BootstrapPeersLitecoinMainnet []string
 
+	// BootstrapPeersDogeMainnet extracted from:
+	// https://github.com/dogecoin/libdohj/blob/3dd6d7548843fe1891366e0325a05587eb21d1aa/core/src/main/java/org/libdohj/params/DogecoinMainNetParams.java#L88C34-L91C42
+	BootstrapPeersDogeMainnet = []string{
+		"/dns/seed.multidoge.org/tcp/22556",
+		"/dns/seed2.multidoge.org/tcp/22556",
+		"/dns/seed.doger.dogecoin.com/tcp/22556",
+	}
+
 	// BootstrapPeersPortalMainnet extracted from:
 	//	https://github.com/status-im/portal-mainnet/blob/master/config/bootstrap_nodes.txt
 	//  https://github.com/ethereum/portal-network-specs/blob/master/bootnodes.md
