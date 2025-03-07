@@ -51,6 +51,12 @@ func (p PeerInfo) DeduplicationKey() string {
 }
 
 func (p PeerInfo) DiscoveryPrefix() uint64 {
+	if len(p.id) < 8 {
+		buf := make([]byte, 8)
+		copy(buf[8-len(p.id):], p.id)
+		return binary.BigEndian.Uint64(buf)
+	}
+
 	return binary.BigEndian.Uint64([]byte(p.id)[:8])
 }
 
