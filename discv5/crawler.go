@@ -86,10 +86,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 
 	properties := c.PeerProperties(task.Node)
 
-	if libp2pResult.Transport != "" {
-		properties["transport"] = libp2pResult.Transport
-	}
-
 	if libp2pResult.ConnClosedImmediately {
 		properties["direct_close"] = true
 	}
@@ -195,7 +191,7 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 	}
 
 	properties["seq"] = node.Record().Seq()
-	properties["signature"] = node.Record().Signature()
+	// properties["signature"] = node.Record().Signature()
 
 	if node.UDP() != 0 {
 		properties["udp"] = node.UDP()
@@ -304,9 +300,8 @@ type Libp2pResult struct {
 	Agent                 string
 	Protocols             []string
 	ListenAddrs           []ma.Multiaddr
-	Transport             string // the transport of a successful connection
-	ConnClosedImmediately bool   // whether conn was no error but still unconnected
-	GenTCPAddr            bool   // whether a TCP address was generated
+	ConnClosedImmediately bool // whether conn was no error but still unconnected
+	GenTCPAddr            bool // whether a TCP address was generated
 	WakuClusterID         uint32
 	WakuClusterShards     []uint32
 }
@@ -337,9 +332,6 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 			// keep track of the multi address via which connected successfully
 			result.ConnectMaddr = conn.RemoteMultiaddr()
-
-			// keep track of the transport of the open connection
-			result.Transport = conn.ConnState().Transport
 
 			// wait for the Identify exchange to complete (no-op if already done)
 			// the internal timeout is set to 30 s. When crawling we only allow 5s.
