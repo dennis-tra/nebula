@@ -396,11 +396,12 @@ type ClickHouseVisit struct {
 }
 
 type ClickhouseNeighbor struct {
-	CrawlID   uuid.UUID `ch:"crawl_id"`
-	PeerID    uint64    `ch:"peer_discovery_id_prefix"`
-	Neighbor  uint64    `ch:"neighbor_discovery_id_prefix"`
-	ErrorBits uint16    `ch:"error_bits"`
-	prefix    *ClickhouseDiscoveryIDPrefix
+	CrawlID        uuid.UUID `ch:"crawl_id"`
+	CrawlCreatedAt time.Time `ch:"crawl_created_at"`
+	PeerID         uint64    `ch:"peer_discovery_id_prefix"`
+	Neighbor       uint64    `ch:"neighbor_discovery_id_prefix"`
+	ErrorBits      uint16    `ch:"error_bits"`
+	prefix         *ClickhouseDiscoveryIDPrefix
 }
 
 type ClickhouseDiscoveryIDPrefix struct {
@@ -621,10 +622,11 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		visit.neighbors = make([]*ClickhouseNeighbor, len(args.Neighbors))
 		for i, neighbor := range args.Neighbors {
 			visit.neighbors[i] = &ClickhouseNeighbor{
-				CrawlID:   *crawlID,
-				PeerID:    args.DiscoveryPrefix,
-				Neighbor:  args.NeighborPrefixes[i],
-				ErrorBits: args.ErrorBits,
+				CrawlID:        *crawlID,
+				CrawlCreatedAt: c.crawl.CreatedAt, // c.crawl is not nil because crawlID is not nil
+				PeerID:         args.DiscoveryPrefix,
+				Neighbor:       args.NeighborPrefixes[i],
+				ErrorBits:      args.ErrorBits,
 				prefix: &ClickhouseDiscoveryIDPrefix{
 					PeerID: neighbor.String(),
 					Prefix: args.NeighborPrefixes[i],
