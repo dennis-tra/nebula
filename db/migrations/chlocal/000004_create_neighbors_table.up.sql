@@ -23,7 +23,7 @@ CREATE TABLE neighbors
     -- a bit string representing which request for which bucket failed. If the
     -- first bit is set then the request for the 0-th bucket has failed.
     error_bits                   UInt16
-) ENGINE ReplicatedMergeTree()
+) ENGINE MergeTree()
     PRIMARY KEY (
         crawl_id,
         peer_discovery_id_prefix,

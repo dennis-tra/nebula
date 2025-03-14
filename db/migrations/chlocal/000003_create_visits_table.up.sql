@@ -62,7 +62,7 @@ CREATE TABLE visits
 
     -- an object of arbitrary key value pairs with network-specific information.
     peer_properties  JSON()
-) ENGINE ReplicatedMergeTree() PRIMARY KEY (visit_started_at)
+) ENGINE MergeTree() PRIMARY KEY (visit_started_at)
 -- add weekly partitioning. Mode "3" is in accordance with ISO 8601:1988,
 -- considers Monday the first day of the week, and is also used by
 -- ClickHouse's `toISOWeek()` compatibility function.
