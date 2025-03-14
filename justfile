@@ -32,14 +32,12 @@ docker platform="linux/amd64":
 	  --build-arg COMMIT={{COMMIT}} \
 	  --build-arg BUILT_BY={{USER}} \
 	  --build-arg DATE={{DATE}} \
-	  -t dennistra/nebula:latest \
 	  -t dennistra/nebula:{{COMMIT}} \
-	  -t 019120760881.dkr.ecr.us-east-1.amazonaws.com/probelab:nebula-sha{{COMMIT}} \
 	  .
 
 # push a nebula image to docker hub
 docker-push: docker
-	docker push dennistra/nebula:latest dennistra/nebula:${GIT_SHA}
+	docker push dennistra/nebula:{{COMMIT}}
 
 # start a clickhouse server
 start-clickhouse env="local" detached="true":
