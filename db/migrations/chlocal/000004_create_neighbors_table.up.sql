@@ -32,5 +32,5 @@ CREATE TABLE neighbors
     -- add weekly partitioning. Mode "3" is in accordance with ISO 8601:1988,
     -- considers Monday the first day of the week, and is also used by
     -- ClickHouse's `toISOWeek()` compatibility function.
-    PARTITION BY toStartOfWeek(crawl_created_at, 3)
+    PARTITION BY toStartOfMonth(crawl_created_at)
     TTL toDateTime(crawl_created_at) + INTERVAL 1 YEAR;
