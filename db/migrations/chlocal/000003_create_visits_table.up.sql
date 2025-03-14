@@ -1,5 +1,3 @@
--- DO NOT EDIT: This file was generated with: just generate-local-clickhouse-migrations
-
 -- Captures the information when crawling a peer
 CREATE TABLE visits
 (
@@ -64,7 +62,10 @@ CREATE TABLE visits
 
     -- an object of arbitrary key value pairs with network-specific information.
     peer_properties  JSON()
-) ENGINE MergeTree()
-    PRIMARY KEY (visit_started_at)
-TTL toDateTime(visit_started_at) + INTERVAL 180 DAY;
+) ENGINE ReplicatedMergeTree() PRIMARY KEY (visit_started_at)
+-- add weekly partitioning. Mode "3" is in accordance with ISO 8601:1988,
+-- considers Monday the first day of the week, and is also used by
+-- ClickHouse's `toISOWeek()` compatibility function.
+PARTITION BY toStartOfWeek(visit_started_at, 3)
+TTL toDateTime(visit_started_at) + INTERVAL 1 YEAR;
 
