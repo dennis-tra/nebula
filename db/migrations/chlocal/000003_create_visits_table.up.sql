@@ -66,6 +66,6 @@ CREATE TABLE visits
 -- add weekly partitioning. Mode "3" is in accordance with ISO 8601:1988,
 -- considers Monday the first day of the week, and is also used by
 -- ClickHouse's `toISOWeek()` compatibility function.
-PARTITION BY toStartOfWeek(visit_started_at, 3)
+PARTITION BY toStartOfMonth(visit_started_at)
 TTL toDateTime(visit_started_at) + INTERVAL 1 YEAR;
 
