@@ -71,7 +71,7 @@ start-postgres env="local" detached="true":
         -p {{ if env == "local" { "5432" } else { "5433" } }}:5432 \
         -e POSTGRES_DB={{postgres_dbname_prefix}}{{env}} \
         -e POSTGRES_USER={{postgres_user_prefix}}{{env}} \
-        -e POSTGRES_PASSWORD={{postgres_pass_prefix}}{{env}} {{postgres_image}} > /dev/null 2>&1
+        -e POSTGRES_PASSWORD={{postgres_pass_prefix}}{{env}} {{postgres_image}} > /dev/null 2>&1 || true
 
     @echo "Waiting for Postgres to become ready..."
     @while ! docker exec {{postgres_container_prefix}}{{env}} pg_isready > /dev/null 2>&1; do sleep 1; done
