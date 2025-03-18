@@ -16,14 +16,15 @@ networks, but this restriction was lifted.
 Currently, Nebula supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
+- [Bitcoin](https://bitcoin.org/) | [Litecoin](https://litecoin.org/) | [Dogecoin](https://dogecoin.com/) (alpha)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer (discv5)_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery) | [_Execution Layer (discv4)_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
+- [Optimism](https://www.optimism.io/) compatible chains
 - [Portal](https://www.portal.network/) - (_alpha - [wire protocol](https://github.com/ethereum/portal-network-specs/blob/master/portal-wire-protocol.md) not implemented_)
 - [Filecoin](https://filecoin.io)
 - [Polkadot](https://polkadot.network/) - [_Kusama_](https://kusama.network/) | [_Rococo_](https://substrate.io/developers/rococo-network/) | [_Westend_](https://wiki.polkadot.network/docs/maintain-networks#westend-test-network)
 - [Avail](https://www.availproject.org/) - [_Mainnet_](https://docs.availproject.org/docs/networks#mainnet) | [_Turing_](https://docs.availproject.org/docs/networks#turing-testnet) | _<small>Light Client + Full Node versions</small>_
 - [Celestia](https://celestia.org/) - [_Mainnet_](https://blog.celestia.org/celestia-mainnet-is-live/) | [_Mocha_](https://docs.celestia.org/nodes/mocha-testnet) | [_Arabica_](https://github.com/celestiaorg/celestia-node/blob/9c0a5fb0626ada6e6cdb8bcd816d01a3aa5043ad/nodebuilder/p2p/bootstrap.go#L40)
 - [Pactus](https://pactus.org)
-- [Bitcoin](https://bitcoin.org/) (_alpha-monitoring not implemented_)
 - [Dria](https://dria.co/)
 - [Gnosis](https://www.gnosis.io/)
 - ... your network? Get in touch [team@probelab.io](team@probelab.io).
@@ -106,11 +107,11 @@ nebula --dry-run crawl
 ```
 
 > [!NOTE]
-> For backwards compatibility reasons IPFS is the default if no network is provided
+> For backwards compatibility reasons IPFS is the default if no network is specified
 
-The crawler can store its results as JSON documents in a [Postgres](https://www.postgresql.org/) or [Clickhouse](https://clickhouse.com/) database -
+The crawler can store its results as JSON documents, in a [Postgres](https://www.postgresql.org/), or in a [Clickhouse](https://clickhouse.com/) database -
 the `--dry-run` flag prevents it from doing any of it. Nebula will just print a
-summary of the crawl at the end instead. A crawl takes ~5-10 min depending on
+summary of the crawl at the end instead. For the IPFS network, a crawl takes ~5-10 min depending on
 your internet connection. You can also specify the network you want to crawl by
 appending, e.g., `--network FILECOIN` and limit the number of peers to crawl by
 providing the `--limit` flag with the value of, e.g., `1000`. Example:
@@ -163,18 +164,18 @@ jq -r '.NeighborIDs[] as $neighbor | [.PeerID, $neighbor] | @csv' ./results/2025
 If you want to store the information in a proper database, you could run `just start-postgres` to start a local postgres instance via docker in the background and run Nebula like:
 
 ```shell
-nebula --db-user nebula_test --db-name nebula_test crawl --neighbors
+nebula --db-user nebula_local --db-name nebula_local crawl --neighbors
 ```
 
 At this point, you can also start Nebula's monitoring process, which would periodically probe the discovered peers to track their uptime. Run in another terminal:
 
 ```shell
-nebula --db-user nebula_test --db-name nebula_test monitor
+nebula --db-user nebula_local --db-name nebula_local monitor
 ```
 
 When Nebula is configured to store its results in a postgres database, then it also tracks session information of remote peers. A session is one continuous streak of uptime (see below).
 
-However, this is not implemented for all supported networks. The [ProbeLab](https://probelab.network) team is using the monitoring feature for the IPFS, Celestia, Filecoin, and Avail networks. Most notably, the Ethereum discv4/discv5 monitoring implementation still needs some work.
+However, this is not implemented for all supported networks. The [ProbeLab](https://probelab.network) team is using the monitoring feature for the IPFS, Celestia, Filecoin, and Avail networks. Most notably, the Ethereum discv4/discv5 and Bitcoin monitoring implementations still need work.
 
 ---
 
@@ -184,62 +185,16 @@ There are a few more command line flags that are documented when you run`nebula 
 
 ### `crawl`
 
-The `crawl` sub-command starts by connecting to a set of bootstrap nodes and constructing the routing tables (kademlia _k_-buckets)
-of these peers based on their [`PeerIDs`](https://docs.libp2p.io/concepts/peer-id/). Then `nebula` builds
-random `PeerIDs` with common prefix lengths (CPL) that fall each peers buckets, and asks each remote peer if they know any peers that are
-closer (XOR distance) to the ones `nebula` just constructed. This will effectively yield a list of all `PeerIDs` that a peer has
+The `crawl` sub-command starts by connecting to a set of bootstrap nodes and then
+requesting the information of other peers in the network using the network-native
+discovery protocol. For most supported networks these are several Kademlia
+`FIND_NODE` RPCs. For Bitcoin-related networks it's a `getaddr` RPC.
+
+For Kademlia-based networks Nebula constructs the routing tables (kademlia _k_-buckets)
+of the remote peer based on its [`PeerID`](https://docs.libp2p.io/concepts/peer-id/). Then `nebula` builds
+random `PeerIDs` with common prefix lengths (CPL) that fall in each of the peers' buckets, and asks if it knows any peers that are
+closer (XOR distance) to the ones `nebula` just generated. This will effectively yield a list of all `PeerIDs` that a peer has
 in its routing table. The process repeats for all found peers until `nebula` does not find any new `PeerIDs`.
-
-If Nebula is configured to store its results in a database, every peer that was visited is written to it. The visit information includes latency measurements (dial/connect/crawl durations), current set of multi addresses, current agent version and current set of supported protocols. If the peer was dialable `nebula` will
-also create a `session` instance that contains the following information:
-
-```sql
-CREATE TABLE sessions (
-    -- A unique id that identifies this particular session
-    id                      INT GENERATED ALWAYS AS IDENTITY,
-    -- Reference to the remote peer ID. (database internal ID)
-    peer_id                 INT           NOT NULL,
-    -- Timestamp of the first time we were able to visit that peer.
-    first_successful_visit  TIMESTAMPTZ   NOT NULL,
-    -- Timestamp of the last time we were able to visit that peer.
-    last_successful_visit   TIMESTAMPTZ   NOT NULL,
-    -- Timestamp when we should start visiting this peer again.
-    next_visit_due_at       TIMESTAMPTZ,
-    -- When did we notice that this peer is not reachable.
-    first_failed_visit      TIMESTAMPTZ,
-    -- When did we first notice that this peer is not reachable anymore.
-    last_failed_visit       TIMESTAMPTZ,
-    -- When did we last visit this peer. For indexing purposes.
-    last_visited_at         TIMESTAMPTZ   NOT NULL,
-    -- When was this session instance updated the last time
-    updated_at              TIMESTAMPTZ   NOT NULL,
-    -- When was this session instance created
-    created_at              TIMESTAMPTZ   NOT NULL,
-    -- Number of successful visits in this session.
-    successful_visits_count INTEGER       NOT NULL,
-    -- The number of times this session went from pending to open again.
-    recovered_count         INTEGER       NOT NULL,
-    -- The state this session is in (open, pending, closed)
-    -- open: currently considered online
-    -- pending: peer missed a dial and is pending to be closed
-    -- closed: peer is considered to be offline and session is complete
-    state                   session_state NOT NULL,
-    -- Number of failed visits before closing this session.
-    failed_visits_count     SMALLINT      NOT NULL,
-    -- What's the first error before we close this session.
-    finish_reason           net_error,
-    -- The uptime time range for this session measured from first- to last_successful_visit to
-    uptime                  TSTZRANGE     NOT NULL,
-
-    -- The peer ID should always point to an existing peer in the DB
-    CONSTRAINT fk_sessions_peer_id FOREIGN KEY (peer_id) REFERENCES peers (id) ON DELETE CASCADE,
-
-    PRIMARY KEY (id, state, last_visited_at)
-
-) PARTITION BY LIST (state);
-```
-
-At the end of each crawl `nebula` persists general statistics about the crawl like the total duration, dialable peers, encountered errors, agent versions etc...
 
 > [!TIP]
 > You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations.
@@ -251,7 +206,7 @@ NAME:
    nebula crawl - Crawls the entire network starting with a set of bootstrap nodes.
 
 USAGE:
-   nebula crawl [command options] [arguments...]
+   nebula crawl [command options]
 
 OPTIONS:
    --addr-dial-type value                               Which type of addresses should Nebula try to dial (private, public, any) (default: "public") [$NEBULA_CRAWL_ADDR_DIAL_TYPE]
@@ -265,13 +220,16 @@ OPTIONS:
 
    Network Specific Configuration:
 
-   --check-exposed  Whether to check if the Kubo API is exposed. Checking also includes crawling the API. (default: false) [$NEBULA_CRAWL_CHECK_EXPOSED]
+   --check-exposed               IPFS/AMINO: Whether to check if the Kubo API is exposed. Checking also includes crawling the API. (default: false) [$NEBULA_CRAWL_CHECK_EXPOSED]
+   --keep-enr                    ETHEREUM_CONSENSUS: Whether to keep the full ENR. (default: false) [$NEBULA_CRAWL_KEEP_ENR]
+   --udp-response-timeout value  ETHEREUM_EXECUTION: The response timeout for UDP requests in the disv4 DHT (default: 3s) [$NEBULA_CRAWL_UDP_RESPONSE_TIMEOUT]
 
 ```
 
 ### `monitor`
 
-The `monitor` sub-command polls every 10 seconds all sessions from the database (see above) that are due to be dialed
+The `monitor` sub-command is only implemented for libp2p based networks and with the postgres database backend.
+It polls every 10 seconds all sessions from the database (see above) that are due to be dialed
 in the next 10 seconds (based on the `next_visit_due_at` timestamp). It attempts to dial all peers using previously
 saved multi-addresses and updates their `session` instances accordingly if they're dialable or not.
 
@@ -286,16 +244,18 @@ NAME:
    nebula monitor - Monitors the network by periodically dialing previously crawled peers.
 
 USAGE:
-   nebula monitor [command options] [arguments...]
+   nebula monitor [command options]
 
 OPTIONS:
    --workers value  How many concurrent workers should dial peers. (default: 1000) [$NEBULA_MONITOR_WORKER_COUNT]
+   --network value  Which network belong the database sessions to. Relevant for parsing peer IDs and muti addresses. (default: "IPFS") [$NEBULA_MONITOR_NETWORK]
    --help, -h       show help
+
 ```
 
 ### `resolve`
 
-The resolve sub-command goes through all multi addresses that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to, e.g., the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
+The resolve sub-command is only available when using the postgres datbaase backend. It goes through all multi addresses that are present in the database and resolves them to their respective IP-addresses. Behind one multi address can be multiple IP addresses due to, e.g., the [`dnsaddr` protocol](https://github.com/multiformats/multiaddr/blob/master/protocols/DNSADDR.md).
 Further, it queries the GeoLite2 database from [Maxmind](https://www.maxmind.com/en/home) to extract country information about the IP addresses and [UdgerDB](https://udger.com/) to detect datacenters. The command saves all information alongside the resolved addresses.
 
 Command line help page:
@@ -316,32 +276,62 @@ OPTIONS:
 ## Development
 
 To develop this project, you need Go `1.23` and the following tools:
+```
+github.com/golang-migrate/migrate/v4/cmd/migrate@v4.18.2
+github.com/volatiletech/sqlboiler/v4@v4.18.0
+github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@v4.18.0
+go.uber.org/mock/mockgen@v0.5.0
+mvdan.cc/gofumpt@v0.7.0
+```
 
-- [`golang-migrate/migrate`](https://github.com/golang-migrate/migrate) to manage the SQL migration `v4.15.2`
-- [`volatiletech/sqlboiler`](https://github.com/volatiletech/sqlboiler) to generate Go ORM `v4.14.1`
-- `docker` to run a local postgres instance
-
-To install the necessary tools you can run `make tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
+To install the necessary tools you can run `just tools`. This will use the `go install` command to download and install the tools into your `$GOPATH/bin` directory. So make sure you have it in your `$PATH` environment variable.
 
 ### Database
 
-You need a running postgres instance to persist and/or read the crawl results. Run `just start-postgres` or use the following command to start a local instance of postgres:
+You need a running Postgres or ClickHouse instance to persist and/or read the crawl results.
+Run `just start-postgres` or `just start-clickhouse` respectively
+or use one of the following commands:
 
 ```shell
-docker run --rm -p 5432:5432 -e POSTGRES_PASSWORD=password_password -e POSTGRES_USER=nebula_local -e POSTGRES_DB=nebula_local --name nebula_local_db postgres:14
+# for postgres
+docker run --rm -d --name nebula-postgres-local -p 5432:5432 -e POSTGRES_DB=nebula_local -e POSTGRES_USER=nebula_local -e POSTGRES_PASSWORD=password_local postgres:14
+
+# for clickhouse
+docker run --rm -d --name nebula-clickhouse-local -p 8123:8123 -p 9000:9000 -e CLICKHOUSE_DB=nebula_local -e CLICKHOUSE_USER=nebula_local -e CLICKHOUSE_PASSWORD=password_local clickhouse/clickhouse-server:24.12
 ```
+
+Then you can connect to the database with:
+
+```shell
+just repl-postgres
+# or
+just repl-clickhouse
+```
+
+To stop the containers:
+
+```shell
+just stop-postgres
+# or
+just stop-clickhouse
+```
+
+for convenience there are also the `just restart-postgres` and `just restart-clickhouse` recipes.
 
 > [!TIP]
 > You can use the `crawl` sub-command with the global `--dry-run` option that skips any database operations or store the results as JSON files with the `--json-out` flag.
 
 The default database settings for local development are:
 
-```
+```toml
 Name     = "nebula_local"
 Password = "password_local"
 User     = "nebula_local"
 Host     = "localhost"
+# postgres
 Port     = 5432
+# clickhouse
+Port     = 9000
 ```
 
 Migrations are applied automatically when `nebula` starts and successfully establishes a database connection.
@@ -351,25 +341,58 @@ To run them manually you can run:
 ```shell
 # Up migrations
 just migrate-postgres up
+just migrate-clickhouse up
 
 # Down migrations
 just migrate-postgres down
+just migrate-clickhouse down
 
-# Generate the ORM with SQLBoiler
+# Generate the ORMs with SQLBoiler (only postgres)
 just models # runs: sqlboiler
 ```
 
 ```shell
 # Create new migration
+# postgres
 migrate create -ext sql -dir db/migrations/pg -seq some_migration_name
+
+# clickhouse
+migrate create -ext sql -dir db/migrations/chlocal -seq some_migration_name
 ```
+
+> [!NOTE]
+> Make sure to adjust the `chlocal` migration and copy it over to the `chcluster` folder. In a clustered clickhouse deployment the table engines need to be prefixed with `Replicated`, like `ReplicatedMergeTree` as opposed to just `MergeTree`.
 
 ### Tests
 
-To run the tests you need a running test database instance:
+To run the tests you need a running test database instance. The following command
+starts test postgres and clickhouse containers, runs the tests and tears them
+down again:
 
 ```shell
 just test
+```
+
+The test database containers won't interfere with other local containers as
+all names etc. are suffixed with `_test` as opposed to `_local`.
+
+To speed up running database tests you can do the following:
+
+```shell
+just start-postgres test
+just start-clickhouse test
+```
+
+Then run the plain tests (without starting database containers):
+```shell
+just test-plain
+```
+
+Eventually, stop the containers again:
+
+```shell
+just stop-postgres test
+just stop-clickhouse test
 ```
 
 ## Release Checklist
