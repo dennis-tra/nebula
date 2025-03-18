@@ -92,7 +92,7 @@ migrate-postgres dir env="local":
 
 # applies clickhouse migrations (up or down)
 migrate-clickhouse dir env="local":
-	migrate -database 'clickhouse://localhost:{{ if env == "local" { "9000" } else { "9001" } }}?username={{clickhouse_user_prefix}}{{env}}&database={{clickhouse_dbname_prefix}}{{env}}&password={{clickhouse_pass_prefix}}{{env}}' -path db/migrations/ch {{dir}}
+	migrate -database 'clickhouse://localhost:{{ if env == "local" { "9000" } else { "9001" } }}?username={{clickhouse_user_prefix}}{{env}}&database={{clickhouse_dbname_prefix}}{{env}}&password={{clickhouse_pass_prefix}}{{env}}' -path db/migrations/chlocal {{dir}}
 
 # generates postgres models with sqlboiler
 models: (restart-postgres "test") (migrate-postgres "up" "test")
