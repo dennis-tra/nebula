@@ -16,7 +16,7 @@ networks, but this restriction was lifted.
 Currently, Nebula supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
-- [Bitcoin](https://bitcoin.org/) | [Litecoin](https://litecoin.org/) | [Dogecoin](https://dogecoin.com/) (alpha)
+- [Bitcoin](https://bitcoin.org/) | [Litecoin](https://litecoin.org/) | [Dogecoin](https://dogecoin.com/) | [Bitcoin Cash](https://bitcoincash.org/) (alpha)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer (discv5)_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery) | [_Execution Layer (discv4)_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
 - [Optimism](https://www.optimism.io/) compatible chains
 - [Portal](https://www.portal.network/) - (_alpha - [wire protocol](https://github.com/ethereum/portal-network-specs/blob/master/portal-wire-protocol.md) not implemented_)
