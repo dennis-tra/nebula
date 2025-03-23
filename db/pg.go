@@ -132,7 +132,8 @@ type PostgresClient struct {
 	peerMappings   map[peer.ID]int
 
 	// ... TODO
-	routingTables map[peer.ID]struct {
+	routingTablesMu sync.Mutex
+	routingTables   map[peer.ID]struct {
 		neighbors []peer.ID
 		errorBits uint16
 	}
@@ -640,6 +641,7 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 	wg.Wait()
 
 	if c.cfg.PersistNeighbors && (len(args.Neighbors) > 0 || args.ErrorBits != 0) {
+		c.routingTablesMu.Lock()
 		c.routingTables[args.PeerID] = struct {
 			neighbors []peer.ID
 			errorBits uint16
@@ -647,6 +649,7 @@ func (c *PostgresClient) InsertVisit(ctx context.Context, args *VisitArgs) error
 			neighbors: args.Neighbors,
 			errorBits: args.ErrorBits,
 		}
+		c.routingTablesMu.Unlock()
 	}
 
 	var crawlID *int
@@ -933,6 +936,8 @@ func (c *PostgresClient) FetchUnresolvedMultiAddresses(ctx context.Context, limi
 
 // Flush .
 func (c *PostgresClient) Flush(ctx context.Context) error {
+	c.routingTablesMu.Lock()
+	defer c.routingTablesMu.Unlock()
 	if len(c.routingTables) == 0 || !c.cfg.PersistNeighbors {
 		return nil
 	}
