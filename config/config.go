@@ -45,6 +45,7 @@ const (
 	NetworkDria           Network = "DRIA"
 	NetworkWakuStatus     Network = "WAKU_STATUS"
 	NetworkWakuTWN        Network = "WAKU_TWN"
+	NetworkAztecTestnet   Network = "AZTEC_TESTNET"
 )
 
 func Networks() []Network {
@@ -72,6 +73,7 @@ func Networks() []Network {
 		NetworkDria,
 		NetworkWakuStatus,
 		NetworkWakuTWN,
+		NetworkAztecTestnet,
 	}
 }
 
@@ -498,6 +500,9 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkWakuTWN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuTWN...)
 		protocols = cli.NewStringSlice("d5waku")
+	case NetworkAztecTestnet:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAztecTestnet...)
+		protocols = cli.NewStringSlice(string(v5wire.DefaultProtocolID[:]))
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}
