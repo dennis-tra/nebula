@@ -371,7 +371,7 @@ func (d *CrawlDriver) Close() {
 	select {
 	case <-d.tasksChan:
 	case <-time.After(time.Second):
-		log.Warnln("Timed out waiting for packetsDone channel to close")
+		log.Warnln("Timed out waiting for tasksChan channel to close")
 	}
 }
 
