@@ -75,6 +75,7 @@ func (p PeerInfo) DeduplicationKey() string {
 
 type CrawlDriverConfig struct {
 	Version        string
+	WorkerCount    int
 	Network        config.Network
 	Protocols      []string
 	DialTimeout    time.Duration
@@ -84,6 +85,7 @@ type CrawlDriverConfig struct {
 	AddrDialType   config.AddrType
 	MeterProvider  metric.MeterProvider
 	TracerProvider trace.TracerProvider
+	GossipSubPX    bool
 	LogErrors      bool
 }
 
