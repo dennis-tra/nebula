@@ -62,6 +62,11 @@ type P2PResult struct {
 	Transport string
 }
 
+// crawlP2P establishes a connection and crawls neighbor info from a peer.
+// It returns a channel that streams the crawling results asynchronously.
+// The method retrieves routing table, listen addresses, protocols, and agent.
+// Connection attempts and errors are tracked for debugging or analysis.
+// It supports context cancellation for graceful operation termination.
 func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 	resultCh := make(chan P2PResult)
 
@@ -85,7 +90,6 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
-
 			// keep track of the multi address over which we successfully connected
 			result.ConnectMaddr = conn.RemoteMultiaddr()
 
@@ -128,6 +132,68 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 
 			// Extract listen addresses
 			result.ListenMaddrs = ps.Addrs(pi.ID())
+
+			if c.cfg.GossipSubPX {
+				// give the other peer a chance to open a stream to and prune us
+				streams := openInboundGossipSubStreams(c.host, pi.ID())
+
+				// The maximum time to wait for the gossipsub px to complete
+				maxGossipSubWait := c.cfg.DialTimeout
+
+				// the minimum time to wait for the gossipsub px to start
+				minGossipSubWait := 2 * time.Second
+
+				// the time since we're connected to the peer
+				elapsed := time.Since(result.ConnectEndTime)
+
+				// the remaining time until the maximum wait time is reached
+				remainingWait := maxGossipSubWait - elapsed
+
+				// the interval to check the open gossipsub streams
+				interval := 250 * time.Millisecond
+
+				// if 1) we are supposed to wait a little longer for the
+				// gossipsub exchange (remainingWait > 0) and 2) we either have
+				// at least one open gossipsubstream or haven't waited long enough
+				// for such a stream to be there yet then we will enter the for
+				// loop that waits the calculated remaining time before exiting
+				// or until we don't have any open gossipsub streams anymore by
+				// checking every 250ms if there are still any.
+
+				if remainingWait > 0 && (streams != 0 || elapsed < minGossipSubWait) {
+
+					// if we don't have an open stream yet and the check
+					// interval is way below the minimum wait time we increase
+					// the initial ticker delay
+					initialTickerDelay := interval
+					if streams == 0 && minGossipSubWait-elapsed > interval {
+						initialTickerDelay = minGossipSubWait - elapsed
+					}
+
+					timer := time.NewTimer(remainingWait)
+					ticker := time.NewTicker(initialTickerDelay)
+
+					defer timer.Stop()
+					defer ticker.Stop()
+
+					for {
+						select {
+						case <-ctx.Done():
+							// exit for loop because the context was cancelled
+						case <-timer.C:
+							// exit for loop because the maximum wait time was reached
+						case <-ticker.C:
+							ticker.Reset(interval)
+							if openInboundGossipSubStreams(c.host, pi.ID()) != 0 {
+								continue
+							}
+							// exit for loop because we don't have any open
+							// streams despite waiting minGossipSubWait
+						}
+						break
+					}
+				}
+			}
 		} else {
 			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
@@ -182,7 +248,10 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, 
 
 		switch true {
 		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionRefused]):
-			// Might be transient because the remote doesn't want us to connect. Try again!
+			// Might be transient because the remote doesn't want us to connect.
+			// Try again, but reduce the maximum elapsed time because it's still
+			// unlikely to succeed
+			bo.MaxElapsedTime = 2 * c.cfg.DialTimeout
 		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionGated]):
 			// Hints at a configuration issue and should not happen, but if it
 			// does it could be transient. Try again anyway, but at least log a warning.

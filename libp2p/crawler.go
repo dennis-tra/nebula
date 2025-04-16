@@ -46,8 +46,10 @@ type Crawler struct {
 	cfg          *CrawlerConfig
 	host         Host
 	pm           *pb.ProtocolMessenger
+	psTopics     map[string]struct{}
 	crawledPeers int
 	client       *kubo.Client
+	stateChan    chan string
 }
 
 var _ core.Worker[PeerInfo, core.CrawlResult[PeerInfo]] = (*Crawler)(nil)
@@ -60,6 +62,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	})
 	logEntry.Debugln("Crawling peer")
 	defer logEntry.Debugln("Crawled peer")
+
+	if c.cfg.GossipSubPX {
+		c.stateChan <- "busy"
+		defer func() { c.stateChan <- "idle" }()
+	}
 
 	// adhere to the addr-dial-type command line flag and only work with
 	// private/public addresses if the user asked for it.
