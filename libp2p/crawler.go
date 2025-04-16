@@ -26,6 +26,7 @@ type CrawlerConfig struct {
 	CheckExposed bool
 	AddrDialType config.AddrType
 	LogErrors    bool
+	GossipSubPX  bool
 	Clock        clock.Clock
 }
 
@@ -35,6 +36,7 @@ func DefaultCrawlerConfig() *CrawlerConfig {
 		CheckExposed: false,
 		AddrDialType: config.AddrTypePublic,
 		LogErrors:    false,
+		GossipSubPX:  false,
 		Clock:        clock.New(),
 	}
 }

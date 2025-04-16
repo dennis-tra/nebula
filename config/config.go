@@ -422,6 +422,9 @@ type Crawl struct {
 
 	// WakuClusterShards defines shard indices for Waku cluster operations.
 	WakuClusterShards *cli.IntSlice
+
+	// EnabledGossipSub defines whether to activate gossipsub PX crawling
+	EnableGossipSubPX bool
 }
 
 func (c *Crawl) AddrTrackType() AddrType {

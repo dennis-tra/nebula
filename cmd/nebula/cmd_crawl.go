@@ -27,20 +27,21 @@ import (
 )
 
 var crawlConfig = &config.Crawl{
-	Root:             rootConfig,
-	CrawlWorkerCount: 1000,
-	WriteWorkerCount: 10,
-	CrawlLimit:       0,
-	PersistNeighbors: false,
-	FilePathUdgerDB:  "",
-	Network:          string(config.NetworkIPFS),
-	BootstrapPeers:   cli.NewStringSlice(),
-	Protocols:        cli.NewStringSlice(string(kaddht.ProtocolDHT)),
-	AddrTrackTypeStr: "public",
-	AddrDialTypeStr:  "public",
-	KeepENR:          false,
-	CheckExposed:     false,
-	UDPRespTimeout:   3 * time.Second,
+	Root:              rootConfig,
+	CrawlWorkerCount:  1000,
+	WriteWorkerCount:  10,
+	CrawlLimit:        0,
+	PersistNeighbors:  false,
+	FilePathUdgerDB:   "",
+	Network:           string(config.NetworkIPFS),
+	BootstrapPeers:    cli.NewStringSlice(),
+	Protocols:         cli.NewStringSlice(string(kaddht.ProtocolDHT)),
+	AddrTrackTypeStr:  "public",
+	AddrDialTypeStr:   "public",
+	KeepENR:           false,
+	CheckExposed:      false,
+	UDPRespTimeout:    3 * time.Second,
+	EnableGossipSubPX: false,
 }
 
 // CrawlCommand contains the crawl sub-command configuration.
@@ -171,6 +172,13 @@ var CrawlCommand = &cli.Command{
 			EnvVars:     []string{"NEBULA_CRAWL_NETWORK"},
 			Value:       crawlConfig.Network,
 			Destination: &crawlConfig.Network,
+		},
+		&cli.BoolFlag{
+			Name:        "gossipsub-px",
+			Usage:       "Whether to enable gossipsub peer exchange crawling",
+			EnvVars:     []string{"NEBULA_CRAWL_GOSSIPSUB_PX"},
+			Value:       crawlConfig.EnableGossipSubPX,
+			Destination: &crawlConfig.EnableGossipSubPX,
 		},
 		&cli.BoolFlag{
 			Name:        "check-exposed",
@@ -458,6 +466,7 @@ func CrawlAction(c *cli.Context) error {
 		// configure the crawl driver
 		driverCfg := &libp2p.CrawlDriverConfig{
 			Version:        cfg.Root.Version(),
+			WorkerCount:    cfg.CrawlWorkerCount,
 			Network:        config.Network(cfg.Network),
 			Protocols:      cfg.Protocols.Value(),
 			DialTimeout:    cfg.Root.DialTimeout,
@@ -467,6 +476,7 @@ func CrawlAction(c *cli.Context) error {
 			AddrTrackType:  cfg.AddrTrackType(),
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
+			GossipSubPX:    cfg.EnableGossipSubPX,
 			LogErrors:      cfg.Root.LogErrors,
 		}
 
