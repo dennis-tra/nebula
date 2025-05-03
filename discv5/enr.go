@@ -138,6 +138,8 @@ func (e *ENREntryAttnets) DecodeRLP(s *rlp.Stream) error {
 	b, err := s.Bytes()
 	if err != nil {
 		return fmt.Errorf("failed to get bytes for attnets ENR entry: %w", err)
+	} else if len(b) != 8 {
+		return fmt.Errorf("attnets ENR entry must be 8 bytes long, got %d", len(b))
 	}
 
 	e.AttnetsNum = bits.OnesCount64(binary.BigEndian.Uint64(b))
