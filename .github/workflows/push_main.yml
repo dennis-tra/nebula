@@ -33,7 +33,7 @@ jobs:
           go-version: '1.23'
 
       - name: Running tests
-        run: make test
+        run: make
 
   push_to_dockerhub:
     name: Push Docker image to Docker Hub
