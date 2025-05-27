@@ -633,7 +633,7 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 		protocols = cli.NewStringSlice("/ksmcc3/kad")
 	case NetworkPolkadot:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersPolkadot...)
-		protocols = cli.NewStringSlice("/dot/kad")
+		protocols = cli.NewStringSlice("/dot/kad", "/91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3/kad")
 	case NetworkRococo:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersRococo...)
 		protocols = cli.NewStringSlice("/rococo/kad")
