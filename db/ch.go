@@ -385,6 +385,7 @@ type ClickHouseVisit struct {
 	DialMaddrs     []string        `ch:"dial_maddrs"`
 	FilteredMaddrs []string        `ch:"filtered_maddrs"`
 	ExtraMaddrs    []string        `ch:"extra_maddrs"`
+	ListenMaddrs   []string        `ch:"listen_maddrs"`
 	DialErrors     []string        `ch:"dial_errors"`
 	ConnectMaddr   *string         `ch:"connect_maddr"`
 	CrawlError     *string         `ch:"crawl_error"`
@@ -605,6 +606,7 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		DialMaddrs:     utils.MaddrsToAddrs(args.DialMaddrs),
 		FilteredMaddrs: utils.MaddrsToAddrs(args.FilteredMaddrs),
 		ExtraMaddrs:    utils.MaddrsToAddrs(args.ExtraMaddrs),
+		ListenMaddrs:   utils.MaddrsToAddrs(args.ListenMaddrs),
 		ConnectMaddr:   connMaddrStr,
 		DialErrors:     args.DialErrors,
 		CrawlError:     crawlErrStr,

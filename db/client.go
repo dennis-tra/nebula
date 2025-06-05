@@ -46,6 +46,7 @@ type VisitArgs struct {
 	DialMaddrs       []ma.Multiaddr
 	FilteredMaddrs   []ma.Multiaddr
 	ExtraMaddrs      []ma.Multiaddr
+	ListenMaddrs     []ma.Multiaddr
 	DialErrors       []string
 	ConnectMaddr     ma.Multiaddr
 	DialDuration     time.Duration

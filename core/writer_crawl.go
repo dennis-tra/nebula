@@ -80,6 +80,7 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 		DialMaddrs:       task.DialMaddrs,
 		FilteredMaddrs:   task.FilteredMaddrs,
 		ExtraMaddrs:      task.ExtraMaddrs,
+		ListenMaddrs:     task.ListenMaddrs,
 		ConnectMaddr:     task.ConnectMaddr,
 		DialErrors:       task.DialErrors,
 		ConnectDuration:  task.ConnectDuration(),
