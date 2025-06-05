@@ -184,12 +184,27 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		knownMaddrs[string(maddr.Bytes())] = struct{}{}
 	}
 
+	// map to deduplicate the listen address lists from the api and p2p responses.
+	listenMaddrsMap := map[string]ma.Multiaddr{}
+
 	r.ExtraMaddrs = []ma.Multiaddr{}
 	for _, maddr := range slices.Concat(apiRes.ListenMaddrs(), p2pRes.ListenMaddrs) {
+		// build up deduplicated map
+		listenMaddrsMap[string(maddr.Bytes())] = maddr
+
+		// if we know this listen address already, skip it.
 		if _, ok := knownMaddrs[string(maddr.Bytes())]; ok {
 			continue
 		}
+
+		// we didn't know this address at dial-time, so we add it to the extra list.
 		r.ExtraMaddrs = append(r.ExtraMaddrs, maddr)
+	}
+
+	// transform the map of deduplicated listen addresses into a slice of multi addresses.
+	r.ListenMaddrs = make([]ma.Multiaddr, 0, len(listenMaddrsMap))
+	for _, maddr := range listenMaddrsMap {
+		r.ListenMaddrs = append(r.ListenMaddrs, maddr)
 	}
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {

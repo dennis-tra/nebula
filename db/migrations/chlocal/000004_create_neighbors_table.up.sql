@@ -1,3 +1,5 @@
+-- DO NOT EDIT: This file was generated with: just generate-local-clickhouse-migrations
+
 CREATE TABLE neighbors
 (
     -- identifies the crawl that produced this neighbor mapping

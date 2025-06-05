@@ -157,6 +157,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		DialMaddrs:          devp2pResult.DialMaddrs,
 		FilteredMaddrs:      filteredMaddrs,
 		ExtraMaddrs:         []ma.Multiaddr{},
+		ListenMaddrs:        []ma.Multiaddr{},
 		ConnectMaddr:        connectMaddr,
 		DialErrors:          db.MaddrErrors(devp2pResult.DialMaddrs, devp2pResult.ConnectError),
 		ConnectError:        devp2pResult.ConnectError,
