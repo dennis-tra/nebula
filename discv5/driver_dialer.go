@@ -13,8 +13,6 @@ import (
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/enode"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/core"
@@ -28,7 +26,7 @@ type DialDriverConfig struct {
 
 type DialDriver struct {
 	cfg         *DialDriverConfig
-	dbc         *db.DBClient
+	dbc         db.Client
 	peerstore   *enode.DB
 	taskQueue   chan PeerInfo
 	start       chan struct{}
@@ -40,7 +38,7 @@ type DialDriver struct {
 
 var _ core.Driver[PeerInfo, core.DialResult[PeerInfo]] = (*DialDriver)(nil)
 
-func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error) {
+func NewDialDriver(dbc db.Client, cfg *DialDriverConfig) (*DialDriver, error) {
 	peerstore, err := enode.OpenDB("") // in memory db
 	if err != nil {
 		return nil, fmt.Errorf("open in-memory peerstore: %w", err)
@@ -132,37 +130,20 @@ func (d *DialDriver) monitorDatabase() {
 	}()
 
 	for {
-		log.Infof("Looking for sessions to check...")
-		sessions, err := d.dbc.FetchDueOpenSessions(ctx)
-		if errors.Is(err, sql.ErrNoRows) || len(sessions) == 0 {
-			log.Infoln("No open sessions")
+		log.Infof("Looking for peers to probe...")
+		addrInfos, err := d.dbc.SelectPeersToProbe(ctx)
+		if errors.Is(err, sql.ErrNoRows) || len(addrInfos) == 0 {
+			log.Infoln("No peers due to be probed")
 		} else if err != nil {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
 		}
 
-		for _, session := range sessions {
-			// take multi hash and decode into PeerID
-			peerID, err := peer.Decode(session.R.Peer.MultiHash)
-			if err != nil {
-				log.WithField("mhash", session.R.Peer.MultiHash).
-					WithError(err).
-					Warnln("Could not parse multi address")
-				continue
-			}
-			logEntry := log.WithField("peerID", peerID.ShortString())
+		for _, addrInfo := range addrInfos {
+			logEntry := log.WithField("peerID", addrInfo.ID.ShortString())
 
-			maddrs := make([]ma.Multiaddr, 0, len(session.R.Peer.R.MultiAddresses))
-			for _, dbMaddr := range session.R.Peer.R.MultiAddresses {
-				maddr, err := ma.NewMultiaddr(dbMaddr.Maddr)
-				if err != nil {
-					logEntry.WithError(err).WithField("maddr", dbMaddr.Maddr).Warnln("Could not parse multi address")
-					continue
-				}
-				maddrs = append(maddrs, maddr)
-			}
-
-			node, err := utils.ToEnode(peerID, maddrs)
+			// use custom identity scheme to not check the signature.
+			node, err := utils.ToEnode(addrInfo.ID, addrInfo.Addrs)
 			if err != nil {
 				logEntry.WithError(err).Warnln("Could not construct new enode.Node struct")
 				continue
@@ -170,8 +151,8 @@ func (d *DialDriver) monitorDatabase() {
 
 			pi := PeerInfo{
 				Node:   node,
-				peerID: peerID,
-				maddrs: maddrs,
+				peerID: addrInfo.ID,
+				maddrs: addrInfo.Addrs,
 			}
 
 			select {

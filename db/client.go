@@ -2,54 +2,104 @@ package db
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"io"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
-	"github.com/volatiletech/null/v8"
-
-	"github.com/dennis-tra/nebula-crawler/config"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 )
+
+type CrawlState string
+
+const (
+	CrawlStateStarted   CrawlState = "started"
+	CrawlStateSucceeded CrawlState = "succeeded"
+	CrawlStateCancelled CrawlState = "cancelled"
+	CrawlStateFailed    CrawlState = "failed"
+)
+
+type VisitType string
+
+const (
+	VisitTypeDial  VisitType = "dial"
+	VisitTypeCrawl VisitType = "crawl"
+)
+
+func (v VisitType) String() string {
+	return string(v)
+}
+
+type SealCrawlArgs struct {
+	Crawled    int
+	Dialable   int
+	Undialable int
+	Remaining  int
+	State      CrawlState
+}
+
+type VisitArgs struct {
+	PeerID           peer.ID
+	DiscoveryPrefix  uint64
+	AgentVersion     string
+	Protocols        []string
+	DialMaddrs       []ma.Multiaddr
+	FilteredMaddrs   []ma.Multiaddr
+	ExtraMaddrs      []ma.Multiaddr
+	DialErrors       []string
+	ConnectMaddr     ma.Multiaddr
+	DialDuration     time.Duration
+	ConnectDuration  time.Duration
+	CrawlDuration    time.Duration
+	VisitStartedAt   time.Time
+	VisitEndedAt     time.Time
+	ConnectErrorStr  string
+	CrawlErrorStr    string
+	VisitType        VisitType
+	Neighbors        []peer.ID
+	NeighborPrefixes []uint64
+	ErrorBits        uint16
+	Properties       json.RawMessage
+}
 
 type Client interface {
 	io.Closer
-	InitCrawl(ctx context.Context, version string) (*models.Crawl, error)
-	UpdateCrawl(ctx context.Context, crawl *models.Crawl) error
+	// InitCrawl initializes a new crawl instance in the database.
+	// The clients are responsible for tracking the crawl's ID and associate
+	// later database queries with it. This is necessary because different
+	// database engines have different types of IDs. ClickHouse commonly uses string
+	// IDs and Postgres uses integers. Making the [Client] interface generic
+	// on that ID would complicate the code a lot, so we require Clients to
+	// keep state. This is added complexity traded for code clarity. It's a trade-
+	// off and IMO this is less bad.
+	InitCrawl(ctx context.Context, version string) error
+
+	// SealCrawl marks the crawl (that the Client tracks internally) as done.
+	SealCrawl(ctx context.Context, args *SealCrawlArgs) error
+
+	// QueryBootstrapPeers fetches peers from the database that can be used
+	// for bootstrapping into the network. The result will contain from zero up
+	// to limit entries.
 	QueryBootstrapPeers(ctx context.Context, limit int) ([]peer.AddrInfo, error)
-	PersistCrawlProperties(ctx context.Context, crawl *models.Crawl, properties map[string]map[string]int) error
-	PersistCrawlVisit(ctx context.Context, crawlID int, peerID peer.ID, maddrs []ma.Multiaddr, protocols []string, agentVersion string, connectDuration time.Duration, crawlDuration time.Duration, visitStartedAt time.Time, visitEndedAt time.Time, connectErrorStr string, crawlErrorStr string, properties null.JSON) (*InsertVisitResult, error)
-	PersistNeighbors(ctx context.Context, crawl *models.Crawl, dbPeerID *int, peerID peer.ID, errorBits uint16, dbNeighborsIDs []int, neighbors []peer.ID) error
+
+	// InsertVisit TODO
+	InsertVisit(ctx context.Context, args *VisitArgs) error
+
+	// InsertCrawlProperties TODO
+	InsertCrawlProperties(ctx context.Context, properties map[string]map[string]int) error
+
+	// SelectPeersToProbe TODO
+	SelectPeersToProbe(ctx context.Context) ([]peer.AddrInfo, error)
+
+	// Flush instructs the client to write all cached data to the database.
+	// Client implementations may cache and batch inserts. Flush tells the
+	// client to insert everything that's pending.
+	Flush(ctx context.Context) error
 }
 
-// NewClient will initialize the right database client based on the given
-// configuration. This can either be a Postgres, JSON, or noop client. The noop
-// client is a dummy implementation of the [Client] interface that does nothing
-// when the methods are called. That's the one used if the user specifies
-// `--dry-run` on the command line. The JSON client is used when the user
-// specifies a JSON output directory. Then JSON files with crawl information
-// are written to that directory. In any other case, the Postgres client is
-// used.
-func NewClient(ctx context.Context, cfg *config.Database) (Client, error) {
-	var (
-		dbc Client
-		err error
-	)
-
-	// dry run has precedence. Then, if a JSON output directory is given, use
-	// the JSON client. In any other case, use the Postgres database client.
-	if cfg.DryRun {
-		dbc = InitNoopClient()
-	} else if cfg.JSONOut != "" {
-		dbc, err = InitJSONClient(cfg.JSONOut)
-	} else {
-		dbc, err = InitDBClient(ctx, cfg)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("init db client: %w", err)
-	}
-
-	return dbc, nil
-}
+var (
+	_ Client = (*PostgresClient)(nil)
+	_ Client = (*NoopClient)(nil)
+	_ Client = (*JSONClient)(nil)
+	_ Client = (*ClickHouseClient)(nil)
+)

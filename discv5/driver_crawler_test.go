@@ -9,9 +9,6 @@ import (
 )
 
 func TestNewPeerInfo(t *testing.T) {
-	type args struct {
-		node *enode.Node
-	}
 	tests := []struct {
 		name   string
 		enr    string

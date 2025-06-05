@@ -5,6 +5,7 @@
 //
 //	mockgen -source=libp2p/driver_crawler.go -destination=libp2p/mock_host_test.go -package=libp2p
 //
+
 // Package libp2p is a generated GoMock package.
 package libp2p
 
@@ -27,6 +28,7 @@ import (
 type MockHost struct {
 	ctrl     *gomock.Controller
 	recorder *MockHostMockRecorder
+	isgomock struct{}
 }
 
 // MockHostMockRecorder is the mock recorder for MockHost.

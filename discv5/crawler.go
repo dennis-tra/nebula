@@ -2,6 +2,7 @@ package discv5
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,7 +26,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 const MaxCrawlRetriesAfterTimeout = 2 // magic
@@ -85,10 +86,6 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 
 	properties := c.PeerProperties(task.Node)
 
-	if libp2pResult.Transport != "" {
-		properties["transport"] = libp2pResult.Transport
-	}
-
 	if libp2pResult.ConnClosedImmediately {
 		properties["direct_close"] = true
 	}
@@ -98,12 +95,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	// keep track of all unknown connection errors
-	if libp2pResult.ConnectErrorStr == models.NetErrorUnknown && libp2pResult.ConnectError != nil {
+	if libp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && libp2pResult.ConnectError != nil {
 		properties["connect_error"] = libp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV5Result.ErrorStr == models.NetErrorUnknown && discV5Result.Error != nil {
+	if discV5Result.ErrorStr == pgmodels.NetErrorUnknown && discV5Result.Error != nil {
 		properties["crawl_error"] = discV5Result.Error.Error()
 	}
 
@@ -118,8 +115,42 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		log.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
 	}
 
-	if len(libp2pResult.ListenAddrs) > 0 {
-		task.maddrs = libp2pResult.ListenAddrs
+	// keep track of the connection multi address
+	connectMaddr := libp2pResult.ConnectMaddr
+	if connectMaddr == nil {
+		connectMaddr = discV5Result.ConnectMaddr
+	}
+
+	// construct a lookup map with maddrs we tried to dial
+	dialMaddrsMap := make(map[string]struct{})
+	for _, maddr := range libp2pResult.DialMaddrs {
+		dialMaddrsMap[string(maddr.Bytes())] = struct{}{}
+	}
+
+	// construct a slice with multi addresses that we did NOT try to dial
+	// We loop through all known addrs and check if we dialed it.
+	// Further, build a lookup map with known multi addresses for the peer.
+	// this map contains all maddrs we've found via the discovery protocol
+	var (
+		knownMaddrsMap = make(map[string]struct{}, len(task.maddrs))
+		filteredMaddrs []ma.Multiaddr
+	)
+	for _, maddr := range task.maddrs {
+		knownMaddrsMap[string(maddr.Bytes())] = struct{}{}
+		if _, ok := dialMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		filteredMaddrs = append(filteredMaddrs, maddr)
+	}
+
+	// construct a slice with multi addresses that the peer replied with which
+	// we didn't know before.
+	var extraMaddrs []ma.Multiaddr
+	for _, maddr := range libp2pResult.ListenAddrs {
+		if _, ok := knownMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		extraMaddrs = append(extraMaddrs, maddr)
 	}
 
 	cr := core.CrawlResult[PeerInfo]{
@@ -130,6 +161,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV5Result.RoutingTable,
 		Agent:               libp2pResult.Agent,
 		Protocols:           libp2pResult.Protocols,
+		DialMaddrs:          libp2pResult.DialMaddrs,
+		FilteredMaddrs:      filteredMaddrs,
+		ExtraMaddrs:         extraMaddrs,
+		ConnectMaddr:        connectMaddr,
+		DialErrors:          db.MaddrErrors(libp2pResult.DialMaddrs, libp2pResult.ConnectError),
 		ConnectError:        libp2pResult.ConnectError,
 		ConnectErrorStr:     libp2pResult.ConnectErrorStr,
 		CrawlError:          discV5Result.Error,
@@ -155,7 +191,7 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 	}
 
 	properties["seq"] = node.Record().Seq()
-	properties["signature"] = node.Record().Signature()
+	// properties["signature"] = node.Record().Signature()
 
 	if node.UDP() != 0 {
 		properties["udp"] = node.UDP()
@@ -163,6 +199,12 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 
 	if node.TCP() != 0 {
 		properties["tcp"] = node.TCP()
+	}
+
+	var enrEntryEth ENREntryEth
+	if err := node.Load(&enrEntryEth); err == nil {
+		properties["eth_fork_digest"] = "0x" + hex.EncodeToString(enrEntryEth.ForkID.Hash[:])
+		properties["eth_fork_next"] = enrEntryEth.ForkID.Next
 	}
 
 	var enrEntryEth2 ENREntryEth2
@@ -189,6 +231,58 @@ func (c *Crawler) PeerProperties(node *enode.Node) map[string]any {
 		properties["opstack_version"] = enrEntryOpStack.Version
 	}
 
+	var enrEntryLes ENREntryLes
+	if err := node.Load(&enrEntryLes); err == nil {
+		properties["vfx_version"] = enrEntryLes.VfxVersion
+	}
+
+	var enrEntrySnap ENREntrySnap
+	if err := node.Load(&enrEntrySnap); err == nil {
+		properties["snap"] = true
+	}
+
+	var enrEntryBsc ENREntryBsc
+	if err := node.Load(&enrEntryBsc); err == nil {
+		properties["bsc"] = true
+	}
+
+	var enrEntryPtStack ENREntryPtStack
+	if err := node.Load(&enrEntryPtStack); err == nil {
+		properties["ptstack_chain_id"] = enrEntryPtStack.ChainID
+		properties["ptstack_version"] = enrEntryPtStack.Version
+	}
+
+	var enrEntryOptimism ENREntryOptimism
+	if err := node.Load(&enrEntryOptimism); err == nil {
+		properties["optimism_chain_id"] = enrEntryOptimism.ChainID
+		properties["optimism_version"] = enrEntryOptimism.Version
+	}
+
+	var enrEntryTrust ENREntryTrust
+	if err := node.Load(&enrEntryTrust); err == nil {
+		properties["trust"] = true
+	}
+
+	var enrEntryTestID ENREntryTestID
+	if err := node.Load(&enrEntryTestID); err == nil {
+		properties["test_id"] = "0x" + hex.EncodeToString(enrEntryTestID)
+	}
+
+	var enrEntryOpera ENREntryOpera
+	if err := node.Load(&enrEntryOpera); err == nil {
+		properties["opera_fork_digest"] = "0x" + hex.EncodeToString(enrEntryOpera.ForkID.Hash[:])
+		properties["opera_fork_next"] = enrEntryOpera.ForkID.Next
+	}
+
+	var enrEntryCaps ENREntryCaps
+	if err := node.Load(&enrEntryCaps); err == nil {
+		caps := make([]string, len(enrEntryCaps))
+		for i, c := range enrEntryCaps {
+			caps[i] = c.String()
+		}
+		properties["caps"] = caps
+	}
+
 	if c.cfg.KeepENR {
 		properties["enr"] = node.String()
 	}
@@ -201,12 +295,13 @@ type Libp2pResult struct {
 	ConnectEndTime        time.Time
 	ConnectError          error
 	ConnectErrorStr       string
+	DialMaddrs            []ma.Multiaddr
+	ConnectMaddr          ma.Multiaddr
 	Agent                 string
 	Protocols             []string
 	ListenAddrs           []ma.Multiaddr
-	Transport             string // the transport of a successful connection
-	ConnClosedImmediately bool   // whether conn was no error but still unconnected
-	GenTCPAddr            bool   // whether a TCP address was generated
+	ConnClosedImmediately bool // whether conn was no error but still unconnected
+	GenTCPAddr            bool // whether a TCP address was generated
 	WakuClusterID         uint32
 	WakuClusterShards     []uint32
 }
@@ -219,25 +314,24 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 		// sanitize the given addresses like removing UDP-only addresses and
 		// adding corresponding TCP addresses.
-		sanitizedAddrs, generated := sanitizeAddrs(pi.Addrs())
-
-		// keep track if we generated a TCP address to dial
-		result.GenTCPAddr = generated
+		// Also keep track if we generated a TCP address to dial
+		result.DialMaddrs, result.GenTCPAddr = sanitizeAddrs(pi.Addrs())
 
 		addrInfo := peer.AddrInfo{
 			ID:    pi.ID(),
-			Addrs: sanitizedAddrs,
+			Addrs: result.DialMaddrs,
 		}
 
 		var conn network.Conn
 		result.ConnectStartTime = time.Now()
 		conn, result.ConnectError = c.connect(ctx, addrInfo) // use filtered addr list
 		result.ConnectEndTime = time.Now()
+
 		// If we could successfully connect to the peer we actually crawl it.
 		if result.ConnectError == nil {
 
-			// keep track of the transport of the open connection
-			result.Transport = conn.ConnState().Transport
+			// keep track of the multi address via which connected successfully
+			result.ConnectMaddr = conn.RemoteMultiaddr()
 
 			// wait for the Identify exchange to complete (no-op if already done)
 			// the internal timeout is set to 30 s. When crawling we only allow 5s.
@@ -278,10 +372,8 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 
 			// Extract listen addresses
 			result.ListenAddrs = ps.Addrs(pi.ID())
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
+		} else {
+			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
 
@@ -305,7 +397,7 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 // connect establishes a connection to the given peer. It also handles metric capturing.
 func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, error) {
 	if len(pi.Addrs) == 0 {
-		return nil, fmt.Errorf("skipping node as it has no public IP address") // change knownErrs map if changing this msg
+		return nil, db.ErrNoPublicIP
 	}
 
 	// init an exponential backoff
@@ -314,7 +406,7 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, 
 	bo.MaxInterval = 10 * time.Second
 	bo.MaxElapsedTime = time.Minute
 
-	var retry int = 0
+	retry := 0
 
 	for {
 		logEntry := log.WithFields(log.Fields{
@@ -337,13 +429,13 @@ func (c *Crawler) connect(ctx context.Context, pi peer.AddrInfo) (network.Conn, 
 		}
 
 		switch {
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionRefused]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionRefused]):
 			// Might be transient because the remote doesn't want us to connect. Try again!
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorConnectionGated]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorConnectionGated]):
 			// Hints at a configuration issue and should not happen, but if it
 			// does it could be transient. Try again anyway, but at least log a warning.
 			logEntry.WithError(err).Warnln("Connection gated!")
-		case strings.Contains(err.Error(), db.ErrorStr[models.NetErrorCantAssignRequestedAddress]):
+		case strings.Contains(err.Error(), db.ErrorStr[pgmodels.NetErrorCantAssignRequestedAddress]):
 			// Transient error due to local UDP issues. Try again!
 		case strings.Contains(err.Error(), "dial backoff"):
 			// should not happen because we disabled backoff checks with our
@@ -435,6 +527,9 @@ type DiscV5Result struct {
 	// The time we received the first successful response
 	RespondedAt *time.Time
 
+	// The multi address via which we received a response
+	ConnectMaddr ma.Multiaddr
+
 	// The updated ethereum node record
 	ENR *enode.Node
 
@@ -455,6 +550,8 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 	resultCh := make(chan DiscV5Result)
 
 	go func() {
+		defer close(resultCh)
+
 		result := DiscV5Result{}
 
 		// all neighbors of pi. We're using a map to deduplicate.
@@ -502,6 +599,7 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 			if result.RespondedAt == nil {
 				now := time.Now()
 				result.RespondedAt = &now
+				result.ConnectMaddr = pi.UDPMaddr()
 			}
 
 			for _, n := range neighbors {
@@ -541,7 +639,6 @@ func (c *Crawler) crawlDiscV5(ctx context.Context, pi PeerInfo) chan DiscV5Resul
 		case resultCh <- result:
 		case <-ctx.Done():
 		}
-		close(resultCh)
 	}()
 
 	return resultCh

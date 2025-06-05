@@ -18,9 +18,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setting up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.23.1'
+          go-version-file: 'go.mod'
 
       - name: Install cross-compiler for linux/arm64
         run: sudo apt-get -y install gcc-aarch64-linux-gnu
@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get -y install make
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Running GoReleaser
         run: | 

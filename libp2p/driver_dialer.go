@@ -10,9 +10,8 @@ import (
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	rcmgr "github.com/libp2p/go-libp2p/p2p/host/resource-manager"
-	ma "github.com/multiformats/go-multiaddr"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/core"
@@ -27,7 +26,7 @@ type DialDriverConfig struct {
 type DialDriver struct {
 	cfg         *DialDriverConfig
 	host        host.Host
-	dbc         *db.DBClient
+	dbc         db.Client
 	taskQueue   chan PeerInfo
 	start       chan struct{}
 	shutdown    chan struct{}
@@ -38,26 +37,22 @@ type DialDriver struct {
 
 var _ core.Driver[PeerInfo, core.DialResult[PeerInfo]] = (*DialDriver)(nil)
 
-func NewDialDriver(dbc *db.DBClient, cfg *DialDriverConfig) (*DialDriver, error) {
+func NewDialDriver(dbc db.Client, cfg *DialDriverConfig) (*DialDriver, error) {
 	// Configure the resource manager to not limit anything
-	limiter := rcmgr.NewFixedLimiter(rcmgr.InfiniteLimits)
-	rm, err := rcmgr.NewResourceManager(limiter)
-	if err != nil {
-		return nil, fmt.Errorf("new resource manager: %w", err)
-	}
-
 	// Don't use a connection manager that could potentially
-	// prune any connections. We _theoretically_ clean up after
-	// ourselves.
+	// prune any connections. We clean up after ourselves.
 	cm := connmgr.NullConnMgr{}
+	rm := network.NullResourceManager{}
 
 	// Initialize a single libp2p node that's shared between all dialers.
 	h, err := libp2p.New(
 		libp2p.UserAgent("nebula/"+cfg.Version),
-		libp2p.ResourceManager(rm),
+		libp2p.ResourceManager(&rm),
 		libp2p.ConnectionManager(cm),
 		libp2p.DisableMetrics(),
-		libp2p.EnableRelay(), // enable the relay transport
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
@@ -131,36 +126,16 @@ func (d *DialDriver) monitorDatabase() {
 	}()
 
 	for {
-		log.Infof("Looking for sessions to check...")
-		sessions, err := d.dbc.FetchDueOpenSessions(ctx)
-		if errors.Is(err, sql.ErrNoRows) || len(sessions) == 0 {
-			log.Infoln("No open sessions")
+		log.Infof("Looking for peers to probe...")
+		addrInfos, err := d.dbc.SelectPeersToProbe(ctx)
+		if errors.Is(err, sql.ErrNoRows) || len(addrInfos) == 0 {
+			log.Infoln("No peers due to be probed")
 		} else if err != nil {
 			log.WithError(err).Warnln("Could not fetch sessions")
 			goto TICK
 		}
 
-		for _, session := range sessions {
-			peerID, err := peer.Decode(session.R.Peer.MultiHash)
-			if err != nil {
-				log.WithField("mhash", session.R.Peer.MultiHash).
-					WithError(err).
-					Warnln("Could not parse multi address")
-				continue
-			}
-			logEntry := log.WithField("peerID", peerID.ShortString())
-
-			// Parse multi addresses from database
-			addrInfo := peer.AddrInfo{ID: peerID}
-			for _, maddrStr := range session.R.Peer.R.MultiAddresses {
-				maddr, err := ma.NewMultiaddr(maddrStr.Maddr)
-				if err != nil {
-					logEntry.WithError(err).Warnln("Could not parse multi address")
-					continue
-				}
-				addrInfo.Addrs = append(addrInfo.Addrs, maddr)
-			}
-
+		for _, addrInfo := range addrInfos {
 			select {
 			case d.taskQueue <- PeerInfo{AddrInfo: addrInfo}:
 				continue
@@ -169,7 +144,6 @@ func (d *DialDriver) monitorDatabase() {
 			}
 			break
 		}
-		// log.Infof("In dial queue %d peers", s.inDialQueueCount.Load())
 
 	TICK:
 		select {

@@ -3,6 +3,7 @@ package libp2p
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 
@@ -14,28 +15,29 @@ import (
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	"github.com/dennis-tra/nebula-crawler/db"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
 type CrawlerConfig struct {
-	TrackNeighbors bool
-	DialTimeout    time.Duration
-	CheckExposed   bool
-	AddrDialType   config.AddrType
-	LogErrors      bool
-	Clock          clock.Clock
+	DialTimeout  time.Duration
+	CheckExposed bool
+	AddrDialType config.AddrType
+	LogErrors    bool
+	GossipSubPX  bool
+	Clock        clock.Clock
 }
 
 func DefaultCrawlerConfig() *CrawlerConfig {
 	return &CrawlerConfig{
-		TrackNeighbors: false,
-		DialTimeout:    15 * time.Second,
-		CheckExposed:   false,
-		AddrDialType:   config.AddrTypePublic,
-		LogErrors:      false,
-		Clock:          clock.New(),
+		DialTimeout:  15 * time.Second,
+		CheckExposed: false,
+		AddrDialType: config.AddrTypePublic,
+		LogErrors:    false,
+		GossipSubPX:  false,
+		Clock:        clock.New(),
 	}
 }
 
@@ -44,8 +46,10 @@ type Crawler struct {
 	cfg          *CrawlerConfig
 	host         Host
 	pm           *pb.ProtocolMessenger
+	psTopics     map[string]struct{}
 	crawledPeers int
 	client       *kubo.Client
+	stateChan    chan string
 }
 
 var _ core.Worker[PeerInfo, core.CrawlResult[PeerInfo]] = (*Crawler)(nil)
@@ -59,26 +63,38 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	logEntry.Debugln("Crawling peer")
 	defer logEntry.Debugln("Crawled peer")
 
+	if c.cfg.GossipSubPX {
+		c.stateChan <- "busy"
+		defer func() { c.stateChan <- "idle" }()
+	}
+
+	// adhere to the addr-dial-type command line flag and only work with
+	// private/public addresses if the user asked for it.
+	var filterFn func(info peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo)
+	switch c.cfg.AddrDialType {
+	case config.AddrTypePrivate:
+		filterFn = utils.AddrInfoFilterPublicMaddrs
+	case config.AddrTypePublic:
+		filterFn = utils.AddrInfoFilterPrivateMaddrs
+	default:
+		// use all maddrs
+		filterFn = func(info peer.AddrInfo) (peer.AddrInfo, peer.AddrInfo) {
+			return info, peer.AddrInfo{ID: info.ID}
+		}
+	}
+	dialAddrInfo, filteredAddrInfo := filterFn(task.AddrInfo)
+
 	cr := core.CrawlResult[PeerInfo]{
 		CrawlerID:      c.id,
 		Info:           task,
 		CrawlStartTime: time.Now(),
 		LogErrors:      c.cfg.LogErrors,
-	}
-
-	// adhere to the addr-dial-type command line flag and only work with
-	// private/public addresses if the user asked for it.
-	crawlInfo := task
-	switch c.cfg.AddrDialType {
-	case config.AddrTypePrivate:
-		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPublicMaddrs(task.AddrInfo)}
-	case config.AddrTypePublic:
-		crawlInfo = PeerInfo{AddrInfo: utils.AddrInfoFilterPrivateMaddrs(task.AddrInfo)}
-	default:
-		// use any address
+		DialMaddrs:     dialAddrInfo.Addrs,
+		FilteredMaddrs: filteredAddrInfo.Addrs,
 	}
 
 	// start crawling both ways
+	crawlInfo := PeerInfo{AddrInfo: dialAddrInfo}
 	p2pResultCh := c.crawlP2P(ctx, crawlInfo)
 	apiResultCh := c.crawlAPI(ctx, crawlInfo)
 
@@ -108,8 +124,22 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	r.ConnectEndTime = p2pRes.ConnectEndTime
 	r.ConnectError = p2pRes.ConnectError
 	r.ConnectErrorStr = p2pRes.ConnectErrorStr
-	r.CrawlError = p2pRes.CrawlError
-	r.CrawlErrorStr = p2pRes.CrawlErrorStr
+	r.DialErrors = db.MaddrErrors(r.DialMaddrs, p2pRes.ConnectError)
+
+	// only track a crawl error if there was one AND we didn't get any neighbors.
+	// as soon as we have a single neighbor we consider this as a successful crawl.
+	// the details about which bucket requests have failed can be analysed with
+	// the error bits.
+	if p2pRes.CrawlError != nil && (p2pRes.RoutingTable == nil || len(p2pRes.RoutingTable.Neighbors) == 0) {
+		r.CrawlError = p2pRes.CrawlError
+		r.CrawlErrorStr = p2pRes.CrawlErrorStr
+	}
+
+	// keep track of the multi address that we used to connect to the peer
+	r.ConnectMaddr = p2pRes.ConnectMaddr
+	if r.ConnectMaddr == nil {
+		r.ConnectMaddr = apiRes.ConnectMaddr
+	}
 
 	properties := map[string]any{}
 	// If we attempted to crawl the API (only if we had at least one IP address for the peer)
@@ -125,12 +155,12 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 	}
 
 	// keep track of all unknown connection errors
-	if p2pRes.ConnectErrorStr == models.NetErrorUnknown && p2pRes.ConnectError != nil {
+	if p2pRes.ConnectErrorStr == pgmodels.NetErrorUnknown && p2pRes.ConnectError != nil {
 		properties["connect_error"] = p2pRes.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if p2pRes.CrawlErrorStr == models.NetErrorUnknown && p2pRes.CrawlError != nil {
+	if p2pRes.CrawlErrorStr == pgmodels.NetErrorUnknown && p2pRes.CrawlError != nil {
 		properties["crawl_error"] = p2pRes.CrawlError.Error()
 	}
 
@@ -145,18 +175,21 @@ func mergeResults(r *core.CrawlResult[PeerInfo], p2pRes P2PResult, apiRes APIRes
 		r.Protocols = apiRes.ID.Protocols
 	}
 
-	var apiResMaddrs []ma.Multiaddr
-	if apiRes.ID != nil {
-		maddrs, err := utils.AddrsToMaddrs(apiRes.ID.Addresses)
-		if err == nil {
-			apiResMaddrs = maddrs
-		}
+	// determine addresses we didn't know before we crawled the peer.
+	// here, we build the ExtraMaddrs list which will contain multi addresses
+	// that we didn't know when connecting to the peer but only discovered after
+	// the peer told us about it in the identify exchange.
+	knownMaddrs := map[string]struct{}{}
+	for _, maddr := range r.Info.AddrInfo.Addrs {
+		knownMaddrs[string(maddr.Bytes())] = struct{}{}
 	}
 
-	if len(apiResMaddrs) > 0 {
-		r.Info.AddrInfo.Addrs = apiResMaddrs
-	} else if len(p2pRes.ListenAddrs) > 0 {
-		r.Info.AddrInfo.Addrs = p2pRes.ListenAddrs
+	r.ExtraMaddrs = []ma.Multiaddr{}
+	for _, maddr := range slices.Concat(apiRes.ListenMaddrs(), p2pRes.ListenMaddrs) {
+		if _, ok := knownMaddrs[string(maddr.Bytes())]; ok {
+			continue
+		}
+		r.ExtraMaddrs = append(r.ExtraMaddrs, maddr)
 	}
 
 	if len(r.RoutingTable.Neighbors) == 0 && apiRes.RoutingTable != nil {
