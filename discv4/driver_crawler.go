@@ -155,7 +155,6 @@ type CrawlDriverConfig struct {
 	DialTimeout      time.Duration
 	BootstrapPeers   []*enode.Node
 	AddrDialType     config.AddrType
-	AddrTrackType    config.AddrType
 	MeterProvider    metric.MeterProvider
 	TracerProvider   trace.TracerProvider
 	LogErrors        bool
@@ -175,9 +174,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 }
 
 func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
-	return &core.CrawlWriterConfig{
-		AddrTrackType: cfg.AddrTrackType,
-	}
+	return &core.CrawlWriterConfig{}
 }
 
 type CrawlDriver struct {

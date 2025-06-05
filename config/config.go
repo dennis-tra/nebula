@@ -402,9 +402,6 @@ type Crawl struct {
 	// The network to crawl
 	Network string
 
-	// Which type addresses should be stored to the database (private, public, both)
-	AddrTrackTypeStr string
-
 	// Which type of addresses should Nebula try to dial (private, public, both)
 	AddrDialTypeStr string
 
@@ -425,10 +422,6 @@ type Crawl struct {
 
 	// EnabledGossipSub defines whether to activate gossipsub PX crawling
 	EnableGossipSubPX bool
-}
-
-func (c *Crawl) AddrTrackType() AddrType {
-	return AddrType(c.AddrTrackTypeStr)
 }
 
 func (c *Crawl) AddrDialType() AddrType {

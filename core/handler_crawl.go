@@ -53,6 +53,9 @@ type CrawlResult[I PeerInfo[I]] struct {
 	// discovery protocol.
 	ExtraMaddrs []ma.Multiaddr
 
+	// All addresses that the remote peer claims to listen on.
+	ListenMaddrs []ma.Multiaddr
+
 	// The multi address of the connection that we have established to the peer
 	ConnectMaddr ma.Multiaddr
 

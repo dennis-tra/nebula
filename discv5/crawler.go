@@ -164,6 +164,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		DialMaddrs:          libp2pResult.DialMaddrs,
 		FilteredMaddrs:      filteredMaddrs,
 		ExtraMaddrs:         extraMaddrs,
+		ListenMaddrs:        libp2pResult.ListenAddrs,
 		ConnectMaddr:        connectMaddr,
 		DialErrors:          db.MaddrErrors(libp2pResult.DialMaddrs, libp2pResult.ConnectError),
 		ConnectError:        libp2pResult.ConnectError,
