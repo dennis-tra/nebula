@@ -164,7 +164,6 @@ type CrawlDriverConfig struct {
 	BootstrapPeers    []*enode.Node
 	CrawlWorkerCount  int
 	AddrDialType      config.AddrType
-	AddrTrackType     config.AddrType
 	KeepENR           bool
 	MeterProvider     metric.MeterProvider
 	TracerProvider    trace.TracerProvider
@@ -190,9 +189,7 @@ func (cfg *CrawlDriverConfig) CrawlerConfig() *CrawlerConfig {
 }
 
 func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
-	return &core.CrawlWriterConfig{
-		AddrTrackType: cfg.AddrTrackType,
-	}
+	return &core.CrawlWriterConfig{}
 }
 
 type CrawlDriver struct {

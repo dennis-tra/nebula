@@ -36,7 +36,6 @@ var crawlConfig = &config.Crawl{
 	Network:           string(config.NetworkIPFS),
 	BootstrapPeers:    cli.NewStringSlice(),
 	Protocols:         cli.NewStringSlice(string(kaddht.ProtocolDHT)),
-	AddrTrackTypeStr:  "public",
 	AddrDialTypeStr:   "public",
 	KeepENR:           false,
 	CheckExposed:      false,
@@ -72,17 +71,6 @@ var CrawlCommand = &cli.Command{
 		if log.GetLevel() >= log.DebugLevel {
 			log.Debugln("Using the following configuration:")
 			fmt.Println(crawlConfig.String())
-		}
-
-		switch config.AddrType(strings.ToLower(crawlConfig.AddrTrackTypeStr)) {
-		case config.AddrTypePrivate:
-			crawlConfig.AddrTrackTypeStr = string(config.AddrTypePrivate)
-		case config.AddrTypePublic:
-			crawlConfig.AddrTrackTypeStr = string(config.AddrTypePublic)
-		case config.AddrTypeAny:
-			crawlConfig.AddrTrackTypeStr = string(config.AddrTypeAny)
-		default:
-			return fmt.Errorf("unknown type of addresses to track: %s (supported values are private, public, any)", crawlConfig.AddrTrackTypeStr)
 		}
 
 		switch config.AddrType(strings.ToLower(crawlConfig.AddrDialTypeStr)) {
@@ -153,25 +141,19 @@ var CrawlCommand = &cli.Command{
 			Destination: &crawlConfig.PersistNeighbors,
 		},
 		&cli.StringFlag{
-			Name:        "addr-track-type",
-			Usage:       "Which type addresses should be stored to the database (private, public, any)",
-			EnvVars:     []string{"NEBULA_CRAWL_ADDR_TRACK_TYPE"},
-			Value:       crawlConfig.AddrTrackTypeStr,
-			Destination: &crawlConfig.AddrTrackTypeStr,
-		},
-		&cli.StringFlag{
-			Name:        "addr-dial-type",
-			Usage:       "Which type of addresses should Nebula try to dial (private, public, any)",
-			EnvVars:     []string{"NEBULA_CRAWL_ADDR_DIAL_TYPE"},
-			Value:       crawlConfig.AddrDialTypeStr,
-			Destination: &crawlConfig.AddrDialTypeStr,
-		},
-		&cli.StringFlag{
 			Name:        "network",
 			Usage:       "Which network should be crawled. Presets default bootstrap peers and protocol. Run: `nebula networks` for more information.",
 			EnvVars:     []string{"NEBULA_CRAWL_NETWORK"},
 			Value:       crawlConfig.Network,
 			Destination: &crawlConfig.Network,
+		},
+		&cli.StringFlag{
+			Name:        "addr-dial-type",
+			Usage:       "LIBP2P/NON-ETHEREUM: Which type of addresses should Nebula try to dial (private, public, any)",
+			EnvVars:     []string{"NEBULA_CRAWL_ADDR_DIAL_TYPE"},
+			Value:       crawlConfig.AddrDialTypeStr,
+			Destination: &crawlConfig.AddrDialTypeStr,
+			Category:    flagCategoryNetwork,
 		},
 		&cli.BoolFlag{
 			Name:        "gossipsub-px",
@@ -318,7 +300,6 @@ func CrawlAction(c *cli.Context) error {
 			CrawlWorkerCount: cfg.CrawlWorkerCount,
 			BootstrapPeers:   bpEnodes,
 			AddrDialType:     cfg.AddrDialType(),
-			AddrTrackType:    cfg.AddrTrackType(),
 			TracerProvider:   cfg.Root.TracerProvider,
 			MeterProvider:    cfg.Root.MeterProvider,
 			LogErrors:        cfg.Root.LogErrors,
@@ -424,7 +405,6 @@ func CrawlAction(c *cli.Context) error {
 			BootstrapPeers:    bpEnodes,
 			CrawlWorkerCount:  cfg.CrawlWorkerCount,
 			AddrDialType:      cfg.AddrDialType(),
-			AddrTrackType:     cfg.AddrTrackType(),
 			KeepENR:           crawlConfig.KeepENR,
 			TracerProvider:    cfg.Root.TracerProvider,
 			MeterProvider:     cfg.Root.MeterProvider,
@@ -473,7 +453,6 @@ func CrawlAction(c *cli.Context) error {
 			CheckExposed:   cfg.CheckExposed,
 			BootstrapPeers: bpAddrInfos,
 			AddrDialType:   cfg.AddrDialType(),
-			AddrTrackType:  cfg.AddrTrackType(),
 			TracerProvider: cfg.Root.TracerProvider,
 			MeterProvider:  cfg.Root.MeterProvider,
 			GossipSubPX:    cfg.EnableGossipSubPX,

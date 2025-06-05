@@ -8,14 +8,10 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
-type CrawlWriterConfig struct {
-	AddrTrackType config.AddrType
-}
+type CrawlWriterConfig struct{}
 
 // CrawlWriter handles the insert/upsert/update operations for a particular crawl result.
 type CrawlWriter[I PeerInfo[I]] struct {
@@ -46,16 +42,6 @@ func (w *CrawlWriter[I]) Work(ctx context.Context, task CrawlResult[I]) (WriteRe
 	})
 	logEntry.Debugln("Storing peer")
 	defer logEntry.Debugln("Stored peer")
-
-	maddrs := task.Info.Addrs()
-	switch w.cfg.AddrTrackType {
-	case config.AddrTypePrivate:
-		maddrs = utils.FilterPublicMaddrs(maddrs)
-	case config.AddrTypePublic:
-		maddrs = utils.FilterPrivateMaddrs(maddrs)
-	default:
-		// noop
-	}
 
 	var (
 		errorBits        uint16
