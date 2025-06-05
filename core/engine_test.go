@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/db"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -246,9 +245,7 @@ func TestNewEngine_Run_parking_peers(t *testing.T) {
 	}
 
 	crawler := newTestCrawler()
-	writerCfg := &CrawlWriterConfig{
-		AddrTrackType: config.AddrTypeAny,
-	}
+	writerCfg := &CrawlWriterConfig{}
 	writer := NewCrawlWriter[*testPeerInfo]("1", db.NewNoopClient(), writerCfg)
 
 	crawler.On("Work", mock.IsType(ctx), bootstrapPeer).
