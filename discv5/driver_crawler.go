@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -25,7 +26,9 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
 	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	quic "github.com/libp2p/go-libp2p/p2p/transport/quic"
 	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -35,7 +38,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -44,6 +46,7 @@ type PeerInfo struct {
 	peerID peer.ID
 	maddrs []ma.Multiaddr
 	enr    string
+	udpIdx int8
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -71,8 +74,10 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 	} else {
 		ipScheme = "ip6"
 	}
-
-	maddrs := []ma.Multiaddr{}
+	var (
+		udpIdx int8 = -1
+		maddrs []ma.Multiaddr
+	)
 	if node.UDP() != 0 {
 		maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, node.IP(), node.UDP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
@@ -80,6 +85,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		udpIdx = 0
 	}
 
 	if node.TCP() != 0 {
@@ -112,6 +118,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		Node:   node,
 		peerID: peerID,
 		maddrs: maddrs,
+		udpIdx: udpIdx,
 		enr:    node.String(),
 	}
 
@@ -138,10 +145,21 @@ func (p PeerInfo) DeduplicationKey() string {
 	return string(p.peerID)
 }
 
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := p.Node.ID()
+	return binary.BigEndian.Uint64(kadID[:8])
+}
+
+func (p PeerInfo) UDPMaddr() ma.Multiaddr {
+	if p.udpIdx != -1 {
+		return p.maddrs[p.udpIdx]
+	}
+	return nil
+}
+
 type CrawlDriverConfig struct {
 	Version           string
 	Network           config.Network
-	TrackNeighbors    bool
 	DialTimeout       time.Duration
 	BootstrapPeers    []*enode.Node
 	CrawlWorkerCount  int
@@ -181,7 +199,6 @@ type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
 	hosts        []host.Host
-	dbCrawl      *models.Crawl
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
 	crawlerCount int
@@ -191,7 +208,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	// create a libp2p host per CPU core to distribute load
 	hosts := make([]host.Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
@@ -224,7 +241,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		cfg:       cfg,
 		dbc:       dbc,
 		hosts:     hosts,
-		dbCrawl:   crawl,
 		tasksChan: tasksChan,
 		peerstore: peerstore,
 		crawler:   make([]*Crawler, 0),
@@ -303,7 +319,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
@@ -345,11 +361,15 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		libp2p.Security(noise.ID, noise.New),
 		libp2p.UserAgent("nebula/"+cfg.Version),
 		libp2p.Transport(tcp.NewTCPTransport),
+		libp2p.Transport(quic.NewTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
 		libp2p.Muxer(yamux.ID, yamux.DefaultTransport),
 		libp2p.DisableMetrics(),
 		libp2p.ConnectionManager(cm),
 		libp2p.EnableRelay(), // enable the relay transport
+		libp2p.SwarmOpts(swarm.WithReadOnlyBlackHoleDetector()),
+		libp2p.UDPBlackHoleSuccessCounter(nil),
+		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("new libp2p host: %w", err)

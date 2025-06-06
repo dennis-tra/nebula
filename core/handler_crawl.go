@@ -3,13 +3,12 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"math"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 // CrawlResult captures data that is gathered from crawling a single peer.
@@ -17,10 +16,10 @@ type CrawlResult[I PeerInfo[I]] struct {
 	// The crawler that generated this result
 	CrawlerID string
 
-	// Information about crawled peer
+	// Information about the crawled peer
 	Info I
 
-	// The neighbors of the crawled peer
+	// The extracted routing table of the crawled peer
 	RoutingTable *RoutingTable[I]
 
 	// The agent version of the crawled peer
@@ -33,16 +32,47 @@ type CrawlResult[I PeerInfo[I]] struct {
 	// The API routing table does not include MultiAddresses, so we won't use them for further crawls.
 	RoutingTableFromAPI bool
 
-	// Any error that has occurred when connecting to the peer
+	// The multi addresses we tried to dial. This can fewer addresses than we
+	// found in the network because, e.g., the crawler won't try to connect to IP
+	// addresses in the private CIDRs by default. It could also be that the peer
+	// advertised multi addresses with protocols  that the crawler does not yet
+	// support (unlikely though).
+	DialMaddrs []ma.Multiaddr
+
+	// A list of multi addresses that we found in the network for the
+	// given peer but didn't try to dial. The union of filtered_maddrs and
+	// dial_maddrs are all addresses we've found for the given peer in the
+	// network. Nebula doesn't try to dial addresses from private IP addresses
+	// by default (configurable though).
+	FilteredMaddrs []ma.Multiaddr
+
+	// A List of multi addresses that the peer additionally listens on.
+	// After the crawler has connected to the peer, that peer will push all
+	// addresses it listens on to the crawler. This list can contain additional
+	// addresses that were not found in the network through the regular
+	// discovery protocol.
+	ExtraMaddrs []ma.Multiaddr
+
+	// The multi address of the connection that we have established to the peer
+	ConnectMaddr ma.Multiaddr
+
+	// A list of errors that belong to each of the addresses stored in
+	// DialMaddrs. The list is guaranteed to have the same length as the
+	// DialMaddrs if a connection could not be established.
+	DialErrors []string
+
+	// An error that summaries the DialErrors into a single one (deprecated and
+	// used in postgres). This error aggregation should be done later in the
+	// analysis process.
 	ConnectError error
 
-	// The above error transferred to a known error
+	// The above error transformed to a known error
 	ConnectErrorStr string
 
 	// Any error that has occurred during fetching neighbor information
 	CrawlError error
 
-	// The above error transferred to a known error
+	// The above error transformed to a known error
 	CrawlErrorStr string
 
 	// When was the crawl started
@@ -77,7 +107,7 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	})
 
 	if r.ConnectError != nil {
-		if r.LogErrors || r.ConnectErrorStr == models.NetErrorUnknown {
+		if r.LogErrors || r.ConnectErrorStr == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithField("connErr", r.ConnectError)
 		} else {
 			logEntry = logEntry.WithField("connErr", r.ConnectErrorStr)
@@ -85,7 +115,7 @@ func (r CrawlResult[I]) LogEntry() *log.Entry {
 	}
 
 	if r.CrawlError != nil {
-		if r.LogErrors || r.CrawlErrorStr == models.NetErrorUnknown {
+		if r.LogErrors || r.CrawlErrorStr == pgmodels.NetErrorUnknown {
 			logEntry = logEntry.WithField("crawlErr", r.CrawlError)
 		} else {
 			logEntry = logEntry.WithField("crawlErr", r.CrawlErrorStr)
@@ -109,25 +139,12 @@ func (r CrawlResult[I]) ConnectDuration() time.Duration {
 	return r.ConnectEndTime.Sub(r.ConnectStartTime)
 }
 
-type CrawlHandlerConfig struct {
-	// a flag that indicates whether we want to track and keep routing table
-	// configurations of all peers in memory and write them to disk after the
-	// crawl has finished.
-	TrackNeighbors bool
-}
+type CrawlHandlerConfig struct{}
 
 // CrawlHandler is the default implementation for a [Handler] that can be used
 // as the basis for crawl operations.
 type CrawlHandler[I PeerInfo[I]] struct {
 	cfg *CrawlHandlerConfig
-
-	// A map that maps peer IDs to their database IDs. This speeds up the insertion of neighbor information as
-	// the database does not need to look up every peer ID but only the ones not yet present in the database.
-	// Speed up for ~11k peers: 5.5 min -> 30s
-	PeerMappings map[peer.ID]int
-
-	// A map that keeps track of all k-bucket entries of a particular peer.
-	RoutingTables map[peer.ID]*RoutingTable[I]
 
 	// A map of agent versions and their occurrences that happened during the crawl.
 	AgentVersion map[string]int
@@ -141,24 +158,18 @@ type CrawlHandler[I PeerInfo[I]] struct {
 	// A map of errors that happened during the crawl.
 	CrawlErrs map[string]int
 
-	// The number of peers we would still need to crawl after the Run method has returned.
-	QueuedPeers int
-
 	// The number of peers that were crawled.
 	CrawledPeers int
 }
 
 func NewCrawlHandler[I PeerInfo[I]](cfg *CrawlHandlerConfig) *CrawlHandler[I] {
 	return &CrawlHandler[I]{
-		cfg:           cfg,
-		PeerMappings:  make(map[peer.ID]int),
-		RoutingTables: make(map[peer.ID]*RoutingTable[I]),
-		AgentVersion:  make(map[string]int),
-		Protocols:     make(map[string]int),
-		ConnErrs:      make(map[string]int),
-		CrawlErrs:     make(map[string]int),
-		QueuedPeers:   0,
-		CrawledPeers:  0,
+		cfg:          cfg,
+		AgentVersion: make(map[string]int),
+		Protocols:    make(map[string]int),
+		ConnErrs:     make(map[string]int),
+		CrawlErrs:    make(map[string]int),
+		CrawledPeers: 0,
 	}
 }
 
@@ -176,14 +187,7 @@ func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[Cr
 		h.Protocols[p] += 1
 	}
 
-	if cr.ConnectError == nil {
-		// Only track the neighbors if we were actually able to connect to the peer. Otherwise, we would track
-		// an empty routing table of that peer. Only track the routing table in the neighbors table if at least
-		// one FIND_NODE RPC succeeded.
-		if h.cfg.TrackNeighbors && cr.RoutingTable.ErrorBits < math.MaxUint16 {
-			h.RoutingTables[cr.Info.ID()] = cr.RoutingTable
-		}
-	} else {
+	if cr.ConnectError != nil {
 		// Count connection errors
 		h.ConnErrs[cr.ConnectErrorStr] += 1
 	}
@@ -203,10 +207,18 @@ func (h *CrawlHandler[I]) HandlePeerResult(ctx context.Context, result Result[Cr
 }
 
 func (h *CrawlHandler[I]) HandleWriteResult(ctx context.Context, result Result[WriteResult]) {
-	wr := result.Value
+}
 
-	if wr.InsertVisitResult != nil && wr.InsertVisitResult.PeerID != nil {
-		h.PeerMappings[wr.PID] = *wr.InsertVisitResult.PeerID
+func (h *CrawlHandler[I]) Summary(state *EngineState) *Summary {
+	return &Summary{
+		PeersCrawled:    h.CrawledPeers,
+		PeersDialable:   h.CrawledPeers - h.TotalErrors(),
+		PeersUndialable: h.TotalErrors(),
+		PeersRemaining:  state.PeersQueued,
+		AgentVersion:    h.AgentVersion,
+		Protocols:       h.Protocols,
+		ConnErrs:        h.ConnErrs,
+		CrawlErrs:       h.CrawlErrs,
 	}
 }
 

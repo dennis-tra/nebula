@@ -16,12 +16,13 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/discover"
 	"github.com/ethereum/go-ethereum/p2p/discover/v4wire"
 	"github.com/ethereum/go-ethereum/p2p/enode"
+	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
+	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
 )
 
 type CrawlerConfig struct {
@@ -80,12 +81,12 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	properties := map[string]any{}
 
 	// keep track of all unknown connection errors
-	if devp2pResult.ConnectErrorStr == models.NetErrorUnknown && devp2pResult.ConnectError != nil {
+	if devp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && devp2pResult.ConnectError != nil {
 		properties["connect_error"] = devp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+	if discV4Result.ErrorStr == pgmodels.NetErrorUnknown && discV4Result.Error != nil {
 		properties["crawl_error"] = discV4Result.Error.Error()
 	}
 
@@ -104,18 +105,45 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	}
 
 	// keep track of all unknown connection errors
-	if devp2pResult.ConnectErrorStr == models.NetErrorUnknown && devp2pResult.ConnectError != nil {
+	if devp2pResult.ConnectErrorStr == pgmodels.NetErrorUnknown && devp2pResult.ConnectError != nil {
 		properties["connect_error"] = devp2pResult.ConnectError.Error()
 	}
 
 	// keep track of all unknown crawl errors
-	if discV4Result.ErrorStr == models.NetErrorUnknown && discV4Result.Error != nil {
+	if discV4Result.ErrorStr == pgmodels.NetErrorUnknown && discV4Result.Error != nil {
 		properties["crawl_error"] = discV4Result.Error.Error()
 	}
 
 	data, err := json.Marshal(properties)
 	if err != nil {
 		logEntry.WithError(err).WithField("properties", properties).Warnln("Could not marshal peer properties")
+	}
+
+	connectMaddr := devp2pResult.ConnectMaddr
+	if connectMaddr == nil && discV4Result.Error == nil {
+		connectMaddr = discV4Result.ConnectMaddr
+	}
+
+	// construct a lookup map with maddrs we tried to dial
+	dialMaddrsMap := make(map[string]struct{})
+	for _, maddr := range devp2pResult.DialMaddrs {
+		dialMaddrsMap[string(maddr.Bytes())] = struct{}{}
+	}
+
+	// construct a slice with multi addresses that we did NOT try to dial
+	// We loop through all known addrs and check if we dialed it.
+	// Further, build a lookup map with known multi addresses for the peer.
+	// this map contains all maddrs we've found via the discovery protocol
+	var (
+		knownMaddrsMap = make(map[string]struct{}, len(task.maddrs))
+		filteredMaddrs []ma.Multiaddr
+	)
+	for _, maddr := range task.maddrs {
+		knownMaddrsMap[string(maddr.Bytes())] = struct{}{}
+		if _, ok := dialMaddrsMap[string(maddr.Bytes())]; ok {
+			continue
+		}
+		filteredMaddrs = append(filteredMaddrs, maddr)
 	}
 
 	cr := core.CrawlResult[PeerInfo]{
@@ -126,6 +154,11 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		RoutingTable:        discV4Result.RoutingTable,
 		Agent:               devp2pResult.Agent,
 		Protocols:           devp2pResult.Protocols,
+		DialMaddrs:          devp2pResult.DialMaddrs,
+		FilteredMaddrs:      filteredMaddrs,
+		ExtraMaddrs:         []ma.Multiaddr{},
+		ConnectMaddr:        connectMaddr,
+		DialErrors:          db.MaddrErrors(devp2pResult.DialMaddrs, devp2pResult.ConnectError),
 		ConnectError:        devp2pResult.ConnectError,
 		ConnectErrorStr:     devp2pResult.ConnectErrorStr,
 		CrawlError:          discV4Result.Error,
@@ -149,6 +182,9 @@ type DiscV4Result struct {
 
 	// The updated ethereum node record
 	ENR *enode.Node
+
+	// The multiaddress via which we have received a response
+	ConnectMaddr ma.Multiaddr
 
 	// The neighbors of the crawled peer
 	RoutingTable *core.RoutingTable[PeerInfo]
@@ -192,8 +228,9 @@ func (c *Crawler) crawlDiscV4(ctx context.Context, pi PeerInfo) <-chan DiscV4Res
 
 		if err == nil {
 			// track the respondedAt timestamp if it wasn't already set
-			if result.RespondedAt != nil && !respondedAt.IsZero() {
+			if result.RespondedAt == nil && !respondedAt.IsZero() {
 				result.RespondedAt = &respondedAt
+				result.ConnectMaddr = pi.UDPMaddr()
 			}
 
 			result.Strategy = determineStrategy(closestSet)
@@ -379,11 +416,13 @@ OUTER:
 }
 
 type Devp2pResult struct {
+	DialMaddrs       []ma.Multiaddr
 	ConnectStartTime time.Time
 	ConnectEndTime   time.Time
 	IdentifyEndTime  time.Time
 	ConnectError     error
 	ConnectErrorStr  string
+	ConnectMaddr     ma.Multiaddr
 	Agent            string
 	Protocols        []string
 	Status           *eth.StatusPacket
@@ -392,8 +431,15 @@ type Devp2pResult struct {
 func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pResult {
 	resultCh := make(chan Devp2pResult)
 	go func() {
+		var dialMaddrs []ma.Multiaddr
+		if tcpMaddr := pi.TCPMaddr(); tcpMaddr != nil {
+			dialMaddrs = []ma.Multiaddr{tcpMaddr}
+		}
+
 		// the final result struct
-		result := Devp2pResult{}
+		result := Devp2pResult{
+			DialMaddrs: dialMaddrs,
+		}
 
 		result.ConnectStartTime = time.Now()
 		conn, err := c.client.Connect(ctx, pi)
@@ -401,6 +447,7 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 		result.ConnectError = err
 
 		if result.ConnectError == nil {
+			result.ConnectMaddr = pi.TCPMaddr()
 
 			// start another go routine to cancel the entire operation if it
 			// times out. The context will be cancelled when this function
@@ -433,10 +480,8 @@ func (c *Crawler) crawlDevp2p(ctx context.Context, pi PeerInfo) <-chan Devp2pRes
 				}
 				result.Protocols = protocols
 			}
-		}
-
-		// if there was a connection error, parse it to a known one
-		if result.ConnectError != nil {
+		} else {
+			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
 

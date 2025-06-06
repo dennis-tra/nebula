@@ -81,10 +81,9 @@ func (c *Client) Connect(ctx context.Context, pi PeerInfo) (*ethtest.Conn, error
 	}
 
 	ethConn := &ethtest.Conn{
-		Conn:   rlpx.NewConn(conn, pi.Pubkey()),
-		OurKey: c.privKey,
-		Caps:   c.cfg.Caps,
-
+		Conn:                   rlpx.NewConn(conn, pi.Pubkey()),
+		OurKey:                 c.privKey,
+		Caps:                   c.cfg.Caps,
 		OurHighestProtoVersion: c.cfg.HighestProtoVersion,
 	}
 

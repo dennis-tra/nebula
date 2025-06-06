@@ -2,6 +2,7 @@ package discv4
 
 import (
 	"crypto/elliptic"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"net"
@@ -25,7 +26,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
-	"github.com/dennis-tra/nebula-crawler/db/models"
 	"github.com/dennis-tra/nebula-crawler/tele"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
@@ -36,6 +36,8 @@ type PeerInfo struct {
 	maddrs  []ma.Multiaddr
 	udpAddr netip.AddrPort
 	enr     string
+	udpIdx  int8
+	tcpIdx  int8
 }
 
 var _ core.PeerInfo[PeerInfo] = (*PeerInfo)(nil)
@@ -64,7 +66,11 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		ipScheme = "ip6"
 	}
 
-	maddrs := []ma.Multiaddr{}
+	var (
+		udpIdx int8 = -1
+		tcpIdx int8 = -1
+		maddrs []ma.Multiaddr
+	)
 	if node.UDP() != 0 {
 		maddrStr := fmt.Sprintf("/%s/%s/udp/%d", ipScheme, node.IP(), node.UDP())
 		maddr, err := ma.NewMultiaddr(maddrStr)
@@ -72,6 +78,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		udpIdx = 0
 	}
 
 	if node.TCP() != 0 {
@@ -81,6 +88,7 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 			return PeerInfo{}, fmt.Errorf("parse multiaddress %s: %w", maddrStr, err)
 		}
 		maddrs = append(maddrs, maddr)
+		tcpIdx = int8(len(maddrs) - 1)
 	}
 
 	ipAddr, ok := netip.AddrFromSlice(node.IP())
@@ -93,6 +101,8 @@ func NewPeerInfo(node *enode.Node) (PeerInfo, error) {
 		Node:    node,
 		peerID:  peerID,
 		maddrs:  maddrs,
+		udpIdx:  udpIdx,
+		tcpIdx:  tcpIdx,
 		udpAddr: udpAddr,
 		enr:     node.String(),
 	}
@@ -120,9 +130,27 @@ func (p PeerInfo) DeduplicationKey() string {
 	return p.enr
 }
 
+func (p PeerInfo) DiscoveryPrefix() uint64 {
+	kadID := p.Node.ID()
+	return binary.BigEndian.Uint64(kadID[:8])
+}
+
+func (p PeerInfo) UDPMaddr() ma.Multiaddr {
+	if p.udpIdx != -1 {
+		return p.maddrs[p.udpIdx]
+	}
+	return nil
+}
+
+func (p PeerInfo) TCPMaddr() ma.Multiaddr {
+	if p.tcpIdx != -1 {
+		return p.maddrs[p.tcpIdx]
+	}
+	return nil
+}
+
 type CrawlDriverConfig struct {
 	Version          string
-	TrackNeighbors   bool
 	CrawlWorkerCount int
 	DialTimeout      time.Duration
 	BootstrapPeers   []*enode.Node
@@ -156,7 +184,6 @@ type CrawlDriver struct {
 	cfg            *CrawlDriverConfig
 	dbc            db.Client
 	client         *Client
-	dbCrawl        *models.Crawl
 	tasksChan      chan PeerInfo
 	peerstore      *enode.DB
 	crawlerCount   int
@@ -171,7 +198,7 @@ type CrawlDriver struct {
 
 var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
-func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
+func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	priv, err := ethcrypto.GenerateKey()
 	if err != nil {
 		return nil, fmt.Errorf("new ethereum ecdsa key: %w", err)
@@ -221,7 +248,6 @@ func NewCrawlDriver(dbc db.Client, crawl *models.Crawl, cfg *CrawlDriverConfig) 
 		cfg:            cfg,
 		dbc:            dbc,
 		client:         client,
-		dbCrawl:        crawl,
 		peerstore:      peerstore,
 		tasksChan:      tasksChan,
 		taskDoneAtChan: taskDoneAtChan,
@@ -326,7 +352,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 }
 
 func (d *CrawlDriver) NewWriter() (core.Worker[core.CrawlResult[PeerInfo], core.WriteResult], error) {
-	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.dbCrawl.ID, d.cfg.WriterConfig())
+	w := core.NewCrawlWriter[PeerInfo](fmt.Sprintf("writer-%02d", d.writerCount), d.dbc, d.cfg.WriterConfig())
 	d.writerCount += 1
 	return w, nil
 }
@@ -345,7 +371,7 @@ func (d *CrawlDriver) Close() {
 	select {
 	case <-d.tasksChan:
 	case <-time.After(time.Second):
-		log.Warnln("Timed out waiting for packetsDone channel to close")
+		log.Warnln("Timed out waiting for tasksChan channel to close")
 	}
 }
 
