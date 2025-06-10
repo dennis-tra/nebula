@@ -83,6 +83,10 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 			RoutingTable: &core.RoutingTable[PeerInfo]{PeerID: pi.ID()},
 		}
 
+		// register the given peer (before connecting) to receive
+		// the identify result on the returned channel
+		identifyChan := c.host.RegisterIdentify(pi.ID())
+
 		var conn network.Conn
 		result.ConnectStartTime = time.Now()
 		conn, result.ConnectError = c.connect(ctx, pi.AddrInfo) // use filtered addr list
@@ -110,28 +114,19 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 			select {
 			case <-timeoutCtx.Done():
 				// identification timed out.
-			case <-c.host.IDService().IdentifyWait(conn):
+			case identify, more := <-identifyChan:
 				// identification may have succeeded.
-			}
+				if !more {
+					break
+				}
 
-			// Extract information from peer store
-			ps := c.host.Peerstore()
-
-			// Extract agent
-			if agent, err := ps.Get(pi.ID(), "AgentVersion"); err == nil {
-				result.Agent = agent.(string)
-			}
-
-			// Extract protocols
-			if protocols, err := ps.GetProtocols(pi.ID()); err == nil {
-				result.Protocols = make([]string, len(protocols))
-				for i := range protocols {
-					result.Protocols[i] = string(protocols[i])
+				result.Agent = identify.AgentVersion
+				result.ListenMaddrs = identify.ListenAddrs
+				result.Protocols = make([]string, len(identify.Protocols))
+				for i := range identify.Protocols {
+					result.Protocols[i] = string(identify.Protocols[i])
 				}
 			}
-
-			// Extract listen addresses
-			result.ListenMaddrs = ps.Addrs(pi.ID())
 
 			if c.cfg.GossipSubPX {
 				// give the other peer a chance to open a stream to and prune us
@@ -198,6 +193,9 @@ func (c *Crawler) crawlP2P(ctx context.Context, pi PeerInfo) <-chan P2PResult {
 			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
+
+		// deregister peer from identify messages
+		c.host.DeregisterIdentify(pi.ID())
 
 		// send the result back and close channel
 		select {

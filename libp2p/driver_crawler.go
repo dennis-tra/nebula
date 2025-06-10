@@ -21,7 +21,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/libp2p/go-libp2p/core/record"
 	"github.com/libp2p/go-libp2p/p2p/net/swarm"
-	"github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	"github.com/libp2p/go-msgio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -35,14 +34,6 @@ import (
 	"github.com/dennis-tra/nebula-crawler/kubo"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
-
-// Host is the interface that's required for crawling libp2p peers. Actually
-// the *basichost.Host is required but to allow testing we define this interface
-// here. That allows us to inject a mock host.
-type Host interface {
-	host.Host
-	IDService() identify.IDService
-}
 
 type PeerInfo struct {
 	peer.AddrInfo
@@ -111,7 +102,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 
 type CrawlDriver struct {
 	cfg   *CrawlDriverConfig
-	hosts map[peer.ID]Host
+	hosts map[peer.ID]*Host
 	dbc   db.Client
 
 	// pxPeersChan receives peers that we get to know
@@ -148,7 +139,7 @@ func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error)
 		userAgent = "avail-light-client/light-client/1.12.13/rust-client"
 	}
 
-	hosts := make(map[peer.ID]Host, runtime.NumCPU())
+	hosts := make(map[peer.ID]*Host, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
 		h, err := newLibp2pHost(userAgent)
 		if err != nil {
@@ -198,7 +189,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	hostID := peer.ID(hostsList[d.crawlerCount%len(d.hosts)])
 
 	ms := &msgSender{
-		h:         d.hosts[hostID],
+		h:         d.hosts[hostID].Host,
 		protocols: protocol.ConvertFromStrings(d.cfg.Protocols),
 		timeout:   d.cfg.DialTimeout,
 	}
@@ -251,7 +242,7 @@ func (d *CrawlDriver) shutdown() {
 	var wgHostClose sync.WaitGroup
 	for _, h := range d.hosts {
 		wgHostClose.Add(1)
-		go func(h Host) {
+		go func(h *Host) {
 			defer wgHostClose.Done()
 			if err := h.Close(); err != nil {
 				log.WithError(err).Warnln("failed to close host")
@@ -310,7 +301,7 @@ LOOP:
 	}
 }
 
-func newLibp2pHost(userAgent string) (Host, error) {
+func newLibp2pHost(userAgent string) (*Host, error) {
 	// Configure the resource manager to not limit anything
 	// Don't use a connection manager that could potentially
 	// prune any connections. We clean up after ourselves.
@@ -327,8 +318,11 @@ func newLibp2pHost(userAgent string) (Host, error) {
 		libp2p.UDPBlackHoleSuccessCounter(nil),
 		libp2p.IPv6BlackHoleSuccessCounter(nil),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("new libp2p host: %w", err)
+	}
 
-	return h.(Host), err
+	return WrapHost(h)
 }
 
 // handleGossipSubStream manages a GossipSub stream between two peers. It first

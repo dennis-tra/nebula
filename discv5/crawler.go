@@ -16,7 +16,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/peerstore"
-	basichost "github.com/libp2p/go-libp2p/p2p/host/basic"
 	"github.com/libp2p/go-msgio/pbio"
 	ma "github.com/multiformats/go-multiaddr"
 	log "github.com/sirupsen/logrus"
@@ -27,6 +26,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
 	pgmodels "github.com/dennis-tra/nebula-crawler/db/models/pg"
+	nebp2p "github.com/dennis-tra/nebula-crawler/libp2p"
 )
 
 const MaxCrawlRetriesAfterTimeout = 2 // magic
@@ -45,7 +45,7 @@ type CrawlerConfig struct {
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	host         *basichost.BasicHost
+	host         *nebp2p.Host
 	listener     *discover.UDPv5
 	crawledPeers int
 	done         chan struct{}
@@ -146,7 +146,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 	// construct a slice with multi addresses that the peer replied with which
 	// we didn't know before.
 	var extraMaddrs []ma.Multiaddr
-	for _, maddr := range libp2pResult.ListenAddrs {
+	for _, maddr := range libp2pResult.ListenMaddrs {
 		if _, ok := knownMaddrsMap[string(maddr.Bytes())]; ok {
 			continue
 		}
@@ -164,7 +164,7 @@ func (c *Crawler) Work(ctx context.Context, task PeerInfo) (core.CrawlResult[Pee
 		DialMaddrs:          libp2pResult.DialMaddrs,
 		FilteredMaddrs:      filteredMaddrs,
 		ExtraMaddrs:         extraMaddrs,
-		ListenMaddrs:        libp2pResult.ListenAddrs,
+		ListenMaddrs:        libp2pResult.ListenMaddrs,
 		ConnectMaddr:        connectMaddr,
 		DialErrors:          db.MaddrErrors(libp2pResult.DialMaddrs, libp2pResult.ConnectError),
 		ConnectError:        libp2pResult.ConnectError,
@@ -300,7 +300,7 @@ type Libp2pResult struct {
 	ConnectMaddr          ma.Multiaddr
 	Agent                 string
 	Protocols             []string
-	ListenAddrs           []ma.Multiaddr
+	ListenMaddrs          []ma.Multiaddr
 	ConnClosedImmediately bool // whether conn was no error but still unconnected
 	GenTCPAddr            bool // whether a TCP address was generated
 	WakuClusterID         uint32
@@ -322,6 +322,10 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 			ID:    pi.ID(),
 			Addrs: result.DialMaddrs,
 		}
+
+		// register the given peer (before connecting) to receive
+		// the identify result on the returned channel
+		identifyChan := c.host.RegisterIdentify(pi.ID())
 
 		var conn network.Conn
 		result.ConnectStartTime = time.Now()
@@ -351,32 +355,27 @@ func (c *Crawler) crawlLibp2p(ctx context.Context, pi PeerInfo) chan Libp2pResul
 			select {
 			case <-timeoutCtx.Done():
 				// identification timed out.
-			case <-c.host.IDService().IdentifyWait(conn):
+			case identify, more := <-identifyChan:
 				// identification may have succeeded.
-			}
+				if !more {
+					break
+				}
 
-			// Extract information from peer store
-			ps := c.host.Peerstore()
-
-			// Extract agent
-			if agent, err := ps.Get(pi.ID(), "AgentVersion"); err == nil {
-				result.Agent = agent.(string)
-			}
-
-			// Extract protocols
-			if protocols, err := ps.GetProtocols(pi.ID()); err == nil {
-				result.Protocols = make([]string, len(protocols))
-				for i := range protocols {
-					result.Protocols[i] = string(protocols[i])
+				result.Agent = identify.AgentVersion
+				result.ListenMaddrs = identify.ListenAddrs
+				result.Protocols = make([]string, len(identify.Protocols))
+				for i := range identify.Protocols {
+					result.Protocols[i] = string(identify.Protocols[i])
 				}
 			}
 
-			// Extract listen addresses
-			result.ListenAddrs = ps.Addrs(pi.ID())
 		} else {
 			// if there was a connection error, parse it to a known one
 			result.ConnectErrorStr = db.NetError(result.ConnectError)
 		}
+
+		// deregister peer from identify messages
+		c.host.DeregisterIdentify(pi.ID())
 
 		// Free connection resources
 		if err := c.host.Network().ClosePeer(pi.ID()); err != nil {

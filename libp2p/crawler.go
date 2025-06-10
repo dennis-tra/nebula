@@ -44,7 +44,7 @@ func DefaultCrawlerConfig() *CrawlerConfig {
 type Crawler struct {
 	id           string
 	cfg          *CrawlerConfig
-	host         Host
+	host         *Host
 	pm           *pb.ProtocolMessenger
 	psTopics     map[string]struct{}
 	crawledPeers int
