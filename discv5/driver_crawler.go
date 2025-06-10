@@ -19,10 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/libp2p/go-libp2p"
 	mplex "github.com/libp2p/go-libp2p-mplex"
-	libp2pconfig "github.com/libp2p/go-libp2p/config"
 	"github.com/libp2p/go-libp2p/core/connmgr"
 	"github.com/libp2p/go-libp2p/core/crypto"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
@@ -38,6 +36,7 @@ import (
 	"github.com/dennis-tra/nebula-crawler/config"
 	"github.com/dennis-tra/nebula-crawler/core"
 	"github.com/dennis-tra/nebula-crawler/db"
+	nebp2p "github.com/dennis-tra/nebula-crawler/libp2p"
 	"github.com/dennis-tra/nebula-crawler/utils"
 )
 
@@ -195,7 +194,7 @@ func (cfg *CrawlDriverConfig) WriterConfig() *core.CrawlWriterConfig {
 type CrawlDriver struct {
 	cfg          *CrawlDriverConfig
 	dbc          db.Client
-	hosts        []host.Host
+	hosts        []*nebp2p.Host
 	tasksChan    chan PeerInfo
 	peerstore    *enode.DB
 	crawlerCount int
@@ -207,9 +206,9 @@ var _ core.Driver[PeerInfo, core.CrawlResult[PeerInfo]] = (*CrawlDriver)(nil)
 
 func NewCrawlDriver(dbc db.Client, cfg *CrawlDriverConfig) (*CrawlDriver, error) {
 	// create a libp2p host per CPU core to distribute load
-	hosts := make([]host.Host, 0, runtime.NumCPU())
+	hosts := make([]*nebp2p.Host, 0, runtime.NumCPU())
 	for i := 0; i < runtime.NumCPU(); i++ {
-		h, err := newLibp2pHost(cfg)
+		h, err := newHost(cfg.Network, cfg.Version)
 		if err != nil {
 			return nil, fmt.Errorf("new libp2p host: %w", err)
 		}
@@ -299,7 +298,7 @@ func (d *CrawlDriver) NewWorker() (core.Worker[PeerInfo, core.CrawlResult[PeerIn
 	c := &Crawler{
 		id:       fmt.Sprintf("crawler-%02d", d.crawlerCount),
 		cfg:      d.cfg.CrawlerConfig(),
-		host:     h.(*libp2pconfig.ClosableBasicHost).BasicHost,
+		host:     h,
 		listener: listener,
 		done:     make(chan struct{}),
 	}
@@ -337,7 +336,7 @@ func (d *CrawlDriver) Close() {
 	}
 }
 
-func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
+func newHost(net config.Network, version string) (*nebp2p.Host, error) {
 	cm := connmgr.NullConnMgr{}
 	rm := network.NullResourceManager{}
 
@@ -356,7 +355,7 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		libp2p.ResourceManager(&rm),
 		libp2p.Identity(secpKey),
 		libp2p.Security(noise.ID, noise.New),
-		libp2p.UserAgent("nebula/"+cfg.Version),
+		libp2p.UserAgent("nebula/"+version),
 		libp2p.Transport(tcp.NewTCPTransport),
 		libp2p.Transport(quic.NewTransport),
 		libp2p.Muxer(mplex.ID, mplex.DefaultTransport),
@@ -372,7 +371,7 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 		return nil, fmt.Errorf("new libp2p host: %w", err)
 	}
 
-	switch cfg.Network {
+	switch net {
 	case config.NetworkEthCons, config.NetworkHolesky, config.NetworkPortal:
 		// According to Diva, these are required protocols. Some of them are just
 		// assumed to be required. We just read from the stream indefinitely to
@@ -389,5 +388,5 @@ func newLibp2pHost(cfg *CrawlDriverConfig) (host.Host, error) {
 	}
 	log.WithField("peerID", h.ID().String()).Infoln("Started libp2p host")
 
-	return h, nil
+	return nebp2p.WrapHost(h)
 }
