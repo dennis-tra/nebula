@@ -598,15 +598,25 @@ func (c *ClickHouseClient) InsertVisit(ctx context.Context, args *VisitArgs) err
 		args.Properties = json.RawMessage("{}")
 	}
 
+	dialMaddrs := utils.MaddrsToAddrs(args.DialMaddrs)
+	filteredMaddrs := utils.MaddrsToAddrs(args.FilteredMaddrs)
+	extraMaddrs := utils.MaddrsToAddrs(args.ExtraMaddrs)
+	listenMaddrs := utils.MaddrsToAddrs(args.ListenMaddrs)
+
+	sort.Strings(dialMaddrs)
+	sort.Strings(filteredMaddrs)
+	sort.Strings(extraMaddrs)
+	sort.Strings(listenMaddrs)
+
 	visit := &ClickHouseVisit{
 		CrawlID:        crawlID,
 		PeerID:         args.PeerID.String(),
 		AgentVersion:   av,
 		Protocols:      args.Protocols,
-		DialMaddrs:     utils.MaddrsToAddrs(args.DialMaddrs),
-		FilteredMaddrs: utils.MaddrsToAddrs(args.FilteredMaddrs),
-		ExtraMaddrs:    utils.MaddrsToAddrs(args.ExtraMaddrs),
-		ListenMaddrs:   utils.MaddrsToAddrs(args.ListenMaddrs),
+		DialMaddrs:     dialMaddrs,
+		FilteredMaddrs: filteredMaddrs,
+		ExtraMaddrs:    extraMaddrs,
+		ListenMaddrs:   listenMaddrs,
 		ConnectMaddr:   connMaddrStr,
 		DialErrors:     args.DialErrors,
 		CrawlError:     crawlErrStr,
