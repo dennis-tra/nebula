@@ -161,6 +161,9 @@ func (c *JSONClient) InsertCrawlProperties(ctx context.Context, properties map[s
 type JSONVisit struct {
 	PeerID          peer.ID
 	Maddrs          []ma.Multiaddr
+	FilteredMaddrs  []ma.Multiaddr
+	ListenMaddrs    []ma.Multiaddr
+	ConnectMaddr    ma.Multiaddr
 	Protocols       []string
 	AgentVersion    string
 	ConnectDuration string
@@ -175,7 +178,10 @@ type JSONVisit struct {
 func (c *JSONClient) InsertVisit(ctx context.Context, args *VisitArgs) error {
 	data := JSONVisit{
 		PeerID:          args.PeerID,
-		Maddrs:          slices.Concat(args.DialMaddrs, args.FilteredMaddrs, args.ExtraMaddrs),
+		Maddrs:          slices.Concat(args.DialMaddrs),
+		FilteredMaddrs:  args.FilteredMaddrs,
+		ListenMaddrs:    args.ListenMaddrs,
+		ConnectMaddr:    args.ConnectMaddr,
 		Protocols:       args.Protocols,
 		AgentVersion:    args.AgentVersion,
 		ConnectDuration: args.ConnectDuration.String(),
