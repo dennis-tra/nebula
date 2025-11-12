@@ -31,7 +31,7 @@ Currently, Nebula supports the following networks:
 
 You can run `nebula networks` to get a list of all supported networks
 
-Nebula supports the following storage backends: JSON, Postgres, ClickHouse
+Nebula supports the following storage backends: JSON, Postgres, ClickHouse ([TCP](https://clickhouse.com/docs/interfaces/tcp) protocol)
 
 
 The crawler was:
