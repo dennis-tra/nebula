@@ -53,6 +53,9 @@ const (
 	NetworkWakuStatus     Network = "WAKU_STATUS"
 	NetworkWakuTWN        Network = "WAKU_TWN"
 	NetworkGnosis         Network = "GNOSIS"
+	NetworkAlgorandMainN  Network = "ALGORAND_MAINNET"
+	NetworkAlgorandTestN  Network = "ALGORAND_TESTNET"
+	NetworkAlgorandBetaN  Network = "ALGORAND_BETANET"
 )
 
 func Networks() []Network {
@@ -82,6 +85,9 @@ func Networks() []Network {
 		NetworkWakuStatus,
 		NetworkWakuTWN,
 		NetworkGnosis,
+		NetworkAlgorandMainN,
+		NetworkAlgorandTestN,
+		NetworkAlgorandBetaN,
 	}
 }
 
@@ -694,6 +700,15 @@ func ConfigureNetwork(network string) (*cli.StringSlice, *cli.StringSlice, error
 	case NetworkWakuTWN:
 		bootstrapPeers = cli.NewStringSlice(BootstrapPeersWakuTWN...)
 		protocols = cli.NewStringSlice("d5waku")
+	case NetworkAlgorandMainN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAlgorandMainNet...)
+		protocols = cli.NewStringSlice("/algorand/kad/mainnet/kad/1.0.0")
+	case NetworkAlgorandTestN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAlgorandTestNet...)
+		protocols = cli.NewStringSlice("/algorand/kad/testnet/kad/1.0.0")
+	case NetworkAlgorandBetaN:
+		bootstrapPeers = cli.NewStringSlice(BootstrapPeersAlgorandBetaNet...)
+		protocols = cli.NewStringSlice("/algorand/kad/betanet/kad/1.0.0")
 	default:
 		return nil, nil, fmt.Errorf("unknown network identifier: %s", network)
 	}
