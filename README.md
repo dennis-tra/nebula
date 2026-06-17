@@ -14,7 +14,6 @@ until all peers in the network have been contacted.
 Currently, Nebula supports the following networks:
 
 - [IPFS](https://ipfs.network) - [_Amino DHT_](https://blog.ipfs.tech/2023-09-amino-refactoring/)
-- [Bitcoin](https://bitcoin.org/) | [Litecoin](https://litecoin.org/) | [Dogecoin](https://dogecoin.com/) (alpha)
 - [Ethereum](https://ethereum.org/en/) - [_Consensus Layer (discv5)_](https://ethereum.org/uz/developers/docs/networking-layer/#consensus-discovery) | [_Execution Layer (discv4)_](https://ethereum.org/uz/developers/docs/networking-layer/#discovery)
 - [Optimism](https://www.optimism.io/) compatible chains
 - [Portal](https://www.portal.network/) - (_alpha - [wire protocol](https://github.com/ethereum/portal-network-specs/blob/master/portal-wire-protocol.md) not implemented_)
@@ -25,7 +24,6 @@ Currently, Nebula supports the following networks:
 - [Pactus](https://pactus.org)
 - [Dria](https://dria.co/)
 - [Gnosis](https://www.gnosis.io/)
-- [Monero](https://www.getmonero.org/)
 - ... your network? Get in touch [team@probelab.io](mailto:team@probelab.io).
 
 > You can run `nebula networks` to get a list of all supported networks.
@@ -41,9 +39,12 @@ In addition to the open-source version, [ProbeLab](https://probelab.io/) maintai
 of Nebula which includes:
 
 - **GossipSub Topic Tracking** — detailed tracking of GossipSub topic subscriptions across the network.
-- **Ethereum Handshake Analysis** — in-depth Ethereum protocol handshake data collection.
+- **Ethereum Handshake Analysis** — in-depth Ethereum protocol handshake data collection. (discv4 and discv5)
+- **Extended Ethereum Execution Visibility** - The EL is participating in discv5 and we are collecting handshake data there
 - **Monero Network Crawling** — specialized peer discovery for the [Monero](https://www.getmonero.org/) network.
 - **Algorand Network Crawling** — specialized peer discovery for the [Algorand](https://algorand.co/) network.
+- **Bitcoin** | **Litecoin** | **Dogecoin** | **Bitcoin Cash**
+- **Optimism** | **Base** | **Unichain** | **BNB** | **Any Optimism-based chain**
 
 Going forward, new feature development will continue exclusively as part of the
 commercial offering. The open-source version will remain available and
