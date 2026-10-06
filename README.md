@@ -43,7 +43,7 @@ of Nebula which includes:
 - **Extended Ethereum Execution Visibility** - The EL is participating in discv5 and we are collecting handshake data there
 - **Monero Network Crawling** — specialized peer discovery for the [Monero](https://www.getmonero.org/) network.
 - **Algorand Network Crawling** — specialized peer discovery for the [Algorand](https://algorand.co/) network.
-- **Bitcoin** | **Litecoin** | **Dogecoin** | **Bitcoin Cash**
+- **Bitcoin** | **Litecoin** | **Bitcoin Cash** | **Dogecoin** | **Zcash** — including peers that are only reachable over Tor (Bitcoin, Litecoin, Bitcoin Cash) and I2P (Bitcoin).
 - **Optimism** | **Base** | **Unichain** | **BNB** | **Any Optimism-based chain**
 
 Going forward, new feature development will continue exclusively as part of the
